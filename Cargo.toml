@@ -1,9 +1,11 @@
 [package]
 name = "lsusb"
+author = "John Whittington"
+description = "Port of lsusb to macOS using system_profiler output"
+license = "GPL-3.0-or-later"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+categories = ["command-line-utilities"]
 
 [dependencies]
 clap = "4.0.22"
