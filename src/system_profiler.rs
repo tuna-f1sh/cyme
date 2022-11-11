@@ -68,7 +68,11 @@ impl fmt::Display for SPUSBDataType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for v in &self.buses {
             if f.alternate() {
-                writeln!(f, "{:+#}", v)?;
+                if f.sign_plus() {
+                    writeln!(f, "{:+#}", v)?;
+                } else {
+                    writeln!(f, "{:#}", v)?;
+                }
             } else if f.sign_plus() {
                 write!(f, "{:+}", v)?;
             } else {
@@ -101,7 +105,11 @@ pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>)
     for device in devices {
         // print the device details
         if f.alternate() {
-            writeln!(f, "{:+#}", device)?;
+            if f.sign_plus() {
+                writeln!(f, "{:+#}", device)?;
+            } else {
+                writeln!(f, "{:#}", device)?;
+            }
         } else if f.sign_plus() {
             writeln!(f, "{:+}", device)?;
         } else {
@@ -199,7 +207,7 @@ impl fmt::Display for USBDevice {
         // bus no is msb
         let bus_no = u32::from_str_radix(&reg, 16).unwrap_or(0) >> 24;
         // get position in tree based on number of non-zero chars or just 0 if not using tree
-        let spaces = if f.sign_plus() {
+        let mut spaces = if f.sign_plus() {
             reg.get(2..).unwrap_or("0").trim_end_matches("0").len() * 4
         } else {
             0
@@ -240,6 +248,10 @@ impl fmt::Display for USBDevice {
                   )
         // not same data as lsusb when tree (show port, class, driver etc.)
         } else {
+            // add 3 because lsusb is like this
+            if spaces > 0 {
+                spaces += 3;
+            }
             write!(f, "{:>spaces$}Bus {:03} Device {:03} ID {:04x}:{:04x} {:}", 
                    tree,
                    bus_no,

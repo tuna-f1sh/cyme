@@ -4,7 +4,7 @@ name: build
 
 jobs:
   build_and_test:
-    name: Build cyma
+    name: Build and test
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
