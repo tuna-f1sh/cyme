@@ -1,0 +1,22 @@
+on: [push]
+
+name: build
+
+jobs:
+  build_and_test:
+    name: Build cyma
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: test
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+      - name: build
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
