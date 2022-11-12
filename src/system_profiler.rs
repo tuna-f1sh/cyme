@@ -1,21 +1,19 @@
+use std::fmt;
 /// Parser for macOS `system_profiler` command -json output with SPUSBDataType.
 ///
 /// USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
 ///
 /// J.Whittington - 2022
 use std::io;
-use std::fmt;
 use std::str::FromStr;
 
 use colored::*;
-use std::process::Command;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::process::Command;
 
 /// borrowed from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
 /// Deserializes an option number from string or a number.
-fn deserialize_option_number_from_string<'de, T, D>(
-    deserializer: D,
-) -> Result<Option<T>, D::Error>
+fn deserialize_option_number_from_string<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
     T: FromStr + serde::Deserialize<'de>,
@@ -45,11 +43,13 @@ where
                     let base16_num = u64::from_str_radix(removed_0x.trim(), 16);
                     let result = match base16_num {
                         Ok(num) => T::from_str(num.to_string().as_str()),
-                        Err(e) => return Err(serde::de::Error::custom(e))
+                        Err(e) => return Err(serde::de::Error::custom(e)),
                     };
                     result.map(Some).map_err(serde::de::Error::custom)
                 } else {
-                    T::from_str(s.trim()).map(Some).map_err(serde::de::Error::custom)
+                    T::from_str(s.trim())
+                        .map(Some)
+                        .map_err(serde::de::Error::custom)
                 }
             }
         },
@@ -61,7 +61,7 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SPUSBDataType {
     #[serde(rename(deserialize = "SPUSBDataType"))]
-    buses: Vec<USBBus>
+    buses: Vec<USBBus>,
 }
 
 impl fmt::Display for SPUSBDataType {
@@ -98,7 +98,7 @@ pub struct USBBus {
     usb_bus_number: Option<u8>,
     // devices are normally hubs
     #[serde(rename(deserialize = "_items"))]
-    devices: Option<Vec<USBDevice>>
+    devices: Option<Vec<USBDevice>>,
 }
 
 pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>) -> fmt::Result {
@@ -116,7 +116,10 @@ pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>)
             writeln!(f, "{:}", device)?;
         }
         // print all devices with this device - if hub for example
-        device.devices.as_ref().map(|d| write_devices_recursive(f, d));
+        device
+            .devices
+            .as_ref()
+            .map(|d| write_devices_recursive(f, d));
     }
     Ok(())
 }
@@ -141,17 +144,23 @@ impl fmt::Display for USBBus {
 
         // write the bus details - alternative for coloured and apple info style
         if f.alternate() {
-            writeln!(f, "{:}{:} {:} PCI Device: {:}:{:} Revision: {:04x}",
+            writeln!(
+                f,
+                "{:}{:} {:} PCI Device: {:}:{:} Revision: {:04x}",
                 tree.bright_black().bold(),
                 self.name.blue(),
                 self.host_controller.green(),
-                format!("{:04x}", self.pci_vendor.unwrap_or(0xffff)).yellow().bold(),
+                format!("{:04x}", self.pci_vendor.unwrap_or(0xffff))
+                    .yellow()
+                    .bold(),
                 format!("{:04x}", self.pci_device.unwrap_or(0xffff)).yellow(),
                 self.pci_revision.unwrap_or(0xffff),
             )?;
         // lsusb style but not really accurate...
-        } else { 
-            writeln!(f, "{:}Bus {:03} Device 000 ID {:04x}:{:04x} {:} {:}",
+        } else {
+            writeln!(
+                f,
+                "{:}Bus {:03} Device 000 ID {:04x}:{:04x} {:} {:}",
                 tree,
                 self.usb_bus_number.unwrap_or(0),
                 self.pci_vendor.unwrap_or(0xffff),
@@ -165,7 +174,6 @@ impl fmt::Display for USBBus {
         Ok(())
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct USBDevice {
@@ -189,7 +197,7 @@ pub struct USBDevice {
     extra_current_used: Option<u8>,
     // devices can be hub and have devices attached
     #[serde(rename(deserialize = "_items"))]
-    devices: Option<Vec<USBDevice>>
+    devices: Option<Vec<USBDevice>>,
 }
 
 impl fmt::Display for USBDevice {
@@ -202,8 +210,17 @@ impl fmt::Display for USBDevice {
         // #             position on that level
         // location_id is "location_reg / port"
         let location_split: Vec<&str> = self.location_id.split("/").collect();
-        let reg = location_split.first().unwrap_or(&"0x00000000").trim().trim_start_matches("0x");
-        let device_no = location_split.last().unwrap_or(&"0").trim().parse::<u32>().unwrap_or(1);
+        let reg = location_split
+            .first()
+            .unwrap_or(&"0x00000000")
+            .trim()
+            .trim_start_matches("0x");
+        let device_no = location_split
+            .last()
+            .unwrap_or(&"0")
+            .trim()
+            .parse::<u32>()
+            .unwrap_or(1);
         // bus no is msb
         let bus_no = u32::from_str_radix(&reg, 16).unwrap_or(0) >> 24;
         // get position in tree based on number of non-zero chars or just 0 if not using tree
@@ -236,29 +253,37 @@ impl fmt::Display for USBDevice {
 
         // alternate for coloured, slightly different format to lsusb
         if f.alternate() {
-            write!(f, "{:>spaces$}Bus {:} Device {:} ID {:}:{:} {:} {:} {:}", 
-                   tree.bright_black(),
-                   format!("{:03}", bus_no).cyan(),
-                   format!("{:03}", device_no).magenta(),
-                   format!("{:04x}", self.vendor_id.unwrap()).yellow().bold(), 
-                   format!("{:04x}", self.product_id.unwrap()).yellow(), 
-                   self.name.trim().blue(),
-                   self.serial_num.as_ref().unwrap_or(&String::from("None")).trim().green(),
-                   speed.purple()
-                  )
+            write!(
+                f,
+                "{:>spaces$}Bus {:} Device {:} ID {:}:{:} {:} {:} {:}",
+                tree.bright_black(),
+                format!("{:03}", bus_no).cyan(),
+                format!("{:03}", device_no).magenta(),
+                format!("{:04x}", self.vendor_id.unwrap()).yellow().bold(),
+                format!("{:04x}", self.product_id.unwrap()).yellow(),
+                self.name.trim().blue(),
+                self.serial_num
+                    .as_ref()
+                    .unwrap_or(&String::from("None"))
+                    .trim()
+                    .green(),
+                speed.purple()
+            )
         // not same data as lsusb when tree (show port, class, driver etc.)
         } else {
             // add 3 because lsusb is like this
             if spaces > 0 {
                 spaces += 3;
             }
-            write!(f, "{:>spaces$}Bus {:03} Device {:03} ID {:04x}:{:04x} {:}", 
-                   tree,
-                   bus_no,
-                   device_no,
-                   self.vendor_id.unwrap_or(0xffff),
-                   self.product_id.unwrap_or(0xffff),
-                   self.name.trim(),
+            write!(
+                f,
+                "{:>spaces$}Bus {:03} Device {:03} ID {:04x}:{:04x} {:}",
+                tree,
+                bus_no,
+                device_no,
+                self.vendor_id.unwrap_or(0xffff),
+                self.product_id.unwrap_or(0xffff),
+                self.name.trim(),
             )
         }
     }
@@ -267,10 +292,13 @@ impl fmt::Display for USBDevice {
 pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
     let output = if cfg!(target_os = "macos") {
         Command::new("system_profiler")
-                .args(["-json", "SPUSBDataType"])
-                .output()?
+            .args(["-json", "SPUSBDataType"])
+            .output()?
     } else {
-        return Err(io::Error::new(io::ErrorKind::Unsupported, "system_profiler is only supported on macOS"))
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "system_profiler is only supported on macOS",
+        ));
     };
 
     serde_json::from_str(String::from_utf8(output.stdout).unwrap().as_str())
@@ -297,8 +325,7 @@ mod tests {
               \"vendor_id\" : \"0x2341\"
             }";
 
-        let device: USBDevice =
-            serde_json::from_str(device_json).unwrap();
+        let device: USBDevice = serde_json::from_str(device_json).unwrap();
 
         assert_eq!(device.name, "Arduino Zero");
         assert_eq!(device.bcd_device, Some(1.00));
@@ -323,8 +350,7 @@ mod tests {
             \"usb_bus_number\" : \"0x00 \"
         }";
 
-        let device: USBBus =
-            serde_json::from_str(device_json).unwrap();
+        let device: USBBus = serde_json::from_str(device_json).unwrap();
 
         assert_eq!(device.name, "USB31Bus");
         assert_eq!(device.host_controller, "AppleUSBXHCITR");
