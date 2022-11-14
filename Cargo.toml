@@ -3,13 +3,15 @@ name = "cyme"
 authors = ["John Whittington <john@jbrengineering.co.uk>"]
 description = "Port of lsusb to macOS using system_profiler output"
 license = "GPL-3.0-or-later"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 categories = ["command-line-utilities"]
 
 [dependencies]
 clap = { version = "4.0.22", features = ["derive"] }
 colored = "2.0.0"
+log = "0.4.17"
 pad = "0.1.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.87"
+simple_logger = "4.0.0"

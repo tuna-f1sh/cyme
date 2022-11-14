@@ -1,18 +1,20 @@
-use std::fmt;
 /// Parser for macOS `system_profiler` command -json output with SPUSBDataType.
 ///
 /// USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
 ///
 /// J.Whittington - 2022
+use std::fmt;
 use std::io;
 use std::str::FromStr;
 
 use colored::*;
 use serde::{Deserialize, Deserializer, Serialize};
+use serde::de::{self, Visitor};
 use std::process::Command;
 
 /// borrowed from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
 /// Deserializes an option number from string or a number.
+/// Only really used for vendor id and product id so TODO make struct for these
 fn deserialize_option_number_from_string<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
@@ -32,14 +34,14 @@ where
             "" => Ok(None),
             _ => {
                 // -json returns apple_vendor_id in vendor_id for some reason not base16 like normal
-                if s == "apple_vendor_id" {
+                if s.contains("apple_vendor_id") {
                     s = "0x05ac";
                 }
                 // the vendor_id can be appended with manufacturer name for some reason...split with space to get just base16 encoding
                 let vendor_vec: Vec<&str> = s.split(" ").collect();
                 let removed_0x = vendor_vec[0].trim_start_matches("0x");
 
-                if removed_0x != s {
+                if removed_0x != vendor_vec[0] {
                     let base16_num = u64::from_str_radix(removed_0x.trim(), 16);
                     let result = match base16_num {
                         Ok(num) => T::from_str(num.to_string().as_str()),
@@ -61,7 +63,18 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SPUSBDataType {
     #[serde(rename(deserialize = "SPUSBDataType"))]
-    buses: Vec<USBBus>,
+    pub buses: Vec<USBBus>,
+}
+
+impl SPUSBDataType {
+    pub fn get_all_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
+        let mut ret = Vec::new();
+        for bus in &self.buses {
+            ret.append(&mut bus.get_all_devices());
+        }
+
+        ret
+    }
 }
 
 impl fmt::Display for SPUSBDataType {
@@ -83,7 +96,7 @@ impl fmt::Display for SPUSBDataType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBBus {
     #[serde(rename(deserialize = "_name"))]
     name: String,
@@ -101,6 +114,30 @@ pub struct USBBus {
     devices: Option<Vec<USBDevice>>,
 }
 
+impl USBBus {
+    pub fn get_all_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
+        if let Some(devices) = &self.devices {
+            get_all_devices(&devices)
+        } else {
+            Vec::new()
+        }
+    }
+}
+
+pub fn get_all_devices(devices: &Vec<USBDevice>) -> Vec<&USBDevice> {
+    let mut ret: Vec<&USBDevice> = Vec::new();
+    for device in devices {
+        // push each device into pointer array
+        ret.push(device);
+        // and run recursively for the device if it has some
+        if let Some(d) = &device.devices {
+            ret.append(&mut get_all_devices(&d))
+        }
+    }
+
+    return ret;
+}
+
 pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>) -> fmt::Result {
     for device in devices {
         // print the device details
@@ -113,7 +150,7 @@ pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>)
         } else if f.sign_plus() {
             writeln!(f, "{:+}", device)?;
         } else {
-            writeln!(f, "{:}", device)?;
+            writeln!(f, "{}", device)?;
         }
         // print all devices with this device - if hub for example
         device
@@ -175,7 +212,266 @@ impl fmt::Display for USBBus {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+/// location_id String from system_profiler is "LocationReg / Port"
+/// The LocationReg has the tree structure (0xbbdddddd):
+///   0x  -- always
+///   bb  -- bus number in hexadecimal
+///   dddddd -- up to six levels for the tree, each digit represents its
+///             position on that level
+struct DeviceLocation {
+    bus: u8,
+    tree_positions: Vec<u8>,
+    port: Option<u8>,
+}
+
+impl FromStr for DeviceLocation {
+    type Err = io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let location_split: Vec<&str> = s.split("/").collect();
+        let reg = location_split
+            .first()
+            .unwrap()
+            .trim()
+            .trim_start_matches("0x");
+
+        // get position in tree based on number of non-zero chars or just 0 if not using tree
+        let tree_positions = reg.get(2..).unwrap_or("0").trim_end_matches("0")
+            .chars().map(|v| v.to_digit(10).unwrap_or(0) as u8).collect();
+        // bus no is msb
+        let bus = (u32::from_str_radix(&reg, 16).map_err(|v| io::Error::new(io::ErrorKind::Other, v)).unwrap() >> 24) as u8;
+        // port is after / but not always present
+        let port = match location_split
+            .last()
+            .unwrap()
+            .trim()
+            .parse::<u8>() {
+                Ok(v) => Some(v),
+                Err(_) => None,
+            };
+
+        Ok(DeviceLocation { bus, tree_positions, port })
+    }
+}
+
+impl<'de> Deserialize<'de> for DeviceLocation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct DeviceLocationVisitor;
+
+        impl<'de> Visitor<'de> for DeviceLocationVisitor {
+            type Value = DeviceLocation;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string representation of speed")
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                DeviceLocation::from_str(value.as_str()).map_err(serde::de::Error::custom)
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                DeviceLocation::from_str(value).map_err(serde::de::Error::custom)
+            }
+        }
+
+        deserializer.deserialize_any(DeviceLocationVisitor)
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+struct DeviceNumericalUnit<T> {
+    value: T,
+    unit: String,
+    description: Option<String>,
+}
+
+impl fmt::Display for DeviceNumericalUnit<u32> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:} {:}", self.value, self.unit)
+    }
+}
+
+impl fmt::Display for DeviceNumericalUnit<f32> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(precision) = f.precision() {
+            // If we received a precision, we use it.
+            write!(f, "{1:.*} {2}", precision, self.value, self.unit)
+        } else {
+            // Otherwise we default to 2.
+            write!(f, "{:.2} {}", self.value, self.unit)
+        }
+    }
+}
+
+impl FromStr for DeviceNumericalUnit<u32> {
+    type Err = io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value_split: Vec<&str> = s.trim().split(' ').collect();
+        if value_split.len() >= 2 {
+            Ok(DeviceNumericalUnit { 
+                value: value_split[0].trim().parse::<u32>().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?, 
+                unit: value_split[1].trim().to_string(), 
+                description: None,
+            })
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "string split does not contain [u32] [unit]"))
+        }
+    }
+}
+
+impl FromStr for DeviceNumericalUnit<f32> {
+    type Err = io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value_split: Vec<&str> = s.trim().split(' ').collect();
+        if value_split.len() >= 2 {
+            Ok(DeviceNumericalUnit { 
+                value: value_split[0].trim().parse::<f32>().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?, 
+                unit: value_split[1].trim().to_string(), 
+                description: None,
+            })
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "string split does not contain [f32] [unit]"))
+        }
+    }
+}
+
+
+//TODO these should be generic but not sure how to pass generic to visitor?
+impl<'de> Deserialize<'de> for DeviceNumericalUnit<u32> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+
+        struct DeviceNumericalUnitU32Visitor;
+
+        impl<'de> Visitor<'de> for DeviceNumericalUnitU32Visitor {
+            type Value = DeviceNumericalUnit<u32>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string with format '[int] [unit]'")
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+                where
+                    E: de::Error,
+            {
+                Ok(DeviceNumericalUnit::from_str(value.as_str()).map_err(E::custom)?)
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+                where
+                    E: de::Error,
+            {
+                Ok(DeviceNumericalUnit::from_str(value).map_err(E::custom)?)
+            }
+        }
+
+        deserializer.deserialize_str(DeviceNumericalUnitU32Visitor)
+    }
+}
+
+impl<'de> Deserialize<'de> for DeviceNumericalUnit<f32> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+
+        struct DeviceNumericalUnitF32Visitor;
+
+        impl<'de> Visitor<'de> for DeviceNumericalUnitF32Visitor {
+            type Value = DeviceNumericalUnit<f32>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string with format '[float] [unit]'")
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+                where
+                    E: de::Error,
+            {
+                Ok(DeviceNumericalUnit::from_str(value.as_str()).map_err(E::custom)?)
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+                where
+                    E: de::Error,
+            {
+                Ok(DeviceNumericalUnit::from_str(value).map_err(E::custom)?)
+            }
+        }
+
+        deserializer.deserialize_str(DeviceNumericalUnitF32Visitor)
+    }
+}
+
+// TODO this could probably convert to Enun of SuperSpeedPlus, FullSpeed etc so that serde auto deserialize enum then use TryInto DeviceNumericalUnit for enum value
+#[derive(Debug, Clone, PartialEq, Serialize)]
+enum DeviceSpeed {
+    NumericalUnit(DeviceNumericalUnit<f32>),
+    Description(String),
+}
+
+impl fmt::Display for DeviceSpeed {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DeviceSpeed::NumericalUnit(v) => write!(f, "{:.1}", v),
+            DeviceSpeed::Description(v) => write!(f, "{}", v),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for DeviceSpeed {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct DeviceSpeedVisitor;
+
+        impl<'de> Visitor<'de> for DeviceSpeedVisitor {
+            type Value = DeviceSpeed;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string representation of speed")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                // TODO
+                // value.try_into(DeviceNumericalUnit);
+
+                match value.trim() {
+                    "super_speed_plus" => Ok(DeviceSpeed::NumericalUnit(DeviceNumericalUnit{value: 20.0, unit: String::from("Gb/s"), description: Some(value.to_owned())})),
+                    "super_speed" => Ok(DeviceSpeed::NumericalUnit(DeviceNumericalUnit{value: 5.0, unit: String::from("Gb/s"), description: Some(value.to_owned())})),
+                    "high_speed"|"high_bandwidth" => Ok(DeviceSpeed::NumericalUnit(DeviceNumericalUnit{value: 480.0, unit: String::from("Mb/s"), description: Some(value.to_owned())})),
+                    "full_speed" => Ok(DeviceSpeed::NumericalUnit(DeviceNumericalUnit{value: 12.0, unit: String::from("Mb/s"), description: Some(value.to_owned())})),
+                    "low_speed" => Ok(DeviceSpeed::NumericalUnit(DeviceNumericalUnit{value: 1.5, unit: String::from("Mb/s"), description: Some(value.to_owned())})),
+                    v => Ok(DeviceSpeed::Description(v.to_string())),
+                }
+            }
+        }
+
+        deserializer.deserialize_any(DeviceSpeedVisitor)
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBDevice {
     #[serde(rename(deserialize = "_name"))]
     name: String,
@@ -183,7 +479,7 @@ pub struct USBDevice {
     vendor_id: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     product_id: Option<u16>,
-    location_id: String,
+    location_id: DeviceLocation,
     serial_num: Option<String>,
     manufacturer: Option<String>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
@@ -192,7 +488,7 @@ pub struct USBDevice {
     bus_power: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     bus_power_used: Option<u16>,
-    device_speed: Option<String>,
+    device_speed: Option<DeviceSpeed>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     extra_current_used: Option<u8>,
     // devices can be hub and have devices attached
@@ -200,43 +496,63 @@ pub struct USBDevice {
     devices: Option<Vec<USBDevice>>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct USBFilter {
+    pub vid: Option<u16>,
+    pub pid: Option<u16>,
+    pub bus: Option<u8>,
+    pub port: Option<u8>,
+}
+
+impl USBFilter {
+    // pub fn retain_buses(self, buses: &mut Vec<USBBus>) -> () {
+    //     buses.retain(|b| b.usb_bus_number == self.bus || self.bus.is_none() || b.usb_bus_number.is_none());
+
+    //     for bus in buses {
+    //         bus.devices.as_mut().map_or((), |d| self.retain_devices(d));
+    //     }
+    // }
+
+    // pub fn retain_devices(self, devices: &mut Vec<USBDevice>) -> () {
+    //     *devices = devices
+    //         .iter()
+    //         .filter(|d| Some(d.location_id.bus) == self.bus || self.bus.is_none())
+    //         .filter(|d| d.location_id.port == self.port || self.port.is_none())
+    //         .filter(|d| d.vendor_id == self.vid || self.vid.is_none())
+    //         .filter(|d| d.product_id == self.pid || self.pid.is_none())
+    //         .map(|d| d.to_owned())
+    //         .collect::<Vec<USBDevice>>();
+
+    //     for d in devices {
+    //         d.devices.as_mut().map_or((), |d| self.retain_devices(d));
+    //     }
+    // }
+
+    pub fn filter_devices_ref(self, devices: Vec<&USBDevice>) -> Vec<&USBDevice> {
+        let new: Vec<&USBDevice> = devices
+            .into_iter()
+            .filter(|d| Some(d.location_id.bus) == self.bus || self.bus.is_none())
+            .filter(|d| d.location_id.port == self.port || self.port.is_none())
+            .filter(|d| d.vendor_id == self.vid || self.vid.is_none())
+            .filter(|d| d.product_id == self.pid || self.pid.is_none())
+            .collect();
+
+        new
+    }
+}
+
 impl fmt::Display for USBDevice {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // # Build a formatted line to be sorted for the tree.
-        // # The LocationID has the tree structure (0xbbdddddd):
-        // #   0x  -- always
-        // #   bb  -- bus number in hexadecimal
-        // #   dddddd -- up to six levels for the tree, each digit represents its
-        // #             position on that level
-        // location_id is "location_reg / port"
-        let location_split: Vec<&str> = self.location_id.split("/").collect();
-        let reg = location_split
-            .first()
-            .unwrap_or(&"0x00000000")
-            .trim()
-            .trim_start_matches("0x");
-        let device_no = location_split
-            .last()
-            .unwrap_or(&"0")
-            .trim()
-            .parse::<u32>()
-            .unwrap_or(1);
-        // bus no is msb
-        let bus_no = u32::from_str_radix(&reg, 16).unwrap_or(0) >> 24;
-        // get position in tree based on number of non-zero chars or just 0 if not using tree
         let mut spaces = if f.sign_plus() {
-            reg.get(2..).unwrap_or("0").trim_end_matches("0").len() * 4
+            self.location_id.tree_positions.len() * 4
         } else {
             0
         };
 
         // map speed from text back to data rate if tree
-        let speed = match self.device_speed.as_ref().map(|s| s.as_str()) {
-            Some("super_speed") => "5 Gb/s",
-            Some("full_speed") => "12 Mb/s",
-            Some("high_speed") => "480 Mb/s",
-            Some(x) => x,
-            None => "",
+        let speed = match &self.device_speed {
+            Some(v) => v.to_string(),
+            None => String::from(""),
         };
 
         // tree chars to prepend if plus formatted
@@ -255,13 +571,13 @@ impl fmt::Display for USBDevice {
         if f.alternate() {
             write!(
                 f,
-                "{:>spaces$}Bus {:} Device {:} ID {:}:{:} {:} {:} {:}",
+                "{:>spaces$}{}/{} {}:{} {} {} {}",
                 tree.bright_black(),
-                format!("{:03}", bus_no).cyan(),
-                format!("{:03}", device_no).magenta(),
-                format!("{:04x}", self.vendor_id.unwrap()).yellow().bold(),
-                format!("{:04x}", self.product_id.unwrap()).yellow(),
-                self.name.trim().blue(),
+                format!("{:03}", self.location_id.bus).cyan(),
+                format!("{:03}", self.location_id.port.unwrap_or(0)).magenta(),
+                format!("0x{:04x}", self.vendor_id.unwrap()).yellow().bold(),
+                format!("0x{:04x}", self.product_id.unwrap()).yellow(),
+                self.name.trim().bold().blue(),
                 self.serial_num
                     .as_ref()
                     .unwrap_or(&String::from("None"))
@@ -277,10 +593,10 @@ impl fmt::Display for USBDevice {
             }
             write!(
                 f,
-                "{:>spaces$}Bus {:03} Device {:03} ID {:04x}:{:04x} {:}",
+                "{:>spaces$}Bus {:03} Device {:03}: ID {:04x}:{:04x} {}",
                 tree,
-                bus_no,
-                device_no,
+                self.location_id.bus,
+                self.location_id.port.unwrap_or(0),
                 self.vendor_id.unwrap_or(0xffff),
                 self.product_id.unwrap_or(0xffff),
                 self.name.trim(),
@@ -331,9 +647,9 @@ mod tests {
         assert_eq!(device.bcd_device, Some(1.00));
         assert_eq!(device.bus_power, Some(500));
         assert_eq!(device.bus_power_used, Some(500));
-        assert_eq!(device.device_speed, Some("full_speed".to_string()));
+        assert_eq!(device.device_speed, Some(DeviceSpeed::NumericalUnit(DeviceNumericalUnit { value: 12.0, unit: String::from("Mb/s"), description: Some(String::from("full_speed")) })));
         assert_eq!(device.extra_current_used, Some(0));
-        assert_eq!(device.location_id, "0x02110000 / 3".to_string());
+        assert_eq!(device.location_id, DeviceLocation{ bus: 2, tree_positions: vec![1, 1], port: Some(3)} );
         assert_eq!(device.manufacturer, Some("Arduino LLC".to_string()));
         assert_eq!(device.product_id, Some(0x804d));
         assert_eq!(device.vendor_id, Some(0x2341));
