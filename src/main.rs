@@ -22,7 +22,7 @@ struct Args {
     lsusb_tree: bool,
 
     /// Modern dump the physical USB device hierarchy as a tree
-    #[arg(short = 'T', long, default_value_t = true)]
+    #[arg(short = 'T', long, default_value_t = false)]
     tree: bool,
 
     /// Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:[PID]
@@ -32,6 +32,10 @@ struct Args {
     /// Show only devices with specified device and/or bus numbers (in decimal) in format [[bus]:][devnum]
     #[arg(short, long)]
     show: Option<String>,
+
+    /// Hide empty buses and hub; those with no devices
+    #[arg(long, default_value_t = false)]
+    hide_empty: bool,
 
     /// Increase verbosity (show descriptors) TODO
     // #[arg(short, long, default_value_t = false)]
@@ -145,7 +149,7 @@ fn main() {
     log::info!("{:?}", filter);
 
     if args.vidpid.is_some() || args.show.is_some() {
-        let mut devs = sp_usb.get_all_devices();
+        let mut devs = sp_usb.flatten_devices();
         devs = filter.filter_devices_ref(devs);
         for d in devs {
             if args.lsusb {

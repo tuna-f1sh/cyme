@@ -67,10 +67,11 @@ pub struct SPUSBDataType {
 }
 
 impl SPUSBDataType {
-    pub fn get_all_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
+    /// Returns a flattened Vec of all the USBDevices returned from system_profiler as a reference
+    pub fn flatten_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
         let mut ret = Vec::new();
         for bus in &self.buses {
-            ret.append(&mut bus.get_all_devices());
+            ret.append(&mut bus.flatten_devices());
         }
 
         ret
@@ -114,8 +115,9 @@ pub struct USBBus {
     devices: Option<Vec<USBDevice>>,
 }
 
+/// Returns of Vec of devices in the USBBus as a reference
 impl USBBus {
-    pub fn get_all_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
+    pub fn flatten_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
         if let Some(devices) = &self.devices {
             get_all_devices(&devices)
         } else {
@@ -124,6 +126,7 @@ impl USBBus {
     }
 }
 
+/// Recursively gets reference to all devices in a `USBDevice`
 pub fn get_all_devices(devices: &Vec<USBDevice>) -> Vec<&USBDevice> {
     let mut ret: Vec<&USBDevice> = Vec::new();
     for device in devices {
@@ -183,23 +186,24 @@ impl fmt::Display for USBBus {
         if f.alternate() {
             writeln!(
                 f,
-                "{:}{:} {:} PCI Device: {:}:{:} Revision: {:04x}",
+                "{:}{:} {:} {:}:{:} Revision: 0x{:04x}",
                 tree.bright_black().bold(),
                 self.name.blue(),
                 self.host_controller.green(),
-                format!("{:04x}", self.pci_vendor.unwrap_or(0xffff))
+                format!("0x{:04x}", self.pci_vendor.unwrap_or(0xffff))
                     .yellow()
                     .bold(),
-                format!("{:04x}", self.pci_device.unwrap_or(0xffff)).yellow(),
+                format!("0x{:04x}", self.pci_device.unwrap_or(0xffff)).yellow(),
                 self.pci_revision.unwrap_or(0xffff),
             )?;
         // lsusb style but not really accurate...
         } else {
             writeln!(
                 f,
-                "{:}Bus {:03} Device 000 ID {:04x}:{:04x} {:} {:}",
+                "{:}Bus {:03} Device 000: ID {:04x}:{:04x} {:} {:}",
                 tree,
-                self.usb_bus_number.unwrap_or(0),
+                // bus number is not always provided in host json so try to extract from first device
+                self.usb_bus_number.unwrap_or(self.devices.as_ref().map_or(None, |d| d.first().map(|dd| dd.location_id.bus)).unwrap_or(0)),
                 self.pci_vendor.unwrap_or(0xffff),
                 self.pci_device.unwrap_or(0xffff),
                 self.name,
