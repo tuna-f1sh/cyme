@@ -8,6 +8,13 @@ I'd like to build this into a modern `lsusb` tool, akin to `lsd`, `fd` etc. It i
 
 The name comes from the technical term for the type of blossom on a Apple tree: [cyme](https://en.wikipedia.org/wiki/Inflorescence#Determinate_or_cymose) - it is Apple related and also looks like a USB device tree 😃🌸.
 
+# Features
+
+* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using [libusb](https://github.com/dcuddeback/libusb-rs).
+* Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `filter_serial` and option to hide empty `--hide-buses`/`--hide-hubs`.
+* Modern terminal features with coloured output, utf-8 characters and icons.
+* Works as a library too with `system_profiler` parsing crate and `lsusb` crate for libusb.
+
 ## Planned Features
 
 * Controllable block data like `lsd --blocks`
@@ -19,7 +26,9 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Install
 
-Clone this directory and with a Rust toolchain installed: `cargo install --path cyme`
+Clone this directory and with a Rust tool-chain installed: `cargo install --path cyme`
+
+If wishing to use full `lsusb` support, include the 'libusb' feature with `cargo install --features libusb --path cyme`
 
 I also have a Homebrew tap: `brew tap tuna-f1sh/cyme`.
 
@@ -28,6 +37,8 @@ I also have a Homebrew tap: `brew tap tuna-f1sh/cyme`.
 If you want to create a macOS version of lsusb, create an alias in your environment with the `--lsusb` compatibility flag:
 
 `alias lsusb='cyme --lsusb'`
+
+The `--verbose` argument requires the 'libusb' feature - see Install.
 
 Examples output:
 
