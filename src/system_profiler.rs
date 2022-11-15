@@ -15,6 +15,7 @@ use std::process::Command;
 /// borrowed from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
 /// Deserializes an option number from string or a number.
 /// Only really used for vendor id and product id so TODO make struct for these
+/// TODO handle DeviceNumericalUnit here or another deserializer?
 fn deserialize_option_number_from_string<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
@@ -39,9 +40,9 @@ where
                 }
                 // the vendor_id can be appended with manufacturer name for some reason...split with space to get just base16 encoding
                 let vendor_vec: Vec<&str> = s.split(" ").collect();
-                let removed_0x = vendor_vec[0].trim_start_matches("0x");
 
-                if removed_0x != vendor_vec[0] {
+                if s.contains("0x") {
+                    let removed_0x = vendor_vec[0].trim_start_matches("0x");
                     let base16_num = u64::from_str_radix(removed_0x.trim(), 16);
                     let result = match base16_num {
                         Ok(num) => T::from_str(num.to_string().as_str()),
@@ -112,7 +113,7 @@ pub struct USBBus {
     usb_bus_number: Option<u8>,
     // devices are normally hubs
     #[serde(rename(deserialize = "_items"))]
-    devices: Option<Vec<USBDevice>>,
+    pub devices: Option<Vec<USBDevice>>,
 }
 
 /// Returns of Vec of devices in the USBBus as a reference
@@ -122,6 +123,13 @@ impl USBBus {
             get_all_devices(&devices)
         } else {
             Vec::new()
+        }
+    }
+
+    pub fn has_devices(&self) -> bool {
+        match &self.devices {
+            Some(d) => d.len() > 0,
+            None => false
         }
     }
 }
@@ -500,48 +508,13 @@ pub struct USBDevice {
     devices: Option<Vec<USBDevice>>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct USBFilter {
-    pub vid: Option<u16>,
-    pub pid: Option<u16>,
-    pub bus: Option<u8>,
-    pub port: Option<u8>,
-}
-
-impl USBFilter {
-    // pub fn retain_buses(self, buses: &mut Vec<USBBus>) -> () {
-    //     buses.retain(|b| b.usb_bus_number == self.bus || self.bus.is_none() || b.usb_bus_number.is_none());
-
-    //     for bus in buses {
-    //         bus.devices.as_mut().map_or((), |d| self.retain_devices(d));
-    //     }
-    // }
-
-    // pub fn retain_devices(self, devices: &mut Vec<USBDevice>) -> () {
-    //     *devices = devices
-    //         .iter()
-    //         .filter(|d| Some(d.location_id.bus) == self.bus || self.bus.is_none())
-    //         .filter(|d| d.location_id.port == self.port || self.port.is_none())
-    //         .filter(|d| d.vendor_id == self.vid || self.vid.is_none())
-    //         .filter(|d| d.product_id == self.pid || self.pid.is_none())
-    //         .map(|d| d.to_owned())
-    //         .collect::<Vec<USBDevice>>();
-
-    //     for d in devices {
-    //         d.devices.as_mut().map_or((), |d| self.retain_devices(d));
-    //     }
-    // }
-
-    pub fn filter_devices_ref(self, devices: Vec<&USBDevice>) -> Vec<&USBDevice> {
-        let new: Vec<&USBDevice> = devices
-            .into_iter()
-            .filter(|d| Some(d.location_id.bus) == self.bus || self.bus.is_none())
-            .filter(|d| d.location_id.port == self.port || self.port.is_none())
-            .filter(|d| d.vendor_id == self.vid || self.vid.is_none())
-            .filter(|d| d.product_id == self.pid || self.pid.is_none())
-            .collect();
-
-        new
+impl USBDevice {
+    #[allow(dead_code)]
+    pub fn has_devices(&self) -> bool {
+        match &self.devices {
+            Some(d) => d.len() > 0,
+            None => false
+        }
     }
 }
 
@@ -606,6 +579,63 @@ impl fmt::Display for USBDevice {
                 self.name.trim(),
             )
         }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+pub struct USBFilter {
+    pub vid: Option<u16>,
+    pub pid: Option<u16>,
+    pub bus: Option<u8>,
+    pub port: Option<u8>,
+}
+
+impl USBFilter {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn is_match(&self, device: &USBDevice) -> bool {
+        (Some(device.location_id.bus) == self.bus || self.bus.is_none())
+            && (device.location_id.port == self.port || self.port.is_none())
+            && (device.vendor_id == self.vid || self.vid.is_none())
+            && (device.product_id == self.pid || self.pid.is_none())
+    }
+
+    pub fn retain_buses(self, buses: &mut Vec<USBBus>) -> () {
+        buses.retain(|b| b.usb_bus_number == self.bus || self.bus.is_none() || b.usb_bus_number.is_none());
+
+        for bus in buses {
+            bus.devices.as_mut().map_or((), |d| self.retain_devices(d));
+        }
+
+    }
+
+    pub fn retain_devices(self, devices: &mut Vec<USBDevice>) -> () {
+        devices
+            .retain(|d| self.exists_in_tree(d));
+
+        for d in devices {
+            d.devices.as_mut().map_or((), |d| self.retain_devices(d));
+        }
+    }
+
+    /// Recursively looks down tree for any devices matching filter
+    pub fn exists_in_tree(self, device: &USBDevice) -> bool {
+        // if device itself is a match, just return now and don't bother going keeper
+        if self.is_match(device) {
+            return true
+        }
+
+        match &device.devices {
+            Some(devs) => devs.iter().any(|d| self.exists_in_tree(d)),
+            None => false
+        }
+    }
+
+    pub fn retain_flattened_devices_ref(self, devices: &mut Vec<&USBDevice>) -> () {
+        devices
+            .retain(|d| self.is_match(&d))
     }
 }
 

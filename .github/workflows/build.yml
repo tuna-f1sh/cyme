@@ -2,6 +2,9 @@ on: [push, pull_request]
 
 name: build
 
+env:
+  PROJECT_NAME: lsd
+
 jobs:
   build_and_test:
     name: Build and test
@@ -15,3 +18,11 @@ jobs:
         run: cargo test
       - name: build
         run: cargo build --release --all-features
+      - name: archive executable
+        uses: actions/upload-artifact@master
+        with:
+          name: ${{ env.PROJECT_NAME }}
+          # name: ${{ env.PROJECT_NAME }}-${{ matrix.job.target }}
+          path: target/release/${{ env.PROJECT_NAME }}
+          # TODO ref https://github.com/Peltoche/lsd/blob/master/.github/workflows/CICD.yml for multi platform
+          # path: target/${{ matrix.job.target }}/release/${{ env.PROJECT_NAME }}${{ steps.vars.outputs.EXE_suffix }}

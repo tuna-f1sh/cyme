@@ -119,38 +119,44 @@ fn main() {
         env::set_var("NO_COLOR", "1");
     }
 
-    let sp_usb = system_profiler::get_spusb().unwrap_or_else(|e| {
+    let mut sp_usb = system_profiler::get_spusb().unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to parse system_profiler output: {}", e)));
     });
-
     log::debug!("{:#?}", sp_usb);
 
-    let mut filter = system_profiler::USBFilter {
-        vid: None,
-        pid: None,
-        bus: None,
-        port: None,
+    let filter = if args.vidpid.is_some() || args.show.is_some() {
+        let mut f = system_profiler::USBFilter::new();
+
+        if let Some(vidpid) = &args.vidpid {
+            let (vid, pid) = parse_vidpid(&vidpid.as_str());
+            f.vid = vid;
+            f.pid = pid;
+        }
+
+        if let Some(show) = &args.show {
+            let (bus, port) = parse_show(&show.as_str()).unwrap_or_else(|e| {
+                eprintexit!(Error::new(ErrorKind::Other, format!("Failed to parse show parameter: {}", e)));
+            });
+            f.bus = bus;
+            f.port = port;
+        }
+
+        log::info!("Filtering with {:?}", f);
+        Some(f)
+    } else {
+        None
     };
 
-    if let Some(vidpid) = &args.vidpid {
-        let (vid, pid) = parse_vidpid(&vidpid.as_str());
-        filter.vid = vid;
-        filter.pid = pid;
+    filter.map_or((), |f| f.retain_buses(&mut sp_usb.buses));
+    if args.hide_empty {
+        sp_usb.buses.retain(|b| b.has_devices());
     }
 
-    if let Some(show) = &args.show {
-        let (bus, port) = parse_show(&show.as_str()).unwrap_or_else(|e| {
-            eprintexit!(Error::new(ErrorKind::Other, format!("Failed to parse show parameter: {}", e)));
-        });
-        filter.bus = bus;
-        filter.port = port;
-    }
-
-    log::info!("{:?}", filter);
-
-    if args.vidpid.is_some() || args.show.is_some() {
+    if !(args.lsusb_tree || args.tree) {
+        // filter again on flattened tree because will have kept parent branches with previous
         let mut devs = sp_usb.flatten_devices();
-        devs = filter.filter_devices_ref(devs);
+        filter.map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
+
         for d in devs {
             if args.lsusb {
                 println!("{:}", d);
@@ -160,12 +166,8 @@ fn main() {
         }
     } else {
         if args.lsusb {
-            if args.lsusb_tree {
-                eprintln!("lsusb tree is styling only; content is not the same!");
-                print!("{:+}", sp_usb);
-            } else {
-                print!("{:}", sp_usb);
-            }
+            eprintln!("lsusb tree is styling only; content is not the same!");
+            print!("{:+}", sp_usb);
         } else {
             if args.tree {
                 print!("{:+#}", sp_usb);
