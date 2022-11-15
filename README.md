@@ -20,7 +20,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 # Features
 
 * Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using [libusb](https://github.com/dcuddeback/libusb-rs).
-* Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `filter_serial` and option to hide empty `--hide-buses`/`--hide-hubs`.
+* Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Modern terminal features with coloured output, utf-8 characters and icons.
 * Works as a library too with `system_profiler` parsing crate and `lsusb` crate for libusb.
 
