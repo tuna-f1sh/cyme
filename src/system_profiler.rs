@@ -132,6 +132,13 @@ impl USBBus {
             None => false
         }
     }
+
+    pub fn has_empty_hubs(&self) -> bool {
+        match &self.devices {
+            Some(d) => d.iter().any(|dd| dd.is_hub() && !dd.has_devices()),
+            None => false
+        }
+    }
 }
 
 /// Recursively gets reference to all devices in a `USBDevice`
@@ -224,7 +231,7 @@ impl fmt::Display for USBBus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
 /// location_id String from system_profiler is "LocationReg / Port"
 /// The LocationReg has the tree structure (0xbbdddddd):
 ///   0x  -- always
@@ -249,7 +256,7 @@ impl FromStr for DeviceLocation {
             .trim_start_matches("0x");
 
         // get position in tree based on number of non-zero chars or just 0 if not using tree
-        let tree_positions = reg.get(2..).unwrap_or("0").trim_end_matches("0")
+        let tree_positions: Vec<u8> = reg.get(2..).unwrap_or("0").trim_end_matches("0")
             .chars().map(|v| v.to_digit(10).unwrap_or(0) as u8).collect();
         // bus no is msb
         let bus = (u32::from_str_radix(&reg, 16).map_err(|v| io::Error::new(io::ErrorKind::Other, v)).unwrap() >> 24) as u8;
@@ -260,7 +267,9 @@ impl FromStr for DeviceLocation {
             .trim()
             .parse::<u8>() {
                 Ok(v) => Some(v),
-                Err(_) => None,
+                // port is not always present for some reason so just last position in tree
+                Err(_) => tree_positions.last().map(|v| Some(v.to_owned())).unwrap_or(None),
+                // Err(_) => Some(tree_positions.iter().sum()),
             };
 
         Ok(DeviceLocation { bus, tree_positions, port })
@@ -483,7 +492,7 @@ impl<'de> Deserialize<'de> for DeviceSpeed {
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct USBDevice {
     #[serde(rename(deserialize = "_name"))]
     name: String,
@@ -515,6 +524,21 @@ impl USBDevice {
             Some(d) => d.len() > 0,
             None => false
         }
+    }
+
+    /// Returns `true` if device is a hub based on device name - not perfect but most hubs advertise as a hub in name
+    ///
+    /// ```
+    /// d: USBDevice = USBDevice{ name: "My special hub", ..Default::default() };
+    /// assert!(d.is_hub(), true);
+    /// ```
+    ///
+    /// ```
+    /// d: USBDevice = USBDevice{ name: "My special device", ..Default::default() };
+    /// assert!(d.is_hub(), false);
+    /// ```
+    pub fn is_hub(&self) -> bool {
+        self.name.to_lowercase().contains("hub")
     }
 }
 
@@ -582,12 +606,15 @@ impl fmt::Display for USBDevice {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct USBFilter {
     pub vid: Option<u16>,
     pub pid: Option<u16>,
     pub bus: Option<u8>,
     pub port: Option<u8>,
+    pub name: Option<String>,
+    pub serial: Option<String>,
+    pub exclude_empty_hub: bool,
 }
 
 impl USBFilter {
@@ -595,14 +622,19 @@ impl USBFilter {
         Default::default()
     }
 
+    /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &USBDevice) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (device.location_id.port == self.port || self.port.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
             && (device.product_id == self.pid || self.pid.is_none())
+            && (self.name.as_ref().map_or(true, |n| device.name.contains(n.as_str())))
+            && (self.serial.as_ref().map_or(true, |n| device.serial_num.as_ref().map_or(false, |s| s.contains(n.as_str()))))
+            && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
     }
 
-    pub fn retain_buses(self, buses: &mut Vec<USBBus>) -> () {
+    /// Recursively retain only `USBBus` in `buses` with `USBDevice` matching filter
+    pub fn retain_buses(&self, buses: &mut Vec<USBBus>) -> () {
         buses.retain(|b| b.usb_bus_number == self.bus || self.bus.is_none() || b.usb_bus_number.is_none());
 
         for bus in buses {
@@ -611,7 +643,8 @@ impl USBFilter {
 
     }
 
-    pub fn retain_devices(self, devices: &mut Vec<USBDevice>) -> () {
+    /// Recursively retain only `USBDevice` in `devices` matching filter
+    pub fn retain_devices(&self, devices: &mut Vec<USBDevice>) -> () {
         devices
             .retain(|d| self.exists_in_tree(d));
 
@@ -620,8 +653,10 @@ impl USBFilter {
         }
     }
 
-    /// Recursively looks down tree for any devices matching filter
-    pub fn exists_in_tree(self, device: &USBDevice) -> bool {
+    /// Recursively looks down tree for any `device` matching filter
+    ///
+    /// Important because a simple check of trunk device might remove a matching device further down the tree
+    pub fn exists_in_tree(&self, device: &USBDevice) -> bool {
         // if device itself is a match, just return now and don't bother going keeper
         if self.is_match(device) {
             return true
@@ -633,7 +668,10 @@ impl USBFilter {
         }
     }
 
-    pub fn retain_flattened_devices_ref(self, devices: &mut Vec<&USBDevice>) -> () {
+    /// Retains only `&USBDevice` in `devices` which match filter
+    ///
+    /// Does not check down tree so should be used to flattened devices only (`get_all_devices`)
+    pub fn retain_flattened_devices_ref(&self, devices: &mut Vec<&USBDevice>) -> () {
         devices
             .retain(|d| self.is_match(&d))
     }

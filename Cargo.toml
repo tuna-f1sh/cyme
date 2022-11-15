@@ -1,12 +1,13 @@
-#![allow(dead_code)]
-
 [package]
 name = "cyme"
 authors = ["John Whittington <john@jbrengineering.co.uk>"]
-description = "Port of lsusb to macOS using system_profiler output"
+description = "Modern port of lsusb to macOS using system_profiler output"
+repository = "https://github.com/tuna-f1sh/cyme"
+readme = "README.md"
 license = "GPL-3.0-or-later"
 version = "0.1.2"
 edition = "2021"
+keywords = ["usb", "lsusb", "system_profiler", "macos"]
 categories = ["command-line-utilities"]
 exclude = ["./img/*"]
 

@@ -33,9 +33,21 @@ struct Args {
     #[arg(short, long)]
     show: Option<String>,
 
-    /// Hide empty buses and hub; those with no devices
+    /// Hide empty buses; those with no devices
     #[arg(long, default_value_t = false)]
-    hide_empty: bool,
+    hide_buses: bool,
+
+    /// Hide empty hubs; those with no devices
+    #[arg(long, default_value_t = false)]
+    hide_hubs: bool,
+
+    /// Filter on string contained in name
+    #[arg(long)]
+    filter_name: Option<String>,
+
+    /// Filter on string contained in serial
+    #[arg(long)]
+    filter_serial: Option<String>,
 
     /// Increase verbosity (show descriptors) TODO
     // #[arg(short, long, default_value_t = false)]
@@ -124,7 +136,12 @@ fn main() {
     });
     log::debug!("{:#?}", sp_usb);
 
-    let filter = if args.vidpid.is_some() || args.show.is_some() {
+    let filter = if 
+        args.hide_hubs ||
+        args.vidpid.is_some() || 
+        args.show.is_some() ||
+        args.filter_name.is_some() ||
+        args.filter_serial.is_some() {
         let mut f = system_profiler::USBFilter::new();
 
         if let Some(vidpid) = &args.vidpid {
@@ -141,21 +158,30 @@ fn main() {
             f.port = port;
         }
 
+        // no need to unwrap as these are Option
+        f.name = args.filter_name;
+        f.serial = args.filter_serial;
+        f.exclude_empty_hub = args.hide_hubs;
+
         log::info!("Filtering with {:?}", f);
         Some(f)
     } else {
         None
     };
 
-    filter.map_or((), |f| f.retain_buses(&mut sp_usb.buses));
-    if args.hide_empty {
+    filter.as_ref().map_or((), |f| f.retain_buses(&mut sp_usb.buses));
+    if args.hide_buses {
         sp_usb.buses.retain(|b| b.has_devices());
+        // may still be empty hubs if the hub had an empty hub!
+        if args.hide_hubs {
+            sp_usb.buses.retain(|b| !b.has_empty_hubs());
+        }
     }
 
     if !(args.lsusb_tree || args.tree) {
         // filter again on flattened tree because will have kept parent branches with previous
         let mut devs = sp_usb.flatten_devices();
-        filter.map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
+        filter.as_ref().map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
 
         for d in devs {
             if args.lsusb {
