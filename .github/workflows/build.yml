@@ -3,7 +3,7 @@ on: [push, pull_request]
 name: build
 
 env:
-  PROJECT_NAME: lsd
+  PROJECT_NAME: cyme
 
 jobs:
   build_and_test:
