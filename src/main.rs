@@ -4,7 +4,9 @@ use colored::*;
 use std::io::{Error, ErrorKind};
 use simple_logger::SimpleLogger;
 
-mod system_profiler;
+use cyme::system_profiler;
+#[cfg(feature = "libusb")]
+use cyme::lsusb;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -49,9 +51,9 @@ struct Args {
     #[arg(long)]
     filter_serial: Option<String>,
 
-    /// Increase verbosity (show descriptors) TODO
-    // #[arg(short, long, default_value_t = false)]
-    // verbose: bool,
+    /// Classic increase verbosity (show descriptors)
+    #[arg(short = 'v', long, default_value_t = false)]
+    lsusb_verbose: bool,
 
     /// Turn debugging information on
     #[arg(short = 'D', long, action = clap::ArgAction::Count)]
@@ -102,6 +104,13 @@ fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
         Ok((None, device))
     }
 
+}
+
+/// Abort with exit code before trying to call libusb feature if not present
+fn abort_not_libusb() {
+    if !cfg!(feature = "libusb") {
+        eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+    }
 }
 
 fn main() {
@@ -185,7 +194,15 @@ fn main() {
 
         for d in devs {
             if args.lsusb {
-                println!("{:}", d);
+                if args.lsusb_verbose {
+                    abort_not_libusb();
+                    #[cfg(feature = "libusb")]
+                    lsusb::lsusb_verbose().unwrap_or_else(|e| {
+                        eprintexit!(Error::new(ErrorKind::Other, format!("Failed to use lsusb verbose mode: {}", e)));
+                    });
+                } else {
+                    println!("{:}", d);
+                }
             } else {
                 println!("{:#}", d);
             }

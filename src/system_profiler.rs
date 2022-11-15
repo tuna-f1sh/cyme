@@ -101,16 +101,16 @@ impl fmt::Display for SPUSBDataType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBBus {
     #[serde(rename(deserialize = "_name"))]
-    name: String,
-    host_controller: String,
+    pub name: String,
+    pub host_controller: String,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    pci_device: Option<u16>,
+    pub pci_device: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    pci_revision: Option<u16>,
+    pub pci_revision: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    pci_vendor: Option<u16>,
+    pub pci_vendor: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    usb_bus_number: Option<u8>,
+    pub usb_bus_number: Option<u8>,
     // devices are normally hubs
     #[serde(rename(deserialize = "_items"))]
     pub devices: Option<Vec<USBDevice>>,
@@ -238,10 +238,10 @@ impl fmt::Display for USBBus {
 ///   bb  -- bus number in hexadecimal
 ///   dddddd -- up to six levels for the tree, each digit represents its
 ///             position on that level
-struct DeviceLocation {
-    bus: u8,
-    tree_positions: Vec<u8>,
-    port: Option<u8>,
+pub struct DeviceLocation {
+    pub bus: u8,
+    pub tree_positions: Vec<u8>,
+    pub port: Option<u8>,
 }
 
 impl FromStr for DeviceLocation {
@@ -311,7 +311,7 @@ impl<'de> Deserialize<'de> for DeviceLocation {
 
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-struct DeviceNumericalUnit<T> {
+pub struct DeviceNumericalUnit<T> {
     value: T,
     unit: String,
     description: Option<String>,
@@ -441,7 +441,7 @@ impl<'de> Deserialize<'de> for DeviceNumericalUnit<f32> {
 
 // TODO this could probably convert to Enun of SuperSpeedPlus, FullSpeed etc so that serde auto deserialize enum then use TryInto DeviceNumericalUnit for enum value
 #[derive(Debug, Clone, PartialEq, Serialize)]
-enum DeviceSpeed {
+pub enum DeviceSpeed {
     NumericalUnit(DeviceNumericalUnit<f32>),
     Description(String),
 }
@@ -495,26 +495,26 @@ impl<'de> Deserialize<'de> for DeviceSpeed {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct USBDevice {
     #[serde(rename(deserialize = "_name"))]
-    name: String,
+    pub name: String,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    vendor_id: Option<u16>,
+    pub vendor_id: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    product_id: Option<u16>,
-    location_id: DeviceLocation,
-    serial_num: Option<String>,
-    manufacturer: Option<String>,
+    pub product_id: Option<u16>,
+    pub location_id: DeviceLocation,
+    pub serial_num: Option<String>,
+    pub manufacturer: Option<String>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    bcd_device: Option<f32>,
+    pub bcd_device: Option<f32>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    bus_power: Option<u16>,
+    pub bus_power: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    bus_power_used: Option<u16>,
-    device_speed: Option<DeviceSpeed>,
+    pub bus_power_used: Option<u16>,
+    pub device_speed: Option<DeviceSpeed>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    extra_current_used: Option<u8>,
+    pub extra_current_used: Option<u8>,
     // devices can be hub and have devices attached
     #[serde(rename(deserialize = "_items"))]
-    devices: Option<Vec<USBDevice>>,
+    pub devices: Option<Vec<USBDevice>>,
 }
 
 impl USBDevice {
@@ -529,13 +529,13 @@ impl USBDevice {
     /// Returns `true` if device is a hub based on device name - not perfect but most hubs advertise as a hub in name
     ///
     /// ```
-    /// d: USBDevice = USBDevice{ name: "My special hub", ..Default::default() };
-    /// assert!(d.is_hub(), true);
+    /// let d = cyme::system_profiler::USBDevice{ name: String::from("My special hub"), ..Default::default() };
+    /// assert_eq!(d.is_hub(), true);
     /// ```
     ///
     /// ```
-    /// d: USBDevice = USBDevice{ name: "My special device", ..Default::default() };
-    /// assert!(d.is_hub(), false);
+    /// let d = cyme::system_profiler::USBDevice{ name: String::from("My special device"), ..Default::default() };
+    /// assert_eq!(d.is_hub(), false);
     /// ```
     pub fn is_hub(&self) -> bool {
         self.name.to_lowercase().contains("hub")
