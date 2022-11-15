@@ -1,12 +1,21 @@
+```
+           o
+      o   /---o
+     /---/---o
+o---/
+     \---\---o
+      o   \---o
+            o
+```
 # Cyme
-
-![cli tree output](./img/cli-tree.png)
 
 A macOS `system_profiler SPUSBDataType` parser and utility that attempts to maintain compatibility with but also build upon `lsusb`. The project started as a quick replacement for the barely working [lsusb script](https://github.com/jlhonora/lsusb) and is my _yearly_ Rust project to keep up to date!
 
 I'd like to build this into a modern `lsusb` tool, akin to `lsd`, `fd` etc. It is currently in flux as I build the foundations, learn about custom serde Deserializers and newer Rust features.
 
 The name comes from the technical term for the type of blossom on a Apple tree: [cyme](https://en.wikipedia.org/wiki/Inflorescence#Determinate_or_cymose) - it is Apple related and also looks like a USB device tree 😃🌸.
+
+![cli tree output](./img/cli-tree.png)
 
 # Features
 
@@ -21,14 +30,14 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 * Vendor ID nerd font icon look up and icon theming like `lsd --icon`.
 * Modern drawing of device tree with utf-8 boxes.
 * Tree support of all device interfaces and endpoints.
-* libusb optional to get more USB data and support other OS.
+* libusb optional to get more USB data and support other OS with switch from `system_profiler`.
 * Interface and Device Descriptor icon look up.
 
 # Install
 
-Clone this directory and with a Rust tool-chain installed: `cargo install --path cyme`
+From crates.io with a Rust tool-chain installed: `cargo install cyme`. If wishing to do it from within a local clone: `cargo install --path .`.
 
-If wishing to use full `lsusb` support, include the 'libusb' feature with `cargo install --features libusb --path cyme`
+If wishing to use full `lsusb` support, include the 'libusb' feature with `cargo install --features libusb cyme`
 
 I also have a Homebrew tap: `brew tap tuna-f1sh/cyme`.
 
