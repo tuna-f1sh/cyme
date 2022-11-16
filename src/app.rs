@@ -140,15 +140,15 @@ impl Blocks {
             Blocks::TreePositions => Some(format!("{:pad$}", format!("{:}", d.location_id.tree_positions.iter().format("╌")), pad=pad.tree_positions)),
             Blocks::BusPower => Some(match d.bus_power {
                 Some(v) => format!("{:3} mA", v),
-                None => format!("{:>3}", "-"),
+                None => format!("{:>6}", "-"),
             }),
             Blocks::BusPowerUsed => Some(match d.bus_power_used {
                 Some(v) => format!("{:3} mA", v),
-                None => format!("{:>3}", "-"),
+                None => format!("{:>6}", "-"),
             }),
             Blocks::ExtraCurrentUsed => Some(match d.extra_current_used {
                 Some(v) => format!("{:3} mA", v),
-                None => format!("{:>3}", "-"),
+                None => format!("{:>6}", "-"),
             }),
             Blocks::Bcd => Some(match d.bcd_device {
                 Some(v) => format!("{:>5.2}", v),

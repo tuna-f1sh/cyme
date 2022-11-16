@@ -8,7 +8,7 @@ struct UsbDevice<'a> {
     timeout: Duration
 }
 
-pub fn lsusb_verbose() -> libusb::Result<()> {
+pub fn lsusb_verbose(filter: &Option<system_profiler::USBFilter>) -> libusb::Result<()> {
     let timeout = Duration::from_secs(1);
 
     let context = libusb::Context::new()?;
@@ -18,6 +18,20 @@ pub fn lsusb_verbose() -> libusb::Result<()> {
             Ok(d) => d,
             Err(_) => continue
         };
+
+        if let Some(f) = filter {
+            if let Some(fvid) = f.vid {
+                if device_desc.vendor_id() != fvid {
+                    continue;
+                }
+            }
+
+            if let Some(fpid) = f.pid {
+                if device_desc.product_id() != fpid {
+                    continue;
+                }
+            }
+        }
 
         let mut usb_device = {
             match device.open() {

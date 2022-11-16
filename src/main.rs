@@ -69,7 +69,7 @@ struct Args {
     #[arg(long, default_value_t = false)]
     base10: bool,
 
-    /// Output as json format
+    /// Output as json format after filters applied
     #[arg(long, default_value_t = false)]
     json: bool,
 
@@ -131,14 +131,22 @@ fn abort_not_libusb() {
     }
 }
 
-fn print_flat_lsusb(devices: &Vec<&system_profiler::USBDevice>) {
-    for d in devices {
-        println!("{:}", d);
+fn print_flat_lsusb(devices: &Vec<&system_profiler::USBDevice>, filter: &Option<system_profiler::USBFilter>) {
+    if let Some(f) = filter {
+        for d in devices {
+            if f.is_match(&d) {
+                println!("{:}", d);
+            }
+        }
+    } else {
+        for d in devices {
+            println!("{:}", d);
+        }
     }
 }
 
 fn main() {
-    let args = Args::parse();
+    let mut args = Args::parse();
 
     match args.debug {
         0 => (),
@@ -217,6 +225,12 @@ fn main() {
         ..Default::default()
     };
 
+    // TODO verbose only supported by lsusb mode at the moment
+    if args.lsusb_verbose && !args.lsusb {
+        eprintln!("Forcing '--lsusb' compatibility mode, supply --lsusb to avoid this");
+        args.lsusb = true;
+    }
+
     if args.json {
         println!("{}", serde_json::to_string_pretty(&sp_usb).unwrap());
     } else if !(args.lsusb_tree || args.tree) {
@@ -229,11 +243,11 @@ fn main() {
             if args.lsusb_verbose {
                 abort_not_libusb();
                 #[cfg(feature = "libusb")]
-                lsusb::lsusb_verbose().unwrap_or_else(|e| {
+                lsusb::lsusb_verbose(&filter).unwrap_or_else(|e| {
                     eprintexit!(Error::new(ErrorKind::Other, format!("Failed to use lsusb verbose mode: {}", e)));
                 });
             } else {
-                print_flat_lsusb(&devs);
+                print_flat_lsusb(&devs, &filter);
             }
         } else {
             app::print_flattened_devices(&devs, &blocks, &print_settings);
