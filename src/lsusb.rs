@@ -1,5 +1,6 @@
 /// Based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs) provides some functionaility as lsusb verbose
 use std::time::Duration;
+use crate::system_profiler;
 
 struct UsbDevice<'a> {
     handle: libusb::DeviceHandle<'a>,
@@ -41,6 +42,7 @@ pub fn lsusb_verbose() -> libusb::Result<()> {
             }
         };
 
+        println!(""); // new lines separate in verbose lsusb
         println!("Bus {:03} Device {:03}: ID {:04x}:{:04x} {} {}", device.bus_number(), device.address(), device_desc.vendor_id(), device_desc.product_id(), get_manufacturer_string(&device_desc, &mut usb_device), get_product_string(&device_desc, &mut usb_device));
         print_device(&device_desc, &mut usb_device);
 
@@ -134,13 +136,14 @@ fn print_endpoint(endpoint_desc: &libusb::EndpointDescriptor) {
     println!("        bInterval            {:3}", endpoint_desc.interval());
 }
 
-#[allow(dead_code)]
-fn get_speed(speed: libusb::Speed) -> &'static str {
-    match speed {
-        libusb::Speed::Super   => "5000 Mbps",
-        libusb::Speed::High    => " 480 Mbps",
-        libusb::Speed::Full    => "  12 Mbps",
-        libusb::Speed::Low     => " 1.5 Mbps",
-        libusb::Speed::Unknown => "(unknown)"
+impl From<libusb::Speed> for system_profiler::Speed {
+    fn from(libusb: libusb::Speed) -> Self {
+        match libusb {
+            libusb::Speed::Super   => system_profiler::Speed::SuperSpeed,
+            libusb::Speed::High    => system_profiler::Speed::HighSpeed,
+            libusb::Speed::Full    => system_profiler::Speed::FullSpeed,
+            libusb::Speed::Low     => system_profiler::Speed::LowSpeed,
+            libusb::Speed::Unknown => system_profiler::Speed::Unknown
+        }
     }
 }

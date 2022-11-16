@@ -1,9 +1,11 @@
+#![allow(dead_code)]
 use clap::Parser;
 use std::env;
 use colored::*;
 use std::io::{Error, ErrorKind};
 use simple_logger::SimpleLogger;
 
+mod app;
 use cyme::system_profiler;
 #[cfg(feature = "libusb")]
 use cyme::lsusb;
@@ -14,10 +16,6 @@ struct Args {
     /// Attempt to maintain compatibility with lsusb output
     #[arg(short, long, default_value_t = false)]
     lsusb: bool,
-
-    /// Disable coloured output, can also use NO_COLOR environment variable
-    #[arg(short, long, default_value_t = false)]
-    no_colour: bool,
 
     /// Classic dump the physical USB device hierarchy as a tree - currently styling is the same but content is not
     #[arg(short = 't', long, default_value_t = false)]
@@ -34,6 +32,10 @@ struct Args {
     /// Show only devices with specified device and/or bus numbers (in decimal) in format [[bus]:][devnum]
     #[arg(short, long)]
     show: Option<String>,
+
+    /// Specify the blocks which will be displayed for each device and in what order
+    #[arg(long, value_enum)]
+    blocks: Option<Vec<app::Blocks>>,
 
     /// Hide empty buses; those with no devices
     #[arg(long, default_value_t = false)]
@@ -54,6 +56,22 @@ struct Args {
     /// Classic increase verbosity (show descriptors)
     #[arg(short = 'v', long, default_value_t = false)]
     lsusb_verbose: bool,
+
+    /// Disable coloured output, can also use NO_COLOR environment variable
+    #[arg(short, long, default_value_t = false)]
+    no_colour: bool,
+
+    /// Disable padding to align blocks
+    #[arg(long, default_value_t = false)]
+    no_padding: bool,
+
+    /// Show base16 values as base10 instead
+    #[arg(long, default_value_t = false)]
+    base10: bool,
+
+    /// Output as json format
+    #[arg(long, default_value_t = false)]
+    json: bool,
 
     /// Turn debugging information on
     #[arg(short = 'D', long, action = clap::ArgAction::Count)]
@@ -110,6 +128,12 @@ fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
 fn abort_not_libusb() {
     if !cfg!(feature = "libusb") {
         eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+    }
+}
+
+fn print_flat_lsusb(devices: &Vec<&system_profiler::USBDevice>) {
+    for d in devices {
+        println!("{:}", d);
     }
 }
 
@@ -187,29 +211,36 @@ fn main() {
         }
     }
 
-    if !(args.lsusb_tree || args.tree) {
+    let print_settings = app::PrintSettings {
+        no_padding: args.no_padding,
+        base10: args.base10,
+        ..Default::default()
+    };
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&sp_usb).unwrap());
+    } else if !(args.lsusb_tree || args.tree) {
         // filter again on flattened tree because will have kept parent branches with previous
         let mut devs = sp_usb.flatten_devices();
         filter.as_ref().map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
+        let blocks = args.blocks.unwrap_or(app::Blocks::default_device_blocks());
 
-        for d in devs {
-            if args.lsusb {
-                if args.lsusb_verbose {
-                    abort_not_libusb();
-                    #[cfg(feature = "libusb")]
-                    lsusb::lsusb_verbose().unwrap_or_else(|e| {
-                        eprintexit!(Error::new(ErrorKind::Other, format!("Failed to use lsusb verbose mode: {}", e)));
-                    });
-                } else {
-                    println!("{:}", d);
-                }
+        if args.lsusb {
+            if args.lsusb_verbose {
+                abort_not_libusb();
+                #[cfg(feature = "libusb")]
+                lsusb::lsusb_verbose().unwrap_or_else(|e| {
+                    eprintexit!(Error::new(ErrorKind::Other, format!("Failed to use lsusb verbose mode: {}", e)));
+                });
             } else {
-                println!("{:#}", d);
+                print_flat_lsusb(&devs);
             }
+        } else {
+            app::print_flattened_devices(&devs, &blocks, &print_settings);
         }
     } else {
         if args.lsusb {
-            eprintln!("lsusb tree is styling only; content is not the same!");
+            eprintln!("lsusb compatible tree is styling only; content is not the same!");
             print!("{:+}", sp_usb);
         } else {
             if args.tree {
