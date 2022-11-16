@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 use clap::Parser;
-use std::env;
 use colored::*;
-use std::io::{Error, ErrorKind};
 use simple_logger::SimpleLogger;
+use std::env;
+use std::io::{Error, ErrorKind};
 
 mod app;
-use cyme::system_profiler;
 #[cfg(feature = "libusb")]
 use cyme::lsusb;
+use cyme::system_profiler;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -89,16 +89,22 @@ macro_rules! eprintexit {
 fn parse_vidpid(s: &str) -> (Option<u16>, Option<u16>) {
     if s.contains(":") {
         let vid_split: Vec<&str> = s.split(":").collect();
-        let vid: Option<u16> = vid_split.first()
-            .filter(|v| v.len() > 0)
-            .map_or(None, |v| u32::from_str_radix(v.trim().trim_start_matches("0x"), 16).map(|v| Some(v as u16)).unwrap_or(None));
-        let pid: Option<u16> = vid_split.last()
-            .filter(|v| v.len() > 0)
-            .map_or(None, |v| u32::from_str_radix(v.trim().trim_start_matches("0x"), 16).map(|v| Some(v as u16)).unwrap_or(None));
+        let vid: Option<u16> = vid_split.first().filter(|v| v.len() > 0).map_or(None, |v| {
+            u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
+                .map(|v| Some(v as u16))
+                .unwrap_or(None)
+        });
+        let pid: Option<u16> = vid_split.last().filter(|v| v.len() > 0).map_or(None, |v| {
+            u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
+                .map(|v| Some(v as u16))
+                .unwrap_or(None)
+        });
 
         (vid, pid)
     } else {
-        let vid: Option<u16> = u32::from_str_radix(s.trim().trim_start_matches("0x"), 16).map(|v| Some(v as u16)).unwrap_or(None);
+        let vid: Option<u16> = u32::from_str_radix(s.trim().trim_start_matches("0x"), 16)
+            .map(|v| Some(v as u16))
+            .unwrap_or(None);
 
         (vid, None)
     }
@@ -108,30 +114,46 @@ fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
     if s.contains(":") {
         let split: Vec<&str> = s.split(":").collect();
         // TODO this unwrap should return as the result but I struggle with all this chaining...
-        let bus: Option<u8> = split.first()
-            .filter(|v| v.len() > 0)
-            .map_or(None, |v| v.parse::<u8>().map(Some).map_err(|e| Error::new(ErrorKind::Other, e)).unwrap_or(None));
-        let device = split.last()
-                .filter(|v| v.len() > 0)
-                .map_or(None, |v| v.parse::<u8>().map(Some).map_err(|e| Error::new(ErrorKind::Other, e)).unwrap_or(None));
+        let bus: Option<u8> = split.first().filter(|v| v.len() > 0).map_or(None, |v| {
+            v.parse::<u8>()
+                .map(Some)
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+                .unwrap_or(None)
+        });
+        let device = split.last().filter(|v| v.len() > 0).map_or(None, |v| {
+            v.parse::<u8>()
+                .map(Some)
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+                .unwrap_or(None)
+        });
 
         Ok((bus, device))
     } else {
-        let device: Option<u8> = s.trim().parse::<u8>().map(Some).map_err(|e| Error::new(ErrorKind::Other, e)).unwrap_or(None);
+        let device: Option<u8> = s
+            .trim()
+            .parse::<u8>()
+            .map(Some)
+            .map_err(|e| Error::new(ErrorKind::Other, e))
+            .unwrap_or(None);
 
         Ok((None, device))
     }
-
 }
 
 /// Abort with exit code before trying to call libusb feature if not present
 fn abort_not_libusb() {
     if !cfg!(feature = "libusb") {
-        eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+        eprintexit!(Error::new(
+            ErrorKind::Other,
+            "libusb feature is required to do this, install with `cargo install --features libusb`"
+        ));
     }
 }
 
-fn print_flat_lsusb(devices: &Vec<&system_profiler::USBDevice>, filter: &Option<system_profiler::USBFilter>) {
+fn print_flat_lsusb(
+    devices: &Vec<&system_profiler::USBDevice>,
+    filter: &Option<system_profiler::USBFilter>,
+) {
     if let Some(f) = filter {
         for d in devices {
             if f.is_match(&d) {
@@ -173,16 +195,19 @@ fn main() {
     }
 
     let mut sp_usb = system_profiler::get_spusb().unwrap_or_else(|e| {
-        eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to parse system_profiler output: {}", e)));
+        eprintexit!(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to parse system_profiler output: {}", e)
+        ));
     });
     log::debug!("{:#?}", sp_usb);
 
-    let filter = if 
-        args.hide_hubs ||
-        args.vidpid.is_some() || 
-        args.show.is_some() ||
-        args.filter_name.is_some() ||
-        args.filter_serial.is_some() {
+    let filter = if args.hide_hubs
+        || args.vidpid.is_some()
+        || args.show.is_some()
+        || args.filter_name.is_some()
+        || args.filter_serial.is_some()
+    {
         let mut f = system_profiler::USBFilter::new();
 
         if let Some(vidpid) = &args.vidpid {
@@ -193,7 +218,10 @@ fn main() {
 
         if let Some(show) = &args.show {
             let (bus, port) = parse_show(&show.as_str()).unwrap_or_else(|e| {
-                eprintexit!(Error::new(ErrorKind::Other, format!("Failed to parse show parameter: {}", e)));
+                eprintexit!(Error::new(
+                    ErrorKind::Other,
+                    format!("Failed to parse show parameter: {}", e)
+                ));
             });
             f.bus = bus;
             f.port = port;
@@ -210,7 +238,9 @@ fn main() {
         None
     };
 
-    filter.as_ref().map_or((), |f| f.retain_buses(&mut sp_usb.buses));
+    filter
+        .as_ref()
+        .map_or((), |f| f.retain_buses(&mut sp_usb.buses));
     if args.hide_buses {
         sp_usb.buses.retain(|b| b.has_devices());
         // may still be empty hubs if the hub had an empty hub!
@@ -236,7 +266,9 @@ fn main() {
     } else if !(args.lsusb_tree || args.tree) {
         // filter again on flattened tree because will have kept parent branches with previous
         let mut devs = sp_usb.flatten_devices();
-        filter.as_ref().map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
+        filter
+            .as_ref()
+            .map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
         let blocks = args.blocks.unwrap_or(app::Blocks::default_device_blocks());
 
         if args.lsusb {
@@ -244,7 +276,10 @@ fn main() {
                 abort_not_libusb();
                 #[cfg(feature = "libusb")]
                 lsusb::lsusb_verbose(&filter).unwrap_or_else(|e| {
-                    eprintexit!(Error::new(ErrorKind::Other, format!("Failed to use lsusb verbose mode: {}", e)));
+                    eprintexit!(Error::new(
+                        ErrorKind::Other,
+                        format!("Failed to use lsusb verbose mode: {}", e)
+                    ));
                 });
             } else {
                 print_flat_lsusb(&devs, &filter);

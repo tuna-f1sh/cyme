@@ -15,19 +15,18 @@ jobs:
         with:
           toolchain: stable
 
-      - name: test
+      - name: Test
         run: cargo test
 
-      - name: build
+      - name: Build release
         run: cargo build --release --all-features
-
 
       - name: Extract crate information
         shell: bash
         run: |
           echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> "$GITHUB_ENV"
           echo "PROJECT_MAINTAINER=$(sed -n 's/^authors = \["\(.*\)"\]/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
-          # echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' Cargo.toml)" >> $GITHUB_ENV
+          echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' Cargo.toml)" >> $GITHUB_ENV
 
       - name: archive executable
         uses: actions/upload-artifact@master
