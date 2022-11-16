@@ -6,7 +6,7 @@ env:
   PROJECT_NAME: cyme
 
 jobs:
-  build_and_test:
+  build:
     name: Build and test
     runs-on: macos-latest
     steps:
@@ -14,15 +14,38 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+
       - name: test
         run: cargo test
+
       - name: build
         run: cargo build --release --all-features
+
+
+      - name: Extract crate information
+        shell: bash
+        run: |
+          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> "$GITHUB_ENV"
+          echo "PROJECT_MAINTAINER=$(sed -n 's/^authors = \["\(.*\)"\]/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
+          # echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' Cargo.toml)" >> $GITHUB_ENV
+
       - name: archive executable
         uses: actions/upload-artifact@master
         with:
           name: ${{ env.PROJECT_NAME }}
-          # name: ${{ env.PROJECT_NAME }}-${{ matrix.job.target }}
           path: target/release/${{ env.PROJECT_NAME }}
-          # TODO ref https://github.com/Peltoche/lsd/blob/master/.github/workflows/CICD.yml for multi platform
-          # path: target/${{ matrix.job.target }}/release/${{ env.PROJECT_NAME }}${{ steps.vars.outputs.EXE_suffix }}
+
+      - name: Check for release
+        id: is-release
+        shell: bash
+        run: |
+          unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
+          echo "IS_RELEASE=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish archives and packages
+        uses: softprops/action-gh-release@v1
+        if: steps.is-release.outputs.IS_RELEASE
+        with:
+          files: target/release/${{ env.PROJECT_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

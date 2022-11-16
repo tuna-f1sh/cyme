@@ -9,7 +9,7 @@ use crate::system_profiler;
 const EDGE: &str = "\u{251c}\u{2500}\u{2500}"; // "├──"
 const LINE: &str = "\u{2502}  "; // "│  "
 const CORNER: &str = "\u{2514}\u{2500}\u{2500}"; // "└──"
-const BLANK: &str = "   ";
+const BLANK: &str = "   "; // should be same char width as above
 
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Clone, Serialize, Deserialize)]
@@ -85,6 +85,8 @@ impl Blocks {
     pub fn icon(&self, d: &system_profiler::USBDevice) -> Option<String> {
         match self {
             // TODO separate icons for Vendor and Product; some can match from just vendor id like apple, microsoft others should be vendor and product lookup like harddisk etc.
+            // make struct Icon with impl for get_vendor_icon, get_product_icon, get_global_icon (tree, usb device etc.) - can be merged with load from file
+            // HashMap<String, String> where key is vendor base16, vendor:product base16 and global ref
             Blocks::VendorID => match d.vendor_id {
                 Some(v) => match v {
                     0x05ac => Some("\u{f179}".into()), // apple 
