@@ -1,13 +1,16 @@
+use serde::{Deserialize, Serialize};
+
 /// USB defines ref: https://www.usb.org/defined-class-codes
 #[derive(Debug)]
-enum DescriptorUsage {
+pub enum DescriptorUsage {
     Device,
     Interface,
     Both,
 }
 
-#[derive(Debug)]
-enum ClassCode {
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ClassCode {
     UseInterfaceDescriptor,
     Audio,
     CDCCommunications,
@@ -67,14 +70,14 @@ impl From<u8> for ClassCode {
 impl ClassCode {
     pub fn usage(&self) -> DescriptorUsage {
         match self {
-            UseInterfaceDescriptor|Hub|Billboard => DescriptorUsage::Device,
-            CDCCommunications|Diagnostic|Miscellaneous|VendorSpecific => DescriptorUsage::Both,
+            ClassCode::UseInterfaceDescriptor|ClassCode::Hub|ClassCode::Billboard => DescriptorUsage::Device,
+            ClassCode::CDCCommunications|ClassCode::Diagnostic|ClassCode::Miscellaneous|ClassCode::VendorSpecific => DescriptorUsage::Both,
             _ => DescriptorUsage::Interface
         }
     }
 }
 
-impl from<ClassCode> for DescriptorUsage {
+impl From<ClassCode> for DescriptorUsage {
     fn from(c: ClassCode) -> DescriptorUsage {
         return c.usage();
     }

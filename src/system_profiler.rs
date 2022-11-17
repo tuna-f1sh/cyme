@@ -1,8 +1,6 @@
-/// Parser for macOS `system_profiler` command -json output with SPUSBDataType.
-///
-/// USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
-///
-/// J.Whittington - 2022
+///! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
+///!
+///! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
 use std::fmt;
 use std::io;
 use std::str::FromStr;
@@ -13,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 use std::process::Command;
 
-/// borrowed from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
+/// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
 /// Deserializes an option number from string or a number.
 /// Only really used for vendor id and product id so TODO make struct for these
 /// TODO handle DeviceNumericalUnit here or another deserializer?
@@ -632,12 +630,16 @@ pub struct USBDevice {
 }
 
 impl USBDevice {
-    #[allow(dead_code)]
     pub fn has_devices(&self) -> bool {
         match &self.devices {
             Some(d) => d.len() > 0,
             None => false,
         }
+    }
+
+    /// Returns position on branch (parent), which is the last number in `tree_positions`
+    pub fn get_branch_position(&self) -> u8 {
+        *self.location_id.tree_positions.last().unwrap_or(&0)
     }
 
     /// Returns `true` if device is a hub based on device name - not perfect but most hubs advertise as a hub in name

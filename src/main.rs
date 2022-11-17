@@ -5,10 +5,11 @@ use simple_logger::SimpleLogger;
 use std::env;
 use std::io::{Error, ErrorKind};
 
-mod app;
 #[cfg(feature = "libusb")]
 use cyme::lsusb;
 use cyme::system_profiler;
+use cyme::display;
+use cyme::icon::IconTheme;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -34,8 +35,12 @@ struct Args {
     show: Option<String>,
 
     /// Specify the blocks which will be displayed for each device and in what order
+    #[arg(short, long, value_enum)]
+    blocks: Option<Vec<display::Blocks>>,
+
+    /// Specify the blocks which will be displayed for each bus and in what order
     #[arg(long, value_enum)]
-    blocks: Option<Vec<app::Blocks>>,
+    bus_blocks: Option<Vec<display::Blocks>>,
 
     /// Hide empty buses; those with no devices
     #[arg(long, default_value_t = false)]
@@ -65,9 +70,17 @@ struct Args {
     #[arg(long, default_value_t = false)]
     no_padding: bool,
 
-    /// Show base16 values as base10 instead
+    /// Show base16 values as base10 decimal instead
     #[arg(long, default_value_t = false)]
     base10: bool,
+
+    /// Sort devices by value
+    #[arg(long, value_enum)]
+    sort_devices: Option<display::Sort>,
+
+    /// Sort devices by bus number
+    #[arg(long, default_value_t = false)]
+    sort_buses: bool,
 
     /// Output as json format after filters applied
     #[arg(long, default_value_t = false)]
@@ -249,9 +262,24 @@ fn main() {
         }
     }
 
-    let print_settings = app::PrintSettings {
+    // default sort depends on tree or not
+    let sort_devices = match args.sort_devices {
+        Some(v) => v,
+        None => {
+            if args.tree | args.lsusb_tree {
+                display::Sort::default()
+            } else {
+                display::Sort::NoSort
+            }
+        }
+    };
+
+    let print_settings = display::PrintSettings {
         no_padding: args.no_padding,
         base10: args.base10,
+        sort_devices,
+        sort_buses: args.sort_buses,
+        icons: Some(IconTheme::new()),
         ..Default::default()
     };
 
@@ -261,17 +289,21 @@ fn main() {
         args.lsusb = true;
     }
 
-    if args.json {
-        println!("{}", serde_json::to_string_pretty(&sp_usb).unwrap());
-    } else if !(args.lsusb_tree || args.tree) {
+    // sort the buses if asked
+    if print_settings.sort_buses {
+        sp_usb.buses.sort_by_key(|d| d.get_bus_number());
+    }
+
+    if !(args.lsusb_tree || args.tree) {
         // filter again on flattened tree because will have kept parent branches with previous
         let mut devs = sp_usb.flatten_devices();
         filter
             .as_ref()
             .map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
-        let blocks = args.blocks.unwrap_or(app::Blocks::default_device_blocks());
 
-        if args.lsusb {
+        if args.json {
+            println!("{}", serde_json::to_string_pretty(&devs).unwrap());
+        } else if args.lsusb {
             if args.lsusb_verbose {
                 abort_not_libusb();
                 #[cfg(feature = "libusb")]
@@ -285,18 +317,23 @@ fn main() {
                 print_flat_lsusb(&devs, &filter);
             }
         } else {
-            app::print_flattened_devices(&devs, &blocks, &print_settings);
+            let device_blocks = args.blocks.unwrap_or(display::Blocks::default_device_blocks());
+            // TODO option for bus headings
+            // let bus_blocks = args.bus_blocks.unwrap_or(display::Blocks::default_bus_blocks());
+
+            display::print_flattened_devices(&devs, &device_blocks, &print_settings);
         }
     } else {
-        if args.lsusb {
+        if args.json {
+            println!("{}", serde_json::to_string_pretty(&sp_usb).unwrap());
+        } else if args.lsusb {
             eprintln!("lsusb compatible tree is styling only; content is not the same!");
             print!("{:+}", sp_usb);
         } else {
-            if args.tree {
-                print!("{:+#}", sp_usb);
-            } else {
-                print!("{:#}", sp_usb);
-            }
+            let device_blocks = args.blocks.unwrap_or(display::Blocks::default_device_tree_blocks());
+            let bus_blocks = args.bus_blocks.unwrap_or(display::Blocks::default_bus_blocks());
+
+            display::print_spdata(&sp_usb, &device_blocks, &bus_blocks, &print_settings);
         }
     }
 }
