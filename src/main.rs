@@ -18,12 +18,8 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     lsusb: bool,
 
-    /// Classic dump the physical USB device hierarchy as a tree - currently styling is the same but content is not
-    #[arg(short = 't', long, default_value_t = false)]
-    lsusb_tree: bool,
-
-    /// Modern dump the physical USB device hierarchy as a tree
-    #[arg(short = 'T', long, default_value_t = false)]
+    /// Dump USB device hierarchy as a tree
+    #[arg(short, long, default_value_t = false)]
     tree: bool,
 
     /// Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:[PID]
@@ -283,7 +279,7 @@ fn main() {
     let sort_devices = match args.sort_devices {
         Some(v) => v,
         None => {
-            if args.tree | args.lsusb_tree {
+            if args.tree {
                 display::Sort::default()
             } else {
                 display::Sort::NoSort
@@ -311,7 +307,7 @@ fn main() {
         sp_usb.buses.sort_by_key(|d| d.get_bus_number());
     }
 
-    if !(args.lsusb_tree || args.tree) {
+    if !(args.tree) {
         // filter again on flattened tree because will have kept parent branches with previous
         let mut devs = sp_usb.flatten_devices();
         filter
