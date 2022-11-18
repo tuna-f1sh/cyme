@@ -84,45 +84,6 @@ impl Blocks {
         }
     }
 
-    pub fn device_icon(&self, d: &system_profiler::USBDevice) -> Option<String> {
-        match self {
-            // TODO separate icons for Vendor and Product; some can match from just vendor id like apple, microsoft others should be vendor and product lookup like harddisk etc.
-            // make struct Icon with impl for get_vendor_icon, get_product_icon, get_global_icon (tree, usb device etc.) - can be merged with load from file
-            // HashMap<String, String> where key is vendor base16, vendor:product base16 and global ref
-            Blocks::Icon => match d.vendor_id {
-                Some(v) => match v {
-                    0x05ac => Some("\u{f179}".into()),          // apple 
-                    0x045e => Some("\u{f871}".into()),          // microsoft 
-                    0x1D6B => Some("\u{f17c}".into()),          // linux foundation 
-                    0x1915 | 0x0483 => Some("\u{f5a2}".into()), // specialized 
-                    0x091e => Some("\u{e2a6}".into()),          // garmin 
-                    0x1d50 | 0x1366 => Some("\u{f188}".into()), // debuggers 
-                    0x043e => Some("\u{f878}".into()),          // monitor 
-                    0x0781 => Some("\u{f7c9}".into()),          // external disk 
-                    _ => Some("\u{f287}".into()), // usb plug default
-                    // _ => Some(" ".into()),
-                },
-                None => None,
-            },
-            _ => None,
-        }
-    }
-
-    pub fn bus_icon(&self, d: &system_profiler::USBBus) -> Option<String> {
-        match self {
-            Blocks::Icon => match d.pci_vendor {
-                Some(v) => match v {
-                    0x8086 => Some("\u{f179}".into()),          // apple 
-                    0x045e => Some("\u{f871}".into()),          // microsoft 
-                    0x1D6B => Some("\u{f17c}".into()),          // linux foundation 
-                    _ => Some("\u{f287}".into()), // usb plug default
-                },
-                _ => Some("\u{f287}".into()), // usb plug default
-            },
-            _ => None,
-        }
-    }
-
     pub fn format_base(&self, v: u16, settings: &PrintSettings) -> String {
         if settings.base10 {
             format!("{:6}", v)
@@ -333,6 +294,7 @@ pub fn get_devices_padding_required(devices: &Vec<&system_profiler::USBDevice>) 
 fn generate_tree_data(current_tree: &TreeData, branch_length: usize, index: usize, settings: &PrintSettings) -> TreeData {
     let mut pass_tree = current_tree.clone();
 
+    // get prefix from icons - maybe should cache these before build rather than lookup each time...
     pass_tree.prefix = if pass_tree.depth > 0 {
         if index + 1 != pass_tree.branch_length {
             // format!("{}{}", pass_tree.prefix, LINE)

@@ -196,11 +196,12 @@ dependencies = [
 
 [[package]]
 name = "cyme"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap",
  "colored",
  "itertools",
+ "lazy_static",
  "libusb",
  "log",
  "serde",
