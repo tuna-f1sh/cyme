@@ -30,11 +30,11 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 - [x] Controllable block data like `lsd --blocks`
 - [x] Modern drawing of device tree with utf-8 boxes.
 - [x] Nerd font icon look up and icon theming like `lsd --icon`.
-- [ ] Drawing of headers.
-- [ ] Show buses as headers in list mode.
-- [ ] Tree support of all device interfaces and endpoints.
-- [ ] libusb optional to get more USB data and support other OS with switch from `system_profiler`.
+- [x] libusb optional to get more USB data and support other OS with switch from `system_profiler`.
 - [ ] Interface and Device Descriptor icon look up.
+- [ ] Show buses as headers in list mode.
+- [ ] Drawing of headers.
+- [ ] Tree support of all device interfaces and endpoints.
 - [ ] User defined icon map and colour import.
 
 # Install
