@@ -36,11 +36,11 @@ struct Args {
 
     /// Specify the blocks which will be displayed for each device and in what order
     #[arg(short, long, value_enum)]
-    blocks: Option<Vec<display::Blocks>>,
+    blocks: Option<Vec<display::DeviceBlocks>>,
 
     /// Specify the blocks which will be displayed for each bus and in what order
     #[arg(long, value_enum)]
-    bus_blocks: Option<Vec<display::Blocks>>,
+    bus_blocks: Option<Vec<display::BusBlocks>>,
 
     /// Hide empty buses; those with no devices
     #[arg(long, default_value_t = false)]
@@ -319,7 +319,7 @@ fn main() {
         } else {
             let device_blocks = args
                 .blocks
-                .unwrap_or(display::Blocks::default_device_blocks());
+                .unwrap_or(display::Block::<display::DeviceBlocks, system_profiler::USBDevice>::default_blocks());
             // TODO option for bus headings
             // let bus_blocks = args.bus_blocks.unwrap_or(display::Blocks::default_bus_blocks());
 
@@ -334,10 +334,10 @@ fn main() {
         } else {
             let device_blocks = args
                 .blocks
-                .unwrap_or(display::Blocks::default_device_tree_blocks());
+                .unwrap_or(display::DeviceBlocks::default_device_tree_blocks());
             let bus_blocks = args
                 .bus_blocks
-                .unwrap_or(display::Blocks::default_bus_blocks());
+                .unwrap_or(display::Block::<display::BusBlocks, system_profiler::USBBus>::default_blocks());
 
             display::print_spdata(&sp_usb, &device_blocks, &bus_blocks, &print_settings);
         }

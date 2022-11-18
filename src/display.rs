@@ -5,10 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::icon;
 use crate::system_profiler;
+use crate::system_profiler::{USBBus, USBDevice};
 
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Clone, Serialize, Deserialize)]
-pub enum Blocks {
+pub enum DeviceBlocks {
     BusNumber,
     PortNumber,
     DeviceNumber,
@@ -20,8 +21,6 @@ pub enum Blocks {
     Manufacturer,
     Serial,
     Speed,
-    HostController,
-    PCIRevision,
     TreePositions,
     BusPower,
     BusPowerUsed,
@@ -29,160 +28,199 @@ pub enum Blocks {
     Bcd,
 }
 
-pub type DeviceBlocks = Vec<Blocks>;
-pub type BusBlocks = Vec<Blocks>;
+#[non_exhaustive]
+#[derive(Debug, ValueEnum, Clone, Serialize, Deserialize)]
+pub enum BusBlocks {
+    BusNumber,
+    Icon,
+    Name,
+    HostController,
+    PCIVendor,
+    PCIDevice,
+    PCIRevision,
+}
 
-impl Blocks {
-    pub fn default_device_blocks() -> DeviceBlocks {
-        vec![
-            Blocks::BusNumber,
-            Blocks::PortNumber,
-            Blocks::Icon,
-            Blocks::VendorID,
-            Blocks::ProductID,
-            Blocks::Name,
-            Blocks::Serial,
-            Blocks::Speed,
-        ]
-    }
+pub trait Block<B, T> {
+    fn default_blocks() -> Vec<Self> where Self: Sized;
+    fn colour(&self, s: &String) -> ColoredString;
 
-    pub fn default_device_tree_blocks() -> DeviceBlocks {
-        vec![Blocks::Icon, Blocks::Name, Blocks::Serial]
-    }
+    fn format_value(
+        &self,
+        d: &T,
+        pad: &PrintPadding,
+        settings: &PrintSettings,
+    ) -> Option<String>;
 
-    pub fn default_bus_blocks() -> BusBlocks {
-        vec![Blocks::Name, Blocks::HostController]
-    }
-
-    pub fn colour(&self, s: &String) -> ColoredString {
-        match self {
-            Blocks::BusNumber => s.cyan(),
-            Blocks::PortNumber => s.magenta(),
-            Blocks::DeviceNumber => s.bright_magenta(),
-            Blocks::BranchPosition => s.bright_magenta(),
-            Blocks::VendorID => s.bold().yellow(),
-            Blocks::ProductID => s.yellow(),
-            Blocks::Name => s.bold().blue(),
-            Blocks::Manufacturer => s.blue(),
-            Blocks::Serial => s.green(),
-            Blocks::Speed => s.purple(),
-            Blocks::HostController => s.green(),
-            Blocks::PCIRevision => s.normal(),
-            Blocks::TreePositions => s.magenta(),
-            Blocks::BusPower => s.purple(),
-            Blocks::BusPowerUsed => s.bright_purple(),
-            Blocks::ExtraCurrentUsed => s.red(),
-            Blocks::Bcd => s.purple(),
-            _ => s.normal(),
-        }
-    }
-
-    pub fn format_base(&self, v: u16, settings: &PrintSettings) -> String {
+    fn format_base(v: u16, settings: &PrintSettings) -> String {
         if settings.base10 {
             format!("{:6}", v)
         } else {
             format!("0x{:04x}", v)
         }
     }
+}
 
-    pub fn format_device_value(
+impl DeviceBlocks {
+    pub fn default_device_tree_blocks() -> Vec<DeviceBlocks> {
+        vec![DeviceBlocks::Icon, DeviceBlocks::Name, DeviceBlocks::Serial]
+    }
+}
+
+impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
+    fn default_blocks() -> Vec<DeviceBlocks> {
+        vec![
+            DeviceBlocks::BusNumber,
+            DeviceBlocks::PortNumber,
+            DeviceBlocks::Icon,
+            DeviceBlocks::VendorID,
+            DeviceBlocks::ProductID,
+            DeviceBlocks::Name,
+            DeviceBlocks::Serial,
+            DeviceBlocks::Speed,
+        ]
+    }
+
+    fn format_value(
         &self,
-        d: &system_profiler::USBDevice,
+        d: &USBDevice,
         pad: &PrintPadding,
         settings: &PrintSettings,
     ) -> Option<String> {
         match self {
-            Blocks::BusNumber => Some(format!("{:3}", d.location_id.bus)),
-            Blocks::DeviceNumber => Some(match d.location_id.number {
+            DeviceBlocks::BusNumber => Some(format!("{:3}", d.location_id.bus)),
+            DeviceBlocks::DeviceNumber => Some(match d.location_id.number {
                 Some(v) => format!("{:3}", v),
                 None => format!("{:>3}", "-"),
             }),
-            Blocks::PortNumber => Some(match d.location_id.port {
+            DeviceBlocks::PortNumber => Some(match d.location_id.port {
                 Some(v) => format!("{:3}", v),
                 None => format!("{:>3}", "-"),
             }),
-            Blocks::BranchPosition => Some(format!("{:3}", d.get_branch_position())),
-            Blocks::Icon => settings
+            DeviceBlocks::BranchPosition => Some(format!("{:3}", d.get_branch_position())),
+            DeviceBlocks::Icon => settings
                 .icons
                 .as_ref()
                 .map_or(None, |i| Some(i.get_device_icon(d))),
-            Blocks::VendorID => Some(match d.vendor_id {
-                Some(v) => self.format_base(v, settings),
+            DeviceBlocks::VendorID => Some(match d.vendor_id {
+                Some(v) => Self::format_base(v, settings),
                 None => format!("{:>6}", "-"),
             }),
-            Blocks::ProductID => Some(match d.product_id {
-                Some(v) => self.format_base(v, settings),
+            DeviceBlocks::ProductID => Some(match d.product_id {
+                Some(v) => Self::format_base(v, settings),
                 None => format!("{:>6}", "-"),
             }),
-            Blocks::Name => Some(format!("{:pad$}", d.name.trim(), pad = pad.name)),
-            Blocks::Manufacturer => Some(match d.manufacturer.as_ref() {
+            DeviceBlocks::Name => Some(format!("{:pad$}", d.name.trim(), pad = pad.name)),
+            DeviceBlocks::Manufacturer => Some(match d.manufacturer.as_ref() {
                 Some(v) => format!("{:pad$}", v.trim(), pad = pad.manufacturer),
                 None => format!("{:pad$}", "-", pad = pad.manufacturer),
             }),
-            Blocks::Serial => Some(match d.serial_num.as_ref() {
+            DeviceBlocks::Serial => Some(match d.serial_num.as_ref() {
                 Some(v) => format!("{:pad$}", v.trim(), pad = pad.serial),
                 None => format!("{:pad$}", "-", pad = pad.serial),
             }),
-            Blocks::Speed => Some(match d.device_speed.as_ref() {
+            DeviceBlocks::Speed => Some(match d.device_speed.as_ref() {
                 Some(v) => format!("{:>10}", v.to_string()),
                 None => format!("{:>10}", "-"),
             }),
-            Blocks::TreePositions => Some(format!(
+            DeviceBlocks::TreePositions => Some(format!(
                 "{:pad$}",
                 format!("{:}", d.location_id.tree_positions.iter().format("╌")),
                 pad = pad.tree_positions
             )),
-            Blocks::BusPower => Some(match d.bus_power {
+            DeviceBlocks::BusPower => Some(match d.bus_power {
                 Some(v) => format!("{:3} mA", v),
                 None => format!("{:>6}", "-"),
             }),
-            Blocks::BusPowerUsed => Some(match d.bus_power_used {
+            DeviceBlocks::BusPowerUsed => Some(match d.bus_power_used {
                 Some(v) => format!("{:3} mA", v),
                 None => format!("{:>6}", "-"),
             }),
-            Blocks::ExtraCurrentUsed => Some(match d.extra_current_used {
+            DeviceBlocks::ExtraCurrentUsed => Some(match d.extra_current_used {
                 Some(v) => format!("{:3} mA", v),
                 None => format!("{:>6}", "-"),
             }),
-            Blocks::Bcd => Some(match d.bcd_device {
+            DeviceBlocks::Bcd => Some(match d.bcd_device {
                 Some(v) => format!("{:>5.2}", v),
                 None => format!("{:>8}", "-"),
             }),
-            _ => None,
+            // _ => None,
         }
     }
 
-    fn format_bus_value(
+
+    fn colour(&self, s: &String) -> ColoredString {
+        match self {
+            DeviceBlocks::BusNumber => s.cyan(),
+            DeviceBlocks::PortNumber => s.magenta(),
+            DeviceBlocks::DeviceNumber => s.bright_magenta(),
+            DeviceBlocks::BranchPosition => s.bright_magenta(),
+            DeviceBlocks::VendorID => s.bold().yellow(),
+            DeviceBlocks::ProductID => s.yellow(),
+            DeviceBlocks::Name => s.bold().blue(),
+            DeviceBlocks::Manufacturer => s.blue(),
+            DeviceBlocks::Serial => s.green(),
+            DeviceBlocks::Speed => s.purple(),
+            DeviceBlocks::TreePositions => s.magenta(),
+            DeviceBlocks::BusPower => s.purple(),
+            DeviceBlocks::BusPowerUsed => s.bright_purple(),
+            DeviceBlocks::ExtraCurrentUsed => s.red(),
+            DeviceBlocks::Bcd => s.purple(),
+            _ => s.normal(),
+        }
+    }
+}
+
+impl Block<BusBlocks, USBBus> for BusBlocks {
+    fn default_blocks() -> Vec<BusBlocks> {
+        vec![
+            BusBlocks::Name,
+            BusBlocks::HostController,
+        ]
+    }
+
+    fn colour(&self, s: &String) -> ColoredString {
+        match self {
+            BusBlocks::BusNumber => s.cyan(),
+            BusBlocks::PCIVendor => s.bold().yellow(),
+            BusBlocks::PCIDevice => s.yellow(),
+            BusBlocks::Name => s.bold().blue(),
+            BusBlocks::HostController => s.green(),
+            BusBlocks::PCIRevision => s.normal(),
+            _ => s.normal(),
+        }
+    }
+
+    fn format_value(
         &self,
         bus: &system_profiler::USBBus,
         pad: &PrintPadding,
         settings: &PrintSettings,
     ) -> Option<String> {
         match self {
-            Blocks::BusNumber => Some(format!("{:3}", bus.get_bus_number())),
-            Blocks::Icon => settings
+            BusBlocks::BusNumber => Some(format!("{:3}", bus.get_bus_number())),
+            BusBlocks::Icon => settings
                 .icons
                 .as_ref()
                 .map_or(None, |i| Some(i.get_bus_icon(bus))),
-            Blocks::VendorID => Some(match bus.pci_vendor {
-                Some(v) => self.format_base(v, settings),
+            BusBlocks::PCIVendor => Some(match bus.pci_vendor {
+                Some(v) => Self::format_base(v, settings),
                 None => format!("{:>6}", "-"),
             }),
-            Blocks::ProductID => Some(match bus.pci_device {
-                Some(v) => self.format_base(v, settings),
+            BusBlocks::PCIDevice => Some(match bus.pci_device {
+                Some(v) => Self::format_base(v, settings),
                 None => format!("{:>6}", "-"),
             }),
-            Blocks::PCIRevision => Some(match bus.pci_revision {
-                Some(v) => self.format_base(v, settings),
+            BusBlocks::PCIRevision => Some(match bus.pci_revision {
+                Some(v) => Self::format_base(v, settings),
                 None => format!("{:>6}", "-"),
             }),
-            Blocks::Name => Some(format!("{:pad$}", bus.name, pad = pad.name)),
-            Blocks::HostController => Some(format!(
+            BusBlocks::Name => Some(format!("{:pad$}", bus.name, pad = pad.name)),
+            BusBlocks::HostController => Some(format!(
                 "{:pad$}",
                 bus.host_controller,
                 pad = pad.host_controller
             )),
-            _ => None,
+            // _ => None,
         }
     }
 }
@@ -249,13 +287,13 @@ pub struct PrintSettings {
 
 pub fn render_device(
     d: &system_profiler::USBDevice,
-    blocks: &DeviceBlocks,
+    blocks: &Vec<DeviceBlocks>,
     pad: &PrintPadding,
     settings: &PrintSettings,
 ) -> Vec<String> {
     let mut ret = Vec::new();
     for b in blocks {
-        if let Some(string) = b.format_device_value(d, pad, settings) {
+        if let Some(string) = b.format_value(d, pad, settings) {
             ret.push(format!("{}", b.colour(&string)));
         }
     }
@@ -265,14 +303,14 @@ pub fn render_device(
 
 pub fn render_bus(
     bus: &system_profiler::USBBus,
-    blocks: &DeviceBlocks,
+    blocks: &Vec<BusBlocks>,
     pad: &PrintPadding,
     settings: &PrintSettings,
 ) -> Vec<String> {
     let mut ret = Vec::new();
 
     for b in blocks {
-        if let Some(string) = b.format_bus_value(bus, pad, settings) {
+        if let Some(string) = b.format_value(bus, pad, settings) {
             ret.push(format!("{} ", b.colour(&string)));
         }
     }
@@ -346,7 +384,7 @@ fn generate_tree_data(
 
 pub fn print_flattened_devices(
     devices: &Vec<&system_profiler::USBDevice>,
-    db: &DeviceBlocks,
+    db: &Vec<DeviceBlocks>,
     settings: &PrintSettings,
 ) {
     let pad: PrintPadding = if !settings.no_padding {
@@ -378,7 +416,7 @@ pub struct TreeData {
 
 pub fn print_devices(
     devices: &Vec<system_profiler::USBDevice>,
-    db: &DeviceBlocks,
+    db: &Vec<DeviceBlocks>,
     settings: &PrintSettings,
     tree: &TreeData,
 ) {
@@ -452,8 +490,8 @@ pub fn print_devices(
 
 pub fn print_spdata(
     spdata: &system_profiler::SPUSBDataType,
-    db: &DeviceBlocks,
-    bb: &BusBlocks,
+    db: &Vec<DeviceBlocks>,
+    bb: &Vec<BusBlocks>,
     settings: &PrintSettings,
 ) {
     let pad: PrintPadding = if !settings.no_padding {
