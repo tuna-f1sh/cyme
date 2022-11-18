@@ -1,10 +1,10 @@
+///! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
+///!
+///! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
 use colored::*;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
-///! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
-///!
-///! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
 use std::fmt;
 use std::io;
 use std::process::Command;
@@ -65,6 +65,7 @@ where
 /// Root JSON returned from system_profiler
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SPUSBDataType {
+    /// system buses
     #[serde(rename(deserialize = "SPUSBDataType"))]
     pub buses: Vec<USBBus>,
 }
@@ -102,7 +103,7 @@ impl fmt::Display for SPUSBDataType {
 
 /// USB bus JSON returned from system_profiler
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct USBBus {
     #[serde(rename(deserialize = "_name"))]
     pub name: String,
@@ -115,7 +116,7 @@ pub struct USBBus {
     pub pci_vendor: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub usb_bus_number: Option<u8>,
-    // devices are normally hubs
+    /// `USBDevices` on the `USBBus`. Since a device can have devices too, need to walk all down all
     #[serde(rename(deserialize = "_items"))]
     pub devices: Option<Vec<USBDevice>>,
 }
@@ -244,7 +245,7 @@ impl fmt::Display for USBBus {
     }
 }
 
-/// location_id String from system_profiler is "LocationReg / Port"
+/// location_id `String` from system_profiler is "LocationReg / Port"
 /// The LocationReg has the tree structure (0xbbdddddd):
 ///
 ///   0x  -- always
@@ -392,13 +393,15 @@ pub struct USBDevice {
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub bcd_device: Option<f32>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    pub bcd_usb: Option<f32>,
+    #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub bus_power: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub bus_power_used: Option<u16>,
     pub device_speed: Option<DeviceSpeed>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub extra_current_used: Option<u8>,
-    // devices can be hub and have devices attached
+    /// Devices can be hub and have devices attached so need to walk each device devices...
     #[serde(rename(deserialize = "_items"))]
     pub devices: Option<Vec<USBDevice>>,
 }

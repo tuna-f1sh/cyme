@@ -9,6 +9,19 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// A numerical `value` converted from a String, which includes a `unit` and `description`
 ///
 /// Serialized string is of format "[value] [unit]" where u32 of f32 is supported
+///
+/// ```
+/// use std::str::FromStr;
+/// use cyme::types::NumericalUnit;
+///
+/// let s: &'static str = "100.0 W";
+/// let nu = NumericalUnit::from_str(s).unwrap();
+/// assert_eq!(nu, NumericalUnit{ value: 100.0, unit: "W".into(), description: None });
+///
+/// let s: &'static str = "59 mA";
+/// let nu = NumericalUnit::from_str(s).unwrap();
+/// assert_eq!(nu, NumericalUnit{ value: 59, unit: "mA".into(), description: None });
+/// ```
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct NumericalUnit<T> {
     pub value: T,

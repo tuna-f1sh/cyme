@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 ///! Defines for USB, mainly thosed covered at [usb.org](https://www.usb.org)
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 

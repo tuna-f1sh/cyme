@@ -69,21 +69,37 @@ lazy_static! {
     };
 
     /// Default icon lookup can be overridden by user icons with IconTheme `icons`
+    ///
+    /// Should probably keep fairly short but I've added things I use like debuggers, mcus as examples
     static ref DEFAULT_ICONS: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
             (Icon::Vid(0x05ac), "\u{f179}".into()), // apple 
             (Icon::Vid(0x8086), "\u{f179}".into()), // apple bus 
             (Icon::Vid(0x045e), "\u{f871}".into()), // microsoft 
+            (Icon::Vid(0x18d1), "\u{f1a0}".into()), // google 
             (Icon::Vid(0x1D6B), "\u{f17c}".into()), // linux foundation 
+            (Icon::Vid(0x1d50), "\u{e771}".into()), // open source VID 
             (Icon::Vid(0x1915), "\u{f5a2}".into()), // specialized 
             (Icon::Vid(0x0483), "\u{f5a2}".into()), // specialized 
+            (Icon::Vid(0x046d), "\u{f87c}".into()), // logitech 
             (Icon::Vid(0x091e), "\u{e2a6}".into()), // garmin 
-            (Icon::Vid(0x1d50), "\u{f188}".into()), // black magic probe 
+            (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}".into()), // black magic probe 
             (Icon::Vid(0x1366), "\u{f188}".into()), // segger 
+            (Icon::Vid(0xf1a0), "\u{f188}".into()), // arm 
+            (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}".into()), // st-link 
+            (Icon::VidPid((0x0483, 0xdf11)), "\u{f019}".into()), // STM DFU 
+            (Icon::VidPid((0x1d50, 0x6017)), "\u{f188}".into()), // black magic probe DFU 
             (Icon::Vid(0x2341), "\u{f2db}".into()), // arduino 
-            (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f878}".into()), // monitor 
-            (Icon::VidPid((0x0781, 0xf7c9)), "\u{f878}".into()), // external disk 
+            (Icon::Vid(0x239A), "\u{f2db}".into()), // adafruit 
+            (Icon::Vid(0x2e8a), "\u{f315}".into()), // raspberry pi foundation 
+            (Icon::Vid(0x0483), "\u{f2db}".into()), // stm 
+            (Icon::Vid(0x1915), "\u{f2db}".into()), // nordic 
+            (Icon::Vid(0x1fc9), "\u{f2db}".into()), // nxp 
+            (Icon::Vid(0x1050), "\u{f805}".into()), // yubikey 
+            (Icon::VidPid((0x1d50, 0x606f)), "\u{f5e6}".into()), // candlelight_fw gs_can 
+            (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f878}".into()), // lg monitor 
+            (Icon::VidPid((0x0781, 0xf7c9)), "\u{f878}".into()), // sandisk external disk 
         ])
     };
 }

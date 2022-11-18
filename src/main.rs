@@ -86,6 +86,10 @@ struct Args {
     #[arg(long, default_value_t = false)]
     json: bool,
 
+    /// Force libusb mode on macOS rather than using system_profiler output
+    #[arg(long, default_value_t = false)]
+    force_libusb: bool,
+
     /// Turn debugging information on
     #[arg(short = 'D', long, action = clap::ArgAction::Count)]
     debug: u8,
@@ -207,12 +211,25 @@ fn main() {
         env::set_var("NO_COLOR", "1");
     }
 
-    let mut sp_usb = system_profiler::get_spusb().unwrap_or_else(|e| {
-        eprintexit!(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Failed to parse system_profiler output: {}", e)
-        ));
-    });
+    let mut sp_usb = if cfg!(target_os = "macos") && !args.force_libusb {
+        system_profiler::get_spusb().unwrap_or_else(|e| {
+            eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to parse system_profiler output: {}", e)
+            ));
+        })
+    } else {
+        abort_not_libusb();
+        #[cfg(feature = "libusb")]
+        // TODO pass filter
+        lsusb::get_spusb(&Default::default()).unwrap_or_else(|e| {
+            eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to gather system USB data: {}", e)
+            ));
+        })
+    };
+
     log::debug!("{:#?}", sp_usb);
 
     let filter = if args.hide_hubs

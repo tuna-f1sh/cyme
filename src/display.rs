@@ -1,3 +1,4 @@
+///! Provides the main utilities to display USB types within this crate - primarily used by `cyme` binary.
 use clap::ValueEnum;
 use colored::*;
 use itertools::Itertools;
@@ -7,6 +8,7 @@ use crate::icon;
 use crate::system_profiler;
 use crate::system_profiler::{USBBus, USBDevice};
 
+/// Info that can be printed about a `USBDevice`
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Clone, Serialize, Deserialize)]
 pub enum DeviceBlocks {
@@ -25,9 +27,11 @@ pub enum DeviceBlocks {
     BusPower,
     BusPowerUsed,
     ExtraCurrentUsed,
-    Bcd,
+    BcdDevice,
+    BcdUsb,
 }
 
+/// Info that can be printed about a `USBBus`
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Clone, Serialize, Deserialize)]
 pub enum BusBlocks {
@@ -40,6 +44,7 @@ pub enum BusBlocks {
     PCIRevision,
 }
 
+/// Intended to be `impl` by a XBlocks `enum`
 pub trait Block<B, T> {
     fn default_blocks() -> Vec<Self> where Self: Sized;
     fn colour(&self, s: &String) -> ColoredString;
@@ -61,6 +66,7 @@ pub trait Block<B, T> {
 }
 
 impl DeviceBlocks {
+    /// Default `DeviceBlocks` for tree printing are different to list, get them here
     pub fn default_device_tree_blocks() -> Vec<DeviceBlocks> {
         vec![DeviceBlocks::Icon, DeviceBlocks::Name, DeviceBlocks::Serial]
     }
@@ -109,13 +115,13 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 Some(v) => Self::format_base(v, settings),
                 None => format!("{:>6}", "-"),
             }),
-            DeviceBlocks::Name => Some(format!("{:pad$}", d.name.trim(), pad = pad.name)),
+            DeviceBlocks::Name => Some(format!("{:pad$}", d.name, pad = pad.name)),
             DeviceBlocks::Manufacturer => Some(match d.manufacturer.as_ref() {
-                Some(v) => format!("{:pad$}", v.trim(), pad = pad.manufacturer),
+                Some(v) => format!("{:pad$}", v, pad = pad.manufacturer),
                 None => format!("{:pad$}", "-", pad = pad.manufacturer),
             }),
             DeviceBlocks::Serial => Some(match d.serial_num.as_ref() {
-                Some(v) => format!("{:pad$}", v.trim(), pad = pad.serial),
+                Some(v) => format!("{:pad$}", v, pad = pad.serial),
                 None => format!("{:pad$}", "-", pad = pad.serial),
             }),
             DeviceBlocks::Speed => Some(match d.device_speed.as_ref() {
@@ -139,7 +145,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 Some(v) => format!("{:3} mA", v),
                 None => format!("{:>6}", "-"),
             }),
-            DeviceBlocks::Bcd => Some(match d.bcd_device {
+            DeviceBlocks::BcdDevice|DeviceBlocks::BcdUsb => Some(match d.bcd_device {
                 Some(v) => format!("{:>5.2}", v),
                 None => format!("{:>8}", "-"),
             }),
@@ -164,7 +170,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::BusPower => s.purple(),
             DeviceBlocks::BusPowerUsed => s.bright_purple(),
             DeviceBlocks::ExtraCurrentUsed => s.red(),
-            DeviceBlocks::Bcd => s.purple(),
+            DeviceBlocks::BcdDevice => s.purple(),
             _ => s.normal(),
         }
     }
@@ -225,6 +231,9 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
     }
 }
 
+/// Structure passed when printing list of devices that provides inner device amount to pad values so that they all align
+///
+/// Requires parent device to fill with max length of each value in list of its devices
 #[derive(Debug, Default)]
 pub struct PrintPadding {
     pub name: usize,
@@ -234,6 +243,7 @@ pub struct PrintPadding {
     pub host_controller: usize,
 }
 
+/// Value to sort `USBDevice`
 #[derive(Default, Debug, ValueEnum, Clone, Serialize, Deserialize)]
 pub enum Sort {
     #[default]
@@ -275,13 +285,20 @@ impl Sort {
     }
 }
 
+/// Passed to printing functions allows default args
 #[derive(Debug, Default)]
 pub struct PrintSettings {
+    /// Don't pad in order to align blocks
     pub no_padding: bool,
+    /// Print in decimal not base16
     pub base10: bool,
+    /// No tree printing
     pub tree: bool,
+    /// Sort devices
     pub sort_devices: Sort,
+    /// Sort buses by bus number
     pub sort_buses: bool,
+    /// `IconTheme` to apply - None to not print any icons
     pub icons: Option<icon::IconTheme>,
 }
 
@@ -397,6 +414,7 @@ pub fn print_flattened_devices(
     let sorted = settings.sort_devices.sort_devices_ref(&devices);
 
     for device in sorted {
+        log::debug!("render_device: {:?}", render_device(device, db, &pad, settings));
         println!("{}", render_device(device, db, &pad, settings).join(" "));
     }
 }
