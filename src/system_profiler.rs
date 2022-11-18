@@ -1,20 +1,22 @@
+use colored::*;
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 ///! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
 ///!
 ///! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
 use std::fmt;
 use std::io;
+use std::process::Command;
 use std::str::FromStr;
 
-use colored::*;
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
-use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
-use std::process::Command;
+use crate::types::NumericalUnit;
+use crate::usb::Speed;
 
 /// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
 /// Deserializes an option number from string or a number.
-/// Only really used for vendor id and product id so TODO make struct for these
-/// TODO handle DeviceNumericalUnit here or another deserializer?
+/// TODO: - Only really used for vendor id and product id so make struct for these?
+///       - handle DeviceNumericalUnit here or another deserializer?
 fn deserialize_option_number_from_string<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
@@ -60,6 +62,7 @@ where
     }
 }
 
+/// Root JSON returned from system_profiler
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SPUSBDataType {
     #[serde(rename(deserialize = "SPUSBDataType"))]
@@ -97,6 +100,7 @@ impl fmt::Display for SPUSBDataType {
     }
 }
 
+/// USB bus JSON returned from system_profiler
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBBus {
@@ -240,17 +244,22 @@ impl fmt::Display for USBBus {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Serialize)]
 /// location_id String from system_profiler is "LocationReg / Port"
 /// The LocationReg has the tree structure (0xbbdddddd):
+///
 ///   0x  -- always
 ///   bb  -- bus number in hexadecimal
 ///   dddddd -- up to six levels for the tree, each digit represents its
 ///             position on that level
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
 pub struct DeviceLocation {
+    /// Number of bus attached too
     pub bus: u8,
+    /// Will be len() depth in tree and position at each branch
     pub tree_positions: Vec<u8>,
+    /// Port number on branch
     pub port: Option<u8>,
+    /// Device number on bus
     pub number: Option<u8>,
 }
 
@@ -324,241 +333,6 @@ impl<'de> Deserialize<'de> for DeviceLocation {
         }
 
         deserializer.deserialize_any(DeviceLocationVisitor)
-    }
-}
-
-/// A numerical `value` converted from a String, which includes a `unit` and `description`
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct NumericalUnit<T> {
-    value: T,
-    unit: String,
-    description: Option<String>,
-}
-
-impl fmt::Display for NumericalUnit<u32> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:} {:}", self.value, self.unit)
-    }
-}
-
-impl fmt::Display for NumericalUnit<f32> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // If we received a precision, we use it.
-        write!(
-            f,
-            "{1:.*} {2}",
-            f.precision().unwrap_or(2),
-            self.value,
-            self.unit
-        )
-    }
-}
-
-impl FromStr for NumericalUnit<u32> {
-    type Err = io::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let value_split: Vec<&str> = s.trim().split(' ').collect();
-        if value_split.len() >= 2 {
-            Ok(NumericalUnit {
-                value: value_split[0]
-                    .trim()
-                    .parse::<u32>()
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?,
-                unit: value_split[1].trim().to_string(),
-                description: None,
-            })
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                "string split does not contain [u32] [unit]",
-            ))
-        }
-    }
-}
-
-impl FromStr for NumericalUnit<f32> {
-    type Err = io::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let value_split: Vec<&str> = s.trim().split(' ').collect();
-        if value_split.len() >= 2 {
-            Ok(NumericalUnit {
-                value: value_split[0]
-                    .trim()
-                    .parse::<f32>()
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?,
-                unit: value_split[1].trim().to_string(),
-                description: None,
-            })
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                "string split does not contain [f32] [unit]",
-            ))
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for NumericalUnit<u32> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct DeviceNumericalUnitU32Visitor;
-
-        impl<'de> Visitor<'de> for DeviceNumericalUnitU32Visitor {
-            type Value = NumericalUnit<u32>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a string with format '[int] [unit]'")
-            }
-
-            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                Ok(NumericalUnit::from_str(value.as_str()).map_err(E::custom)?)
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                Ok(NumericalUnit::from_str(value).map_err(E::custom)?)
-            }
-        }
-
-        deserializer.deserialize_str(DeviceNumericalUnitU32Visitor)
-    }
-}
-
-impl<'de> Deserialize<'de> for NumericalUnit<f32> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct DeviceNumericalUnitF32Visitor;
-
-        impl<'de> Visitor<'de> for DeviceNumericalUnitF32Visitor {
-            type Value = NumericalUnit<f32>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a string with format '[float] [unit]'")
-            }
-
-            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                Ok(NumericalUnit::from_str(value.as_str()).map_err(E::custom)?)
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                Ok(NumericalUnit::from_str(value).map_err(E::custom)?)
-            }
-        }
-
-        deserializer.deserialize_str(DeviceNumericalUnitF32Visitor)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[non_exhaustive]
-#[serde(untagged, rename_all = "snake_case")]
-pub enum Speed {
-    Unknown,
-    LowSpeed,
-    FullSpeed,
-    HighSpeed,
-    HighBandwidth,
-    SuperSpeed,
-    SuperSpeedPlus,
-}
-
-impl FromStr for Speed {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "super_speed_plus" => Speed::SuperSpeedPlus,
-            "super_speed" => Speed::SuperSpeed,
-            "high_speed" | "high_bandwidth" => Speed::HighSpeed,
-            "full_speed" => Speed::FullSpeed,
-            "low_speed" => Speed::LowSpeed,
-            _ => Speed::Unknown,
-        })
-    }
-}
-
-/// Convert from byte returned from device
-impl From<u8> for Speed {
-    fn from(b: u8) -> Self {
-        match b {
-            5 => Speed::SuperSpeedPlus,
-            4 => Speed::SuperSpeed,
-            3 => Speed::HighSpeed,
-            2 => Speed::FullSpeed,
-            1 => Speed::LowSpeed,
-            _ => Speed::Unknown,
-        }
-    }
-}
-
-impl fmt::Display for Speed {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Speed::SuperSpeedPlus => "super_speed_plus",
-                Speed::SuperSpeed => "super_speed",
-                Speed::HighSpeed | Speed::HighBandwidth => "high_speed",
-                Speed::FullSpeed => "full_speed",
-                Speed::Unknown => "unknown",
-                _ => todo!("Unsupported speed"),
-            }
-        )
-    }
-}
-
-impl From<&Speed> for NumericalUnit<f32> {
-    fn from(speed: &Speed) -> NumericalUnit<f32> {
-        match speed {
-            Speed::SuperSpeedPlus => NumericalUnit {
-                value: 20.0,
-                unit: String::from("Gb/s"),
-                description: Some(speed.to_string()),
-            },
-            Speed::SuperSpeed => NumericalUnit {
-                value: 5.0,
-                unit: String::from("Gb/s"),
-                description: Some(speed.to_string()),
-            },
-            Speed::HighSpeed | Speed::HighBandwidth => NumericalUnit {
-                value: 480.0,
-                unit: String::from("Mb/s"),
-                description: Some(speed.to_string()),
-            },
-            Speed::FullSpeed => NumericalUnit {
-                value: 12.0,
-                unit: String::from("Mb/s"),
-                description: Some(speed.to_string()),
-            },
-            Speed::LowSpeed => NumericalUnit {
-                value: 1.5,
-                unit: String::from("Mb/s"),
-                description: Some(speed.to_string()),
-            },
-            Speed::Unknown => NumericalUnit {
-                value: 0.0,
-                unit: String::from("Mb/s"),
-                description: Some(speed.to_string()),
-            },
-        }
     }
 }
 

@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use colored::*;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
+use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::ClassCode;
-use crate::system_profiler::{USBDevice, USBBus};
 
 /// Icon type enum is used as key in `HashMaps`
 /// TODO FromStr and ToStr serialize/deserialize so that can merge with user defined
@@ -24,7 +24,7 @@ pub enum Icon {
     TreeCorner,
     TreeBlank,
     /// Icon at prepended before printing `USBBus`
-    TreeBusStart, 
+    TreeBusStart,
     /// Icon printed at end of tree before printing `USBDevice`
     TreeDeviceTerminator,
     /// Icon printed at end of tree before printing classifier
@@ -97,7 +97,12 @@ impl IconTheme {
     pub fn get_tree_icon(&self, icon: Icon) -> String {
         // unwrap on DEFAULT_TREE is ok here since should panic if missing from static list
         if let Some(user_tree) = self.tree.as_ref() {
-            user_tree.get(&icon).unwrap_or(&DEFAULT_TREE.get(&icon).unwrap().to_string()).bright_black().to_string().to_owned()
+            user_tree
+                .get(&icon)
+                .unwrap_or(&DEFAULT_TREE.get(&icon).unwrap().to_string())
+                .bright_black()
+                .to_string()
+                .to_owned()
         } else {
             DEFAULT_TREE.get(&icon).unwrap().bright_black().to_string()
         }
@@ -106,20 +111,38 @@ impl IconTheme {
     /// Drill through `DEFAULT_ICONS` first looking for `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> ""
     pub fn get_default_vidpid_icon(vid: u16, pid: u16) -> String {
         // try vid pid first
-        DEFAULT_ICONS.get(&Icon::VidPid((vid, pid)))
-            .unwrap_or(DEFAULT_ICONS.get(&Icon::VidPidMsb((vid, (pid >> 8) as u8)))
-                       .unwrap_or(DEFAULT_ICONS.get(&Icon::Vid(vid))
-                                  .unwrap_or(DEFAULT_ICONS.get(&Icon::UnknownVendor).unwrap_or(&"")))).to_string()
+        DEFAULT_ICONS
+            .get(&Icon::VidPid((vid, pid)))
+            .unwrap_or(
+                DEFAULT_ICONS
+                    .get(&Icon::VidPidMsb((vid, (pid >> 8) as u8)))
+                    .unwrap_or(
+                        DEFAULT_ICONS
+                            .get(&Icon::Vid(vid))
+                            .unwrap_or(DEFAULT_ICONS.get(&Icon::UnknownVendor).unwrap_or(&"")),
+                    ),
+            )
+            .to_string()
     }
 
     /// Drill through `Self` `icons` if present first looking for `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> `get_default_vidpid_icon`
     pub fn get_vidpid_icon(&self, vid: u16, pid: u16) -> String {
         if let Some(user_icons) = self.icons.as_ref() {
             // try vid pid first
-            user_icons.get(&Icon::VidPid((vid, pid)))
-                .unwrap_or(user_icons.get(&Icon::VidPidMsb((vid, (pid >> 8) as u8)))
-                           .unwrap_or(user_icons.get(&Icon::Vid(vid))
-                                      .unwrap_or(user_icons.get(&Icon::UnknownVendor).unwrap_or(&IconTheme::get_default_vidpid_icon(vid, pid))))).to_owned()
+            user_icons
+                .get(&Icon::VidPid((vid, pid)))
+                .unwrap_or(
+                    user_icons
+                        .get(&Icon::VidPidMsb((vid, (pid >> 8) as u8)))
+                        .unwrap_or(
+                            user_icons.get(&Icon::Vid(vid)).unwrap_or(
+                                user_icons
+                                    .get(&Icon::UnknownVendor)
+                                    .unwrap_or(&IconTheme::get_default_vidpid_icon(vid, pid)),
+                            ),
+                        ),
+                )
+                .to_owned()
         } else {
             IconTheme::get_default_vidpid_icon(vid, pid)
         }

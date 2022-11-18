@@ -47,18 +47,11 @@ impl Blocks {
     }
 
     pub fn default_device_tree_blocks() -> DeviceBlocks {
-        vec![
-            Blocks::Icon,
-            Blocks::Name,
-            Blocks::Serial,
-        ]
+        vec![Blocks::Icon, Blocks::Name, Blocks::Serial]
     }
 
     pub fn default_bus_blocks() -> BusBlocks {
-        vec![
-            Blocks::Name,
-            Blocks::HostController,
-        ]
+        vec![Blocks::Name, Blocks::HostController]
     }
 
     pub fn colour(&self, s: &String) -> ColoredString {
@@ -108,11 +101,11 @@ impl Blocks {
                 Some(v) => format!("{:3}", v),
                 None => format!("{:>3}", "-"),
             }),
-            Blocks::BranchPosition => Some(format!(
-                "{:3}",
-                d.get_branch_position()
-            )),
-            Blocks::Icon => settings.icons.as_ref().map_or(None, |i| Some(i.get_device_icon(d))),
+            Blocks::BranchPosition => Some(format!("{:3}", d.get_branch_position())),
+            Blocks::Icon => settings
+                .icons
+                .as_ref()
+                .map_or(None, |i| Some(i.get_device_icon(d))),
             Blocks::VendorID => Some(match d.vendor_id {
                 Some(v) => self.format_base(v, settings),
                 None => format!("{:>6}", "-"),
@@ -167,7 +160,10 @@ impl Blocks {
     ) -> Option<String> {
         match self {
             Blocks::BusNumber => Some(format!("{:3}", bus.get_bus_number())),
-            Blocks::Icon => settings.icons.as_ref().map_or(None, |i| Some(i.get_bus_icon(bus))),
+            Blocks::Icon => settings
+                .icons
+                .as_ref()
+                .map_or(None, |i| Some(i.get_bus_icon(bus))),
             Blocks::VendorID => Some(match bus.pci_vendor {
                 Some(v) => self.format_base(v, settings),
                 None => format!("{:>6}", "-"),
@@ -210,25 +206,31 @@ pub enum Sort {
 }
 
 impl Sort {
-    pub fn sort_devices(&self, d: &Vec<system_profiler::USBDevice>) -> Vec<system_profiler::USBDevice> {
+    pub fn sort_devices(
+        &self,
+        d: &Vec<system_profiler::USBDevice>,
+    ) -> Vec<system_profiler::USBDevice> {
         let mut sorted = d.to_owned();
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
             Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number.unwrap_or(0)),
             Sort::PortNumber => sorted.sort_by_key(|d| d.location_id.port.unwrap_or(0)),
-            _ => ()
+            _ => (),
         }
 
         sorted
     }
 
-    pub fn sort_devices_ref<'a>(&self, d: &Vec<&'a system_profiler::USBDevice>) -> Vec<&'a system_profiler::USBDevice> {
+    pub fn sort_devices_ref<'a>(
+        &self,
+        d: &Vec<&'a system_profiler::USBDevice>,
+    ) -> Vec<&'a system_profiler::USBDevice> {
         let mut sorted = d.to_owned();
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
             Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number.unwrap_or(0)),
             Sort::PortNumber => sorted.sort_by_key(|d| d.location_id.port.unwrap_or(0)),
-            _ => ()
+            _ => (),
         }
 
         sorted
@@ -245,7 +247,12 @@ pub struct PrintSettings {
     pub icons: Option<icon::IconTheme>,
 }
 
-pub fn render_device(d: &system_profiler::USBDevice, blocks: &DeviceBlocks, pad: &PrintPadding, settings: &PrintSettings) -> Vec<String> {
+pub fn render_device(
+    d: &system_profiler::USBDevice,
+    blocks: &DeviceBlocks,
+    pad: &PrintPadding,
+    settings: &PrintSettings,
+) -> Vec<String> {
     let mut ret = Vec::new();
     for b in blocks {
         if let Some(string) = b.format_device_value(d, pad, settings) {
@@ -256,12 +263,17 @@ pub fn render_device(d: &system_profiler::USBDevice, blocks: &DeviceBlocks, pad:
     ret
 }
 
-pub fn render_bus(bus: &system_profiler::USBBus, blocks: &DeviceBlocks, pad: &PrintPadding, settings: &PrintSettings) -> Vec<String> {
+pub fn render_bus(
+    bus: &system_profiler::USBBus,
+    blocks: &DeviceBlocks,
+    pad: &PrintPadding,
+    settings: &PrintSettings,
+) -> Vec<String> {
     let mut ret = Vec::new();
 
     for b in blocks {
         if let Some(string) = b.format_bus_value(bus, pad, settings) {
-           ret.push(format!("{} ", b.colour(&string)));
+            ret.push(format!("{} ", b.colour(&string)));
         }
     }
 
@@ -291,16 +303,35 @@ pub fn get_devices_padding_required(devices: &Vec<&system_profiler::USBDevice>) 
     }
 }
 
-fn generate_tree_data(current_tree: &TreeData, branch_length: usize, index: usize, settings: &PrintSettings) -> TreeData {
+fn generate_tree_data(
+    current_tree: &TreeData,
+    branch_length: usize,
+    index: usize,
+    settings: &PrintSettings,
+) -> TreeData {
     let mut pass_tree = current_tree.clone();
 
     // get prefix from icons - maybe should cache these before build rather than lookup each time...
     pass_tree.prefix = if pass_tree.depth > 0 {
         if index + 1 != pass_tree.branch_length {
             // format!("{}{}", pass_tree.prefix, LINE)
-            format!("{}{}", pass_tree.prefix, settings.icons.as_ref().map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeLine)))
+            format!(
+                "{}{}",
+                pass_tree.prefix,
+                settings
+                    .icons
+                    .as_ref()
+                    .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeLine))
+            )
         } else {
-            format!("{}{}", pass_tree.prefix, settings.icons.as_ref().map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBlank)))
+            format!(
+                "{}{}",
+                pass_tree.prefix,
+                settings
+                    .icons
+                    .as_ref()
+                    .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBlank))
+            )
         }
     } else {
         format!("{}", pass_tree.prefix)
@@ -366,24 +397,55 @@ pub fn print_devices(
         // get current prefix based on if last in tree and whether we are within the tree
         let device_prefix = if tree.depth > 0 {
             if i + 1 != tree.branch_length {
-                format!("{}{}", tree.prefix, settings.icons.as_ref().map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeEdge)))
+                format!(
+                    "{}{}",
+                    tree.prefix,
+                    settings
+                        .icons
+                        .as_ref()
+                        .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeEdge))
+                )
             } else {
-                format!("{}{}", tree.prefix, settings.icons.as_ref().map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeCorner)))
+                format!(
+                    "{}{}",
+                    tree.prefix,
+                    settings
+                        .icons
+                        .as_ref()
+                        .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeCorner))
+                )
             }
         } else {
-            format!("{}{}", tree.prefix, settings.icons.as_ref().map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBlank)))
+            format!(
+                "{}{}",
+                tree.prefix,
+                settings
+                    .icons
+                    .as_ref()
+                    .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBlank))
+            )
         };
 
         // print the device
-        print!("{}{} ", device_prefix, settings.icons.as_ref().map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeDeviceTerminator)));
+        print!(
+            "{}{} ",
+            device_prefix,
+            settings.icons.as_ref().map_or(String::new(), |i| i
+                .get_tree_icon(icon::Icon::TreeDeviceTerminator))
+        );
         println!("{}", render_device(device, db, &pad, settings).join(" "));
 
         match device.devices.as_ref() {
             Some(d) => {
                 // and then walk down devices printing them too
-                print_devices(&d, db, settings, &generate_tree_data(&tree, d.len(), i, settings));
-            },
-            None => ()
+                print_devices(
+                    &d,
+                    db,
+                    settings,
+                    &generate_tree_data(&tree, d.len(), i, settings),
+                );
+            }
+            None => (),
         }
     }
 }
@@ -410,18 +472,35 @@ pub fn print_spdata(
     let base_tree = TreeData {
         ..Default::default()
     };
-    log::debug!("SPUSBDataType settings, {:?}, padding {:?}, tree {:?}", settings, pad, base_tree);
+    log::debug!(
+        "SPUSBDataType settings, {:?}, padding {:?}, tree {:?}",
+        settings,
+        pad,
+        base_tree
+    );
 
     for (i, bus) in spdata.buses.iter().enumerate() {
-        print!("{}{} ", base_tree.prefix, settings.icons.as_ref().map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBusStart)));
+        print!(
+            "{}{} ",
+            base_tree.prefix,
+            settings
+                .icons
+                .as_ref()
+                .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBusStart))
+        );
         println!("{}", render_bus(bus, bb, &pad, settings).join(" "));
 
         match bus.devices.as_ref() {
             Some(d) => {
                 // and then walk down devices printing them too
-                print_devices(&d, db, settings, &generate_tree_data(&base_tree, d.len(), i, settings));
-            },
-            None => ()
+                print_devices(
+                    &d,
+                    db,
+                    settings,
+                    &generate_tree_data(&base_tree, d.len(), i, settings),
+                );
+            }
+            None => (),
         }
 
         println!();

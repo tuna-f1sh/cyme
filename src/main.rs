@@ -1,15 +1,15 @@
-#![allow(dead_code)]
+///! Where the magic happens for `cyme` binary!
 use clap::Parser;
 use colored::*;
 use simple_logger::SimpleLogger;
 use std::env;
 use std::io::{Error, ErrorKind};
 
+use cyme::display;
+use cyme::icon::IconTheme;
 #[cfg(feature = "libusb")]
 use cyme::lsusb;
 use cyme::system_profiler;
-use cyme::display;
-use cyme::icon::IconTheme;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -317,7 +317,9 @@ fn main() {
                 print_flat_lsusb(&devs, &filter);
             }
         } else {
-            let device_blocks = args.blocks.unwrap_or(display::Blocks::default_device_blocks());
+            let device_blocks = args
+                .blocks
+                .unwrap_or(display::Blocks::default_device_blocks());
             // TODO option for bus headings
             // let bus_blocks = args.bus_blocks.unwrap_or(display::Blocks::default_bus_blocks());
 
@@ -330,8 +332,12 @@ fn main() {
             eprintln!("lsusb compatible tree is styling only; content is not the same!");
             print!("{:+}", sp_usb);
         } else {
-            let device_blocks = args.blocks.unwrap_or(display::Blocks::default_device_tree_blocks());
-            let bus_blocks = args.bus_blocks.unwrap_or(display::Blocks::default_bus_blocks());
+            let device_blocks = args
+                .blocks
+                .unwrap_or(display::Blocks::default_device_tree_blocks());
+            let bus_blocks = args
+                .bus_blocks
+                .unwrap_or(display::Blocks::default_bus_blocks());
 
             display::print_spdata(&sp_usb, &device_blocks, &bus_blocks, &print_settings);
         }

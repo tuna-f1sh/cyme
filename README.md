@@ -27,21 +27,21 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 ## Planned Features for 1.0.0 Release
 
-[x] Controllable block data like `lsd --blocks`
-[x] Modern drawing of device tree with utf-8 boxes.
-[x] Vendor ID nerd font icon look up and icon theming like `lsd --icon`.
-    [ ] User defined icon map import.
-[ ] Drawing of headers.
-[ ] Show buses as headers in list mode.
-[ ] Tree support of all device interfaces and endpoints.
-[] libusb optional to get more USB data and support other OS with switch from `system_profiler`.
-[ ] Interface and Device Descriptor icon look up.
+- [x] Controllable block data like `lsd --blocks`
+- [x] Modern drawing of device tree with utf-8 boxes.
+- [x] Nerd font icon look up and icon theming like `lsd --icon`.
+- [ ] Drawing of headers.
+- [ ] Show buses as headers in list mode.
+- [ ] Tree support of all device interfaces and endpoints.
+- [ ] libusb optional to get more USB data and support other OS with switch from `system_profiler`.
+- [ ] Interface and Device Descriptor icon look up.
+- [ ] User defined icon map and colour import.
 
 # Install
 
 From crates.io with a Rust tool-chain installed: `cargo install cyme`. If wishing to do it from within a local clone: `cargo install --path .`.
 
-If wishing to use only macOS system_profiler and not more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
+If wishing to use only macOS `system_profiler` and not more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
 
 I also have a Homebrew tap: `brew tap tuna-f1sh/cyme`.
 

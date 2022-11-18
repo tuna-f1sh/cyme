@@ -2,10 +2,11 @@
 
 #[macro_use]
 extern crate lazy_static;
-pub mod system_profiler;
-pub mod usb;
-pub mod icon;
 pub mod display;
+pub mod icon;
+pub mod system_profiler;
+pub mod types;
+pub mod usb;
 
 #[cfg(feature = "libusb")]
 pub mod lsusb;

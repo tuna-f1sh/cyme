@@ -1,5 +1,5 @@
-use crate::system_profiler;
-/// Based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs) provides some functionaility as lsusb verbose
+use crate::{system_profiler, usb};
+///! Based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs) provides some functionaility as lsusb verbose
 use std::time::Duration;
 
 struct UsbDevice<'a> {
@@ -251,14 +251,15 @@ fn print_endpoint(endpoint_desc: &libusb::EndpointDescriptor) {
     );
 }
 
-impl From<libusb::Speed> for system_profiler::Speed {
+/// Covert to our crate speed
+impl From<libusb::Speed> for usb::Speed {
     fn from(libusb: libusb::Speed) -> Self {
         match libusb {
-            libusb::Speed::Super => system_profiler::Speed::SuperSpeed,
-            libusb::Speed::High => system_profiler::Speed::HighSpeed,
-            libusb::Speed::Full => system_profiler::Speed::FullSpeed,
-            libusb::Speed::Low => system_profiler::Speed::LowSpeed,
-            libusb::Speed::Unknown => system_profiler::Speed::Unknown,
+            libusb::Speed::Super => usb::Speed::SuperSpeed,
+            libusb::Speed::High => usb::Speed::HighSpeed,
+            libusb::Speed::Full => usb::Speed::FullSpeed,
+            libusb::Speed::Low => usb::Speed::LowSpeed,
+            libusb::Speed::Unknown => usb::Speed::Unknown,
         }
     }
 }
