@@ -11,7 +11,7 @@ use std::process::Command;
 use std::str::FromStr;
 
 use crate::types::NumericalUnit;
-use crate::usb::Speed;
+use crate::usb::{Speed, ClassCode, get_port_path};
 
 /// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
 /// Deserializes an option number from string or a number.
@@ -245,21 +245,21 @@ impl fmt::Display for USBBus {
     }
 }
 
-/// location_id `String` from system_profiler is "LocationReg / Port"
+/// location_id `String` from system_profiler is "LocationReg / DeviceNo"
 /// The LocationReg has the tree structure (0xbbdddddd):
 ///
 ///   0x  -- always
 ///   bb  -- bus number in hexadecimal
 ///   dddddd -- up to six levels for the tree, each digit represents its
 ///             position on that level
+///
+/// For libusb and general path info: http://gajjarpremal.blogspot.com/2015/04/sysfs-structures-for-linux-usb.html
 #[derive(Debug, Default, Clone, PartialEq, Serialize)]
 pub struct DeviceLocation {
     /// Number of bus attached too
     pub bus: u8,
     /// Will be len() depth in tree and position at each branch
     pub tree_positions: Vec<u8>,
-    /// Port number on branch
-    pub port: Option<u8>,
     /// Device number on bus
     pub number: Option<u8>,
 }
@@ -289,7 +289,7 @@ impl FromStr for DeviceLocation {
             .unwrap()
             >> 24) as u8;
         // port is after / but not always present
-        let port = match location_split.last().unwrap().trim().parse::<u8>() {
+        let number = match location_split.last().unwrap().trim().parse::<u8>() {
             Ok(v) => Some(v),
             // port is not always present for some reason so sum tree positions will be unique
             Err(_) => Some(tree_positions.iter().sum()),
@@ -298,9 +298,15 @@ impl FromStr for DeviceLocation {
         Ok(DeviceLocation {
             bus,
             tree_positions,
-            port,
+            number,
             ..Default::default()
         })
+    }
+}
+
+impl DeviceLocation {
+    pub fn port_path(&self) -> String {
+        get_port_path(self.bus, &self.tree_positions)
     }
 }
 
@@ -404,6 +410,8 @@ pub struct USBDevice {
     /// Devices can be hub and have devices attached so need to walk each device devices...
     #[serde(rename(deserialize = "_items"))]
     pub devices: Option<Vec<USBDevice>>,
+    #[serde(skip_deserializing)]
+    pub class: Option<ClassCode>,
 }
 
 impl USBDevice {
@@ -414,12 +422,12 @@ impl USBDevice {
         }
     }
 
-    /// Returns position on branch (parent), which is the last number in `tree_positions`
+    /// Returns position on branch (parent), which is the last number in `tree_positions` also sometimes refered to as port
     pub fn get_branch_position(&self) -> u8 {
         *self.location_id.tree_positions.last().unwrap_or(&0)
     }
 
-    /// Returns `true` if device is a hub based on device name - not perfect but most hubs advertise as a hub in name
+    /// Returns `true` if device is a hub based on device name - not perfect but most hubs advertise as a hub in name - or class code if it has one
     ///
     /// ```
     /// let d = cyme::system_profiler::USBDevice{ name: String::from("My special hub"), ..Default::default() };
@@ -431,7 +439,7 @@ impl USBDevice {
     /// assert_eq!(d.is_hub(), false);
     /// ```
     pub fn is_hub(&self) -> bool {
-        self.name.to_lowercase().contains("hub")
+        self.name.to_lowercase().contains("hub") || self.class.as_ref().map_or(false, |c| *c == ClassCode::Hub)
     }
 }
 
@@ -468,7 +476,7 @@ impl fmt::Display for USBDevice {
                 "{:>spaces$}{}/{} {}:{} {} {} {}",
                 tree.bright_black(),
                 format!("{:03}", self.location_id.bus).cyan(),
-                format!("{:03}", self.location_id.port.unwrap_or(0)).magenta(),
+                format!("{:03}", self.location_id.number.unwrap_or(0)).magenta(),
                 format!("0x{:04x}", self.vendor_id.unwrap()).yellow().bold(),
                 format!("0x{:04x}", self.product_id.unwrap()).yellow(),
                 self.name.trim().bold().blue(),
@@ -490,7 +498,7 @@ impl fmt::Display for USBDevice {
                 "{:>spaces$}Bus {:03} Device {:03}: ID {:04x}:{:04x} {}",
                 tree,
                 self.location_id.bus,
-                self.location_id.port.unwrap_or(0),
+                self.location_id.number.unwrap_or(0),
                 self.vendor_id.unwrap_or(0xffff),
                 self.product_id.unwrap_or(0xffff),
                 self.name.trim(),
@@ -504,7 +512,7 @@ pub struct USBFilter {
     pub vid: Option<u16>,
     pub pid: Option<u16>,
     pub bus: Option<u8>,
-    pub port: Option<u8>,
+    pub number: Option<u8>,
     pub name: Option<String>,
     pub serial: Option<String>,
     pub exclude_empty_hub: bool,
@@ -518,7 +526,7 @@ impl USBFilter {
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &USBDevice) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
-            && (device.location_id.port == self.port || self.port.is_none())
+            && (device.location_id.number == self.number || self.number.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
             && (device.product_id == self.pid || self.pid.is_none())
             && (self
@@ -629,7 +637,7 @@ mod tests {
             DeviceLocation {
                 bus: 2,
                 tree_positions: vec![1, 1],
-                port: Some(3),
+                number: Some(3),
                 ..Default::default()
             }
         );

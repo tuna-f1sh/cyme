@@ -18,6 +18,8 @@ pub enum Icon {
     VidPidMsb((u16, u8)),
     /// Class classifier icon
     Classifier(ClassCode),
+    /// Class classifier lookup with SubClass and Protocol
+    ClassifierSubProtocol((ClassCode, u8, u8)),
     UnknownVendor,
     TreeEdge,
     TreeLine,
@@ -90,6 +92,8 @@ lazy_static! {
             (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}".into()), // st-link 
             (Icon::VidPid((0x0483, 0xdf11)), "\u{f019}".into()), // STM DFU 
             (Icon::VidPid((0x1d50, 0x6017)), "\u{f188}".into()), // black magic probe DFU 
+            (Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecific, 0x01, 0x01)), "\u{f188}".into()), // DFU 
+            (Icon::ClassifierSubProtocol((ClassCode::WirelessController, 0x01, 0x01)), "\u{f188}".into()), // bluetooth DFU 
             (Icon::Vid(0x2341), "\u{f2db}".into()), // arduino 
             (Icon::Vid(0x239A), "\u{f2db}".into()), // adafruit 
             (Icon::Vid(0x2e8a), "\u{f315}".into()), // raspberry pi foundation 
@@ -97,9 +101,14 @@ lazy_static! {
             (Icon::Vid(0x1915), "\u{f2db}".into()), // nordic 
             (Icon::Vid(0x1fc9), "\u{f2db}".into()), // nxp 
             (Icon::Vid(0x1050), "\u{f805}".into()), // yubikey 
+            (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}".into()), // android dev 
+            (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}".into()), // android 
             (Icon::VidPid((0x1d50, 0x606f)), "\u{f5e6}".into()), // candlelight_fw gs_can 
             (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f878}".into()), // lg monitor 
             (Icon::VidPid((0x0781, 0xf7c9)), "\u{f878}".into()), // sandisk external disk 
+            (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}".into()), // serial 
+            (Icon::Classifier(ClassCode::CDCData), "\u{e795}".into()), // serial 
+            (Icon::Classifier(ClassCode::HID), "\u{f1c0}".into()), // 
         ])
     };
 }
@@ -116,11 +125,12 @@ impl IconTheme {
             user_tree
                 .get(&icon)
                 .unwrap_or(&DEFAULT_TREE.get(&icon).unwrap().to_string())
+                // TODO use colouring theme
                 .bright_black()
                 .to_string()
                 .to_owned()
         } else {
-            DEFAULT_TREE.get(&icon).unwrap().bright_black().to_string()
+            get_default_tree_icon(icon)
         }
     }
 
@@ -189,4 +199,10 @@ impl IconTheme {
             String::new()
         }
     }
+}
+
+/// Gets tree icon from `DEFAULT_TREE` as `String` with `unwrap` because should panic if missing from there
+pub fn get_default_tree_icon(i: Icon) -> String {
+    // TODO use colouring theme
+    DEFAULT_TREE.get(&i).unwrap().bright_black().to_string()
 }

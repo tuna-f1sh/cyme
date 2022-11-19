@@ -217,8 +217,7 @@ fn main() {
     } else {
         abort_not_libusb();
         #[cfg(feature = "libusb")]
-        // TODO pass filter
-        lsusb::get_spusb(&Default::default()).unwrap_or_else(|e| {
+        lsusb::get_spusb().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to gather system USB data: {}", e)
@@ -226,7 +225,7 @@ fn main() {
         })
     };
 
-    log::debug!("{:#?}", sp_usb);
+    // log::debug!("Returned system_profiler data {:#?}", sp_usb);
 
     let filter = if args.hide_hubs
         || args.vidpid.is_some()
@@ -243,14 +242,14 @@ fn main() {
         }
 
         if let Some(show) = &args.show {
-            let (bus, port) = parse_show(&show.as_str()).unwrap_or_else(|e| {
+            let (bus, number) = parse_show(&show.as_str()).unwrap_or_else(|e| {
                 eprintexit!(Error::new(
                     ErrorKind::Other,
                     format!("Failed to parse show parameter: {}", e)
                 ));
             });
             f.bus = bus;
-            f.port = port;
+            f.number = number;
         }
 
         // no need to unwrap as these are Option

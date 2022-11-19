@@ -13,9 +13,9 @@ use crate::system_profiler::{USBBus, USBDevice};
 #[derive(Debug, ValueEnum, Clone, Serialize, Deserialize)]
 pub enum DeviceBlocks {
     BusNumber,
-    PortNumber,
     DeviceNumber,
     BranchPosition,
+    PortPath,
     Icon,
     VendorID,
     ProductID,
@@ -48,6 +48,7 @@ pub enum BusBlocks {
 pub trait Block<B, T> {
     fn default_blocks() -> Vec<Self> where Self: Sized;
     fn colour(&self, s: &String) -> ColoredString;
+    fn heading(&self, settings: &PrintSettings, pad: &PrintPadding) -> String;
 
     fn format_value(
         &self,
@@ -68,7 +69,7 @@ pub trait Block<B, T> {
 impl DeviceBlocks {
     /// Default `DeviceBlocks` for tree printing are different to list, get them here
     pub fn default_device_tree_blocks() -> Vec<DeviceBlocks> {
-        vec![DeviceBlocks::Icon, DeviceBlocks::Name, DeviceBlocks::Serial]
+        vec![DeviceBlocks::Icon, DeviceBlocks::PortPath, DeviceBlocks::Name, DeviceBlocks::Serial]
     }
 }
 
@@ -76,7 +77,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
     fn default_blocks() -> Vec<DeviceBlocks> {
         vec![
             DeviceBlocks::BusNumber,
-            DeviceBlocks::PortNumber,
+            DeviceBlocks::DeviceNumber,
             DeviceBlocks::Icon,
             DeviceBlocks::VendorID,
             DeviceBlocks::ProductID,
@@ -98,11 +99,8 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 Some(v) => format!("{:3}", v),
                 None => format!("{:>3}", "-"),
             }),
-            DeviceBlocks::PortNumber => Some(match d.location_id.port {
-                Some(v) => format!("{:3}", v),
-                None => format!("{:>3}", "-"),
-            }),
             DeviceBlocks::BranchPosition => Some(format!("{:3}", d.get_branch_position())),
+            DeviceBlocks::PortPath => Some(format!("{:}", d.location_id.port_path())),
             DeviceBlocks::Icon => settings
                 .icons
                 .as_ref()
@@ -153,13 +151,12 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-
     fn colour(&self, s: &String) -> ColoredString {
         match self {
             DeviceBlocks::BusNumber => s.cyan(),
-            DeviceBlocks::PortNumber => s.magenta(),
             DeviceBlocks::DeviceNumber => s.bright_magenta(),
-            DeviceBlocks::BranchPosition => s.bright_magenta(),
+            DeviceBlocks::BranchPosition => s.magenta(),
+            DeviceBlocks::PortPath => s.cyan(),
             DeviceBlocks::VendorID => s.bold().yellow(),
             DeviceBlocks::ProductID => s.yellow(),
             DeviceBlocks::Name => s.bold().blue(),
@@ -172,6 +169,29 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::ExtraCurrentUsed => s.red(),
             DeviceBlocks::BcdDevice => s.purple(),
             _ => s.normal(),
+        }
+    }
+
+    fn heading(&self, _settings: &PrintSettings, pad: &PrintPadding) -> String {
+        match self {
+            DeviceBlocks::BusNumber => "Bus".into(),
+            DeviceBlocks::DeviceNumber => "Num".into(),
+            DeviceBlocks::BranchPosition => "Bnh".into(),
+            DeviceBlocks::PortPath => "Path".into(),
+            DeviceBlocks::VendorID => format!("{:^6}", "VID"),
+            DeviceBlocks::ProductID => format!("{:^6}", "PID"),
+            DeviceBlocks::Name => format!("{:^pad$}", "Name", pad = pad.name),
+            DeviceBlocks::Manufacturer =>  format!("{:^pad$}", "Manufacturer", pad = pad.manufacturer),
+            DeviceBlocks::Serial =>  format!("{:^pad$}", "Serial", pad = pad.serial),
+            DeviceBlocks::Speed => format!("{:^10}", "Speed"),
+            DeviceBlocks::TreePositions =>  format!("{:^pad$}", "TreePos", pad = pad.tree_positions),
+            DeviceBlocks::BusPower => "RtdA".into(),
+            DeviceBlocks::BusPowerUsed => "UseA".into(),
+            DeviceBlocks::ExtraCurrentUsed => "ExrA".into(),
+            DeviceBlocks::BcdDevice => "DVer".into(),
+            DeviceBlocks::BcdUsb => "UVer".into(),
+            DeviceBlocks::Icon => " ".into(),
+            // _ => "",
         }
     }
 }
@@ -229,6 +249,19 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             // _ => None,
         }
     }
+
+    fn heading(&self, _settings: &PrintSettings, pad: &PrintPadding) -> String {
+        match self {
+            BusBlocks::BusNumber => "Bus".into(),
+            BusBlocks::PCIDevice => "PID".into(),
+            BusBlocks::PCIVendor => "VID".into(),
+            BusBlocks::PCIRevision => "Rev".into(),
+            BusBlocks::Name => format!("{:^pad$}", "Name", pad = pad.name),
+            BusBlocks::HostController => format!("{:^pad$}", "HostCtrlr", pad = pad.host_controller),
+            BusBlocks::Icon => " ".into(),
+            // _ => "",
+        }
+    }
 }
 
 /// Structure passed when printing list of devices that provides inner device amount to pad values so that they all align
@@ -249,7 +282,6 @@ pub enum Sort {
     #[default]
     BranchPosition,
     DeviceNumber,
-    PortNumber,
     NoSort,
 }
 
@@ -262,7 +294,6 @@ impl Sort {
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
             Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number.unwrap_or(0)),
-            Sort::PortNumber => sorted.sort_by_key(|d| d.location_id.port.unwrap_or(0)),
             _ => (),
         }
 
@@ -277,7 +308,6 @@ impl Sort {
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
             Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number.unwrap_or(0)),
-            Sort::PortNumber => sorted.sort_by_key(|d| d.location_id.port.unwrap_or(0)),
             _ => (),
         }
 
@@ -298,10 +328,13 @@ pub struct PrintSettings {
     pub sort_devices: Sort,
     /// Sort buses by bus number
     pub sort_buses: bool,
+    /// Print headers
+    pub headers: bool,
     /// `IconTheme` to apply - None to not print any icons
     pub icons: Option<icon::IconTheme>,
 }
 
+/// TODO make generic and put in Blocks
 pub fn render_device(
     d: &system_profiler::USBDevice,
     blocks: &Vec<DeviceBlocks>,
@@ -313,6 +346,20 @@ pub fn render_device(
         if let Some(string) = b.format_value(d, pad, settings) {
             ret.push(format!("{}", b.colour(&string)));
         }
+    }
+
+    ret
+}
+
+fn render_device_heading(
+    blocks: &Vec<DeviceBlocks>,
+    pad: &PrintPadding,
+    settings: &PrintSettings,
+) -> Vec<String> {
+    let mut ret = Vec::new();
+
+    for b in blocks {
+        ret.push(b.heading(settings, pad).to_string())
     }
 
     ret
@@ -331,6 +378,24 @@ pub fn render_bus(
             ret.push(format!("{} ", b.colour(&string)));
         }
     }
+
+    ret
+}
+
+fn render_bus_heading(
+    blocks: &Vec<BusBlocks>,
+    pad: &PrintPadding,
+    settings: &PrintSettings,
+) -> Vec<String> {
+    let mut ret = Vec::new();
+
+    for b in blocks {
+        ret.push(b.heading(settings, pad).to_string())
+    }
+
+    let heading_str: String = ret.iter().join(" ");
+    ret.push("\n\r".into());
+    ret.push("_".repeat(heading_str.len()));
 
     ret
 }
@@ -413,6 +478,12 @@ pub fn print_flattened_devices(
 
     let sorted = settings.sort_devices.sort_devices_ref(&devices);
 
+    if settings.headers {
+        let heading = render_device_heading(db, &pad, settings).join(" ");
+        println!("{}", heading);
+        println!("{}", "\u{2508}".repeat(heading.len())); // ┈
+    }
+
     for device in sorted {
         log::debug!("render_device: {:?}", render_device(device, db, &pad, settings));
         println!("{}", render_device(device, db, &pad, settings).join(" "));
@@ -459,7 +530,7 @@ pub fn print_devices(
                     settings
                         .icons
                         .as_ref()
-                        .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeEdge))
+                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i.get_tree_icon(icon::Icon::TreeEdge))
                 )
             } else {
                 format!(
@@ -468,7 +539,7 @@ pub fn print_devices(
                     settings
                         .icons
                         .as_ref()
-                        .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeCorner))
+                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i.get_tree_icon(icon::Icon::TreeCorner))
                 )
             }
         } else {
@@ -478,7 +549,7 @@ pub fn print_devices(
                 settings
                     .icons
                     .as_ref()
-                    .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBlank))
+                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeBlank), |i| i.get_tree_icon(icon::Icon::TreeBlank))
             )
         };
 
@@ -486,7 +557,7 @@ pub fn print_devices(
         print!(
             "{}{} ",
             device_prefix,
-            settings.icons.as_ref().map_or(String::new(), |i| i
+            settings.icons.as_ref().map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
                 .get_tree_icon(icon::Icon::TreeDeviceTerminator))
         );
         println!("{}", render_device(device, db, &pad, settings).join(" "));
@@ -542,7 +613,7 @@ pub fn print_spdata(
             settings
                 .icons
                 .as_ref()
-                .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBusStart))
+                .map_or(icon::get_default_tree_icon(icon::Icon::TreeBusStart), |i| i.get_tree_icon(icon::Icon::TreeBusStart))
         );
         println!("{}", render_bus(bus, bb, &pad, settings).join(" "));
 
