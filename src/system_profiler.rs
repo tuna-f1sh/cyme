@@ -11,7 +11,7 @@ use std::process::Command;
 use std::str::FromStr;
 
 use crate::types::NumericalUnit;
-use crate::usb::{Speed, ClassCode, get_port_path};
+use crate::usb::{get_port_path, ClassCode, Speed};
 
 /// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
 /// Deserializes an option number from string or a number.
@@ -185,11 +185,12 @@ pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>)
         } else {
             writeln!(f, "{}", device)?;
         }
+
         // print all devices with this device - if hub for example
         device
             .devices
             .as_ref()
-            .map(|d| write_devices_recursive(f, d));
+            .map_or(Ok(()), |d| write_devices_recursive(f, d))?
     }
     Ok(())
 }
@@ -201,12 +202,7 @@ impl fmt::Display for USBBus {
             ""
         } else {
             if f.alternate() {
-                if self.devices.is_some() {
-                    "╓ "
-                } else {
-                    "- "
-                }
-            // lsusb tree
+                "\u{25CF} "
             } else {
                 "/: "
             }
@@ -226,22 +222,18 @@ impl fmt::Display for USBBus {
                 format!("0x{:04x}", self.pci_device.unwrap_or(0xffff)).yellow(),
                 self.pci_revision.unwrap_or(0xffff),
             )?;
-        // lsusb style but not really accurate...
+        // lsusb style with as much data as we have...always Bus.1 dev 1 for a bus and root_hub class but we don't know driver
         } else {
             writeln!(
                 f,
-                "{:}Bus {:03} Device 000: ID {:04x}:{:04x} {:} {:}",
+                "{:}Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=,",
                 tree,
                 self.get_bus_number(),
-                self.pci_vendor.unwrap_or(0xffff),
-                self.pci_device.unwrap_or(0xffff),
-                self.name,
-                self.host_controller,
             )?;
         }
+
         // followed by devices if there are some
-        self.devices.as_ref().map(|d| write_devices_recursive(f, d));
-        Ok(())
+        self.devices.as_ref().map_or(Ok(()), |d| write_devices_recursive(f, d))
     }
 }
 
@@ -439,7 +431,8 @@ impl USBDevice {
     /// assert_eq!(d.is_hub(), false);
     /// ```
     pub fn is_hub(&self) -> bool {
-        self.name.to_lowercase().contains("hub") || self.class.as_ref().map_or(false, |c| *c == ClassCode::Hub)
+        self.name.to_lowercase().contains("hub")
+            || self.class.as_ref().map_or(false, |c| *c == ClassCode::Hub)
     }
 }
 
@@ -452,18 +445,30 @@ impl fmt::Display for USBDevice {
         };
 
         // map speed from text back to data rate if tree
-        let speed = match &self.device_speed {
-            Some(v) => v.to_string(),
-            None => String::from(""),
+        let speed = if f.alternate() {
+            match &self.device_speed {
+                Some(v) => v.to_string(),
+                None => String::from(""),
+            }
+        } else {
+            match &self.device_speed {
+                Some(v) => match v {
+                    DeviceSpeed::SpeedValue(v) => {
+                        let dv = NumericalUnit::<f32>::from(v);
+                        format!("{:.0}{}", dv.value, dv.unit.chars().next().unwrap())
+                    }
+                    DeviceSpeed::Description(_) => String::new()
+                }
+                None => String::from(""),
+            }
         };
 
         // tree chars to prepend if plus formatted
         let tree: &str = if !f.sign_plus() {
             ""
         } else {
-            // TODO use "╟─ " unless last
             if f.alternate() {
-                "╙── "
+                "\u{2514}\u{2500}\u{2500} "
             } else {
                 "|__ "
             }
@@ -477,8 +482,8 @@ impl fmt::Display for USBDevice {
                 tree.bright_black(),
                 format!("{:03}", self.location_id.bus).cyan(),
                 format!("{:03}", self.location_id.number.unwrap_or(0)).magenta(),
-                format!("0x{:04x}", self.vendor_id.unwrap()).yellow().bold(),
-                format!("0x{:04x}", self.product_id.unwrap()).yellow(),
+                format!("0x{:04x}", self.vendor_id.unwrap_or(0)).yellow().bold(),
+                format!("0x{:04x}", self.product_id.unwrap_or(0)).yellow(),
                 self.name.trim().bold().blue(),
                 self.serial_num
                     .as_ref()
@@ -487,6 +492,22 @@ impl fmt::Display for USBDevice {
                     .green(),
                 speed.purple()
             )
+        /* Ref:
+         /:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/12p, 10000M
+         /:  Bus 03.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 480M
+         /:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=uhci_hcd/2p, 12M
+             |__ Port 2: Dev 2, If 0, Class=Hub, Driver=hub/15p, 12M
+                 |__ Port 4: Dev 3, If 0, Class=Communications, Driver=cdc_acm, 12M
+                 |__ Port 4: Dev 3, If 1, Class=CDC Data, Driver=cdc_acm, 12M
+                 |__ Port 4: Dev 3, If 2, Class=Communications, Driver=cdc_acm, 12M
+                 |__ Port 4: Dev 3, If 3, Class=CDC Data, Driver=cdc_acm, 12M
+                 |__ Port 4: Dev 3, If 4, Class=Application Specific Interface, Driver=, 12M
+                 |__ Port 4: Dev 3, If 5, Class=Vendor Specific Class, Driver=, 12M
+         /:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=ehci-pci/15p, 480M
+             |__ Port 2: Dev 2, If 0, Class=Human Interface Device, Driver=usbhid, 480M
+             |__ Port 2: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 480M
+             |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M
+         */
         // not same data as lsusb when tree (show port, class, driver etc.)
         } else {
             // add 3 because lsusb is like this
@@ -495,13 +516,13 @@ impl fmt::Display for USBDevice {
             }
             write!(
                 f,
-                "{:>spaces$}Bus {:03} Device {:03}: ID {:04x}:{:04x} {}",
+                "{:>spaces$}Port {:2}: Device {:2}: If {}, Class={}, Driver=, {}",
+                spaces,
                 tree,
-                self.location_id.bus,
-                self.location_id.number.unwrap_or(0),
-                self.vendor_id.unwrap_or(0xffff),
-                self.product_id.unwrap_or(0xffff),
-                self.name.trim(),
+                self.get_branch_position(),
+                0, // TODO do this for each interface
+                self.class.as_ref().map_or(String::new(), |c| format!("{:?}", c)),
+                speed
             )
         }
     }

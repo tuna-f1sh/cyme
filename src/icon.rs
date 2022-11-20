@@ -70,6 +70,19 @@ lazy_static! {
         ])
     };
 
+    /// Ascii chars used by lsusb compatible mode or no utf-8
+    static ref LSUSB_TREE: HashMap<Icon, &'static str> = {
+        HashMap::from([
+            (Icon::TreeEdge, "|__".into()), // same as corner
+            (Icon::TreeLine, "\t\t".into()), // no outside line but inset so starts under parent device
+            (Icon::TreeCorner, "|__".into()),
+            (Icon::TreeBlank, "\t\t".into()), // inset like line
+            (Icon::TreeBusStart, "/: ".into()),
+            (Icon::TreeDeviceTerminator, "".into()), // null
+            (Icon::TreeClassifierTerminiator, "".into()), // null
+        ])
+    };
+
     /// Default icon lookup can be overridden by user icons with IconTheme `icons`
     ///
     /// Should probably keep fairly short but I've added things I use like debuggers, mcus as examples

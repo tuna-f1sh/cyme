@@ -1,8 +1,8 @@
+use itertools::Itertools;
 ///! Defines for USB, mainly thosed covered at [usb.org](https://www.usb.org)
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
-use itertools::Itertools;
 
 use crate::types::NumericalUnit;
 
@@ -124,7 +124,7 @@ impl FromStr for Speed {
     }
 }
 
-/// Convert from byte returned from device
+/// Convert from byte returned from device descriptor
 impl From<u8> for Speed {
     fn from(b: u8) -> Self {
         match b {
@@ -194,13 +194,30 @@ impl From<&Speed> for NumericalUnit<f32> {
 
 /// Builds a replica of sysfs path; excludes config.interface
 ///
+/// ```
+/// use cyme::usb::get_port_path;
+///
+/// assert_eq!(get_port_path(1, &vec![1, 3, 2]), String::from("1-1.3.2"));
+/// ```
+///
 /// [ref](http://gajjarpremal.blogspot.com/2015/04/sysfs-structures-for-linux-usb.html)
 /// The names that begin with "usb" refer to USB controllers. More accurately, they refer to the "root hub" associated with each controller. The number is the USB bus number. In the example there is only one controller, so its bus is number 1. Hence the name "usb1".
-/// 
+///
 /// "1-0:1.0" is a special case. It refers to the root hub's interface. This acts just like the interface in an actual hub an almost every respect; see below.
 /// All the other entries refer to genuine USB devices and their interfaces. The devices are named by a scheme like this:
-/// 
+///
 ///  bus-port.port.port ...
 pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
     format!("{:}-{}", bus, ports.into_iter().format("."))
+}
+
+/// Build replica of sysfs path with interface
+///
+/// ```
+/// use cyme::usb::get_interface_path;
+///
+/// assert_eq!(get_interface_path(1, &vec![1, 3], 1, 0), String::from("1-1.3:1.0"));
+/// ```
+pub fn get_interface_path(bus: u8, ports: &Vec<u8>, config: u8, interface: u8) -> String {
+    format!("{}:{}.{}", get_port_path(bus, ports), config, interface)
 }

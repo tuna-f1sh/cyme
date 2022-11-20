@@ -77,6 +77,12 @@ struct Args {
     /// Sort devices by bus number
     #[arg(long, default_value_t = false)]
     sort_buses: bool,
+    // TODO group_by enum buses
+    // bus_headers
+
+    /// Show block headings
+    #[arg(long, default_value_t = false)]
+    headings: bool,
 
     /// Output as json format after filters applied
     #[arg(long, default_value_t = false)]
@@ -291,6 +297,7 @@ fn main() {
         base10: args.base10,
         sort_devices,
         sort_buses: args.sort_buses,
+        headings: args.headings,
         icons: Some(IconTheme::new()),
         ..Default::default()
     };
@@ -329,9 +336,10 @@ fn main() {
                 print_flat_lsusb(&devs, &filter);
             }
         } else {
-            let device_blocks = args
-                .blocks
-                .unwrap_or(display::Block::<display::DeviceBlocks, system_profiler::USBDevice>::default_blocks());
+            let device_blocks = args.blocks.unwrap_or(display::Block::<
+                display::DeviceBlocks,
+                system_profiler::USBDevice,
+            >::default_blocks());
             // TODO option for bus headings
             // let bus_blocks = args.bus_blocks.unwrap_or(display::Blocks::default_bus_blocks());
 
@@ -349,7 +357,9 @@ fn main() {
                 .unwrap_or(display::DeviceBlocks::default_device_tree_blocks());
             let bus_blocks = args
                 .bus_blocks
-                .unwrap_or(display::Block::<display::BusBlocks, system_profiler::USBBus>::default_blocks());
+                .unwrap_or(
+                    display::Block::<display::BusBlocks, system_profiler::USBBus>::default_blocks(),
+                );
 
             display::print_spdata(&sp_usb, &device_blocks, &bus_blocks, &print_settings);
         }

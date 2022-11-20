@@ -4,8 +4,8 @@
 use std::time::Duration;
 use itertools::Itertools;
 use rusb as libusb;
-use crate::{system_profiler::{self, DeviceLocation}, usb};
 use std::collections::HashMap;
+use crate::{usb, system_profiler};
 
 struct UsbDevice<T: libusb::UsbContext> {
     handle: libusb::DeviceHandle<T>,
@@ -14,15 +14,18 @@ struct UsbDevice<T: libusb::UsbContext> {
 }
 
 /// Builds a `system_profiler::USBDevice` from a `libusb::Device` by using `device_descriptor()` and intrograting for configuration strings
-fn build_spdevice<T: libusb::UsbContext>(device: &libusb::Device<T>) -> libusb::Result<system_profiler::USBDevice> {
+fn build_spdevice<T: libusb::UsbContext>(
+    device: &libusb::Device<T>,
+) -> libusb::Result<system_profiler::USBDevice> {
     let timeout = Duration::from_secs(1);
     let speed = match usb::Speed::from(device.speed()) {
         usb::Speed::Unknown => None,
-        v => Some(system_profiler::DeviceSpeed::SpeedValue(v))
+        v => Some(system_profiler::DeviceSpeed::SpeedValue(v)),
     };
 
     let device_desc = device.device_descriptor()?;
 
+    // try to get open device for strings but allowed to continue if this fails - get string functions will return empty
     let mut usb_device = {
         match device.open() {
             Ok(h) => match h.read_languages(timeout) {
@@ -50,7 +53,7 @@ fn build_spdevice<T: libusb::UsbContext>(device: &libusb::Device<T>) -> libusb::
         vendor_id: Some(device_desc.vendor_id()),
         product_id: Some(device_desc.product_id()),
         device_speed: speed,
-        location_id: DeviceLocation {
+        location_id: system_profiler::DeviceLocation {
             bus: device.bus_number(),
             number: Some(device.address()),
             tree_positions: device.port_numbers()?,
@@ -69,10 +72,9 @@ fn build_spdevice<T: libusb::UsbContext>(device: &libusb::Device<T>) -> libusb::
 ///
 /// The recursion ensures that even when creating a parent, the parent (if it exists) for that will also be created so even if the first `Device` is 7 devices deep, it should still build correctly.
 fn check_add_parent<T: libusb::UsbContext>(
-    d: &libusb::Device<T>, 
-    mut sp_devices: &mut HashMap<String, system_profiler::USBDevice>
-    ) -> libusb::Result<Option<system_profiler::USBDevice>> {
-
+    d: &libusb::Device<T>,
+    mut sp_devices: &mut HashMap<String, system_profiler::USBDevice>,
+) -> libusb::Result<Option<system_profiler::USBDevice>> {
     log::debug!("Check add device {:?}", d);
     if sp_devices.contains_key(&usb::get_port_path(d.bus_number(), &d.port_numbers()?)) {
         log::debug!("Already exists, skipping");
@@ -82,7 +84,10 @@ fn check_add_parent<T: libusb::UsbContext>(
     // if the device has a parent, try to find it in hashmap and put it in that device's devices
     if let Some(parent) = d.get_parent() {
         log::debug!("Has parent {:?}", parent);
-        match sp_devices.get_mut(&usb::get_port_path(parent.bus_number(), &parent.port_numbers()?)) {
+        match sp_devices.get_mut(&usb::get_port_path(
+            parent.bus_number(),
+            &parent.port_numbers()?,
+        )) {
             Some(sp_parent) => {
                 let sp_device = build_spdevice(d)?;
                 log::debug!("Parent exists {:?}", sp_parent);
@@ -95,12 +100,13 @@ fn check_add_parent<T: libusb::UsbContext>(
                 }
                 log::debug!("Updated parent {:?}", sp_parent);
                 Ok(None)
-            },
+            }
             // no parent: make the parent now, needs to be recursively in case parent has parents...
             None => {
                 log::debug!("Parent not in HashMap, will create");
                 // TODO return mut reference
-                let mut sp_parent = check_add_parent(&parent, &mut sp_devices)?.expect("Failed to return created parent for device");
+                let mut sp_parent = check_add_parent(&parent, &mut sp_devices)?
+                    .expect("Failed to return created parent for device");
                 // now add the device as the first one
                 let sp_device = build_spdevice(d)?;
                 sp_parent.devices = Some(vec![sp_device]);
@@ -119,9 +125,7 @@ fn check_add_parent<T: libusb::UsbContext>(
 }
 
 pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
-    let mut sp_data = system_profiler::SPUSBDataType {
-        buses: Vec::new()
-    };
+    let mut sp_data = system_profiler::SPUSBDataType { buses: Vec::new() };
     // Temporary store of devices used by `check_add_parent`
     // Uses port path as Hash key since that _should_ be unique for each device and easy to build
     let mut sp_devices: HashMap<String, system_profiler::USBDevice> = HashMap::new();
@@ -134,7 +138,13 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
     // group by bus number and then stick them into a bus in the returned SPUSBDataType
     let device_list: Vec<system_profiler::USBDevice> = sp_devices.into_values().collect();
     for (key, group) in &device_list.into_iter().group_by(|d| d.location_id.bus) {
-        let new_bus = system_profiler::USBBus { name: "Unknown".into(), host_controller: "Unknown".into(), usb_bus_number: Some(key), devices: Some(group.collect()), ..Default::default() };
+        let new_bus = system_profiler::USBBus {
+            name: "Unknown".into(),
+            host_controller: "Unknown".into(),
+            usb_bus_number: Some(key),
+            devices: Some(group.collect()),
+            ..Default::default()
+        };
         sp_data.buses.push(new_bus);
     }
 
@@ -188,25 +198,25 @@ pub fn lsusb_verbose(filter: &Option<system_profiler::USBFilter>) -> libusb::Res
         if let Some(f) = filter {
             if let Some(bus_number) = f.bus {
                 if bus_number != device.bus_number() {
-                    continue
+                    continue;
                 }
             }
 
             if let Some(address) = f.number {
                 if address != device.address() {
-                    continue
+                    continue;
                 }
             }
 
             if let Some(name) = &f.name {
                 if !get_product_string(&device_desc, &mut usb_device).contains(name) {
-                    continue
+                    continue;
                 }
             }
 
             if let Some(serial) = &f.serial {
                 if !get_serial_string(&device_desc, &mut usb_device).contains(serial) {
-                    continue
+                    continue;
                 }
             }
         }
@@ -246,6 +256,7 @@ pub fn lsusb_verbose(filter: &Option<system_profiler::USBFilter>) -> libusb::Res
     Ok(())
 }
 
+// TODO these could be generic
 fn get_product_string<T: libusb::UsbContext>(
     device_desc: &libusb::DeviceDescriptor,
     handle: &mut Option<UsbDevice<T>>,
@@ -254,7 +265,9 @@ fn get_product_string<T: libusb::UsbContext>(
         h.handle
             .read_product_string(h.language, device_desc, h.timeout)
             .unwrap_or(String::new())
-            .trim().trim_matches('\0').to_string()
+            .trim()
+            .trim_end_matches('\0')
+            .to_string()
     })
 }
 
@@ -266,7 +279,9 @@ fn get_manufacturer_string<T: libusb::UsbContext>(
         h.handle
             .read_manufacturer_string(h.language, device_desc, h.timeout)
             .unwrap_or(String::new())
-            .trim().trim_matches('\0').to_string()
+            .trim()
+            .trim_end_matches('\0')
+            .to_string()
     })
 }
 
@@ -278,7 +293,9 @@ fn get_serial_string<T: libusb::UsbContext>(
         h.handle
             .read_serial_number_string(h.language, device_desc, h.timeout)
             .unwrap_or(String::new())
-            .trim().trim_matches('\0').to_string()
+            .trim()
+            .trim_end_matches('\0')
+            .to_string()
     })
 }
 
@@ -286,14 +303,24 @@ fn get_serial_string<T: libusb::UsbContext>(
 ///
 /// Would be nicer to impl fmt::Display and From<f32> but cannot outside of crate
 fn version_to_float(version: &libusb::Version) -> Option<f32> {
-    if let Ok(v) = format!("{}.{}{}", version.major(), version.minor(), version.sub_minor()).parse::<f32>() {
+    if let Ok(v) = format!(
+        "{}.{}{}",
+        version.major(),
+        version.minor(),
+        version.sub_minor()
+    )
+    .parse::<f32>()
+    {
         Some(v)
     } else {
         None
     }
 }
 
-fn print_device<T: libusb::UsbContext>(device_desc: &libusb::DeviceDescriptor, handle: &mut Option<UsbDevice<T>>) {
+fn print_device<T: libusb::UsbContext>(
+    device_desc: &libusb::DeviceDescriptor,
+    handle: &mut Option<UsbDevice<T>>,
+) {
     println!("Device Descriptor:");
     println!(
         "  bcdUSB             {:2}.{}{}",
@@ -301,7 +328,11 @@ fn print_device<T: libusb::UsbContext>(device_desc: &libusb::DeviceDescriptor, h
         device_desc.usb_version().minor(),
         device_desc.usb_version().sub_minor()
     );
-    println!("  bDeviceClass        {:#04x} {:?}", device_desc.class_code(), usb::ClassCode::from(device_desc.class_code()));
+    println!(
+        "  bDeviceClass        {:#04x} {:?}",
+        device_desc.class_code(),
+        usb::ClassCode::from(device_desc.class_code())
+    );
     println!(
         "  bDeviceSubClass     {:#04x}",
         device_desc.sub_class_code()
@@ -346,7 +377,10 @@ fn print_device<T: libusb::UsbContext>(device_desc: &libusb::DeviceDescriptor, h
     );
 }
 
-fn print_config<T: libusb::UsbContext>(config_desc: &libusb::ConfigDescriptor, handle: &mut Option<UsbDevice<T>>) {
+fn print_config<T: libusb::UsbContext>(
+    config_desc: &libusb::ConfigDescriptor,
+    handle: &mut Option<UsbDevice<T>>,
+) {
     println!("  Config Descriptor:");
     println!(
         "    bNumInterfaces       {:3}",
