@@ -1,14 +1,14 @@
 ///! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
 ///!
 ///! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
-use colored::*;
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
-use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 use std::fmt;
 use std::io;
 use std::process::Command;
 use std::str::FromStr;
+use colored::*;
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 
 use crate::types::NumericalUnit;
 use crate::usb::{get_port_path, ClassCode, Speed};
@@ -71,11 +71,22 @@ pub struct SPUSBDataType {
 }
 
 impl SPUSBDataType {
+    /// Flattens entire data store by copying the `buses`, flattening them and pushing into a new `Vec` and then assigning it to `buses`. Expensive in memory, probably a better way...
+    pub fn flatten(&mut self) -> () {
+        let mut new_buses: Vec<USBBus> = Vec::new();
+        for mut bus in self.buses.clone() {
+            bus.flatten();
+            new_buses.push(bus);
+        }
+
+        self.buses = new_buses
+    }
+
     /// Returns a flattened Vec of all the USBDevices returned from system_profiler as a reference
     pub fn flatten_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
         let mut ret = Vec::new();
         for bus in &self.buses {
-            ret.append(&mut bus.flatten_devices());
+            ret.append(&mut bus.flattened_devices());
         }
 
         ret
@@ -123,7 +134,13 @@ pub struct USBBus {
 
 /// Returns of Vec of devices in the USBBus as a reference
 impl USBBus {
-    pub fn flatten_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
+    /// Flattens the bus by copying each device into a new devices `Vec` - probably quite expensive!
+    pub fn flatten(&mut self) -> () {
+        self.devices = Some(self.flattened_devices().iter().map(|d| d.clone().to_owned()).collect());
+    }
+
+    /// Returns a flattened `Vec` of references to all `USBDevice`s on the bus
+    pub fn flattened_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
         if let Some(devices) = &self.devices {
             get_all_devices(&devices)
         } else {
@@ -222,14 +239,26 @@ impl fmt::Display for USBBus {
                 format!("0x{:04x}", self.pci_device.unwrap_or(0xffff)).yellow(),
                 self.pci_revision.unwrap_or(0xffff),
             )?;
-        // lsusb style with as much data as we have...always Bus.1 dev 1 for a bus and root_hub class but we don't know driver
         } else {
-            writeln!(
-                f,
-                "{:}Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=,",
-                tree,
-                self.get_bus_number(),
-            )?;
+            // lsusb style with as much data as we have...always Bus.1 dev 1 for a bus and root_hub class but we don't know driver
+            if f.sign_plus() {
+                writeln!(
+                    f,
+                    "{:}Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=,",
+                    tree,
+                    self.get_bus_number(),
+                )?;
+            } else {
+                writeln!(
+                    f,
+                    "Bus {:03} Device 000: ID {:04x}:{:04x} {:} {:}",
+                    self.get_bus_number(),
+                    self.pci_vendor.unwrap_or(0xffff),
+                    self.pci_device.unwrap_or(0xffff),
+                    self.name,
+                    self.host_controller,
+                )?;
+            }
         }
 
         // followed by devices if there are some
@@ -434,6 +463,39 @@ impl USBDevice {
         self.name.to_lowercase().contains("hub")
             || self.class.as_ref().map_or(false, |c| *c == ClassCode::Hub)
     }
+
+    pub fn to_lsusb_string(&self) -> String {
+        format!("Bus {:03} Device {:03}: ID {:04x}:{:04x} {}",
+            self.location_id.bus,
+            self.location_id.number.unwrap_or(0),
+            self.vendor_id.unwrap_or(0xffff),
+            self.product_id.unwrap_or(0xffff),
+            self.name.trim(),
+        )
+    }
+
+    pub fn to_lsusb_tree_string(&self) -> String {
+        let speed = match &self.device_speed {
+            Some(v) => match v {
+                DeviceSpeed::SpeedValue(v) => {
+                    let dv = NumericalUnit::<f32>::from(v);
+                    // lsusb actually shows all in M but it think we can let that slide
+                    format!("{:.0}{}", dv.value, dv.unit.chars().next().unwrap())
+                }
+                DeviceSpeed::Description(_) => String::new()
+            }
+            None => String::from(""),
+        };
+
+        format!(
+            "Port {:}: Device {:}: If {}, Class={}, Driver=, {}",
+            self.get_branch_position(),
+            self.location_id.number.unwrap_or(0),
+            0, // TODO do this for each interface
+            self.class.as_ref().map_or(String::new(), |c| format!("{:?}", c)),
+            speed
+        )
+    }
 }
 
 impl fmt::Display for USBDevice {
@@ -445,22 +507,9 @@ impl fmt::Display for USBDevice {
         };
 
         // map speed from text back to data rate if tree
-        let speed = if f.alternate() {
-            match &self.device_speed {
-                Some(v) => v.to_string(),
-                None => String::from(""),
-            }
-        } else {
-            match &self.device_speed {
-                Some(v) => match v {
-                    DeviceSpeed::SpeedValue(v) => {
-                        let dv = NumericalUnit::<f32>::from(v);
-                        format!("{:.0}{}", dv.value, dv.unit.chars().next().unwrap())
-                    }
-                    DeviceSpeed::Description(_) => String::new()
-                }
-                None => String::from(""),
-            }
+        let speed = match &self.device_speed {
+            Some(v) => v.to_string(),
+            None => String::from(""),
         };
 
         // tree chars to prepend if plus formatted
@@ -492,38 +541,18 @@ impl fmt::Display for USBDevice {
                     .green(),
                 speed.purple()
             )
-        /* Ref:
-         /:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/12p, 10000M
-         /:  Bus 03.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 480M
-         /:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=uhci_hcd/2p, 12M
-             |__ Port 2: Dev 2, If 0, Class=Hub, Driver=hub/15p, 12M
-                 |__ Port 4: Dev 3, If 0, Class=Communications, Driver=cdc_acm, 12M
-                 |__ Port 4: Dev 3, If 1, Class=CDC Data, Driver=cdc_acm, 12M
-                 |__ Port 4: Dev 3, If 2, Class=Communications, Driver=cdc_acm, 12M
-                 |__ Port 4: Dev 3, If 3, Class=CDC Data, Driver=cdc_acm, 12M
-                 |__ Port 4: Dev 3, If 4, Class=Application Specific Interface, Driver=, 12M
-                 |__ Port 4: Dev 3, If 5, Class=Vendor Specific Class, Driver=, 12M
-         /:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=ehci-pci/15p, 480M
-             |__ Port 2: Dev 2, If 0, Class=Human Interface Device, Driver=usbhid, 480M
-             |__ Port 2: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 480M
-             |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M
-         */
-        // not same data as lsusb when tree (show port, class, driver etc.)
         } else {
-            // add 3 because lsusb is like this
-            if spaces > 0 {
-                spaces += 3;
+            // show what we can for lsusb style tree, driver and class can be just ,
+            if f.sign_plus() {
+                // add 3 because lsusb is aligned with parent
+                if spaces > 0 {
+                    spaces += 3;
+                }
+                write!(f, "{:>spaces$}{}", tree, self.to_lsusb_tree_string()
+                )
+            } else {
+                write!(f, "{}", self.to_lsusb_string())
             }
-            write!(
-                f,
-                "{:>spaces$}Port {:2}: Device {:2}: If {}, Class={}, Driver=, {}",
-                spaces,
-                tree,
-                self.get_branch_position(),
-                0, // TODO do this for each interface
-                self.class.as_ref().map_or(String::new(), |c| format!("{:?}", c)),
-                speed
-            )
         }
     }
 }

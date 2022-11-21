@@ -74,9 +74,9 @@ lazy_static! {
     static ref LSUSB_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::TreeEdge, "|__".into()), // same as corner
-            (Icon::TreeLine, "\t\t".into()), // no outside line but inset so starts under parent device
+            (Icon::TreeLine, "      ".into()), // no outside line but inset so starts under parent device
             (Icon::TreeCorner, "|__".into()),
-            (Icon::TreeBlank, "\t\t".into()), // inset like line
+            (Icon::TreeBlank, "      ".into()), // inset like line
             (Icon::TreeBusStart, "/: ".into()),
             (Icon::TreeDeviceTerminator, "".into()), // null
             (Icon::TreeClassifierTerminiator, "".into()), // null

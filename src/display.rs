@@ -51,11 +51,12 @@ pub trait Block<B, T> {
         Self: Sized;
     fn colour(&self, s: &String) -> ColoredString;
     fn heading(&self, settings: &PrintSettings, pad: &PrintPadding) -> String;
+    fn value_is_string(&self) -> bool;
 
     fn format_value(&self, d: &T, pad: &PrintPadding, settings: &PrintSettings) -> Option<String>;
 
     fn format_base(v: u16, settings: &PrintSettings) -> String {
-        if settings.base10 {
+        if settings.decimal {
             format!("{:6}", v)
         } else {
             format!("0x{:04x}", v)
@@ -87,6 +88,13 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::Serial,
             DeviceBlocks::Speed,
         ]
+    }
+
+    fn value_is_string(&self) -> bool {
+        match self {
+            DeviceBlocks::Name|DeviceBlocks::Serial|DeviceBlocks::PortPath|DeviceBlocks::Manufacturer => true,
+            _ => false
+        }
     }
 
     fn format_value(
@@ -211,6 +219,13 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         vec![BusBlocks::Name, BusBlocks::HostController]
     }
 
+    fn value_is_string(&self) -> bool {
+        match self {
+            BusBlocks::Name|BusBlocks::HostController => true,
+            _ => false
+        }
+    }
+
     fn colour(&self, s: &String) -> ColoredString {
         match self {
             BusBlocks::BusNumber => s.cyan(),
@@ -276,6 +291,8 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
 /// Structure passed when printing list of devices that provides inner device amount to pad values so that they all align
 ///
 /// Requires parent device to fill with max length of each value in list of its devices
+///
+/// TODO convert to HashMap<Block<B,T>, usize> and populate string blocks at parent rather than having to manually extend this struct
 #[derive(Debug, Default)]
 pub struct PrintPadding {
     pub name: usize,
@@ -324,21 +341,35 @@ impl Sort {
     }
 }
 
+/// Value to group `USBDevice`
+#[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Group {
+    #[default]
+    NoGroup,
+    Bus,
+}
+
 /// Passed to printing functions allows default args
 #[derive(Debug, Default)]
 pub struct PrintSettings {
     /// Don't pad in order to align blocks
     pub no_padding: bool,
     /// Print in decimal not base16
-    pub base10: bool,
+    pub decimal: bool,
     /// No tree printing
     pub tree: bool,
+    /// Hide empty buses
+    pub hide_buses: bool,
     /// Sort devices
     pub sort_devices: Sort,
     /// Sort buses by bus number
     pub sort_buses: bool,
+    /// Group devices
+    pub group_devices: Group,
     /// Print headings for blocks
     pub headings: bool,
+    /// Print as json
+    pub json: bool,
     /// `IconTheme` to apply - None to not print any icons
     pub icons: Option<icon::IconTheme>,
 }
@@ -404,30 +435,32 @@ fn generate_tree_data(
 ) -> TreeData {
     let mut pass_tree = current_tree.clone();
 
-    // get prefix from icons - maybe should cache these before build rather than lookup each time...
-    pass_tree.prefix = if pass_tree.depth > 0 {
-        if index + 1 != pass_tree.branch_length {
-            format!(
-                "{}{}",
-                pass_tree.prefix,
-                settings
-                    .icons
-                    .as_ref()
-                    .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeLine))
-            )
+    // get prefix from icons if tree - maybe should cache these before build rather than lookup each time...
+    if settings.tree {
+        pass_tree.prefix = if pass_tree.depth > 0 {
+            if index + 1 != pass_tree.branch_length {
+                format!(
+                    "{}{}",
+                    pass_tree.prefix,
+                    settings
+                        .icons
+                        .as_ref()
+                        .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeLine))
+                )
+            } else {
+                format!(
+                    "{}{}",
+                    pass_tree.prefix,
+                    settings
+                        .icons
+                        .as_ref()
+                        .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBlank))
+                )
+            }
         } else {
-            format!(
-                "{}{}",
-                pass_tree.prefix,
-                settings
-                    .icons
-                    .as_ref()
-                    .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBlank))
-            )
-        }
-    } else {
-        format!("{}", pass_tree.prefix)
-    };
+            format!("{}", pass_tree.prefix)
+        };
+    }
 
     pass_tree.depth += 1;
     pass_tree.branch_length = branch_length;
@@ -465,6 +498,27 @@ pub fn print_flattened_devices(
     }
 }
 
+pub fn print_bus_grouped(
+    bus_devices: Vec<(&system_profiler::USBBus, Vec<&system_profiler::USBDevice>)>,
+    db: &Vec<DeviceBlocks>,
+    bb: &Vec<BusBlocks>,
+    settings: &PrintSettings,
+) {
+    let pad: PrintPadding = Default::default();
+
+    for (bus, devices) in bus_devices {
+        if settings.headings {
+            let heading = render_heading(bb, &pad, settings).join(" ");
+            println!("{}", heading);
+            println!("{}", "\u{2508}".repeat(heading.len())); // ┈
+        }
+        println!("{}", render_value(bus, bb, &pad, settings).join(" "));
+        print_flattened_devices(&devices, db, settings);
+        // new line for each group
+        println!();
+    }
+}
+
 /// Passed to print functions to support tree building
 #[derive(Debug, Default, Clone)]
 pub struct TreeData {
@@ -497,17 +551,30 @@ pub fn print_devices(
 
     for (i, device) in sorted.iter().enumerate() {
         // get current prefix based on if last in tree and whether we are within the tree
-        let device_prefix = if tree.depth > 0 {
-            if i + 1 != tree.branch_length {
-                format!(
-                    "{}{}",
-                    tree.prefix,
-                    settings
-                        .icons
-                        .as_ref()
-                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i
-                            .get_tree_icon(icon::Icon::TreeEdge))
-                )
+        if settings.tree {
+            let device_prefix = if tree.depth > 0 {
+                if i + 1 != tree.branch_length {
+                    format!(
+                        "{}{}",
+                        tree.prefix,
+                        settings
+                            .icons
+                            .as_ref()
+                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i
+                                .get_tree_icon(icon::Icon::TreeEdge))
+                    )
+                } else {
+                    format!(
+                        "{}{}",
+                        tree.prefix,
+                        settings
+                            .icons
+                            .as_ref()
+                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
+                                .get_tree_icon(icon::Icon::TreeCorner))
+                    )
+                }
+            // TODO print not from bus
             } else {
                 format!(
                     "{}{}",
@@ -515,32 +582,30 @@ pub fn print_devices(
                     settings
                         .icons
                         .as_ref()
-                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
-                            .get_tree_icon(icon::Icon::TreeCorner))
+                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeBlank), |i| i
+                            .get_tree_icon(icon::Icon::TreeBlank))
                 )
+            };
+
+            // TODO this is not nice with fix but .len() device_prefix is num bytes so not correct for utf-8, nor is chars().count()
+            // maybe should just do once at start of bus
+            if settings.headings && i == 0 {
+                let heading = render_heading(db, &pad, settings).join(" ");
+                println!("{:>spaces$}{} ", "", heading, spaces=4 * tree.depth);
+                println!("{:>spaces$}{} ", "", "\u{2508}".repeat(heading.len()), spaces=4 * tree.depth); // ┈
             }
-        } else {
-            format!(
-                "{}{}",
-                tree.prefix,
+            // render and print tree if doing it
+            print!(
+                "{}{} ",
+                device_prefix,
                 settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeBlank), |i| i
-                        .get_tree_icon(icon::Icon::TreeBlank))
-            )
-        };
-
+                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
+                        .get_tree_icon(icon::Icon::TreeDeviceTerminator))
+            );
+        }
         // print the device
-        print!(
-            "{}{} ",
-            device_prefix,
-            settings
-                .icons
-                .as_ref()
-                .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
-                    .get_tree_icon(icon::Icon::TreeDeviceTerminator))
-        );
         println!("{}", render_value(device, db, &pad, settings).join(" "));
 
         match device.devices.as_ref() {
@@ -558,15 +623,15 @@ pub fn print_devices(
     }
 }
 
-pub fn print_spdata(
-    spdata: &system_profiler::SPUSBDataType,
+pub fn print_sp_usb(
+    sp_usb: &system_profiler::SPUSBDataType,
     db: &Vec<DeviceBlocks>,
     bb: &Vec<BusBlocks>,
     settings: &PrintSettings,
 ) {
     let pad: PrintPadding = if !settings.no_padding {
-        let longest_name = spdata.buses.iter().max_by_key(|x| x.name.len());
-        let longest_host_controller = spdata.buses.iter().max_by_key(|x| x.host_controller.len());
+        let longest_name = sp_usb.buses.iter().max_by_key(|x| x.name.len());
+        let longest_host_controller = sp_usb.buses.iter().max_by_key(|x| x.host_controller.len());
 
         PrintPadding {
             name: longest_name.map_or(0, |d| d.name.len()),
@@ -587,16 +652,23 @@ pub fn print_spdata(
         base_tree
     );
 
-    for (i, bus) in spdata.buses.iter().enumerate() {
-        print!(
-            "{}{} ",
-            base_tree.prefix,
-            settings
-                .icons
-                .as_ref()
-                .map_or(icon::get_default_tree_icon(icon::Icon::TreeBusStart), |i| i
-                    .get_tree_icon(icon::Icon::TreeBusStart))
-        );
+    for (i, bus) in sp_usb.buses.iter().enumerate() {
+        if settings.headings {
+            let heading = render_heading(bb, &pad, settings).join(" ");
+            println!("{}", heading);
+            println!("{}", "\u{2508}".repeat(heading.len())); // ┈
+        }
+        if settings.tree {
+            print!(
+                "{}{} ",
+                base_tree.prefix,
+                settings
+                    .icons
+                    .as_ref()
+                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeBusStart), |i| i
+                        .get_tree_icon(icon::Icon::TreeBusStart))
+            );
+        }
         println!("{}", render_value(bus, bb, &pad, settings).join(" "));
 
         match bus.devices.as_ref() {
@@ -612,6 +684,78 @@ pub fn print_spdata(
             None => (),
         }
 
+        // separate bus groups with line
         println!();
+    }
+}
+
+pub fn cyme_print(
+    sp_usb: &mut system_profiler::SPUSBDataType,
+    filter: Option<system_profiler::USBFilter>,
+    db: Option<Vec<DeviceBlocks>>,
+    bb: Option<Vec<BusBlocks>>,
+    settings: &PrintSettings,
+) {
+    // do the filter if present; will keep parents of matched devices even if they do not match
+    filter
+        .as_ref()
+        .map_or((), |f| f.retain_buses(&mut sp_usb.buses));
+
+    // hide any empty buses and hubs now we've filtered
+    if settings.hide_buses {
+        sp_usb.buses.retain(|b| b.has_devices());
+        // may still be empty hubs if the hub had an empty hub!
+        if let Some(f) = filter.as_ref() {
+            if f.exclude_empty_hub {
+                sp_usb.buses.retain(|b| !b.has_empty_hubs());
+            }
+        }
+    }
+
+    // sort the buses if asked
+    if settings.sort_buses {
+        sp_usb.buses.sort_by_key(|d| d.get_bus_number());
+    }
+
+    // default blocks or those passed
+    let device_blocks = db.unwrap_or(DeviceBlocks::default_device_tree_blocks());
+    let bus_blocks = bb.unwrap_or(Block::<BusBlocks, system_profiler::USBBus>::default_blocks());
+    sp_usb.flatten();
+
+    if settings.tree {
+        if settings.json {
+            println!("{}", serde_json::to_string_pretty(&sp_usb).unwrap());
+        } else {
+            print_sp_usb(sp_usb, &device_blocks, &bus_blocks, settings);
+        }
+    } else {
+        match settings.group_devices {
+            // maintain bus grouping but we need to flatten
+            Group::Bus => {
+                // build vec tuple of bus and it's flattened devices in order to filter again as recursive tree filter keeps parents of a matched device
+                // could build a new sp_usb but this avoids duplicating memory
+                let mut flat_buses: Vec<(&system_profiler::USBBus, Vec<&system_profiler::USBDevice>)> = Vec::new();
+
+                for bus in &sp_usb.buses {
+                    let mut flattened = bus.flattened_devices();
+                    filter.as_ref().map_or((), |f| f.retain_flattened_devices_ref(&mut flattened));
+                    flat_buses.push((bus, flattened));
+                }
+
+                // TODO json
+                print_bus_grouped(flat_buses, &device_blocks, &bus_blocks, settings);
+            },
+            // completely flatten the bus and only print devices
+            _ => {
+                let mut devs = sp_usb.flatten_devices();
+                filter.as_ref().map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
+
+                if settings.json {
+                    println!("{}", serde_json::to_string_pretty(&devs).unwrap());
+                } else {
+                    print_flattened_devices(&devs, &device_blocks, settings);
+                }
+            }
+        }
     }
 }

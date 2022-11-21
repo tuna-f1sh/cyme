@@ -159,7 +159,7 @@ impl From<&Speed> for NumericalUnit<f32> {
     fn from(speed: &Speed) -> NumericalUnit<f32> {
         match speed {
             Speed::SuperSpeedPlus => NumericalUnit {
-                value: 20.0,
+                value: 10.0,
                 unit: String::from("Gb/s"),
                 description: Some(speed.to_string()),
             },

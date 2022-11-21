@@ -54,9 +54,9 @@ struct Args {
     #[arg(long)]
     filter_serial: Option<String>,
 
-    /// Classic increase verbosity (show descriptors)
-    #[arg(short = 'v', long, default_value_t = false)]
-    lsusb_verbose: bool,
+    /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints
+    #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
+    verbose: u8,
 
     /// Disable coloured output, can also use NO_COLOR environment variable
     #[arg(short, long, default_value_t = false)]
@@ -68,7 +68,7 @@ struct Args {
 
     /// Show base16 values as base10 decimal instead
     #[arg(long, default_value_t = false)]
-    base10: bool,
+    decimal: bool,
 
     /// Sort devices by value
     #[arg(long, value_enum)]
@@ -77,8 +77,10 @@ struct Args {
     /// Sort devices by bus number
     #[arg(long, default_value_t = false)]
     sort_buses: bool,
-    // TODO group_by enum buses
-    // bus_headers
+
+    /// Group devices by value when listing
+    #[arg(long, value_enum, default_value_t = Default::default())]
+    group_devices: display::Group,
 
     /// Show block headings
     #[arg(long, default_value_t = false)]
@@ -269,22 +271,11 @@ fn main() {
         None
     };
 
-    filter
-        .as_ref()
-        .map_or((), |f| f.retain_buses(&mut sp_usb.buses));
-    if args.hide_buses {
-        sp_usb.buses.retain(|b| b.has_devices());
-        // may still be empty hubs if the hub had an empty hub!
-        if args.hide_hubs {
-            sp_usb.buses.retain(|b| !b.has_empty_hubs());
-        }
-    }
-
-    // default sort depends on tree or not
+    // no sort if just dumping
     let sort_devices = match args.sort_devices {
         Some(v) => v,
         None => {
-            if args.tree {
+            if args.tree || args.group_devices != display::Group::NoGroup {
                 display::Sort::default()
             } else {
                 display::Sort::NoSort
@@ -294,36 +285,33 @@ fn main() {
 
     let print_settings = display::PrintSettings {
         no_padding: args.no_padding,
-        base10: args.base10,
+        decimal: args.decimal,
+        tree: args.tree,
+        hide_buses: args.hide_buses,
         sort_devices,
         sort_buses: args.sort_buses,
+        group_devices: args.group_devices,
+        json: args.json,
         headings: args.headings,
         icons: Some(IconTheme::new()),
         ..Default::default()
     };
 
     // TODO verbose only supported by lsusb mode at the moment
-    if args.lsusb_verbose && !args.lsusb {
+    if args.verbose > 0 && !args.lsusb {
         eprintln!("Forcing '--lsusb' compatibility mode, supply --lsusb to avoid this");
         args.lsusb = true;
     }
 
-    // sort the buses if asked
-    if print_settings.sort_buses {
-        sp_usb.buses.sort_by_key(|d| d.get_bus_number());
-    }
+    sp_usb.flatten();
 
-    if !(args.tree) {
-        // filter again on flattened tree because will have kept parent branches with previous
-        let mut devs = sp_usb.flatten_devices();
-        filter
-            .as_ref()
-            .map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
-
-        if args.json {
-            println!("{}", serde_json::to_string_pretty(&devs).unwrap());
-        } else if args.lsusb {
-            if args.lsusb_verbose {
+    // TODO do this in main cyme_print so that sorting each is done too
+    if args.lsusb {
+        if args.tree { 
+            eprintln!("lsusb compatible tree is styling only; content is not the same!");
+            print!("{:+}", sp_usb);
+        } else {
+            if args.verbose > 0 {
                 abort_not_libusb();
                 #[cfg(feature = "libusb")]
                 lsusb::lsusb_verbose(&filter).unwrap_or_else(|e| {
@@ -333,35 +321,10 @@ fn main() {
                     ));
                 });
             } else {
-                print_flat_lsusb(&devs, &filter);
+                print_flat_lsusb(&sp_usb.flatten_devices(), &filter);
             }
-        } else {
-            let device_blocks = args.blocks.unwrap_or(display::Block::<
-                display::DeviceBlocks,
-                system_profiler::USBDevice,
-            >::default_blocks());
-            // TODO option for bus headings
-            // let bus_blocks = args.bus_blocks.unwrap_or(display::Blocks::default_bus_blocks());
-
-            display::print_flattened_devices(&devs, &device_blocks, &print_settings);
         }
     } else {
-        if args.json {
-            println!("{}", serde_json::to_string_pretty(&sp_usb).unwrap());
-        } else if args.lsusb {
-            eprintln!("lsusb compatible tree is styling only; content is not the same!");
-            print!("{:+}", sp_usb);
-        } else {
-            let device_blocks = args
-                .blocks
-                .unwrap_or(display::DeviceBlocks::default_device_tree_blocks());
-            let bus_blocks = args
-                .bus_blocks
-                .unwrap_or(
-                    display::Block::<display::BusBlocks, system_profiler::USBBus>::default_blocks(),
-                );
-
-            display::print_spdata(&sp_usb, &device_blocks, &bus_blocks, &print_settings);
-        }
+        display::cyme_print(&mut sp_usb, filter, args.blocks, args.bus_blocks, &print_settings);
     }
 }

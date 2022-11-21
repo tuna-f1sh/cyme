@@ -1,6 +1,31 @@
 ///! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb functions and provide cross-platform SPUSBDataType gather
 ///
 ///! lsusb uses udev for tree building, which libusb does not have access to and is Linux only. For this reason, this module cannot do everything lsusb does but tries to cover most things useful for listing USB device information.
+///! TODO: add udev-rs as linux dependency and get device driver from path
+/* Ref for list:
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 002 Device 003: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
+Bus 002 Device 002: ID 203a:fffe PARALLELS Virtual USB1.1 HUB
+Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+* Ref for Tree:
+/:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/12p, 10000M
+/:  Bus 03.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 480M
+/:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=uhci_hcd/2p, 12M
+   |__ Port 2: Dev 2, If 0, Class=Hub, Driver=hub/15p, 12M
+       |__ Port 4: Dev 3, If 0, Class=Communications, Driver=cdc_acm, 12M
+       |__ Port 4: Dev 3, If 1, Class=CDC Data, Driver=cdc_acm, 12M
+       |__ Port 4: Dev 3, If 2, Class=Communications, Driver=cdc_acm, 12M
+       |__ Port 4: Dev 3, If 3, Class=CDC Data, Driver=cdc_acm, 12M
+       |__ Port 4: Dev 3, If 4, Class=Application Specific Interface, Driver=, 12M
+       |__ Port 4: Dev 3, If 5, Class=Vendor Specific Class, Driver=, 12M
+/:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=ehci-pci/15p, 480M
+   |__ Port 2: Dev 2, If 0, Class=Human Interface Device, Driver=usbhid, 480M
+   |__ Port 2: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 480M
+   |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M
+*/
+use std::mem;
 use std::time::Duration;
 use itertools::Itertools;
 use rusb as libusb;
@@ -91,7 +116,8 @@ fn check_add_parent<T: libusb::UsbContext>(
             Some(sp_parent) => {
                 let sp_device = build_spdevice(d)?;
                 log::debug!("Parent exists {:?}", sp_parent);
-                let devices = sp_parent.devices.to_owned();
+                // take the current vec so we can make or extend
+                let devices = mem::take(&mut sp_parent.devices);
                 if let Some(mut devs) = devices {
                     devs.push(sp_device);
                     sp_parent.devices = Some(devs);
@@ -104,22 +130,21 @@ fn check_add_parent<T: libusb::UsbContext>(
             // no parent: make the parent now, needs to be recursively in case parent has parents...
             None => {
                 log::debug!("Parent not in HashMap, will create");
-                // TODO return mut reference
                 let mut sp_parent = check_add_parent(&parent, &mut sp_devices)?
                     .expect("Failed to return created parent for device");
                 // now add the device as the first one
                 let sp_device = build_spdevice(d)?;
                 sp_parent.devices = Some(vec![sp_device]);
                 log::debug!("New parent {:?}", sp_parent);
-                // will have been added by check_add_parent so can return updated in insert
-                Ok(sp_devices.insert(sp_parent.location_id.port_path(), sp_parent.to_owned()))
+                // insert to map and return
+                sp_devices.insert(sp_parent.location_id.port_path(), sp_parent.to_owned());
+                Ok(Some(sp_parent))
             }
         }
     } else {
         let sp_device = build_spdevice(d)?;
         log::debug!("Created {:?}", sp_device);
-        // insert and return the newly created device for if we were creating a parent
-        sp_devices.insert(sp_device.location_id.port_path(), sp_device.to_owned());
+        // return the newly created device
         Ok(Some(sp_device))
     }
 }
@@ -132,7 +157,9 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
 
     // run through devices adding to cache
     for device in libusb::DeviceList::new()?.iter() {
-        check_add_parent(&device, &mut sp_devices)?;
+        if let Some(sp_device) = check_add_parent(&device, &mut sp_devices)? {
+            sp_devices.insert(sp_device.location_id.port_path(), sp_device);
+        }
     }
 
     // group by bus number and then stick them into a bus in the returned SPUSBDataType
