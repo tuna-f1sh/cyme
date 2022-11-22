@@ -71,7 +71,9 @@ pub struct SPUSBDataType {
 }
 
 impl SPUSBDataType {
-    /// Flattens entire data store by copying the `buses`, flattening them and pushing into a new `Vec` and then assigning it to `buses`. Expensive in memory, probably a better way...
+    /// Flattens entire data store by cloning the `buses`, flattening them and pushing into a new `Vec` and then assigning it to `buses`
+    ///
+    /// Requires clone of buses so not in place - maybe a more efficient method?
     pub fn flatten(&mut self) -> () {
         let mut new_buses: Vec<USBBus> = Vec::new();
         for mut bus in self.buses.clone() {
@@ -82,7 +84,7 @@ impl SPUSBDataType {
         self.buses = new_buses
     }
 
-    /// Returns a flattened Vec of all the USBDevices returned from system_profiler as a reference
+    /// Returns a flattened Vec of references to all `USBDevice`s in each of the `buses`
     pub fn flatten_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
         let mut ret = Vec::new();
         for bus in &self.buses {
@@ -134,12 +136,22 @@ pub struct USBBus {
 
 /// Returns of Vec of devices in the USBBus as a reference
 impl USBBus {
-    /// Flattens the bus by copying each device into a new devices `Vec` - probably quite expensive!
+    /// Flattens the bus by copying each device into a new devices `Vec`
+    ///
+    /// Unlike the `flattened_devices` which returns references that may still contain a `Vec` of `USBDevice`, this function makes those `None` too since it is doing a hard copy.
+    ///
+    /// Not very pretty or efficient, probably a better way...
     pub fn flatten(&mut self) -> () {
-        self.devices = Some(self.flattened_devices().iter().map(|d| d.clone().to_owned()).collect());
+        self.devices = Some(self.flattened_devices().iter().map(|d| {
+            let mut new = d.clone().to_owned();
+            new.devices = None;
+            new
+        }).collect());
     }
 
     /// Returns a flattened `Vec` of references to all `USBDevice`s on the bus
+    ///
+    /// Note that whilst `Vec` of references is flat, the `USBDevice`s still contain a `devices` `Vec` where the references point; recursive functions on the returned `Vec` will produce wierd results
     pub fn flattened_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
         if let Some(devices) = &self.devices {
             get_all_devices(&devices)
@@ -604,6 +616,8 @@ impl USBFilter {
     }
 
     /// Recursively retain only `USBDevice` in `devices` matching filter
+    ///
+    /// Note that non-matching parents will still be retained if they have a matching `USBDevice` within their branches
     pub fn retain_devices(&self, devices: &mut Vec<USBDevice>) -> () {
         devices.retain(|d| self.exists_in_tree(d));
 

@@ -271,7 +271,7 @@ fn main() {
         None
     };
 
-    // no sort if just dumping
+    // no sort if just dumping because it looks wierd with buses out of order
     let sort_devices = match args.sort_devices {
         Some(v) => v,
         None => {
@@ -283,6 +283,13 @@ fn main() {
         }
     };
 
+    let group_devies = if args.group_devices == display::Group::Bus && args.tree {
+        eprintln!("--group-devices with --tree is ignored; will print as tree");
+        display::Group::NoGroup
+    } else {
+        args.group_devices
+    };
+
     let print_settings = display::PrintSettings {
         no_padding: args.no_padding,
         decimal: args.decimal,
@@ -290,7 +297,7 @@ fn main() {
         hide_buses: args.hide_buses,
         sort_devices,
         sort_buses: args.sort_buses,
-        group_devices: args.group_devices,
+        group_devices: group_devies,
         json: args.json,
         headings: args.headings,
         icons: Some(IconTheme::new()),
@@ -302,8 +309,6 @@ fn main() {
         eprintln!("Forcing '--lsusb' compatibility mode, supply --lsusb to avoid this");
         args.lsusb = true;
     }
-
-    sp_usb.flatten();
 
     // TODO do this in main cyme_print so that sorting each is done too
     if args.lsusb {

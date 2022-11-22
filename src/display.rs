@@ -469,6 +469,7 @@ fn generate_tree_data(
     return pass_tree;
 }
 
+/// Print `devices` `USBDevice` references without looking down each device's devices!
 pub fn print_flattened_devices(
     devices: &Vec<&system_profiler::USBDevice>,
     db: &Vec<DeviceBlocks>,
@@ -498,6 +499,9 @@ pub fn print_flattened_devices(
     }
 }
 
+/// A way of printing a reference flattened `SPUSBDataType` rather than hard flatten
+///
+/// Prints each `&USBBus` and tuple pair `Vec<&USBDevice>`
 pub fn print_bus_grouped(
     bus_devices: Vec<(&system_profiler::USBBus, Vec<&system_profiler::USBDevice>)>,
     db: &Vec<DeviceBlocks>,
@@ -532,6 +536,9 @@ pub struct TreeData {
     prefix: String,
 }
 
+/// Recursively print `devices`; will call for each `USBDevice` devices if `Some`
+///
+/// Will draw tree if `settings.tree`, otherwise it will be flat
 pub fn print_devices(
     devices: &Vec<system_profiler::USBDevice>,
     db: &Vec<DeviceBlocks>,
@@ -696,6 +703,12 @@ pub fn cyme_print(
     bb: Option<Vec<BusBlocks>>,
     settings: &PrintSettings,
 ) {
+    // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
+    // but only do it if there is a filter or grouping by bus (which uses tree print without tree...)
+    if !settings.tree && (filter.is_some() || settings.group_devices == Group::Bus) {
+        sp_usb.flatten();
+    }
+
     // do the filter if present; will keep parents of matched devices even if they do not match
     filter
         .as_ref()
@@ -720,9 +733,8 @@ pub fn cyme_print(
     // default blocks or those passed
     let device_blocks = db.unwrap_or(DeviceBlocks::default_device_tree_blocks());
     let bus_blocks = bb.unwrap_or(Block::<BusBlocks, system_profiler::USBBus>::default_blocks());
-    sp_usb.flatten();
 
-    if settings.tree {
+    if settings.tree || settings.group_devices == Group::Bus {
         if settings.json {
             println!("{}", serde_json::to_string_pretty(&sp_usb).unwrap());
         } else {
@@ -730,25 +742,10 @@ pub fn cyme_print(
         }
     } else {
         match settings.group_devices {
-            // maintain bus grouping but we need to flatten
-            Group::Bus => {
-                // build vec tuple of bus and it's flattened devices in order to filter again as recursive tree filter keeps parents of a matched device
-                // could build a new sp_usb but this avoids duplicating memory
-                let mut flat_buses: Vec<(&system_profiler::USBBus, Vec<&system_profiler::USBDevice>)> = Vec::new();
-
-                for bus in &sp_usb.buses {
-                    let mut flattened = bus.flattened_devices();
-                    filter.as_ref().map_or((), |f| f.retain_flattened_devices_ref(&mut flattened));
-                    flat_buses.push((bus, flattened));
-                }
-
-                // TODO json
-                print_bus_grouped(flat_buses, &device_blocks, &bus_blocks, settings);
-            },
             // completely flatten the bus and only print devices
             _ => {
-                let mut devs = sp_usb.flatten_devices();
-                filter.as_ref().map_or((), |f| f.retain_flattened_devices_ref(&mut devs));
+                // get a list of all devices
+                let devs = sp_usb.flatten_devices();
 
                 if settings.json {
                     println!("{}", serde_json::to_string_pretty(&devs).unwrap());
