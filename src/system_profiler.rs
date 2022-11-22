@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 
 use crate::types::NumericalUnit;
-use crate::usb::{get_port_path, ClassCode, Speed};
+use crate::usb::{get_port_path, ClassCode, Speed, USBDeviceExtra};
 
 /// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
 /// Deserializes an option number from string or a number.
@@ -443,8 +443,16 @@ pub struct USBDevice {
     /// Devices can be hub and have devices attached so need to walk each device devices...
     #[serde(rename(deserialize = "_items"))]
     pub devices: Option<Vec<USBDevice>>,
+    // below are not in macOS system profiler but useful enough to have outside of extra
     #[serde(skip_deserializing)]
     pub class: Option<ClassCode>,
+    #[serde(skip_deserializing)]
+    pub sub_class: Option<u8>,
+    #[serde(skip_deserializing)]
+    pub protocol: Option<u8>,
+    /// Extra data obtained by libusb/udev exploration
+    #[serde(skip_deserializing)]
+    pub extra: Option<USBDeviceExtra>,
 }
 
 impl USBDevice {

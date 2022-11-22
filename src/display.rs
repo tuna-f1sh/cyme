@@ -704,8 +704,8 @@ pub fn cyme_print(
     settings: &PrintSettings,
 ) {
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
-    // but only do it if there is a filter or grouping by bus (which uses tree print without tree...)
-    if !settings.tree && (filter.is_some() || settings.group_devices == Group::Bus) {
+    // but only do it if there is a filter, grouping by bus (which uses tree print without tree...) or json
+    if !settings.tree && (filter.is_some() || settings.group_devices == Group::Bus || settings.json) {
         sp_usb.flatten();
     }
 

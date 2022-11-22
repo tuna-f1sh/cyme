@@ -86,7 +86,7 @@ struct Args {
     #[arg(long, default_value_t = false)]
     headings: bool,
 
-    /// Output as json format after filters applied
+    /// Output as json format after sorting, filters and tree settings are applied
     #[arg(long, default_value_t = false)]
     json: bool,
 

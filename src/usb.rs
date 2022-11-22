@@ -1,10 +1,18 @@
-use itertools::Itertools;
 ///! Defines for USB, mainly thosed covered at [usb.org](https://www.usb.org)
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use std::fmt;
 use std::str::FromStr;
 
 use crate::types::NumericalUnit;
+
+/// Configuration attributes
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ConfigAttributes {
+    SelfPowered,
+    RemoteWakeup,
+}
 
 /// Explains how the `ClassCode` is used
 #[derive(Debug)]
@@ -15,9 +23,10 @@ pub enum DescriptorUsage {
 }
 
 /// USB class code defines [ref](https://www.usb.org/defined-class-codes)
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ClassCode {
+    #[default]
     UseInterfaceDescriptor,
     Audio,
     CDCCommunications,
@@ -192,6 +201,105 @@ impl From<&Speed> for NumericalUnit<f32> {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Transfer and endpoint directions.
+pub enum Direction {
+    /// Direction for write (host to device) transfers.
+    Out,
+    /// Direction for read (device to host) transfers.
+    In
+}
+
+/// An endpoint's transfer type.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransferType {
+    /// Control endpoint.
+    Control,
+    /// Isochronous endpoint.
+    Isochronous,
+    /// Bulk endpoint.
+    Bulk,
+    /// Interrupt endpoint.
+    Interrupt,
+}
+
+/// Isochronous synchronization mode.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SyncType {
+    /// No synchronisation.
+    NoSync,
+    /// Asynchronous.
+    Asynchronous,
+    /// Adaptive.
+    Adaptive,
+    /// Synchronous.
+    Synchronous,
+}
+
+/// Isochronous usage type.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum UsageType {
+    /// Data endpoint.
+    Data,
+    /// Feedback endpoint.
+    Feedback,
+    /// Explicit feedback data endpoint.
+    FeedbackData,
+    /// Reserved.
+    Reserved,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EndpointAddress {
+    pub address: u16,
+    pub number: u8,
+    pub direction: Direction,
+}
+
+/// Endpoint for an interface
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct USBEndpoint {
+    pub address: EndpointAddress,
+    pub transfer_type: TransferType,
+    pub sync_type: SyncType,
+    pub usage_type: UsageType,
+    pub max_packet_size: u16,
+    pub interval: u8,
+}
+
+/// Interface within a configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct USBInterface {
+    pub name: String,
+    pub number: u8,
+    pub class: ClassCode,
+    pub sub_class: u8,
+    pub protocol: u8,
+    pub alt_setting: u8,
+    pub endpoints: USBEndpoint,
+}
+
+/// Devices can have multiple configurations, each with different attributes and interfaces
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct USBConfiguration {
+    pub name: String,
+    pub number: u8,
+    pub interfaces: Vec<USBInterface>,
+    pub attributes: Vec<ConfigAttributes>,
+    pub max_power: NumericalUnit<u32>,
+    pub alt_setting: u8,
+    pub endpoints: USBEndpoint,
+}
+
+/// Extra USB device data for verbose printing
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct USBDeviceExtra {
+    pub max_packet_size: u16,
+    pub driver: Option<String>,
+    pub configurations: Vec<USBConfiguration>,
+}
+
 /// Builds a replica of sysfs path; excludes config.interface
 ///
 /// ```
@@ -209,6 +317,16 @@ impl From<&Speed> for NumericalUnit<f32> {
 ///  bus-port.port.port ...
 pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
     format!("{:}-{}", bus, ports.into_iter().format("."))
+}
+
+/// Root path is path to trunk device on bus
+/// ```
+/// use cyme::usb::get_root_path;
+///
+/// assert_eq!(get_root_path(1, &vec![1, 3]), String::from("1-1"));
+/// ```
+pub fn get_root_path(bus: u8, ports: &Vec<u8>) -> String {
+    format!("{:}-{}", bus, ports[0])
 }
 
 /// Build replica of sysfs path with interface

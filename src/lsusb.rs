@@ -119,31 +119,37 @@ fn check_add_parent<T: libusb::UsbContext>(
                 // take the current vec so we can make or extend
                 let devices = mem::take(&mut sp_parent.devices);
                 if let Some(mut devs) = devices {
-                    devs.push(sp_device);
+                    devs.push(sp_device.to_owned());
                     sp_parent.devices = Some(devs);
                 } else {
-                    sp_parent.devices = Some(vec![sp_device]);
+                    sp_parent.devices = Some(vec![sp_device.to_owned()]);
                 }
                 log::debug!("Updated parent {:?}", sp_parent);
-                Ok(None)
+                Ok(Some(sp_device))
             }
             // no parent: make the parent now, needs to be recursively in case parent has parents...
             None => {
                 log::debug!("Parent not in HashMap, will create");
                 let mut sp_parent = check_add_parent(&parent, &mut sp_devices)?
-                    .expect("Failed to return created parent for device");
+                    .expect("Failed to return created root parent for device");
                 // now add the device as the first one
                 let sp_device = build_spdevice(d)?;
-                sp_parent.devices = Some(vec![sp_device]);
+                sp_parent.devices = Some(vec![sp_device.to_owned()]);
                 log::debug!("New parent {:?}", sp_parent);
-                // insert to map and return
-                sp_devices.insert(sp_parent.location_id.port_path(), sp_parent.to_owned());
-                Ok(Some(sp_parent))
+
+                Ok(sp_devices.insert(sp_parent.location_id.port_path(), sp_parent.to_owned()))
             }
         }
     } else {
         let sp_device = build_spdevice(d)?;
         log::debug!("Created {:?}", sp_device);
+
+        // it must be depth 1
+        if sp_device.location_id.tree_positions.len() != 1 {
+            panic!("Found device without parent that has depth > 1 {:?}", d);
+        }
+
+        sp_devices.insert(sp_device.location_id.port_path(), sp_device.to_owned());
         // return the newly created device
         Ok(Some(sp_device))
     }
@@ -155,21 +161,37 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
     // Uses port path as Hash key since that _should_ be unique for each device and easy to build
     let mut sp_devices: HashMap<String, system_profiler::USBDevice> = HashMap::new();
 
-    // run through devices adding to cache
+    // run through devices building tree of root devices
     for device in libusb::DeviceList::new()?.iter() {
-        if let Some(sp_device) = check_add_parent(&device, &mut sp_devices)? {
-            sp_devices.insert(sp_device.location_id.port_path(), sp_device);
-        }
+        check_add_parent(&device, &mut sp_devices)?;
     }
+
+    log::debug!("{:#?}", sp_devices);
+
+    // need to build by port path
+    // let device_list1: Vec<system_profiler::USBDevice> = sp_devices.to_owned().into_values().collect();
+    // for (key, group) in &device_list1.into_iter().group_by(|d| get_port_path(d.location_id.bus, &d.location_id.tree_positions[..d.location_id.tree_positions.len() - 1].to_vec())) {
+    //     let vec: Vec<system_profiler::USBDevice> = group.collect();
+    //     log::debug!("{:?}: {:?}", key, vec);
+    // }
 
     // group by bus number and then stick them into a bus in the returned SPUSBDataType
     let device_list: Vec<system_profiler::USBDevice> = sp_devices.into_values().collect();
     for (key, group) in &device_list.into_iter().group_by(|d| d.location_id.bus) {
+        // for (k, g) in &group
+        //     .group_by(|d| d.location_id.tree_positions[..d.location_id.tree_positions.len()].to_vec()) {
+        //     let vec: Vec<system_profiler::USBDevice> = g.collect();
+        //     log::debug!("{:?}: {:?}", k, vec);
+        //     // .filter(|d| d.location_id.tree_positions.len() > 1)
+        //     // .into_iter()
+        // };
+
         let new_bus = system_profiler::USBBus {
             name: "Unknown".into(),
             host_controller: "Unknown".into(),
             usb_bus_number: Some(key),
-            devices: Some(group.collect()),
+            // filter only devices at the bus depth
+            devices: Some(group.filter(|d| d.location_id.tree_positions.len() == 1).collect()),
             ..Default::default()
         };
         sp_data.buses.push(new_bus);
@@ -283,7 +305,6 @@ pub fn lsusb_verbose(filter: &Option<system_profiler::USBFilter>) -> libusb::Res
     Ok(())
 }
 
-// TODO these could be generic
 fn get_product_string<T: libusb::UsbContext>(
     device_desc: &libusb::DeviceDescriptor,
     handle: &mut Option<UsbDevice<T>>,
@@ -509,6 +530,37 @@ impl From<libusb::Speed> for usb::Speed {
             libusb::Speed::Full => usb::Speed::FullSpeed,
             libusb::Speed::Low => usb::Speed::LowSpeed,
             _ => usb::Speed::Unknown,
+        }
+    }
+}
+
+impl From<libusb::Direction> for usb::Direction {
+    fn from(libusb: libusb::Direction) -> Self {
+        match libusb {
+            libusb::Direction::Out => usb::Direction::Out,
+            libusb::Direction::In => usb::Direction::In,
+        }
+    }
+}
+
+impl From<libusb::UsageType> for usb::UsageType {
+    fn from(libusb: libusb::UsageType) -> Self {
+        match libusb {
+            libusb::UsageType::Data => usb::UsageType::Data,
+            libusb::UsageType::Feedback => usb::UsageType::Feedback,
+            libusb::UsageType::FeedbackData => usb::UsageType::FeedbackData,
+            libusb::UsageType::Reserved => usb::UsageType::Reserved,
+        }
+    }
+}
+
+impl From<libusb::SyncType> for usb::SyncType {
+    fn from(libusb: libusb::SyncType) -> Self {
+        match libusb {
+            libusb::SyncType::NoSync => usb::SyncType::NoSync,
+            libusb::SyncType::Asynchronous => usb::SyncType::Asynchronous,
+            libusb::SyncType::Adaptive => usb::SyncType::Adaptive,
+            libusb::SyncType::Synchronous => usb::SyncType::Synchronous,
         }
     }
 }
