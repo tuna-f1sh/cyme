@@ -71,9 +71,26 @@ fn build_spdevice<T: libusb::UsbContext>(
         }
     };
 
+    // lookup manufacturer and device name from Linux list if empty
+    let mut manufacturer = get_manufacturer_string(&device_desc, &mut usb_device);
+    let mut name = get_product_string(&device_desc, &mut usb_device);
+    if name.is_empty() {
+        match usb_ids::Vendor::from_id(device_desc.vendor_id()) {
+            Some(vendor) => manufacturer = vendor.name().to_owned(),
+            None => (),
+        };
+    }
+
+    if manufacturer.is_empty() {
+        match usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()) {
+            Some(product) => name = product.name().to_owned(),
+            None => (),
+        };
+    }
+
     Ok(system_profiler::USBDevice {
-        name: get_product_string(&device_desc, &mut usb_device),
-        manufacturer: Some(get_manufacturer_string(&device_desc, &mut usb_device)),
+        name,
+        manufacturer: Some(manufacturer),
         serial_num: Some(get_serial_string(&device_desc, &mut usb_device)),
         vendor_id: Some(device_desc.vendor_id()),
         product_id: Some(device_desc.product_id()),
@@ -100,7 +117,8 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
     let mut sp_data = system_profiler::SPUSBDataType { buses: Vec::new() };
     // temporary store of devices created when iterating through DeviceList
     let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
-    let mut root_devices: HashMap<u8, system_profiler::USBDevice> = HashMap::new();
+    // lookup for root hubs to assign info to bus on linux
+    let mut root_hubs: HashMap<u8, system_profiler::USBDevice> = HashMap::new();
 
     // run through devices building USBDevice types
     for device in libusb::DeviceList::new()?.iter() {
@@ -108,8 +126,8 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
         cache.push(sp_device.to_owned());
 
         if !cfg!(target_os = "macos") {
-            if sp_device.is_root_device() {
-                root_devices.insert(sp_device.location_id.bus, sp_device);
+            if sp_device.is_root_hub() {
+                root_hubs.insert(sp_device.location_id.bus, sp_device);
             }
         }
     }
@@ -121,7 +139,7 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
     // group by bus number and then stick them into a bus in the returned SPUSBDataType
     for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
         let root = if !cfg!(target_os = "macos") {
-            root_devices.get(&key)
+            root_hubs.get(&key)
         } else {
             None
         };
@@ -136,18 +154,8 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
         };
 
         if let Some(root_hub) = root {
-            let vendor_name = match usb_ids::Vendor::from_id(root_hub.vendor_id.unwrap_or(0)) {
-                Some(vendor) => vendor.name(),
-                None => "Unknown vendor",
-            };
-
-            let product_name =
-                match usb_ids::Device::from_vid_pid(root_hub.vendor_id.unwrap_or(0), root_hub.product_id.unwrap_or(0)) {
-                    Some(product) => product.name(),
-                    None => "Unknown product",
-            };
-            new_bus.name = vendor_name.to_string();
-            new_bus.host_controller = product_name.to_string();
+            new_bus.name = root_hub.name.to_owned();
+            new_bus.host_controller = root_hub.manufacturer.as_ref().unwrap_or(&String::new()).to_owned();
             new_bus.pci_vendor = root_hub.vendor_id;
             new_bus.pci_device = root_hub.product_id;
         }
@@ -156,7 +164,8 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
         let parent_groups = group.group_by(|d| d.parent_path().unwrap_or(d.trunk_path()));
 
         // now go through parent paths inserting devices owned by that parent
-        // TODO need to sort bus before trunk devices
+        // this is not perfect...if the sort of devices does not result in order of depth, it will panic because the parent of a device will not exist. But that won't happen, right...
+        // sort key - ends_with to ensure root_hubs, which will have same str length as trunk devices will still be ahead
         for (parent_path, children) in parent_groups.into_iter().sorted_by_key(|x| x.0.len() - x.0.ends_with("-0") as usize) {
             log::debug!("Adding devices to parent {}", parent_path);
             // if root devices, add them to bus

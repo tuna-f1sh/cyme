@@ -22,14 +22,15 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.87"
 serde_with = "2.0.1"
 simple_logger = "4.0.0"
-usb-ids = "0.2.4"
+usb-ids = { version = "*", optional = true }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 udev = "^0.7.0"
 rusb = { version = "0.9.1" }
+usb-ids = "*"
 
 [features]
-libusb = ["dep:rusb"]
+libusb = ["dep:rusb", "dep:usb-ids"]
 default = ["libusb"]
 
 [[bin]]

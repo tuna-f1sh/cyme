@@ -221,6 +221,10 @@ pub fn get_all_devices(devices: &Vec<USBDevice>) -> Vec<&USBDevice> {
 
 pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>) -> fmt::Result {
     for device in devices {
+        // don't print root hubs in tree
+        if f.sign_plus() && device.is_root_hub() {
+            continue
+        }
         // print the device details
         if f.alternate() {
             if f.sign_plus() {
@@ -561,8 +565,8 @@ impl USBDevice {
         self.location_id.tree_positions.len() == 1
     }
 
-    /// Root device is a specific device on Linux, essentially the bus
-    pub fn is_root_device(&self) -> bool {
+    /// Root hub is a specific device on Linux, essentially the bus but sits in device tree because of system_profiler legacy
+    pub fn is_root_hub(&self) -> bool {
         self.location_id.tree_positions.len() == 0
     }
 
@@ -668,6 +672,7 @@ pub struct USBFilter {
     pub name: Option<String>,
     pub serial: Option<String>,
     pub exclude_empty_hub: bool,
+    pub no_exclude_root_hub: bool,
 }
 
 impl USBFilter {
@@ -692,6 +697,7 @@ impl USBFilter {
                     .map_or(false, |s| s.contains(n.as_str()))
             }))
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
+            && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
     /// Recursively retain only `USBBus` in `buses` with `USBDevice` matching filter

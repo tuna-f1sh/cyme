@@ -264,6 +264,8 @@ fn main() {
         f.name = args.filter_name;
         f.serial = args.filter_serial;
         f.exclude_empty_hub = args.hide_hubs;
+        // exclude root hubs unless dumping a list
+        f.no_exclude_root_hub = !(args.tree || args.group_devices == display::Group::Bus);
 
         log::info!("Filtering with {:?}", f);
         Some(f)
