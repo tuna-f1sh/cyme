@@ -74,14 +74,14 @@ fn build_spdevice<T: libusb::UsbContext>(
     // lookup manufacturer and device name from Linux list if empty
     let mut manufacturer = get_manufacturer_string(&device_desc, &mut usb_device);
     let mut name = get_product_string(&device_desc, &mut usb_device);
-    if name.is_empty() {
+    if manufacturer.is_empty() {
         match usb_ids::Vendor::from_id(device_desc.vendor_id()) {
             Some(vendor) => manufacturer = vendor.name().to_owned(),
             None => (),
         };
     }
 
-    if manufacturer.is_empty() {
+    if name.is_empty() {
         match usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()) {
             Some(product) => name = product.name().to_owned(),
             None => (),

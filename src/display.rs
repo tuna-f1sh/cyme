@@ -491,10 +491,6 @@ pub fn print_flattened_devices(
     }
 
     for device in sorted {
-        log::debug!(
-            "render_device: {:?}",
-            render_value(device, db, &pad, settings)
-        );
         println!("{}", render_value(device, db, &pad, settings).join(" "));
     }
 }
