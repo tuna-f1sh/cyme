@@ -186,6 +186,10 @@ impl USBBus {
         )
     }
 
+    pub fn path(&self) -> String {
+        get_trunk_path(self.get_bus_number(), &vec![])
+    }
+
     pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {

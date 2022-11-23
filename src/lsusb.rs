@@ -26,6 +26,7 @@ Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
    |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M
 */
 use std::time::Duration;
+use std::collections::HashMap;
 use itertools::Itertools;
 use rusb as libusb;
 use usb_ids::{self, FromId};
@@ -99,11 +100,18 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
     let mut sp_data = system_profiler::SPUSBDataType { buses: Vec::new() };
     // temporary store of devices created when iterating through DeviceList
     let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
+    let mut root_devices: HashMap<u8, system_profiler::USBDevice> = HashMap::new();
 
     // run through devices building USBDevice types
     for device in libusb::DeviceList::new()?.iter() {
         let sp_device = build_spdevice(&device)?;
-        cache.push(sp_device);
+        cache.push(sp_device.to_owned());
+
+        if !cfg!(target_os = "macos") {
+            if sp_device.is_root_device() {
+                root_devices.insert(sp_device.location_id.bus, sp_device);
+            }
+        }
     }
 
     // ensure sort of bus so that grouping is not broken up
@@ -111,9 +119,9 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
     log::debug!("Sorted devices {:?}", cache);
 
     // group by bus number and then stick them into a bus in the returned SPUSBDataType
-    for (key, mut group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
+    for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
         let root = if !cfg!(target_os = "macos") {
-            group.find(|d| d.is_root_device())
+            root_devices.get(&key)
         } else {
             None
         };
@@ -144,14 +152,16 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
             new_bus.pci_device = root_hub.product_id;
         }
 
-        // group into parent groups with parent path as key - "-" for trunk devices so they end up in same place
-        let parent_groups = group.group_by(|d| d.parent_path().unwrap_or("-".into()));
+        // group into parent groups with parent path as key or trunk devices so they end up in same place
+        let parent_groups = group.group_by(|d| d.parent_path().unwrap_or(d.trunk_path()));
 
         // now go through parent paths inserting devices owned by that parent
-        for (parent_path, children) in parent_groups.into_iter().sorted_by_key(|x| x.0.len()) {
+        // TODO need to sort bus before trunk devices
+        for (parent_path, children) in parent_groups.into_iter().sorted_by_key(|x| x.0.len() - x.0.ends_with("-0") as usize) {
             log::debug!("Adding devices to parent {}", parent_path);
             // if root devices, add them to bus
-            if parent_path == "-" {
+            if parent_path.ends_with("-0") {
+            // if parent_path == "-" {
                 let devices = std::mem::take(&mut new_bus.devices);
                 if let Some(mut d) = devices {
                     for new_device in children {

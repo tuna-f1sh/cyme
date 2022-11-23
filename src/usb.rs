@@ -306,6 +306,9 @@ pub struct USBDeviceExtra {
 /// use cyme::usb::get_port_path;
 ///
 /// assert_eq!(get_port_path(1, &vec![1, 3, 2]), String::from("1-1.3.2"));
+/// assert_eq!(get_port_path(1, &vec![2]), String::from("1-2"));
+/// // special case for root_hub
+/// assert_eq!(get_port_path(2, &vec![]), String::from("2-0"));
 /// ```
 ///
 /// [ref](http://gajjarpremal.blogspot.com/2015/04/sysfs-structures-for-linux-usb.html)
@@ -316,7 +319,11 @@ pub struct USBDeviceExtra {
 ///
 ///  bus-port.port.port ...
 pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
-    format!("{:}-{}", bus, ports.into_iter().format("."))
+    if ports.len() <= 1 {
+        get_trunk_path(bus, ports)
+    } else {
+        format!("{:}-{}", bus, ports.into_iter().format("."))
+    }
 }
 
 /// Parent path is path to parent device
@@ -326,8 +333,8 @@ pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
 /// assert_eq!(get_parent_path(1, &vec![1, 3, 4, 5]).unwrap(), String::from("1-1.3.4"));
 /// ```
 pub fn get_parent_path(bus: u8, ports: &Vec<u8>) -> Result<String, String> {
-    if ports.len() <= 1 {
-        Err("Cannot get parent path for trunk/root device".to_string())
+    if ports.len() == 0 {
+        Err("Cannot get parent path for root device".to_string())
     } else {
         Ok(get_port_path(bus, &ports[..ports.len() - 1].to_vec()))
     }
@@ -335,12 +342,19 @@ pub fn get_parent_path(bus: u8, ports: &Vec<u8>) -> Result<String, String> {
 
 /// Trunk path is path to trunk device on bus
 /// ```
-/// use cyme::usb::get_root_path;
+/// use cyme::usb::get_trunk_path;
 ///
-/// assert_eq!(get_trunk_path(1, &vec![1, 3]), String::from("1-1"));
+/// assert_eq!(get_trunk_path(1, &vec![1, 3, 5, 6]), String::from("1-1"));
+/// // special case for root_hub
+/// assert_eq!(get_trunk_path(1, &vec![]), String::from("1-0"));
 /// ```
 pub fn get_trunk_path(bus: u8, ports: &Vec<u8>) -> String {
-    format!("{:}-{}", bus, ports[0])
+    if ports.len() == 0 {
+        // special case for root_hub
+        format!("{:}-{}", bus, 0)
+    } else {
+        format!("{:}-{}", bus, ports[0])
+    }
 }
 
 /// Build replica of sysfs path with interface
@@ -349,6 +363,8 @@ pub fn get_trunk_path(bus: u8, ports: &Vec<u8>) -> String {
 /// use cyme::usb::get_interface_path;
 ///
 /// assert_eq!(get_interface_path(1, &vec![1, 3], 1, 0), String::from("1-1.3:1.0"));
+/// // bus
+/// assert_eq!(get_interface_path(1, &vec![], 1, 0), String::from("1-0:1.0"));
 /// ```
 pub fn get_interface_path(bus: u8, ports: &Vec<u8>, config: u8, interface: u8) -> String {
     format!("{}:{}.{}", get_port_path(bus, ports), config, interface)
