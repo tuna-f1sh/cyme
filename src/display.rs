@@ -731,16 +731,17 @@ pub fn cyme_print(
     }
 
     // default blocks or those passed
-    let device_blocks = db.unwrap_or(DeviceBlocks::default_device_tree_blocks());
     let bus_blocks = bb.unwrap_or(Block::<BusBlocks, system_profiler::USBBus>::default_blocks());
 
     if settings.tree || settings.group_devices == Group::Bus {
+        let device_blocks = db.unwrap_or(DeviceBlocks::default_device_tree_blocks());
         if settings.json {
             println!("{}", serde_json::to_string_pretty(&sp_usb).unwrap());
         } else {
             print_sp_usb(sp_usb, &device_blocks, &bus_blocks, settings);
         }
     } else {
+        let device_blocks = db.unwrap_or(DeviceBlocks::default_blocks());
         match settings.group_devices {
             // completely flatten the bus and only print devices
             _ => {
