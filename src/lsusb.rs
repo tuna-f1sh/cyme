@@ -31,11 +31,19 @@ use itertools::Itertools;
 use rusb as libusb;
 use usb_ids::{self, FromId};
 use crate::{usb, system_profiler};
+#[cfg(system = "linux")]
+use crate::udev;
 
 struct UsbDevice<T: libusb::UsbContext> {
     handle: libusb::DeviceHandle<T>,
     language: libusb::Language,
     timeout: Duration,
+}
+
+#[cfg(system = "linux")]
+fn get_driver(port_path: String) -> String {
+    let device = udev::Device::from_syspath(format!("/sys/bus/usb/devices/{}", port_path));
+    device.driver().to_string();
 }
 
 /// Builds a `system_profiler::USBDevice` from a `libusb::Device` by using `device_descriptor()` and intrograting for configuration strings
