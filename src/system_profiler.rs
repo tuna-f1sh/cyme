@@ -11,6 +11,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 
 use crate::types::NumericalUnit;
+use crate::usb::get_parent_path;
+use crate::usb::get_root_path;
 use crate::usb::{get_port_path, ClassCode, Speed, USBDeviceExtra};
 
 /// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
@@ -183,6 +185,19 @@ impl USBBus {
                 .unwrap_or(0),
         )
     }
+
+    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                if let Some(node) = dev.get_node_mut(port_path) {
+                    log::debug!("Found {}", node);
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
 }
 
 /// Recursively gets reference to all devices in a `USBDevice`
@@ -341,6 +356,14 @@ impl DeviceLocation {
     pub fn port_path(&self) -> String {
         get_port_path(self.bus, &self.tree_positions)
     }
+
+    pub fn parent_path(&self) -> Result<String, String> {
+        get_parent_path(self.bus, &self.tree_positions)
+    }
+
+    pub fn root_path(&self) -> String {
+        get_root_path(self.bus, &self.tree_positions)
+    }
 }
 
 impl<'de> Deserialize<'de> for DeviceLocation {
@@ -463,9 +486,42 @@ impl USBDevice {
         }
     }
 
+    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
+        let node_depth = port_path.split('-').last().expect("Invalid port path").split('.').count();
+        let current_depth = self.get_current_depth();
+        log::debug!("Get node at {} with {} ({})", port_path, self.port_path(), self);
+
+        // should not be looking for nodes below us
+        if current_depth > node_depth {
+            panic!("Trying to find node at {}/{} shallower than current position {}!", &port_path, node_depth, current_depth);
+        // if we are at depth, just check self or return none
+        } else if node_depth == current_depth {
+            if self.port_path() == port_path {
+                return Some(self);
+            } else {
+                return None;
+            }
+        }
+
+        // else walk through devices recursively running function and returning if found
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                if let Some(node) = dev.get_node_mut(port_path) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
     /// Returns position on branch (parent), which is the last number in `tree_positions` also sometimes refered to as port
     pub fn get_branch_position(&self) -> u8 {
         *self.location_id.tree_positions.last().unwrap_or(&0)
+    }
+
+    pub fn get_current_depth(&self) -> usize {
+        self.location_id.tree_positions.len()
     }
 
     /// Returns `true` if device is a hub based on device name - not perfect but most hubs advertise as a hub in name - or class code if it has one
@@ -482,6 +538,22 @@ impl USBDevice {
     pub fn is_hub(&self) -> bool {
         self.name.to_lowercase().contains("hub")
             || self.class.as_ref().map_or(false, |c| *c == ClassCode::Hub)
+    }
+
+    pub fn port_path(&self) -> String {
+        self.location_id.port_path()
+    }
+
+    pub fn parent_path(&self) -> Result<String, String> {
+        self.location_id.parent_path()
+    }
+
+    pub fn root_path(&self) -> String {
+        self.location_id.root_path()
+    }
+
+    pub fn is_root_device(&self) -> bool {
+        self.location_id.tree_positions.len() == 1
     }
 
     pub fn to_lsusb_string(&self) -> String {

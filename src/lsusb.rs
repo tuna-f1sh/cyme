@@ -25,12 +25,9 @@ Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
    |__ Port 2: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 480M
    |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M
 */
-use std::mem;
-use std::cell::RefCell;
 use std::time::Duration;
 use itertools::Itertools;
 use rusb as libusb;
-use std::collections::{HashMap, HashSet};
 use crate::{usb, system_profiler};
 
 struct UsbDevice<T: libusb::UsbContext> {
@@ -92,137 +89,67 @@ fn build_spdevice<T: libusb::UsbContext>(
     })
 }
 
-/// This is a bit intensive and hacky but creates a device tree like system_profiler by recursively checking the `get_parent()` function of `Device` d
+/// Get `SPUSBDataType` using `libusb` rather than `system_profiler`
 ///
-/// The idea is that the `DeviceList` can return the devices in any order and this function will check whether the device has a parent. If it does, it will check if we've already created it (exists in HashMap of port path). If it does it exist, appends the passed `d` as a `system_profiler::USBDevice`. If it does not, then recursively call the function using that parent device - the one returned by `get_parent()` for the passed `d`.
-///
-/// The recursion ensures that even when creating a parent, the parent (if it exists) for that will also be created so even if the first `Device` is 7 devices deep, it should still build correctly.
-fn check_add_parent<T: libusb::UsbContext>(
-    d: &libusb::Device<T>,
-    mut root_devices: &mut HashMap<String, system_profiler::USBDevice>,
-    mut parent_cache: &mut HashMap<String, RefCell<system_profiler::USBDevice>>,
-    mut explored: &mut HashSet<String>,
-    is_parent: bool,
-) -> libusb::Result<Option<system_profiler::USBDevice>> {
-    log::debug!("Check add device {:?}", d);
-
-    if explored.contains(&usb::get_port_path(d.bus_number(), &d.port_numbers()?)) {
-        log::debug!("Already exists, skipping");
-        return Ok(None);
-    }
-
-    // if the device has a parent, try to find it in hashmap and put it in that device's devices
-    if let Some(parent) = d.get_parent() {
-        log::debug!("Has parent {:?}", parent);
-        let new_device = match parent_cache.get(&usb::get_port_path(
-            parent.bus_number(),
-            &parent.port_numbers()?,
-        )) {
-            Some(sp_cell_parent) => {
-                let sp_device = build_spdevice(d)?;
-                // get the parent from cell
-                let mut sp_parent = sp_cell_parent.borrow_mut();
-                log::debug!("Parent on root exists {:?}", sp_parent);
-                // take the current vec so we can make or extend
-                let devices = mem::take(&mut sp_parent.devices);
-                if let Some(mut devs) = devices {
-                    devs.push(sp_device.to_owned());
-                    sp_parent.devices = Some(devs);
-                } else {
-                    sp_parent.devices = Some(vec![sp_device.to_owned()]);
-                }
-                log::debug!("Updated parent {:}", sp_parent);
-                // path_cache.insert(sp_device.location_id.port_path(), RefCell::new(sp_device));
-                explored.insert(usb::get_port_path(sp_device.location_id.bus, &sp_device.location_id.tree_positions));
-                if is_parent {
-                    Some(sp_device)
-                } else {
-                    None
-                }
-                // Ok(Some(sp_device))
-            }
-            // no parent: make the parent now, needs to be recursively in case parent has parents...
-            None => {
-                log::debug!("Parent not in HashMap, will create");
-                check_add_parent(&parent, &mut root_devices, &mut parent_cache, &mut explored, true)?;
-                let cell = parent_cache.get_mut(&usb::get_port_path(parent.bus_number(), &parent.port_numbers()?)).expect("Parent was not created!");
-                let mut sp_parent = cell.borrow_mut();
-                let sp_device = build_spdevice(d)?;
-                sp_parent.devices = Some(vec![sp_device.to_owned()]);
-                log::debug!("New parent {:}", sp_parent);
-                explored.insert(usb::get_port_path(sp_device.location_id.bus, &sp_device.location_id.tree_positions));
-                if is_parent {
-                    Some(sp_device)
-                } else {
-                    None
-                }
-            }
-        };
-
-        if let Some(add) = new_device {
-            parent_cache.insert(add.location_id.port_path(), RefCell::new(add));
-        }
-        Ok(None)
-    } else {
-        let sp_device = build_spdevice(d)?;
-        log::debug!("Created {:}", sp_device);
-
-        // it must be depth 1
-        if sp_device.location_id.tree_positions.len() != 1 {
-            panic!("Found device without parent that has depth > 1 {:?}", d);
-        }
-
-        // insert to root devices map
-        explored.insert(usb::get_port_path(sp_device.location_id.bus, &sp_device.location_id.tree_positions));
-        parent_cache.insert(sp_device.location_id.port_path(), RefCell::new(sp_device));
-        Ok(None)
-    }
-}
-
+/// Runs through `libusb::DeviceList` creating a cache of `USBDevice`. Then sorts into parent groups, accending in depth to build the `SPUSBDataType` tree.
 pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
     let mut sp_data = system_profiler::SPUSBDataType { buses: Vec::new() };
-    // Temporary store of devices used by `check_add_parent`
-    // Uses port path as Hash key since that _should_ be unique for each device and easy to build
-    let mut sp_devices: HashMap<String, system_profiler::USBDevice> = HashMap::new();
-    let mut cache: HashMap<String, RefCell<system_profiler::USBDevice>> = HashMap::new();
-    let mut explored: HashSet<String> = HashSet::new();
+    // temporary store of devices created when iterating through DeviceList
+    let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
 
-    // run through devices building tree of root devices
+    // run through devices building USBDevice types
     for device in libusb::DeviceList::new()?.iter() {
-        check_add_parent(&device, &mut sp_devices, &mut cache, &mut explored, false)?;
+        let sp_device = build_spdevice(&device)?;
+        cache.push(sp_device);
     }
 
-    log::debug!("{:?}", sp_devices);
-    log::debug!("{:?}", cache);
-    log::debug!("{:?}", explored);
-
-    // need to build by port path
-    // let device_list1: Vec<system_profiler::USBDevice> = sp_devices.to_owned().into_values().collect();
-    // for (key, group) in &device_list1.into_iter().group_by(|d| get_port_path(d.location_id.bus, &d.location_id.tree_positions[..d.location_id.tree_positions.len() - 1].to_vec())) {
-    //     let vec: Vec<system_profiler::USBDevice> = group.collect();
-    //     log::debug!("{:?}: {:?}", key, vec);
-    // }
+    // ensure sort of bus so that grouping is not broken up
+    cache.sort_by_key(|d| d.location_id.bus);
+    log::debug!("Sorted devices {:?}", cache);
 
     // group by bus number and then stick them into a bus in the returned SPUSBDataType
-    let device_list: Vec<system_profiler::USBDevice> = cache.into_values().map(|v| v.into_inner()).collect();
-    for (key, group) in &device_list.into_iter().group_by(|d| d.location_id.bus) {
-        // for (k, g) in &group
-        //     .group_by(|d| d.location_id.tree_positions[..d.location_id.tree_positions.len()].to_vec()) {
-        //     let vec: Vec<system_profiler::USBDevice> = g.collect();
-        //     log::debug!("{:?}: {:?}", k, vec);
-        //     // .filter(|d| d.location_id.tree_positions.len() > 1)
-        //     // .into_iter()
-        // };
-
-        let new_bus = system_profiler::USBBus {
+    for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
+        // create the bus, we'll add devices at next step
+        let mut new_bus = system_profiler::USBBus {
             name: "Unknown".into(),
             host_controller: "Unknown".into(),
             usb_bus_number: Some(key),
-            // filter only devices at the bus depth
-            devices: Some(group.collect()),
-            // devices: Some(group.filter(|d| d.location_id.tree_positions.len() == 1).collect()),
             ..Default::default()
         };
+
+        // group into parent groups with parent path as key - "-" for root devices so they end up in same place
+        let parent_groups = group.group_by(|d| d.parent_path().unwrap_or("-".into()));
+
+        // now go through parent paths inserting devices owned by that parent
+        for (parent_path, children) in parent_groups.into_iter().sorted_by_key(|x| x.0.len()) {
+            log::debug!("Adding devices to parent {}", parent_path);
+            // if root devices, add them to push
+            if parent_path == "-" {
+                let devices = std::mem::take(&mut new_bus.devices);
+                if let Some(mut d) = devices {
+                    for new_device in children {
+                        d.push(new_device);
+                    }
+                    new_bus.devices = Some(d);
+                } else {
+                    new_bus.devices = Some(children.collect());
+                }
+                log::debug!("Updated bus devices {:?}", new_bus.devices);
+            // else find and add parent - this should work because we are sorted to accend the tree so parents should be created before their children
+            } else {
+                let parent_node = new_bus.get_node_mut(&parent_path).expect("Parent node does not exist in new bus!");
+                let devices = std::mem::take(&mut parent_node.devices);
+                if let Some(mut d) = devices {
+                    for new_device in children {
+                        d.push(new_device);
+                    }
+                    parent_node.devices = Some(d);
+                } else {
+                    parent_node.devices = Some(children.collect());
+                }
+                log::debug!("Updated parent devices {:?}", parent_node.devices);
+            }
+        }
         sp_data.buses.push(new_bus);
     }
 
