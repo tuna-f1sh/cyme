@@ -327,19 +327,19 @@ pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
 /// ```
 pub fn get_parent_path(bus: u8, ports: &Vec<u8>) -> Result<String, String> {
     if ports.len() <= 1 {
-        Err("Cannot get parent path for root device".to_string())
+        Err("Cannot get parent path for trunk/root device".to_string())
     } else {
         Ok(get_port_path(bus, &ports[..ports.len() - 1].to_vec()))
     }
 }
 
-/// Root path is path to trunk device on bus
+/// Trunk path is path to trunk device on bus
 /// ```
 /// use cyme::usb::get_root_path;
 ///
-/// assert_eq!(get_root_path(1, &vec![1, 3]), String::from("1-1"));
+/// assert_eq!(get_trunk_path(1, &vec![1, 3]), String::from("1-1"));
 /// ```
-pub fn get_root_path(bus: u8, ports: &Vec<u8>) -> String {
+pub fn get_trunk_path(bus: u8, ports: &Vec<u8>) -> String {
     format!("{:}-{}", bus, ports[0])
 }
 

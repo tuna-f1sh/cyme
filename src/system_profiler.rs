@@ -12,7 +12,7 @@ use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 
 use crate::types::NumericalUnit;
 use crate::usb::get_parent_path;
-use crate::usb::get_root_path;
+use crate::usb::get_trunk_path;
 use crate::usb::{get_port_path, ClassCode, Speed, USBDeviceExtra};
 
 /// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
@@ -361,8 +361,8 @@ impl DeviceLocation {
         get_parent_path(self.bus, &self.tree_positions)
     }
 
-    pub fn root_path(&self) -> String {
-        get_root_path(self.bus, &self.tree_positions)
+    pub fn trunk_path(&self) -> String {
+        get_trunk_path(self.bus, &self.tree_positions)
     }
 }
 
@@ -548,12 +548,18 @@ impl USBDevice {
         self.location_id.parent_path()
     }
 
-    pub fn root_path(&self) -> String {
-        self.location_id.root_path()
+    pub fn trunk_path(&self) -> String {
+        self.location_id.trunk_path()
     }
 
-    pub fn is_root_device(&self) -> bool {
+    /// Trunk device is first in tree
+    pub fn is_trunk_device(&self) -> bool {
         self.location_id.tree_positions.len() == 1
+    }
+
+    /// Root device is a specific device on Linux, essentially the bus
+    pub fn is_root_device(&self) -> bool {
+        self.location_id.tree_positions.len() == 0
     }
 
     pub fn to_lsusb_string(&self) -> String {

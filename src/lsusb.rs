@@ -28,6 +28,7 @@ Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
 use std::time::Duration;
 use itertools::Itertools;
 use rusb as libusb;
+use usb_ids::{self, FromId};
 use crate::{usb, system_profiler};
 
 struct UsbDevice<T: libusb::UsbContext> {
@@ -92,6 +93,8 @@ fn build_spdevice<T: libusb::UsbContext>(
 /// Get `SPUSBDataType` using `libusb` rather than `system_profiler`
 ///
 /// Runs through `libusb::DeviceList` creating a cache of `USBDevice`. Then sorts into parent groups, accending in depth to build the `SPUSBDataType` tree.
+///
+/// Building the `SPUSBDataType` depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
 pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
     let mut sp_data = system_profiler::SPUSBDataType { buses: Vec::new() };
     // temporary store of devices created when iterating through DeviceList
@@ -108,7 +111,14 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
     log::debug!("Sorted devices {:?}", cache);
 
     // group by bus number and then stick them into a bus in the returned SPUSBDataType
-    for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
+    for (key, mut group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
+        let root = if !cfg!(target_os = "macos") {
+            group.find(|d| d.is_root_device())
+        } else {
+            None
+        };
+        log::debug!("Root device {:?}", root);
+
         // create the bus, we'll add devices at next step
         let mut new_bus = system_profiler::USBBus {
             name: "Unknown".into(),
@@ -117,13 +127,30 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
             ..Default::default()
         };
 
-        // group into parent groups with parent path as key - "-" for root devices so they end up in same place
+        if let Some(root_hub) = root {
+            let vendor_name = match usb_ids::Vendor::from_id(root_hub.vendor_id.unwrap_or(0)) {
+                Some(vendor) => vendor.name(),
+                None => "Unknown vendor",
+            };
+
+            let product_name =
+                match usb_ids::Device::from_vid_pid(root_hub.vendor_id.unwrap_or(0), root_hub.product_id.unwrap_or(0)) {
+                    Some(product) => product.name(),
+                    None => "Unknown product",
+            };
+            new_bus.name = vendor_name.to_string();
+            new_bus.host_controller = product_name.to_string();
+            new_bus.pci_vendor = root_hub.vendor_id;
+            new_bus.pci_device = root_hub.product_id;
+        }
+
+        // group into parent groups with parent path as key - "-" for trunk devices so they end up in same place
         let parent_groups = group.group_by(|d| d.parent_path().unwrap_or("-".into()));
 
         // now go through parent paths inserting devices owned by that parent
         for (parent_path, children) in parent_groups.into_iter().sorted_by_key(|x| x.0.len()) {
             log::debug!("Adding devices to parent {}", parent_path);
-            // if root devices, add them to push
+            // if root devices, add them to bus
             if parent_path == "-" {
                 let devices = std::mem::take(&mut new_bus.devices);
                 if let Some(mut d) = devices {
@@ -150,6 +177,7 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
                 log::debug!("Updated parent devices {:?}", parent_node.devices);
             }
         }
+
         sp_data.buses.push(new_bus);
     }
 
@@ -325,6 +353,17 @@ fn print_device<T: libusb::UsbContext>(
     device_desc: &libusb::DeviceDescriptor,
     handle: &mut Option<UsbDevice<T>>,
 ) {
+    let vendor_name = match usb_ids::Vendor::from_id(device_desc.vendor_id()) {
+        Some(vendor) => vendor.name(),
+        None => "Unknown vendor",
+    };
+
+    let product_name =
+        match usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()) {
+            Some(product) => product.name(),
+            None => "Unknown product",
+    };
+
     println!("Device Descriptor:");
     println!(
         "  bcdUSB             {:2}.{}{}",
@@ -343,8 +382,8 @@ fn print_device<T: libusb::UsbContext>(
     );
     println!("  bDeviceProtocol     {:#04x}", device_desc.protocol_code());
     println!("  bMaxPacketSize0      {:3}", device_desc.max_packet_size());
-    println!("  idVendor          {:#06x}", device_desc.vendor_id());
-    println!("  idProduct         {:#06x}", device_desc.product_id());
+    println!("  idVendor          {:#06x} {}", device_desc.vendor_id(), vendor_name);
+    println!("  idProduct         {:#06x} {}", device_desc.product_id(), product_name);
     println!(
         "  bcdDevice          {:2}.{}{}",
         device_desc.device_version().major(),
