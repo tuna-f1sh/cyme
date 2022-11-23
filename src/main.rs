@@ -270,7 +270,10 @@ fn main() {
         log::info!("Filtering with {:?}", f);
         Some(f)
     } else {
-        None
+        Some(system_profiler::USBFilter {
+          no_exclude_root_hub: !(args.tree || args.group_devices == display::Group::Bus),
+          ..Default::default()
+        })
     };
 
     // no sort if just dumping because it looks wierd with buses out of order
