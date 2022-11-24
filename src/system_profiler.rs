@@ -317,7 +317,7 @@ pub struct DeviceLocation {
     /// Will be len() depth in tree and position at each branch
     pub tree_positions: Vec<u8>,
     /// Device number on bus
-    pub number: Option<u8>,
+    pub number: u8,
 }
 
 impl FromStr for DeviceLocation {
@@ -346,9 +346,9 @@ impl FromStr for DeviceLocation {
             >> 24) as u8;
         // port is after / but not always present
         let number = match location_split.last().unwrap().trim().parse::<u8>() {
-            Ok(v) => Some(v),
+            Ok(v) => v,
             // port is not always present for some reason so sum tree positions will be unique
-            Err(_) => Some(tree_positions.iter().sum()),
+            Err(_) => tree_positions.iter().sum(),
         };
 
         Ok(DeviceLocation {
@@ -573,7 +573,7 @@ impl USBDevice {
     pub fn to_lsusb_string(&self) -> String {
         format!("Bus {:03} Device {:03}: ID {:04x}:{:04x} {}",
             self.location_id.bus,
-            self.location_id.number.unwrap_or(0),
+            self.location_id.number,
             self.vendor_id.unwrap_or(0xffff),
             self.product_id.unwrap_or(0xffff),
             self.name.trim(),
@@ -594,11 +594,12 @@ impl USBDevice {
         };
 
         format!(
-            "Port {:}: Device {:}: If {}, Class={}, Driver=, {}",
+            "Port {:}: Device {:}: If {}, Class={}, Driver={}, {}",
             self.get_branch_position(),
-            self.location_id.number.unwrap_or(0),
+            self.location_id.number,
             0, // TODO do this for each interface
             self.class.as_ref().map_or(String::new(), |c| format!("{:?}", c)),
+            self.extra.as_ref().map_or(String::new(), |e| e.to_owned().driver.unwrap_or(String::new())),
             speed
         )
     }
@@ -636,7 +637,7 @@ impl fmt::Display for USBDevice {
                 "{:>spaces$}{}/{} {}:{} {} {} {}",
                 tree.bright_black(),
                 format!("{:03}", self.location_id.bus).cyan(),
-                format!("{:03}", self.location_id.number.unwrap_or(0)).magenta(),
+                format!("{:03}", self.location_id.number).magenta(),
                 format!("0x{:04x}", self.vendor_id.unwrap_or(0)).yellow().bold(),
                 format!("0x{:04x}", self.product_id.unwrap_or(0)).yellow(),
                 self.name.trim().bold().blue(),
@@ -683,7 +684,7 @@ impl USBFilter {
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &USBDevice) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
-            && (device.location_id.number == self.number || self.number.is_none())
+            && (Some(device.location_id.number) == self.number || self.number.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
             && (device.product_id == self.pid || self.pid.is_none())
             && (self
@@ -797,7 +798,7 @@ mod tests {
             DeviceLocation {
                 bus: 2,
                 tree_positions: vec![1, 1],
-                number: Some(3),
+                number: 3,
                 ..Default::default()
             }
         );

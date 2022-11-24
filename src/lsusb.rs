@@ -32,7 +32,7 @@ use itertools::Itertools;
 use rusb as libusb;
 use usb_ids::{self, FromId};
 use crate::{usb, system_profiler, types::NumericalUnit};
-#[cfg(system = "linux")]
+#[cfg(target_os = "linux")]
 use crate::udev;
 
 struct UsbDevice<T: libusb::UsbContext> {
@@ -83,7 +83,7 @@ fn build_interfaces<T: libusb::UsbContext>(
 
     for interface in config_desc.interfaces() {
         for interface_desc in interface.descriptors() {
-            let interface = usb::USBInterface {
+            let mut interface = usb::USBInterface {
                 name: get_interface_string(&interface_desc, handle),
                 number: interface_desc.interface_number(),
                 path: usb::get_interface_path(device.bus_number(), &device.port_numbers()?, config_desc.number(), interface_desc.interface_number()),
@@ -95,9 +95,9 @@ fn build_interfaces<T: libusb::UsbContext>(
                 endpoints: build_endpoints(&interface_desc)?
             };
 
-            // TODO get driver for linux
-            // #[cfg(system = "linux")]
-            // interface.driver = udev::get_driver(interface.path);
+            if cfg!(target_os = "linux") {
+                interface.driver = udev::get_driver(&interface.path).or(Err(libusb::Error::Other))?;
+            }
 
             ret.push(interface);
         }
@@ -145,17 +145,17 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
     device: &libusb::Device<T>,
     handle: &mut Option<UsbDevice<T>>,
     device_desc: &libusb::DeviceDescriptor,
-    _sp_device: &system_profiler::USBDevice,
+    sp_device: &system_profiler::USBDevice,
 ) -> libusb::Result<usb::USBDeviceExtra> {
-    let extra = usb::USBDeviceExtra {
+    let mut extra = usb::USBDeviceExtra {
         max_packet_size: device_desc.max_packet_size(),
         driver: None,
         configurations: build_configurations(device, handle, device_desc)?
     };
 
-    // TODO get driver for linux
-    // #[cfg(system = "linux")]
-    // extra.driver = udev::get_driver(sp_device.port_path());
+    if cfg!(target_os = "linux") {
+        extra.driver = udev::get_driver(&sp_device.port_path()).or(Err(libusb::Error::Other))?;
+    }
 
     Ok(extra)
 }
@@ -220,7 +220,7 @@ fn build_spdevice<T: libusb::UsbContext>(
         device_speed: speed,
         location_id: system_profiler::DeviceLocation {
             bus: device.bus_number(),
-            number: Some(device.address()),
+            number: device.address(),
             tree_positions: device.port_numbers()?,
             ..Default::default()
         },

@@ -105,10 +105,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
     ) -> Option<String> {
         match self {
             DeviceBlocks::BusNumber => Some(format!("{:3}", d.location_id.bus)),
-            DeviceBlocks::DeviceNumber => Some(match d.location_id.number {
-                Some(v) => format!("{:3}", v),
-                None => format!("{:>3}", "-"),
-            }),
+            DeviceBlocks::DeviceNumber => Some(format!("{:3}", d.location_id.number)),
             DeviceBlocks::BranchPosition => Some(format!("{:3}", d.get_branch_position())),
             DeviceBlocks::PortPath => Some(format!("{:pad$}", d.location_id.port_path(), pad = 2 + pad.tree_positions)),
             DeviceBlocks::Icon => settings
@@ -319,7 +316,7 @@ impl Sort {
         let mut sorted = d.to_owned();
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
-            Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number.unwrap_or(0)),
+            Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number),
             _ => (),
         }
 
@@ -333,7 +330,7 @@ impl Sort {
         let mut sorted = d.to_owned();
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
-            Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number.unwrap_or(0)),
+            Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number),
             _ => (),
         }
 
