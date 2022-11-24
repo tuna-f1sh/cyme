@@ -192,7 +192,12 @@ fn main() {
     let mut args = Args::parse();
 
     match args.debug {
-        0 => (),
+        // just use env if not passed
+        0 => SimpleLogger::new()
+            .with_utc_timestamps()
+            .env()
+            .init()
+            .unwrap(),
         1 => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Info.to_level_filter())
@@ -215,7 +220,8 @@ fn main() {
         env::set_var("NO_COLOR", "1");
     }
 
-    let mut sp_usb = if cfg!(target_os = "macos") && !args.force_libusb {
+    // TODO use use system_profiler but add extra from libusb for verbose
+    let mut sp_usb = if cfg!(target_os = "macos") && !(args.force_libusb || args.verbose > 0) {
         system_profiler::get_spusb().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -223,9 +229,15 @@ fn main() {
             ));
         })
     } else {
+        if cfg!(target_os = "macos") {
+            eprintln!("Forcing libusb use for verbose output on macOS");
+            args.force_libusb = true;
+        }
         abort_not_libusb();
         #[cfg(feature = "libusb")]
-        lsusb::get_spusb().unwrap_or_else(|e| {
+        lsusb::set_log_level(args.debug);
+        #[cfg(feature = "libusb")]
+        lsusb::get_spusb(args.verbose > 0).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to gather system USB data: {}", e)
@@ -233,7 +245,7 @@ fn main() {
         })
     };
 
-    // log::debug!("Returned system_profiler data {:#?}", sp_usb);
+    log::debug!("Returned system_profiler data\n\r{}", sp_usb);
 
     let filter = if args.hide_hubs
         || args.vidpid.is_some()
@@ -310,7 +322,7 @@ fn main() {
     };
 
     // TODO verbose only supported by lsusb mode at the moment
-    if args.verbose > 0 && !args.lsusb {
+    if args.verbose > 0 && !(args.lsusb || args.force_libusb) {
         eprintln!("Forcing '--lsusb' compatibility mode, supply --lsusb to avoid this");
         args.lsusb = true;
     }

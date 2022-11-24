@@ -7,8 +7,23 @@ env:
 
 jobs:
   build:
-    name: Build and test
-    runs-on: macos-latest
+    name: Build and test for ${{ matrix.job.os }} (${{ matrix.job.target }})
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          # - { os: ubuntu-latest, target: arm-unknown-linux-gnueabihf , use-cross: true }
+          # - { os: ubuntu-latest, target: arm-unknown-linux-musleabihf, use-cross: true }
+          # - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu   , use-cross: true }
+          # - { os: ubuntu-latest, target: i686-unknown-linux-gnu      , use-cross: true }
+          # - { os: ubuntu-latest, target: i686-unknown-linux-musl     , use-cross: true }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: true }
+          # - { os: ubuntu-20.04, target: x86_64-unknown-linux-musl   , use-cross: true }
+          - { os: macos-latest, target: x86_64-apple-darwin         }
+          # - { os: windows-2019, target: i686-pc-windows-msvc        }
+          # - { os: windows-2019, target: x86_64-pc-windows-gnu       }
+          # - { os: windows-2019, target: x86_64-pc-windows-msvc      }
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -31,7 +46,7 @@ jobs:
       - name: archive executable
         uses: actions/upload-artifact@master
         with:
-          name: ${{ env.PROJECT_NAME }}
+          name: ${{ env.PROJECT_NAME }}-${{ matrix.job.os }}-${{ matrix.job.target}}
           path: target/release/${{ env.PROJECT_NAME }}
 
       - name: Check for release

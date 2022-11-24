@@ -26,11 +26,12 @@ Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
    |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M
 */
 use std::time::Duration;
+use std::collections::HashSet;
 use std::collections::HashMap;
 use itertools::Itertools;
 use rusb as libusb;
 use usb_ids::{self, FromId};
-use crate::{usb, system_profiler};
+use crate::{usb, system_profiler, types::NumericalUnit};
 #[cfg(system = "linux")]
 use crate::udev;
 
@@ -40,15 +41,129 @@ struct UsbDevice<T: libusb::UsbContext> {
     timeout: Duration,
 }
 
-#[cfg(system = "linux")]
-fn get_driver(port_path: String) -> String {
-    let device = udev::Device::from_syspath(format!("/sys/bus/usb/devices/{}", port_path));
-    device.driver().to_string();
+pub fn set_log_level(debug: u8) -> () {
+    let log_level = match debug {
+        0 => rusb::LogLevel::None,
+        1 => rusb::LogLevel::Info,
+        2 | _ => rusb::LogLevel::Debug,
+    };
+
+    rusb::set_log_level(log_level);
+}
+
+fn build_endpoints(
+    interface_desc: &libusb::InterfaceDescriptor,
+) -> libusb::Result<Vec<usb::USBEndpoint>> {
+    let mut ret: Vec<usb::USBEndpoint> = Vec::new();
+
+    for endpoint_desc in interface_desc.endpoint_descriptors() {
+        ret.push(usb::USBEndpoint {
+            address: usb::EndpointAddress {
+                address: endpoint_desc.address(),
+                number: endpoint_desc.number(),
+                direction: usb::Direction::from(endpoint_desc.direction())
+            },
+            transfer_type: usb::TransferType::from(endpoint_desc.transfer_type()),
+            sync_type: usb::SyncType::from(endpoint_desc.sync_type()),
+            usage_type: usb::UsageType::from(endpoint_desc.usage_type()),
+            max_packet_size: endpoint_desc.max_packet_size(),
+            interval: endpoint_desc.interval(),
+        });
+    }
+
+    Ok(ret)
+}
+
+fn build_interfaces<T: libusb::UsbContext>(
+    device: &libusb::Device<T>,
+    handle: &mut Option<UsbDevice<T>>,
+    config_desc: &libusb::ConfigDescriptor,
+) -> libusb::Result<Vec<usb::USBInterface>> {
+    let mut ret: Vec<usb::USBInterface> = Vec::new();
+
+    for interface in config_desc.interfaces() {
+        for interface_desc in interface.descriptors() {
+            let interface = usb::USBInterface {
+                name: get_interface_string(&interface_desc, handle),
+                number: interface_desc.interface_number(),
+                path: usb::get_interface_path(device.bus_number(), &device.port_numbers()?, config_desc.number(), interface_desc.interface_number()),
+                class: usb::ClassCode::from(interface_desc.class_code()),
+                sub_class: interface_desc.sub_class_code(),
+                protocol: interface_desc.protocol_code(),
+                alt_setting: interface_desc.setting_number(),
+                driver: None,
+                endpoints: build_endpoints(&interface_desc)?
+            };
+
+            // TODO get driver for linux
+            // #[cfg(system = "linux")]
+            // interface.driver = udev::get_driver(interface.path);
+
+            ret.push(interface);
+        }
+    }
+
+    Ok(ret)
+}
+
+fn build_configurations<T: libusb::UsbContext>(
+    device: &libusb::Device<T>,
+    handle: &mut Option<UsbDevice<T>>,
+    device_desc: &libusb::DeviceDescriptor,
+) -> libusb::Result<Vec<usb::USBConfiguration>> {
+    let mut ret: Vec<usb::USBConfiguration> = Vec::new();
+
+    for n in 0..device_desc.num_configurations() {
+        let config_desc = match device.config_descriptor(n) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let mut attributes = HashSet::new();
+        if config_desc.remote_wakeup() {
+            attributes.insert(usb::ConfigAttributes::RemoteWakeup);
+        }
+
+        if config_desc.self_powered() {
+            attributes.insert(usb::ConfigAttributes::SelfPowered);
+        }
+
+        ret.push(usb::USBConfiguration {
+            name: get_configuration_string(&config_desc, handle),
+            number: config_desc.number(),
+            attributes,
+            max_power: NumericalUnit{value: config_desc.max_power() as u32, unit: String::from("mW"), description: None},
+            interfaces: build_interfaces(device, handle, &config_desc)?,
+        });
+    }
+
+    Ok(ret)
+}
+
+
+fn build_spdevice_extra<T: libusb::UsbContext>(
+    device: &libusb::Device<T>,
+    handle: &mut Option<UsbDevice<T>>,
+    device_desc: &libusb::DeviceDescriptor,
+    _sp_device: &system_profiler::USBDevice,
+) -> libusb::Result<usb::USBDeviceExtra> {
+    let extra = usb::USBDeviceExtra {
+        max_packet_size: device_desc.max_packet_size(),
+        driver: None,
+        configurations: build_configurations(device, handle, device_desc)?
+    };
+
+    // TODO get driver for linux
+    // #[cfg(system = "linux")]
+    // extra.driver = udev::get_driver(sp_device.port_path());
+
+    Ok(extra)
 }
 
 /// Builds a `system_profiler::USBDevice` from a `libusb::Device` by using `device_descriptor()` and intrograting for configuration strings
 fn build_spdevice<T: libusb::UsbContext>(
     device: &libusb::Device<T>,
+    with_extra: bool,
 ) -> libusb::Result<system_profiler::USBDevice> {
     let timeout = Duration::from_secs(1);
     let speed = match usb::Speed::from(device.speed()) {
@@ -96,7 +211,7 @@ fn build_spdevice<T: libusb::UsbContext>(
         };
     }
 
-    Ok(system_profiler::USBDevice {
+    let mut sp_device = system_profiler::USBDevice {
         name,
         manufacturer: Some(manufacturer),
         serial_num: Some(get_serial_string(&device_desc, &mut usb_device)),
@@ -112,8 +227,16 @@ fn build_spdevice<T: libusb::UsbContext>(
         bcd_device: version_to_float(&device_desc.device_version()),
         bcd_usb: version_to_float(&device_desc.usb_version()),
         class: Some(usb::ClassCode::from(device_desc.class_code())),
+        sub_class: Some(device_desc.sub_class_code()),
+        protocol: Some(device_desc.protocol_code()),
         ..Default::default()
-    })
+    };
+
+    if with_extra { 
+        sp_device.extra = Some(build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device)?);
+    }
+
+    Ok(sp_device)
 }
 
 /// Get `SPUSBDataType` using `libusb` rather than `system_profiler`
@@ -121,7 +244,7 @@ fn build_spdevice<T: libusb::UsbContext>(
 /// Runs through `libusb::DeviceList` creating a cache of `USBDevice`. Then sorts into parent groups, accending in depth to build the `SPUSBDataType` tree.
 ///
 /// Building the `SPUSBDataType` depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
-pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
+pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataType> {
     let mut sp_data = system_profiler::SPUSBDataType { buses: Vec::new() };
     // temporary store of devices created when iterating through DeviceList
     let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
@@ -130,13 +253,17 @@ pub fn get_spusb() -> libusb::Result<system_profiler::SPUSBDataType> {
 
     // run through devices building USBDevice types
     for device in libusb::DeviceList::new()?.iter() {
-        let sp_device = build_spdevice(&device)?;
-        cache.push(sp_device.to_owned());
+        match build_spdevice(&device, with_extra) {
+            Ok(sp_device) => {
+                cache.push(sp_device.to_owned());
 
-        if !cfg!(target_os = "macos") {
-            if sp_device.is_root_hub() {
-                root_hubs.insert(sp_device.location_id.bus, sp_device);
-            }
+                if !cfg!(target_os = "macos") {
+                    if sp_device.is_root_hub() {
+                        root_hubs.insert(sp_device.location_id.bus, sp_device);
+                    }
+                }
+            },
+            Err(e) => { eprintln!("Failed to get data for {:?}: {}", device, e.to_string()) }
         }
     }
 
@@ -358,6 +485,34 @@ fn get_serial_string<T: libusb::UsbContext>(
     })
 }
 
+fn get_configuration_string<T: libusb::UsbContext>(
+    config_desc: &libusb::ConfigDescriptor,
+    handle: &mut Option<UsbDevice<T>>,
+) -> String {
+    handle.as_mut().map_or(String::new(), |h| {
+        h.handle
+            .read_configuration_string(h.language, config_desc, h.timeout)
+            .unwrap_or(String::new())
+            .trim()
+            .trim_end_matches('\0')
+            .to_string()
+    })
+}
+
+fn get_interface_string<T: libusb::UsbContext>(
+    interface_desc: &libusb::InterfaceDescriptor,
+    handle: &mut Option<UsbDevice<T>>,
+) -> String {
+    handle.as_mut().map_or(String::new(), |h| {
+        h.handle
+            .read_interface_string(h.language, interface_desc, h.timeout)
+            .unwrap_or(String::new())
+            .trim()
+            .trim_end_matches('\0')
+            .to_string()
+    })
+}
+
 /// Convert libusb version to f32
 ///
 /// Would be nicer to impl fmt::Display and From<f32> but cannot outside of crate
@@ -561,6 +716,17 @@ impl From<libusb::Direction> for usb::Direction {
         match libusb {
             libusb::Direction::Out => usb::Direction::Out,
             libusb::Direction::In => usb::Direction::In,
+        }
+    }
+}
+
+impl From<libusb::TransferType> for usb::TransferType {
+    fn from(libusb: libusb::TransferType) -> Self {
+        match libusb {
+            libusb::TransferType::Control => usb::TransferType::Control,
+            libusb::TransferType::Isochronous => usb::TransferType::Isochronous,
+            libusb::TransferType::Bulk => usb::TransferType::Bulk,
+            libusb::TransferType::Interrupt => usb::TransferType::Interrupt,
         }
     }
 }

@@ -1,0 +1,409 @@
+{
+  "SPUSBDataType" : [
+    {
+      "_name" : "USB31Bus",
+      "host_controller" : "AppleUSBXHCITR",
+      "pci_device" : "0x15ec ",
+      "pci_revision" : "0x0006 ",
+      "pci_vendor" : "0x8086 ",
+      "usb_bus_number" : "0x01 "
+    },
+    {
+      "_items" : [
+        {
+          "_items" : [
+            {
+              "_items" : [
+                {
+                  "_name" : "Pixel 6",
+                  "bcd_device" : "5.10",
+                  "bus_power" : "900",
+                  "bus_power_used" : "896",
+                  "device_speed" : "super_speed",
+                  "extra_current_used" : "0",
+                  "location_id" : "0x00112000 / 3",
+                  "manufacturer" : "Google",
+                  "product_id" : "0x4ee7",
+                  "serial_num" : "1A161FDF6003P7",
+                  "vendor_id" : "0x18d1  (Google Inc.)"
+                }
+              ],
+              "_name" : "4-Port USB 3.0 Hub",
+              "bcd_device" : "1.17",
+              "bus_power" : "900",
+              "bus_power_used" : "0",
+              "device_speed" : "super_speed",
+              "extra_current_used" : "0",
+              "location_id" : "0x00110000 / 2",
+              "manufacturer" : "Generic",
+              "product_id" : "0x0411",
+              "vendor_id" : "0x0bda  (Realtek Semiconductor Corp.)"
+            }
+          ],
+          "_name" : "4-Port USB 3.0 Hub",
+          "bcd_device" : "1.17",
+          "bus_power" : "900",
+          "bus_power_used" : "0",
+          "device_speed" : "super_speed",
+          "extra_current_used" : "0",
+          "location_id" : "0x00100000 / 1",
+          "manufacturer" : "Generic",
+          "product_id" : "0x0411",
+          "vendor_id" : "0x0bda  (Realtek Semiconductor Corp.)"
+        }
+      ],
+      "_name" : "USB31Bus",
+      "host_controller" : "AppleUSBXHCITR",
+      "pci_device" : "0x15ec ",
+      "pci_revision" : "0x0006 ",
+      "pci_vendor" : "0x8086 ",
+      "usb_bus_number" : "0x00 "
+    },
+    {
+      "_items" : [
+        {
+          "_items" : [
+            {
+              "_name" : "USB3.0 Hub             ",
+              "bcd_device" : "4.53",
+              "bus_power" : "900",
+              "bus_power_used" : "0",
+              "device_speed" : "super_speed",
+              "extra_current_used" : "0",
+              "location_id" : "0x02330000 / 8",
+              "manufacturer" : "VIA Labs, Inc.         ",
+              "product_id" : "0x0817",
+              "vendor_id" : "0x2109  (VIA Labs, Inc.)"
+            },
+            {
+              "_name" : "Extreme SSD",
+              "bcd_device" : "10.12",
+              "bus_power" : "900",
+              "bus_power_used" : "896",
+              "device_speed" : "super_speed",
+              "extra_current_used" : "0",
+              "location_id" : "0x02320000 / 5",
+              "manufacturer" : "SanDisk",
+              "Media" : [
+                {
+                  "_name" : "Extreme SSD",
+                  "bsd_name" : "disk6",
+                  "Logical Unit" : 0,
+                  "partition_map_type" : "guid_partition_map_type",
+                  "removable_media" : "no",
+                  "size" : "1 TB",
+                  "size_in_bytes" : 1000204140544,
+                  "smart_status" : "Verified",
+                  "USB Interface" : 0,
+                  "volumes" : [
+                    {
+                      "_name" : "EFI",
+                      "bsd_name" : "disk6s1",
+                      "file_system" : "MS-DOS FAT32",
+                      "iocontent" : "EFI",
+                      "size" : "209.7 MB",
+                      "size_in_bytes" : 209715200,
+                      "volume_uuid" : "0E239BC6-F960-3107-89CF-1C97F78BB46B"
+                    },
+                    {
+                      "_name" : "disk6s2",
+                      "bsd_name" : "disk6s2",
+                      "iocontent" : "Apple_APFS",
+                      "size" : "999.99 GB",
+                      "size_in_bytes" : 999994384384
+                    }
+                  ]
+                }
+              ],
+              "product_id" : "0x558c",
+              "serial_num" : "323030323247343032303739",
+              "vendor_id" : "0x0781  (SanDisk Corporation)"
+            },
+            {
+              "_name" : "Belkin USB-C LAN",
+              "bcd_device" : "30.00",
+              "bus_power" : "900",
+              "bus_power_used" : "256",
+              "device_speed" : "super_speed",
+              "extra_current_used" : "0",
+              "location_id" : "0x02310000 / 6",
+              "manufacturer" : "Belkin",
+              "product_id" : "0x8153",
+              "serial_num" : "B2C1A1000000",
+              "vendor_id" : "0x0bda  (Realtek Semiconductor Corp.)"
+            },
+            {
+              "_items" : [
+                {
+                  "_name" : "LG UltraFine Display Camera",
+                  "bcd_device" : "2.23",
+                  "bus_power" : "900",
+                  "bus_power_used" : "96",
+                  "device_speed" : "super_speed",
+                  "extra_current_used" : "0",
+                  "location_id" : "0x02343000 / 9",
+                  "manufacturer" : "LG Electronlcs Inc.",
+                  "product_id" : "0x9a68",
+                  "vendor_id" : "0x043e  (LG Electronics USA Inc.)"
+                }
+              ],
+              "_name" : "hub_device",
+              "bcd_device" : "1.00",
+              "bus_power" : "900",
+              "bus_power_used" : "0",
+              "device_speed" : "super_speed",
+              "extra_current_used" : "0",
+              "location_id" : "0x02340000 / 4",
+              "product_id" : "0x9a71",
+              "vendor_id" : "0x043e  (LG Electronics USA Inc.)"
+            }
+          ],
+          "_name" : "USB3.1 Hub",
+          "bcd_device" : "52.50",
+          "bus_power" : "900",
+          "bus_power_used" : "0",
+          "device_speed" : "super_speed",
+          "extra_current_used" : "0",
+          "location_id" : "0x02300000 / 2",
+          "manufacturer" : "LG Electronics Inc.",
+          "product_id" : "0x9a60",
+          "vendor_id" : "0x043e  (LG Electronics USA Inc.)"
+        },
+        {
+          "_items" : [
+            {
+              "_items" : [
+                {
+                  "_name" : "Magic Trackpad",
+                  "bcd_device" : "8.60",
+                  "bus_power" : "500",
+                  "bus_power_used" : "500",
+                  "device_speed" : "full_speed",
+                  "extra_current_used" : "0",
+                  "location_id" : "0x02233000 / 14",
+                  "manufacturer" : "Apple Inc.",
+                  "product_id" : "0x0265",
+                  "serial_num" : "CC28513030XJ5R9AE",
+                  "sleep_current" : "500",
+                  "vendor_id" : "apple_vendor_id"
+                },
+                {
+                  "_name" : "J-Link",
+                  "bcd_device" : "1.00",
+                  "location_id" : "0x02232000",
+                  "manufacturer" : "SEGGER",
+                  "product_id" : "0x1050",
+                  "serial_num" : "001050027328",
+                  "vendor_id" : "0x1366"
+                },
+                {
+                  "_name" : "Specialized TCU2",
+                  "bcd_device" : "1.00",
+                  "bus_power" : "500",
+                  "bus_power_used" : "500",
+                  "device_speed" : "full_speed",
+                  "extra_current_used" : "0",
+                  "location_id" : "0x02231000 / 17",
+                  "manufacturer" : "Specialized",
+                  "product_id" : "0x520c",
+                  "serial_num" : "000000000000",
+                  "vendor_id" : "0x1915  (Nordic Semiconductor ASA)"
+                },
+                {
+                  "_name" : "USB Billboard Device   ",
+                  "bcd_device" : "0.01",
+                  "bus_power" : "500",
+                  "device_speed" : "high_speed",
+                  "extra_current_used" : "0",
+                  "location_id" : "0x02235000 / 12",
+                  "manufacturer" : "VIA Labs, Inc.         ",
+                  "product_id" : "0x8817",
+                  "serial_num" : "0000000000000001",
+                  "vendor_id" : "0x2109  (VIA Labs, Inc.)"
+                }
+              ],
+              "_name" : "USB2.0 Hub             ",
+              "bcd_device" : "4.53",
+              "bus_power" : "500",
+              "bus_power_used" : "0",
+              "device_speed" : "high_speed",
+              "extra_current_used" : "0",
+              "location_id" : "0x02230000 / 7",
+              "manufacturer" : "VIA Labs, Inc.         ",
+              "product_id" : "0x2817",
+              "vendor_id" : "0x2109  (VIA Labs, Inc.)"
+            },
+            {
+              "_items" : [
+                {
+                  "_name" : "LG UltraFine Display Controls",
+                  "bcd_device" : "4.13",
+                  "bus_power" : "500",
+                  "bus_power_used" : "0",
+                  "device_speed" : "full_speed",
+                  "extra_current_used" : "0",
+                  "location_id" : "0x02242000 / 11",
+                  "manufacturer" : "LG Electronics Inc.",
+                  "product_id" : "0x9a70",
+                  "vendor_id" : "0x043e  (LG Electronics USA Inc.)"
+                },
+                {
+                  "_name" : "LG UltraFine Display Audio",
+                  "bcd_device" : "0.03",
+                  "bus_power" : "500",
+                  "bus_power_used" : "0",
+                  "device_speed" : "high_speed",
+                  "extra_current_used" : "0",
+                  "location_id" : "0x02241000 / 10",
+                  "manufacturer" : "LG Electronics Inc.",
+                  "product_id" : "0x9a66",
+                  "vendor_id" : "0x043e  (LG Electronics USA Inc.)"
+                }
+              ],
+              "_name" : "hub_device",
+              "bcd_device" : "1.00",
+              "bus_power" : "500",
+              "bus_power_used" : "0",
+              "device_speed" : "high_speed",
+              "extra_current_used" : "0",
+              "location_id" : "0x02240000 / 3",
+              "product_id" : "0x9a73",
+              "serial_num" : "AA0A2871A7D0",
+              "vendor_id" : "0x043e  (LG Electronics USA Inc.)"
+            }
+          ],
+          "_name" : "USB2.1 Hub",
+          "bcd_device" : "52.50",
+          "bus_power" : "500",
+          "bus_power_used" : "100",
+          "device_speed" : "high_speed",
+          "extra_current_used" : "0",
+          "location_id" : "0x02200000 / 1",
+          "manufacturer" : "LG Electronics Inc.",
+          "product_id" : "0x9a61",
+          "vendor_id" : "0x043e  (LG Electronics USA Inc.)"
+        }
+      ],
+      "_name" : "USB31Bus",
+      "host_controller" : "AppleUSBXHCITR",
+      "pci_device" : "0x15f0 ",
+      "pci_revision" : "0x0006 ",
+      "pci_vendor" : "0x8086 "
+    },
+    {
+      "_items" : [
+        {
+          "_items" : [
+            {
+              "_items" : [
+                {
+                  "_name" : "TTL232R-3V3",
+                  "bcd_device" : "6.00",
+                  "location_id" : "0x14311000",
+                  "manufacturer" : "FTDI",
+                  "product_id" : "0x6001",
+                  "serial_num" : "FTAO1IF6",
+                  "vendor_id" : "0x0403  (Future Technology Devices International Limited)"
+                }
+              ],
+              "_name" : "4-Port USB 2.0 Hub",
+              "bcd_device" : "1.17",
+              "bus_power" : "500",
+              "bus_power_used" : "0",
+              "device_speed" : "high_speed",
+              "extra_current_used" : "0",
+              "location_id" : "0x14310000 / 2",
+              "manufacturer" : "Generic",
+              "product_id" : "0x5411",
+              "vendor_id" : "0x0bda  (Realtek Semiconductor Corp.)"
+            }
+          ],
+          "_name" : "4-Port USB 2.0 Hub",
+          "bcd_device" : "1.17",
+          "bus_power" : "500",
+          "bus_power_used" : "0",
+          "device_speed" : "high_speed",
+          "extra_current_used" : "0",
+          "location_id" : "0x14300000 / 1",
+          "manufacturer" : "Generic",
+          "product_id" : "0x5411",
+          "vendor_id" : "0x0bda  (Realtek Semiconductor Corp.)"
+        }
+      ],
+      "_name" : "USB31Bus",
+      "host_controller" : "AppleIntelCNLUSBXHCI",
+      "pci_device" : "0xa36d ",
+      "pci_revision" : "0x0010 ",
+      "pci_vendor" : "0x8086 "
+    },
+    {
+      "_items" : [
+        {
+          "_name" : "Touch Bar Backlight",
+          "bcd_device" : "2.01",
+          "location_id" : "0x80700000",
+          "manufacturer" : "Apple Inc.",
+          "product_id" : "0x8102",
+          "serial_num" : "0000000000000000",
+          "vendor_id" : "apple_vendor_id"
+        },
+        {
+          "_name" : "Touch Bar Display",
+          "bcd_device" : "2.01",
+          "location_id" : "0x80600000",
+          "manufacturer" : "Apple Inc.",
+          "product_id" : "0x8302",
+          "serial_num" : "0000000000000000",
+          "vendor_id" : "apple_vendor_id"
+        },
+        {
+          "_name" : "Apple Internal Keyboard / Trackpad",
+          "bcd_device" : "9.27",
+          "location_id" : "0x80500000",
+          "manufacturer" : "Apple Inc.",
+          "product_id" : "0x027c",
+          "serial_num" : "FM7849500JTHYYMAL+WRZ",
+          "vendor_id" : "apple_vendor_id"
+        },
+        {
+          "_name" : "Headset",
+          "bcd_device" : "2.03",
+          "location_id" : "0x80400000",
+          "manufacturer" : "Apple",
+          "product_id" : "0x8103",
+          "serial_num" : "000000000000",
+          "vendor_id" : "apple_vendor_id"
+        },
+        {
+          "_name" : "Ambient Light Sensor",
+          "bcd_device" : "2.01",
+          "location_id" : "0x80300000",
+          "manufacturer" : "Apple Inc.",
+          "product_id" : "0x8262",
+          "serial_num" : "000000000000",
+          "vendor_id" : "apple_vendor_id"
+        },
+        {
+          "_name" : "FaceTime HD Camera (Built-in)",
+          "bcd_device" : "2.01",
+          "location_id" : "0x80200000",
+          "manufacturer" : "Apple Inc.",
+          "product_id" : "0x8514",
+          "serial_num" : "CC285031HWXJ3Y32P",
+          "vendor_id" : "apple_vendor_id"
+        },
+        {
+          "_name" : "Apple T2 Controller",
+          "bcd_device" : "2.01",
+          "location_id" : "0x80100000",
+          "manufacturer" : "Apple Inc.",
+          "product_id" : "0x8233",
+          "serial_num" : "0000000000000000",
+          "vendor_id" : "apple_vendor_id"
+        }
+      ],
+      "_name" : "T2Bus",
+      "host_controller" : "AppleUSBVHCIBCE"
+    }
+  ]
+}

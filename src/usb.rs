@@ -1,5 +1,6 @@
 ///! Defines for USB, mainly thosed covered at [usb.org](https://www.usb.org)
 use itertools::Itertools;
+use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::fmt;
@@ -8,7 +9,7 @@ use std::str::FromStr;
 use crate::types::NumericalUnit;
 
 /// Configuration attributes
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ConfigAttributes {
     SelfPowered,
     RemoteWakeup,
@@ -251,7 +252,7 @@ pub enum UsageType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EndpointAddress {
-    pub address: u16,
+    pub address: u8,
     pub number: u8,
     pub direction: Direction,
 }
@@ -272,11 +273,21 @@ pub struct USBEndpoint {
 pub struct USBInterface {
     pub name: String,
     pub number: u8,
+    /// Interface port path - could be generated from device but stored here for ease
+    pub path: String,
     pub class: ClassCode,
     pub sub_class: u8,
     pub protocol: u8,
     pub alt_setting: u8,
-    pub endpoints: USBEndpoint,
+    /// Driver obtained from udev on Linux only
+    pub driver: Option<String>,
+    pub endpoints: Vec<USBEndpoint>,
+}
+
+impl USBInterface {
+    pub fn path(&self, bus: u8, ports: &Vec<u8>, config: u8) -> String {
+        get_interface_path(bus, ports, config, self.number)
+    }
 }
 
 /// Devices can have multiple configurations, each with different attributes and interfaces
@@ -285,17 +296,16 @@ pub struct USBConfiguration {
     pub name: String,
     pub number: u8,
     pub interfaces: Vec<USBInterface>,
-    pub attributes: Vec<ConfigAttributes>,
+    pub attributes: HashSet<ConfigAttributes>,
     pub max_power: NumericalUnit<u32>,
-    pub alt_setting: u8,
-    pub endpoints: USBEndpoint,
 }
 
 /// Extra USB device data for verbose printing
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBDeviceExtra {
-    pub max_packet_size: u16,
+    pub max_packet_size: u8,
+    /// Driver obtained from udev on Linux only
     pub driver: Option<String>,
     pub configurations: Vec<USBConfiguration>,
 }
