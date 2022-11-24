@@ -31,6 +31,13 @@ jobs:
           # TODO replace with target toolchain and use cross if required
           toolchain: stable
 
+      - name: Install prerequisites
+        shell: bash
+        run: |
+          case ${{ matrix.job.target }} in
+            *-linux-*) sudo apt-get -y update ; sudo apt-get -y install libudev-dev ;;
+          esac
+
       - name: Test
         run: cargo test
 

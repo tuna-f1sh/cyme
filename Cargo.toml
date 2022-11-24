@@ -25,7 +25,7 @@ simple_logger = "4.0.0"
 usb-ids = { version = "*", optional = true }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
-# udev = "^0.7.0"
+udev = "^0.7.0"
 rusb = { version = "0.9.1" }
 usb-ids = "*"
 
