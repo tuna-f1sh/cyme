@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 /// A numerical `value` converted from a String, which includes a `unit` and `description`
 ///
-/// Serialized string is of format "[value] [unit]" where u32 of f32 is supported
+/// Serialized string is of format "\[value\] \[unit\]" where u32 of f32 is supported
 ///
 /// ```
 /// use std::str::FromStr;

@@ -308,8 +308,6 @@ impl fmt::Display for USBBus {
 ///   bb  -- bus number in hexadecimal
 ///   dddddd -- up to six levels for the tree, each digit represents its
 ///             position on that level
-///
-/// For libusb and general path info: http://gajjarpremal.blogspot.com/2015/04/sysfs-structures-for-linux-usb.html
 #[derive(Debug, Default, Clone, PartialEq, Serialize)]
 pub struct DeviceLocation {
     /// Number of bus attached too
