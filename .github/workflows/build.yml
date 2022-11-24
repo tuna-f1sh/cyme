@@ -4,6 +4,7 @@ name: build
 
 env:
   PROJECT_NAME: cyme
+  INTERMEDIATES_DIR: intermediates
 
 jobs:
   build:
@@ -42,7 +43,50 @@ jobs:
         run: cargo test
 
       - name: Build release
-        run: cargo build --release --all-features
+        id: build
+        run: |
+          cargo build --release --all-features --target=${{ matrix.job.target }}
+          # # Figure out suffix of binary
+          # EXE_suffix=""
+          # case ${{ matrix.job.target }} in
+          #   *-pc-windows-*) EXE_suffix=".exe" ;;
+          # esac;
+
+          # BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
+          # BIN_PATH="target/${{ matrix.job.target }}/release/${BIN_NAME}"
+          # echo "BIN_PATH=${BIN_PATH}" >> $GITHUB_OUTPUT
+          # echo "BIN_NAME=${BIN_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Strip debug information from executable
+        id: strip
+        shell: bash
+        run: |
+          # Figure out suffix of binary
+          EXE_suffix=""
+          case ${{ matrix.job.target }} in
+            *-pc-windows-*) EXE_suffix=".exe" ;;
+          esac;
+          # Figure out what strip tool to use if any
+          STRIP="strip"
+          case ${{ matrix.job.target }} in
+            arm-unknown-linux-*) STRIP="arm-linux-gnueabihf-strip" ;;
+            aarch64-unknown-linux-gnu) STRIP="aarch64-linux-gnu-strip" ;;
+            *-pc-windows-msvc) STRIP="" ;;
+          esac;
+          # Setup paths
+          BIN_DIR="${{ env.INTERMEDIATES_DIR }}/stripped-release-bin/"
+          mkdir -p "${BIN_DIR}"
+          BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
+          BIN_PATH="${BIN_DIR}/${BIN_NAME}"
+          # Copy the release build binary to the result location
+          cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
+          # Also strip if possible
+          if [ -n "${STRIP}" ]; then
+            "${STRIP}" "${BIN_PATH}"
+          fi
+          # Let subsequent steps know where to find the (stripped) bin
+          echo "BIN_PATH=${BIN_PATH}" >> $GITHUB_OUTPUT
+          echo "BIN_NAME=${BIN_NAME}" >> $GITHUB_OUTPUT
 
       - name: Extract crate information
         shell: bash
@@ -51,11 +95,44 @@ jobs:
           echo "PROJECT_MAINTAINER=$(sed -n 's/^authors = \["\(.*\)"\]/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
           echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' Cargo.toml)" >> $GITHUB_ENV
 
+      - name: Create tarball
+        id: package
+        shell: bash
+        run: |
+          PKG_suffix=".tar.gz" ; case ${{ matrix.job.target }} in *-pc-windows-*) PKG_suffix=".zip" ;; esac;
+
+          PKG_BASENAME=${PROJECT_NAME}-v${PROJECT_VERSION}-${{ matrix.job.target }}
+          PKG_NAME=${PKG_BASENAME}${PKG_suffix}
+
+          echo "PKG_NAME=${PKG_NAME}" >> $GITHUB_OUTPUT
+
+          PKG_STAGING="${{ env.INTERMEDIATES_DIR }}/package"
+          ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
+          mkdir -p "${ARCHIVE_DIR}"
+
+          # Binary
+          cp "${{ steps.strip.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
+          # Man page
+          # cp 'doc/${{ env.PROJECT_NAME }}.1' "$ARCHIVE_DIR"
+          # README, LICENSE and CHANGELOG files
+          # cp "README.md" "LICENSE-MIT" "LICENSE-APACHE" "CHANGELOG.md" "$ARCHIVE_DIR"
+          # Autocompletion files
+          # cp -r autocomplete "${ARCHIVE_DIR}"
+          # base compressed package
+          pushd "${PKG_STAGING}/" >/dev/null
+          case ${{ matrix.job.target }} in
+          *-pc-windows-*) 7z -y a "${PKG_NAME}" "${PKG_BASENAME}"/* | tail -2 ;;
+          *) tar czf "${PKG_NAME}" "${PKG_BASENAME}"/* ;;
+          esac;
+          popd >/dev/null
+          # Let subsequent steps know where to find the compressed package
+          echo "PKG_PATH=${PKG_STAGING}/${PKG_NAME}" >> $GITHUB_OUTPUT
+
       - name: archive executable
         uses: actions/upload-artifact@master
         with:
-          name: ${{ env.PROJECT_NAME }}-${{ matrix.job.os }}-${{ matrix.job.target}}
-          path: target/release/${{ env.PROJECT_NAME }}
+          name: ${{ steps.package.outputs.PKG_NAME }}
+          path: ${{ steps.package.outputs.PKG_PATH }}
 
       - name: Check for release
         id: is-release
@@ -68,6 +145,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: steps.is-release.outputs.IS_RELEASE
         with:
-          files: target/release/${{ env.PROJECT_NAME }}
+          files: ${{ steps.package.outputs.PKG_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
