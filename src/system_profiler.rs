@@ -1,6 +1,6 @@
-///! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
-///!
-///! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
+//! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
+//!
+//! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
 use std::fmt;
 use std::io;
 use std::process::Command;

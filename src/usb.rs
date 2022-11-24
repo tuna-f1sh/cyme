@@ -1,4 +1,4 @@
-///! Defines for USB, mainly thosed covered at [usb.org](https://www.usb.org)
+//! Defines for USB, mainly thosed covered at [usb.org](https://www.usb.org)
 use itertools::Itertools;
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};

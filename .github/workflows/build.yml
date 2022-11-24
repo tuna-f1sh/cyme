@@ -40,22 +40,13 @@ jobs:
           esac
 
       - name: Test
+        id: test
         run: cargo test
 
       - name: Build release
         id: build
         run: |
           cargo build --release --all-features --target=${{ matrix.job.target }}
-          # # Figure out suffix of binary
-          # EXE_suffix=""
-          # case ${{ matrix.job.target }} in
-          #   *-pc-windows-*) EXE_suffix=".exe" ;;
-          # esac;
-
-          # BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
-          # BIN_PATH="target/${{ matrix.job.target }}/release/${BIN_NAME}"
-          # echo "BIN_PATH=${BIN_PATH}" >> $GITHUB_OUTPUT
-          # echo "BIN_NAME=${BIN_NAME}" >> $GITHUB_OUTPUT
 
       - name: Strip debug information from executable
         id: strip
@@ -66,6 +57,7 @@ jobs:
           case ${{ matrix.job.target }} in
             *-pc-windows-*) EXE_suffix=".exe" ;;
           esac;
+
           # Figure out what strip tool to use if any
           STRIP="strip"
           case ${{ matrix.job.target }} in
@@ -73,17 +65,21 @@ jobs:
             aarch64-unknown-linux-gnu) STRIP="aarch64-linux-gnu-strip" ;;
             *-pc-windows-msvc) STRIP="" ;;
           esac;
+
           # Setup paths
           BIN_DIR="${{ env.INTERMEDIATES_DIR }}/stripped-release-bin/"
           mkdir -p "${BIN_DIR}"
           BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
           BIN_PATH="${BIN_DIR}/${BIN_NAME}"
+
           # Copy the release build binary to the result location
           cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
+
           # Also strip if possible
           if [ -n "${STRIP}" ]; then
             "${STRIP}" "${BIN_PATH}"
           fi
+
           # Let subsequent steps know where to find the (stripped) bin
           echo "BIN_PATH=${BIN_PATH}" >> $GITHUB_OUTPUT
           echo "BIN_NAME=${BIN_NAME}" >> $GITHUB_OUTPUT
@@ -112,10 +108,10 @@ jobs:
 
           # Binary
           cp "${{ steps.strip.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
+          # README and LICENSE
+          cp "README.md" "LICENSE" "$ARCHIVE_DIR"
           # Man page
           # cp 'doc/${{ env.PROJECT_NAME }}.1' "$ARCHIVE_DIR"
-          # README, LICENSE and CHANGELOG files
-          # cp "README.md" "LICENSE-MIT" "LICENSE-APACHE" "CHANGELOG.md" "$ARCHIVE_DIR"
           # Autocompletion files
           # cp -r autocomplete "${ARCHIVE_DIR}"
           # base compressed package

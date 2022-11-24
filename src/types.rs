@@ -1,4 +1,4 @@
-///! Types used in crate non-specific to a module
+//! Types used in crate non-specific to a module
 use std::fmt;
 use std::io;
 use std::str::FromStr;

@@ -1,4 +1,4 @@
-///! Provides the main utilities to display USB types within this crate - primarily used by `cyme` binary.
+//! Provides the main utilities to display USB types within this crate - primarily used by `cyme` binary.
 use clap::ValueEnum;
 use colored::*;
 use itertools::Itertools;

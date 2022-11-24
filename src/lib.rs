@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+// #![warn(missing_docs)]
 
 #[macro_use]
 extern crate lazy_static;

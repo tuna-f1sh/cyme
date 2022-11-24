@@ -1,4 +1,4 @@
-///! Where the magic happens for `cyme` binary!
+//! Where the magic happens for `cyme` binary!
 use clap::Parser;
 use colored::*;
 use simple_logger::SimpleLogger;
@@ -7,9 +7,9 @@ use std::io::{Error, ErrorKind};
 
 use cyme::display;
 use cyme::icon::IconTheme;
+use cyme::system_profiler;
 #[cfg(feature = "libusb")]
 use cyme::lsusb;
-use cyme::system_profiler;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -99,6 +99,7 @@ struct Args {
     debug: u8,
 }
 
+/// Print in bold red and exit with error
 macro_rules! eprintexit {
     ($error:expr) => {
         // `stringify!` will convert the expression *as it is* into a string.
@@ -107,6 +108,7 @@ macro_rules! eprintexit {
     };
 }
 
+/// Parse the vidpid filter lsusb format: vid:Option<pid>
 fn parse_vidpid(s: &str) -> (Option<u16>, Option<u16>) {
     if s.contains(":") {
         let vid_split: Vec<&str> = s.split(":").collect();
@@ -131,6 +133,7 @@ fn parse_vidpid(s: &str) -> (Option<u16>, Option<u16>) {
     }
 }
 
+/// Parse the show Option<bus>:device lsusb format
 fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
     if s.contains(":") {
         let split: Vec<&str> = s.split(":").collect();
@@ -283,10 +286,15 @@ fn main() {
         log::info!("Filtering with {:?}", f);
         Some(f)
     } else {
-        Some(system_profiler::USBFilter {
-          no_exclude_root_hub: !(args.tree || args.group_devices == display::Group::Bus),
-          ..Default::default()
-        })
+        // default filter with exlcude root_hubs on linux if printing tree as they are buses in system_profiler
+        if cfg!(target_os = "linux") {
+            Some(system_profiler::USBFilter {
+              no_exclude_root_hub: !(args.tree || args.group_devices == display::Group::Bus),
+              ..Default::default()
+            })
+        } else {
+            None
+        }
     };
 
     // no sort if just dumping because it looks wierd with buses out of order
