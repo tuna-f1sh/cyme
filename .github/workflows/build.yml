@@ -28,6 +28,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
+          # TODO replace with target toolchain and use cross if required
           toolchain: stable
 
       - name: Test
@@ -53,7 +54,7 @@ jobs:
         id: is-release
         shell: bash
         run: |
-          unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
+          unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/[0-9].* ]]; then IS_RELEASE='true' ; fi
           echo "IS_RELEASE=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Publish archives and packages

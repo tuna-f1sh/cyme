@@ -41,6 +41,8 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Install
 
+* Linux verbose mode requires 'libudev-dev' to obtain driver information. Install with package manager: `sudo apt-get install libudev-dev`.
+
 From crates.io with a Rust tool-chain installed: `cargo install cyme`. If wishing to do it from within a local clone: `cargo install --path .`.
 
 If wishing to use only macOS `system_profiler` and not more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
