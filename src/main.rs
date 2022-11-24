@@ -192,12 +192,13 @@ fn main() {
     let mut args = Args::parse();
 
     match args.debug {
+        0 => (),
         // just use env if not passed
-        0 => SimpleLogger::new()
-            .with_utc_timestamps()
-            .env()
-            .init()
-            .unwrap(),
+        // 0 => SimpleLogger::new()
+        //     .with_utc_timestamps()
+        //     .env()
+        //     .init()
+        //     .unwrap(),
         1 => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Info.to_level_filter())

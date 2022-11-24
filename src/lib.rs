@@ -10,5 +10,5 @@ pub mod usb;
 
 #[cfg(feature = "libusb")]
 pub mod lsusb;
-#[cfg(system = "linux")]
+#[cfg(target_os = "linux")]
 pub mod udev;
