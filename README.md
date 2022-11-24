@@ -41,13 +41,15 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Install
 
-* Linux verbose mode requires 'libudev-dev' to obtain driver information. Install with package manager: `sudo apt-get install libudev-dev`.
-
 From crates.io with a Rust tool-chain installed: `cargo install cyme`. If wishing to do it from within a local clone: `cargo install --path .`.
 
 If wishing to use only macOS `system_profiler` and not more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
 
 I also have a Homebrew tap: `brew tap tuna-f1sh/cyme`.
+
+## Linux udev
+
+To obtain device and interface drivers being used on Linux like `lsusb`, one must install 'libudev-dev' via a package manager and the `--features udev` feature when building. Only supported on Linux targets.
 
 ## Alias `lsusb`
 

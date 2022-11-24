@@ -25,12 +25,13 @@ simple_logger = "4.0.0"
 usb-ids = { version = "*", optional = true }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
-udev = "^0.7.0"
+udev = { version = "^0.7.0", optional = true }
 rusb = { version = "0.9.1" }
 usb-ids = "*"
 
 [features]
 libusb = ["dep:rusb", "dep:usb-ids"]
+udev = ["dep:udev"]
 default = ["libusb"]
 
 [[bin]]
