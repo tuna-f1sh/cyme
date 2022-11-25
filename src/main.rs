@@ -226,8 +226,8 @@ fn main() {
 
     // TODO use use system_profiler but add extra from libusb for verbose
     let mut sp_usb = if cfg!(target_os = "macos") 
-        && !(args.force_libusb || args.verbose > 0)
-        && !(args.tree && args.lsusb) {
+        && !args.force_libusb
+        && !((args.tree && args.lsusb) || args.verbose > 0) {
         system_profiler::get_spusb().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -235,7 +235,7 @@ fn main() {
             ));
         })
     } else {
-        if cfg!(target_os = "macos") {
+        if cfg!(target_os = "macos") && !args.force_libusb {
             eprintln!("Forcing libusb use for verbose output on macOS");
             args.force_libusb = true;
         }
@@ -342,8 +342,8 @@ fn main() {
     // TODO do this in main cyme_print so that sorting each is done too
     if args.lsusb {
         if args.tree { 
-            if args.verbose >= 2 {
-                eprintln!("lsusb compatible verbose tree is styling only; paths are not correct for systems other than Linux");
+            if !cfg!(feature = "udev") {
+                eprintln!("Without udev, lsusb style tree content will not match lsusb; driver/paths are only applicable to Linux and udev");
             }
             print!("{:+}", sp_usb);
         } else {
