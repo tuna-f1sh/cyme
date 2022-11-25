@@ -600,7 +600,7 @@ impl USBDevice {
         };
 
         // get these now to save unwrap and to_owned each interface
-        let extra_data = match &self.extra {
+        let (driver, _, vendor, product) = match &self.extra {
             Some(v) => (v.driver.to_owned().unwrap_or(String::new()), v.syspath.to_owned().unwrap_or(String::new()), v.vendor.to_owned().unwrap_or(String::new()), v.product_name.to_owned().unwrap_or(String::new())),
             None => (String::new(), String::new(), String::new(), String::new())
         };
@@ -622,8 +622,8 @@ impl USBDevice {
                             "ID {:04x}:{:04x} {} {}",
                             self.vendor_id.unwrap_or(0xFFFF),
                             self.product_id.unwrap_or(0xFFFF),
-                            extra_data.2,
-                            extra_data.3,
+                            vendor,
+                            product,
                         ),
                         format!(
                             "{}/{} /dev/bus/usb/{:03}/{:03}",
@@ -644,7 +644,7 @@ impl USBDevice {
                     self.location_id.number,
                     0,
                     self.class.as_ref().map_or(String::new(), |c| format!("{:?}", c)),
-                    extra_data.0,
+                    driver,
                     speed
                 ),
                 format!(
@@ -658,7 +658,7 @@ impl USBDevice {
                     "{}/{} /dev/bus/usb/{:03}/{:03}",
                     "/sys/bus/usb/devices",
                     self.port_path(),
-                    // extra_data.1,
+                    // syspath,
                     self.location_id.bus,
                     self.get_depth(),
                 ))

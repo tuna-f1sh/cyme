@@ -148,7 +148,9 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
     Ok(_extra)
 }
 
-/// Builds a `system_profiler::USBDevice` from a `libusb::Device` by using `device_descriptor()` and intrograting for configuration strings
+/// Builds a `system_profiler::USBDevice` from a `libusb::Device` by using `device_descriptor()` and intrograting for configuration strings. Optionally with `with_extra` will gather full device information, including from udev if feature is present.
+///
+/// Result is a tuple of the [`USBDevice`] and a `Option<String>` of a non-critical error during gather of `with_extra` data. Not very `Result` like but prevents separating the getting of extra data into another function, which would have to re-open the device
 fn build_spdevice<T: libusb::UsbContext>(
     device: &libusb::Device<T>,
     with_extra: bool,
@@ -258,8 +260,10 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
             Ok((sp_device, error_str)) => {
                 cache.push(sp_device.to_owned());
 
+                // print any non-critical error during extra capture
                 error_str.map_or((), |e| eprintln!("{}", e));
 
+                // save it if it's a root_hub for assigning to bus data
                 if !cfg!(target_os = "macos") {
                     if sp_device.is_root_hub() {
                         root_hubs.insert(sp_device.location_id.bus, sp_device);
