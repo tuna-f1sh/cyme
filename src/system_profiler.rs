@@ -65,7 +65,7 @@ where
     }
 }
 
-/// Root JSON returned from system_profiler
+/// Root JSON returned from system_profiler and used as holder for all static USB bus data
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SPUSBDataType {
     /// system buses
@@ -117,19 +117,25 @@ impl fmt::Display for SPUSBDataType {
     }
 }
 
-/// USB bus JSON returned from system_profiler
+/// USB bus JSON returned from system_profiler but now used for other platforms
 #[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct USBBus {
+    /// Bus name or product name
     #[serde(rename(deserialize = "_name"))]
     pub name: String,
+    /// Host Controller on macOS, vendor put here when using libusb
     pub host_controller: String,
+    /// Understood to be product ID - it is when using libusb
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub pci_device: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    /// Revsision of hardware
     pub pci_revision: Option<u16>,
+    /// Understood to be vendor ID - it is when using libusb
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub pci_vendor: Option<u16>,
+    /// Number of bus on system
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub usb_bus_number: Option<u8>,
     /// `USBDevices` on the `USBBus`. Since a device can have devices too, need to walk all down all
@@ -163,6 +169,7 @@ impl USBBus {
         }
     }
 
+    /// Whether the bus has [`USBDevice`]s
     pub fn has_devices(&self) -> bool {
         match &self.devices {
             Some(d) => d.len() > 0,
@@ -170,6 +177,7 @@ impl USBBus {
         }
     }
 
+    /// Whether the bus has any empty hubs
     pub fn has_empty_hubs(&self) -> bool {
         match &self.devices {
             Some(d) => d.iter().any(|dd| dd.is_hub() && !dd.has_devices()),
@@ -187,10 +195,12 @@ impl USBBus {
         )
     }
 
+    /// syspath style path to bus
     pub fn path(&self) -> String {
         get_trunk_path(self.get_bus_number(), &vec![])
     }
 
+    /// Search for [`USBDevice`] in branches of bus
     pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {
@@ -205,7 +215,7 @@ impl USBBus {
     }
 }
 
-/// Recursively gets reference to all devices in a `USBDevice`
+/// Recursively gets reference to all devices in a [`USBDevice`]
 pub fn get_all_devices(devices: &Vec<USBDevice>) -> Vec<&USBDevice> {
     let mut ret: Vec<&USBDevice> = Vec::new();
     for device in devices {
@@ -220,6 +230,7 @@ pub fn get_all_devices(devices: &Vec<USBDevice>) -> Vec<&USBDevice> {
     return ret;
 }
 
+/// Recursively writeln! of all [`USBDevice`] references
 pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>) -> fmt::Result {
     for device in devices {
         // don't print root hubs in tree
@@ -360,14 +371,17 @@ impl FromStr for DeviceLocation {
 }
 
 impl DeviceLocation {
+    /// Linux style port path where it can be found on system device path - normaly /sys/bus/usb/devices
     pub fn port_path(&self) -> String {
         get_port_path(self.bus, &self.tree_positions)
     }
 
+    /// Port path of parent
     pub fn parent_path(&self) -> Result<String, String> {
         get_parent_path(self.bus, &self.tree_positions)
     }
 
+    /// Port path of trunk
     pub fn trunk_path(&self) -> String {
         get_trunk_path(self.bus, &self.tree_positions)
     }
@@ -406,9 +420,12 @@ impl<'de> Deserialize<'de> for DeviceLocation {
     }
 }
 
+/// Used for macOS system_profiler dump. Speed is a snake_case string and in case we can't match to a [`Speed`], this allows the String to be stored and not panic
 #[derive(Debug, Clone, PartialEq, DeserializeFromStr, SerializeDisplay)]
 pub enum DeviceSpeed {
+    /// Value as Deserialized into [`Speed`]
     SpeedValue(Speed),
+    /// Failed to Deserialize so just the description provided by system_profiler
     Description(String),
 }
 
@@ -447,37 +464,55 @@ impl FromStr for DeviceSpeed {
     }
 }
 
+/// USB device data based on JSON object output from system_profiler but now used for other platforms
+///
+/// Desgined to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb
 #[skip_serializing_none]
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct USBDevice {
+    /// The device product name as reported in descriptor or using usb_ids if None
     #[serde(rename(deserialize = "_name"))]
     pub name: String,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    /// Unique vendor identifier - purchased from USB foundation
     pub vendor_id: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    /// Vendor product identifier
     pub product_id: Option<u16>,
+    /// Device location information on bus
     pub location_id: DeviceLocation,
+    /// Device serial number as reported by descriptor
     pub serial_num: Option<String>,
+    /// The device manufacturer as provided in descriptor or using usb_ids if None
     pub manufacturer: Option<String>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    /// The device version
     pub bcd_device: Option<f32>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    /// The supported USB version
     pub bcd_usb: Option<f32>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    /// macOS system_profiler only - actually bus current in mA not power!
     pub bus_power: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    /// macOS system_profiler only - actually bus current used in mA not power!
     pub bus_power_used: Option<u16>,
+    /// Advertised device capable speed
     pub device_speed: Option<DeviceSpeed>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    /// macOS system_profiler only - actually bus current used in mA not power!
     pub extra_current_used: Option<u8>,
-    /// Devices can be hub and have devices attached so need to walk each device devices...
+    /// Devices can be hub and have devices attached so need to walk each device's devices...
     #[serde(rename(deserialize = "_items"))]
     pub devices: Option<Vec<USBDevice>>,
     // below are not in macOS system profiler but useful enough to have outside of extra
+    /// USB device class
     #[serde(skip_deserializing)]
     pub class: Option<ClassCode>,
+    /// USB sub-class
     #[serde(skip_deserializing)]
     pub sub_class: Option<u8>,
+    /// USB protocol
     #[serde(skip_deserializing)]
     pub protocol: Option<u8>,
     /// Extra data obtained by libusb/udev exploration
@@ -486,6 +521,7 @@ pub struct USBDevice {
 }
 
 impl USBDevice {
+    /// Does the device have child devices
     pub fn has_devices(&self) -> bool {
         match &self.devices {
             Some(d) => d.len() > 0,
@@ -493,6 +529,9 @@ impl USBDevice {
         }
     }
 
+    /// Recursively walk all [`USBDevice`] from self, looking for the one with `port_path`
+    ///
+    /// Will panic if `port_path` is not a child device or if it sits shallower than self
     pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
         let node_depth = port_path.split('-').last().expect("Invalid port path").split('.').count();
         let current_depth = self.get_depth();
@@ -527,6 +566,7 @@ impl USBDevice {
         *self.location_id.tree_positions.last().unwrap_or(&0)
     }
 
+    /// The number of [`USBDevice`] deep; branch depth
     pub fn get_depth(&self) -> usize {
         self.location_id.tree_positions.len()
     }
@@ -547,6 +587,7 @@ impl USBDevice {
             || self.class.as_ref().map_or(false, |c| *c == ClassCode::Hub)
     }
 
+    /// Linux style port path where it can be found on system device path - normaly /sys/bus/usb/devices
     pub fn port_path(&self) -> String {
         // special case for root_hub, it's the interface 0 on config 1
         if self.is_root_hub() {
@@ -556,10 +597,12 @@ impl USBDevice {
         }
     }
 
+    /// Path of parent [`USBDevice`]; one above in tree
     pub fn parent_path(&self) -> Result<String, String> {
         self.location_id.parent_path()
     }
 
+    /// Path of trunk [`USBDevice`]; first in tree
     pub fn trunk_path(&self) -> String {
         self.location_id.trunk_path()
     }
@@ -574,6 +617,7 @@ impl USBDevice {
         self.location_id.tree_positions.len() == 0
     }
 
+    /// Generate a String from self like lsusb default list device
     pub fn to_lsusb_string(&self) -> String {
         format!("Bus {:03} Device {:03}: ID {:04x}:{:04x} {}",
             self.location_id.bus,
@@ -584,6 +628,7 @@ impl USBDevice {
         )
     }
 
+    /// Generate a tuple (String, String, String) of the lsusb tree output at all three verbosity levels
     pub fn to_lsusb_tree_string(&self, _verbosity_level: u8) -> Vec<(String, String, String)> {
         let mut format_strs = Vec::new();
 
@@ -730,19 +775,29 @@ impl fmt::Display for USBDevice {
     }
 }
 
+/// Used to filter devices within buses
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct USBFilter {
+    /// Retain only devices with vendor id matching this
     pub vid: Option<u16>,
+    /// Retain only devices with product id matching this
     pub pid: Option<u16>,
+    /// Retain only devices on this bus
     pub bus: Option<u8>,
+    /// Retain only devices with this device number
     pub number: Option<u8>,
+    /// Retain only devices with name.contains(name)
     pub name: Option<String>,
+    /// Retain only devices with serial.contains(serial)
     pub serial: Option<String>,
+    /// Exlcude empty hubs in the tree
     pub exclude_empty_hub: bool,
+    /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`USBBus`]'s in the tree
     pub no_exclude_root_hub: bool,
 }
 
 impl USBFilter {
+    /// Creates a new filter with defaults
     pub fn new() -> Self {
         Default::default()
     }
@@ -812,6 +867,7 @@ impl USBFilter {
     }
 }
 
+/// Runs the system_profiler command for SPUSBDataType and parses the json stdout into a [`SPUSBDataType`]
 pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
     let output = if cfg!(target_os = "macos") {
         Command::new("system_profiler")
@@ -892,5 +948,18 @@ mod tests {
         assert_eq!(device.pci_revision, Some(0x0006));
         assert_eq!(device.pci_vendor, Some(0x8086));
         assert_eq!(device.usb_bus_number, Some(0x00));
+    }
+
+    #[test]
+    fn test_json_dump_read_not_panic() {
+        use std::fs::File;
+        use std::io::{BufReader, Read};
+
+        let mut data = String::new();
+        let f = File::open("./test/data/system_profiler_dump.json").expect("Unable to open json dump file");
+        let mut br = BufReader::new(f);
+        br.read_to_string(&mut data).expect("Unable to read string");
+
+        serde_json::from_str::<SPUSBDataType>(&data).unwrap();
     }
 }

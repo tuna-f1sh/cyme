@@ -85,6 +85,7 @@ impl From<u8> for ClassCode {
 }
 
 impl ClassCode {
+    /// How the ClassCode is used [`DescriptorUsage`]
     pub fn usage(&self) -> DescriptorUsage {
         match self {
             ClassCode::UseInterfaceDescriptor | ClassCode::Hub | ClassCode::Billboard => {
@@ -202,8 +203,8 @@ impl From<&Speed> for NumericalUnit<f32> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Transfer and endpoint directions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Direction {
     /// Direction for write (host to device) transfers.
     Out,
@@ -250,10 +251,14 @@ pub enum UsageType {
     Reserved,
 }
 
+/// Address information for USB endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EndpointAddress {
+    /// Endpoint address
     pub address: u8,
+    /// Endpoint number on [`USBInterface`]
     pub number: u8,
+    /// Data transfer direction
     pub direction: Direction,
 }
 
@@ -287,6 +292,7 @@ pub struct USBInterface {
 }
 
 impl USBInterface {
+    /// Linux syspath to interface
     pub fn path(&self, bus: u8, ports: &Vec<u8>, config: u8) -> String {
         get_interface_path(bus, ports, config, self.number)
     }

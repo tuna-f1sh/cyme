@@ -1,3 +1,4 @@
+//! Icons and themeing of cyme output
 use colored::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -187,6 +188,7 @@ impl IconTheme {
         }
     }
 
+    /// Get icon for device from static default lookup
     pub fn get_default_device_icon(d: &USBDevice) -> String {
         if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
             IconTheme::get_default_vidpid_icon(vid, pid)
