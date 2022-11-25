@@ -713,8 +713,9 @@ impl fmt::Display for USBDevice {
                 if spaces > 0 {
                     spaces += 3;
                 }
-                let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
-                // let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
+                // not verbose for fmt::Display
+                // let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
+                let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
                 write!(f, "{}", interface_strs.join("\n\r"))
             } else {
                 write!(f, "{}", self.to_lsusb_string())
