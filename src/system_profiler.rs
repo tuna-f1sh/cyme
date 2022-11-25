@@ -494,7 +494,7 @@ impl USBDevice {
 
     pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
         let node_depth = port_path.split('-').last().expect("Invalid port path").split('.').count();
-        let current_depth = self.get_current_depth();
+        let current_depth = self.get_depth();
         log::debug!("Get node at {} with {} ({})", port_path, self.port_path(), self);
 
         // should not be looking for nodes below us
@@ -526,7 +526,7 @@ impl USBDevice {
         *self.location_id.tree_positions.last().unwrap_or(&0)
     }
 
-    pub fn get_current_depth(&self) -> usize {
+    pub fn get_depth(&self) -> usize {
         self.location_id.tree_positions.len()
     }
 
@@ -578,7 +578,9 @@ impl USBDevice {
         )
     }
 
-    pub fn to_lsusb_tree_string(&self) -> String {
+    pub fn to_lsusb_tree_string(&self, _verbosity_level: u8) -> Vec<(String, String, String)> {
+        let mut format_strs = Vec::new();
+
         let speed = match &self.device_speed {
             Some(v) => match v {
                 DeviceSpeed::SpeedValue(v) => {
@@ -591,15 +593,65 @@ impl USBDevice {
             None => String::from(""),
         };
 
-        format!(
-            "Port {:}: Device {:}: If {}, Class={}, Driver={}, {}",
-            self.get_branch_position(),
-            self.location_id.number,
-            0, // TODO do this for each interface
-            self.class.as_ref().map_or(String::new(), |c| format!("{:?}", c)),
-            self.extra.as_ref().map_or(String::new(), |e| e.to_owned().driver.unwrap_or(String::new())),
-            speed
-        )
+        if let Some(extra) = self.extra.as_ref() {
+            for config in &extra.configurations {
+                for interface in &config.interfaces {
+                    format_strs.push((
+                        format!(
+                            "Port {:}: Device {:}: If {}, Class={:?}, Driver={}, {}",
+                            self.get_branch_position(),
+                            self.location_id.number,
+                            interface.number, // TODO do this for each interface
+                            interface.class,
+                            interface.driver.as_ref().unwrap_or(&String::new()),
+                            speed
+                        ),
+                        format!(
+                            "ID {:04x}:{:04x} {} {}",
+                            self.vendor_id.unwrap_or(0xFFFF),
+                            self.product_id.unwrap_or(0xFFFF),
+                            self.manufacturer.as_ref().unwrap_or(&String::new()), // TODO these are actually usb_id vendor/product
+                            self.name,
+                        ),
+                        format!(
+                            "{}/{} /dev/bus/usb/{:03}/{:03}",
+                            "/sys/bus/usb/devices",
+                            self.port_path(),
+                            self.location_id.bus,
+                            self.get_depth(),
+                        ))
+                    );
+                }
+            }
+        } else {
+            format_strs.push((
+                format!(
+                    "Port {:}: Device {:}: If {}, Class={:?}, Driver={}, {}",
+                    self.get_branch_position(),
+                    self.location_id.number,
+                    0, // TODO do this for each interface
+                    self.class.as_ref().map_or(String::new(), |c| format!("{:?}", c)),
+                    self.extra.as_ref().map_or(String::new(), |e| e.to_owned().driver.unwrap_or(String::new())),
+                    speed
+                ),
+                format!(
+                    "ID {:04x}:{:04x} {} {}",
+                    self.vendor_id.unwrap_or(0xFFFF),
+                    self.product_id.unwrap_or(0xFFFF),
+                    self.manufacturer.as_ref().unwrap_or(&String::new()), // TODO these are actually usb_id vendor/product
+                    self.name,
+                ),
+                format!(
+                    "{}/{} /dev/bus/usb/{:03}/{:03}",
+                    "/sys/bus/usb/devices",
+                    self.port_path(), // this is actually the symbolic link name
+                    self.location_id.bus,
+                    self.get_depth(),
+                ))
+            );
+        }
+
+        format_strs
     }
 }
 
@@ -653,8 +705,9 @@ impl fmt::Display for USBDevice {
                 if spaces > 0 {
                     spaces += 3;
                 }
-                write!(f, "{:>spaces$}{}", tree, self.to_lsusb_tree_string()
-                )
+                // let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
+                let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
+                write!(f, "{}", interface_strs.join("\n\r"))
             } else {
                 write!(f, "{}", self.to_lsusb_string())
             }
