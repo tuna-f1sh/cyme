@@ -11,6 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 
 use crate::types::NumericalUnit;
+use crate::usb::get_interface_path;
 use crate::usb::get_parent_path;
 use crate::usb::get_trunk_path;
 use crate::usb::{get_port_path, ClassCode, Speed, USBDeviceExtra};
@@ -547,7 +548,12 @@ impl USBDevice {
     }
 
     pub fn port_path(&self) -> String {
-        self.location_id.port_path()
+        // special case for root_hub, it's the interface 0 on config 1
+        if self.is_root_hub() {
+            get_interface_path(self.location_id.bus, &self.location_id.tree_positions, 1, 0)
+        } else {
+            self.location_id.port_path()
+        }
     }
 
     pub fn parent_path(&self) -> Result<String, String> {

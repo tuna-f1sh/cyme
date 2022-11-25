@@ -76,7 +76,7 @@ fn build_interfaces<T: libusb::UsbContext>(
 
             #[cfg(target_os = "linux")]
             #[cfg(feature = "udev")]
-            if with_udev {
+            if _with_udev {
                 udev::get_udev_info(&mut _interface.driver, &mut _interface.syspath, &_interface.path).or(Err(libusb::Error::Other))?;
             }
 
@@ -141,7 +141,7 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
 
     #[cfg(target_os = "linux")]
     #[cfg(feature = "udev")]
-    if with_udev {
+    if _with_udev {
         udev::get_udev_info(&mut _extra.driver, &mut _extra.syspath, &_sp_device.port_path()).or(Err(libusb::Error::Other))?;
     }
 
@@ -227,8 +227,10 @@ fn build_spdevice<T: libusb::UsbContext>(
                 // try again without udev if we have that feature but return message so device still added
                 if cfg!(feature = "udev") && e == libusb::Error::Other {
                     sp_device.extra = Some(build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device, false)?);
+                    Some(format!( "Failed to get udev data for {}, probably requires elevated permissions", sp_device ))
+                } else {
+                    Some(format!( "Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e ))
                 }
-                Some(format!( "Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e ))
             }
         }
     } else {
