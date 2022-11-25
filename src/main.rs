@@ -236,7 +236,7 @@ fn main() {
         })
     } else {
         if cfg!(target_os = "macos") && !args.force_libusb {
-            eprintln!("Forcing libusb use for verbose output on macOS");
+            eprintln!("Forcing libusb for supplied arguments on macOS");
             args.force_libusb = true;
         }
         abort_not_libusb();

@@ -55,6 +55,7 @@ fn build_interfaces<T: libusb::UsbContext>(
     device: &libusb::Device<T>,
     handle: &mut Option<UsbDevice<T>>,
     config_desc: &libusb::ConfigDescriptor,
+    _with_udev: bool,
 ) -> libusb::Result<Vec<usb::USBInterface>> {
     let mut ret: Vec<usb::USBInterface> = Vec::new();
 
@@ -75,7 +76,9 @@ fn build_interfaces<T: libusb::UsbContext>(
 
             #[cfg(target_os = "linux")]
             #[cfg(feature = "udev")]
-            udev::get_udev_info(&mut _interface.driver, &mut _interface.syspath, &_interface.path).or(Err(libusb::Error::Other))?;
+            if with_udev {
+                udev::get_udev_info(&mut _interface.driver, &mut _interface.syspath, &_interface.path).or(Err(libusb::Error::Other))?;
+            }
 
             ret.push(_interface);
         }
@@ -88,6 +91,7 @@ fn build_configurations<T: libusb::UsbContext>(
     device: &libusb::Device<T>,
     handle: &mut Option<UsbDevice<T>>,
     device_desc: &libusb::DeviceDescriptor,
+    with_udev: bool,
 ) -> libusb::Result<Vec<usb::USBConfiguration>> {
     let mut ret: Vec<usb::USBConfiguration> = Vec::new();
 
@@ -111,7 +115,7 @@ fn build_configurations<T: libusb::UsbContext>(
             number: config_desc.number(),
             attributes,
             max_power: NumericalUnit{value: config_desc.max_power() as u32, unit: String::from("mW"), description: None},
-            interfaces: build_interfaces(device, handle, &config_desc)?,
+            interfaces: build_interfaces(device, handle, &config_desc, with_udev)?,
         });
     }
 
@@ -124,6 +128,7 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
     handle: &mut Option<UsbDevice<T>>,
     device_desc: &libusb::DeviceDescriptor,
     _sp_device: &system_profiler::USBDevice,
+    _with_udev: bool,
 ) -> libusb::Result<usb::USBDeviceExtra> {
     let mut _extra = usb::USBDeviceExtra {
         max_packet_size: device_desc.max_packet_size(),
@@ -131,12 +136,14 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
         syspath: None,
         vendor: usb_ids::Vendor::from_id(device_desc.vendor_id()).map_or(None, |v| Some(v.name().to_owned())),
         product_name: usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()).map_or(None, |v| Some(v.name().to_owned())),
-        configurations: build_configurations(device, handle, device_desc)?
+        configurations: build_configurations(device, handle, device_desc, _with_udev)?
     };
 
     #[cfg(target_os = "linux")]
     #[cfg(feature = "udev")]
-    udev::get_udev_info(&mut _extra.driver, &mut _extra.syspath, &_sp_device.port_path()).or(Err(libusb::Error::Other))?;
+    if with_udev {
+        udev::get_udev_info(&mut _extra.driver, &mut _extra.syspath, &_sp_device.port_path()).or(Err(libusb::Error::Other))?;
+    }
 
     Ok(_extra)
 }
@@ -145,7 +152,7 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
 fn build_spdevice<T: libusb::UsbContext>(
     device: &libusb::Device<T>,
     with_extra: bool,
-) -> libusb::Result<system_profiler::USBDevice> {
+) -> libusb::Result<(system_profiler::USBDevice, Option<String>)> {
     let timeout = Duration::from_secs(1);
     let speed = match usb::Speed::from(device.speed()) {
         usb::Speed::Unknown => None,
@@ -213,11 +220,22 @@ fn build_spdevice<T: libusb::UsbContext>(
         ..Default::default()
     };
 
-    if with_extra { 
-        sp_device.extra = Some(build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device)?);
-    }
+    let error_str = if with_extra { 
+        match build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device, true) {
+            Ok(extra) => { sp_device.extra = Some(extra); None },
+            Err(e) => {
+                // try again without udev if we have that feature but return message so device still added
+                if cfg!(feature = "udev") && e == libusb::Error::Other {
+                    sp_device.extra = Some(build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device, false)?);
+                }
+                Some(format!( "Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e ))
+            }
+        }
+    } else {
+        None
+    };
 
-    Ok(sp_device)
+    Ok((sp_device, error_str))
 }
 
 /// Get `SPUSBDataType` using `libusb` rather than `system_profiler`
@@ -235,8 +253,10 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
     // run through devices building USBDevice types
     for device in libusb::DeviceList::new()?.iter() {
         match build_spdevice(&device, with_extra) {
-            Ok(sp_device) => {
+            Ok((sp_device, error_str)) => {
                 cache.push(sp_device.to_owned());
+
+                error_str.map_or((), |e| eprintln!("{}", e));
 
                 if !cfg!(target_os = "macos") {
                     if sp_device.is_root_hub() {
@@ -244,7 +264,7 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
                     }
                 }
             },
-            Err(e) => { eprintln!("Failed to get data for {:?}: {}", device, e.to_string()) }
+            Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e.to_string())
         }
     }
 
