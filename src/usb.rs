@@ -281,6 +281,8 @@ pub struct USBInterface {
     pub alt_setting: u8,
     /// Driver obtained from udev on Linux only
     pub driver: Option<String>,
+    /// syspath obtained from udev on Linux only
+    pub syspath: Option<String>,
     pub endpoints: Vec<USBEndpoint>,
 }
 
@@ -307,6 +309,10 @@ pub struct USBDeviceExtra {
     pub max_packet_size: u8,
     /// Driver obtained from udev on Linux only
     pub driver: Option<String>,
+    /// syspath obtained from udev on Linux only
+    pub syspath: Option<String>,
+    pub vendor: Option<String>,
+    pub product_name: Option<String>,
     pub configurations: Vec<USBConfiguration>,
 }
 

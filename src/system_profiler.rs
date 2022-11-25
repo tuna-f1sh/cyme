@@ -593,6 +593,12 @@ impl USBDevice {
             None => String::from(""),
         };
 
+        // get these now to save unwrap and to_owned each interface
+        let extra_data = match &self.extra {
+            Some(v) => (v.driver.to_owned().unwrap_or(String::new()), v.syspath.to_owned().unwrap_or(String::new()), v.vendor.to_owned().unwrap_or(String::new()), v.product_name.to_owned().unwrap_or(String::new())),
+            None => (String::new(), String::new(), String::new(), String::new())
+        };
+
         if let Some(extra) = self.extra.as_ref() {
             for config in &extra.configurations {
                 for interface in &config.interfaces {
@@ -601,7 +607,7 @@ impl USBDevice {
                             "Port {:}: Device {:}: If {}, Class={:?}, Driver={}, {}",
                             self.get_branch_position(),
                             self.location_id.number,
-                            interface.number, // TODO do this for each interface
+                            interface.number,
                             interface.class,
                             interface.driver.as_ref().unwrap_or(&String::new()),
                             speed
@@ -610,13 +616,14 @@ impl USBDevice {
                             "ID {:04x}:{:04x} {} {}",
                             self.vendor_id.unwrap_or(0xFFFF),
                             self.product_id.unwrap_or(0xFFFF),
-                            self.manufacturer.as_ref().unwrap_or(&String::new()), // TODO these are actually usb_id vendor/product
-                            self.name,
+                            extra_data.2,
+                            extra_data.3,
                         ),
                         format!(
                             "{}/{} /dev/bus/usb/{:03}/{:03}",
                             "/sys/bus/usb/devices",
-                            self.port_path(),
+                            interface.path,
+                            // interface.syspath.as_ref().unwrap_or(&String::new()),
                             self.location_id.bus,
                             self.get_depth(),
                         ))
@@ -629,9 +636,9 @@ impl USBDevice {
                     "Port {:}: Device {:}: If {}, Class={:?}, Driver={}, {}",
                     self.get_branch_position(),
                     self.location_id.number,
-                    0, // TODO do this for each interface
+                    0,
                     self.class.as_ref().map_or(String::new(), |c| format!("{:?}", c)),
-                    self.extra.as_ref().map_or(String::new(), |e| e.to_owned().driver.unwrap_or(String::new())),
+                    extra_data.0,
                     speed
                 ),
                 format!(
@@ -644,7 +651,8 @@ impl USBDevice {
                 format!(
                     "{}/{} /dev/bus/usb/{:03}/{:03}",
                     "/sys/bus/usb/devices",
-                    self.port_path(), // this is actually the symbolic link name
+                    self.port_path(),
+                    // extra_data.1,
                     self.location_id.bus,
                     self.get_depth(),
                 ))
@@ -705,8 +713,8 @@ impl fmt::Display for USBDevice {
                 if spaces > 0 {
                     spaces += 3;
                 }
-                // let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
-                let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
+                let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
+                // let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
                 write!(f, "{}", interface_strs.join("\n\r"))
             } else {
                 write!(f, "{}", self.to_lsusb_string())

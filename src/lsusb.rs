@@ -1,28 +1,6 @@
-//! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb functions and provide cross-platform SPUSBDataType gather
+//! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb functions and provide cross-platform SPUSBDataType getter
+//!
 //! lsusb uses udev for tree building, which libusb does not have access to and is Linux only. udev-rs is used on Linux to attempt to mirror the output of lsusb on Linux. On other platforms, certain information like driver used cannot be obtained.
-/* Ref for list:
-Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
-Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
-Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
-Bus 002 Device 003: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
-Bus 002 Device 002: ID 203a:fffe PARALLELS Virtual USB1.1 HUB
-Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
-* Ref for Tree:
-/:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/12p, 10000M
-/:  Bus 03.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 480M
-/:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=uhci_hcd/2p, 12M
-   |__ Port 2: Dev 2, If 0, Class=Hub, Driver=hub/15p, 12M
-       |__ Port 4: Dev 3, If 0, Class=Communications, Driver=cdc_acm, 12M
-       |__ Port 4: Dev 3, If 1, Class=CDC Data, Driver=cdc_acm, 12M
-       |__ Port 4: Dev 3, If 2, Class=Communications, Driver=cdc_acm, 12M
-       |__ Port 4: Dev 3, If 3, Class=CDC Data, Driver=cdc_acm, 12M
-       |__ Port 4: Dev 3, If 4, Class=Application Specific Interface, Driver=, 12M
-       |__ Port 4: Dev 3, If 5, Class=Vendor Specific Class, Driver=, 12M
-/:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=ehci-pci/15p, 480M
-   |__ Port 2: Dev 2, If 0, Class=Human Interface Device, Driver=usbhid, 480M
-   |__ Port 2: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 480M
-   |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M
-*/
 use std::time::Duration;
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -91,12 +69,13 @@ fn build_interfaces<T: libusb::UsbContext>(
                 protocol: interface_desc.protocol_code(),
                 alt_setting: interface_desc.setting_number(),
                 driver: None,
+                syspath: None,
                 endpoints: build_endpoints(&interface_desc)?
             };
 
             #[cfg(target_os = "linux")]
             #[cfg(feature = "udev")]
-            udev::get_driver(&mut _interface.driver, &_interface.path).or(Err(libusb::Error::Other))?;
+            udev::get_udev_info(&mut _interface.driver, &mut _interface.syspath, &_interface.path).or(Err(libusb::Error::Other))?;
 
             ret.push(_interface);
         }
@@ -149,12 +128,15 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
     let mut _extra = usb::USBDeviceExtra {
         max_packet_size: device_desc.max_packet_size(),
         driver: None,
+        syspath: None,
+        vendor: usb_ids::Vendor::from_id(device_desc.vendor_id()).map_or(None, |v| Some(v.name().to_owned())),
+        product_name: usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()).map_or(None, |v| Some(v.name().to_owned())),
         configurations: build_configurations(device, handle, device_desc)?
     };
 
     #[cfg(target_os = "linux")]
     #[cfg(feature = "udev")]
-    udev::get_driver(&mut _extra.driver, &_sp_device.port_path()).or(Err(libusb::Error::Other))?;
+    udev::get_udev_info(&mut _extra.driver, &mut _extra.syspath, &_sp_device.port_path()).or(Err(libusb::Error::Other))?;
 
     Ok(_extra)
 }

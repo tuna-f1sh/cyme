@@ -240,6 +240,7 @@ fn main() {
             args.force_libusb = true;
         }
         abort_not_libusb();
+        // TODO this won't compile without udev due to no return with these compiled out...
         #[cfg(feature = "libusb")]
         lsusb::set_log_level(args.debug);
         #[cfg(feature = "libusb")]
