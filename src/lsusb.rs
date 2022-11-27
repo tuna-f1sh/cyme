@@ -115,7 +115,7 @@ fn build_configurations<T: libusb::UsbContext>(
             name: get_configuration_string(&config_desc, handle),
             number: config_desc.number(),
             attributes,
-            max_power: NumericalUnit{value: config_desc.max_power() as u32, unit: String::from("mW"), description: None},
+            max_power: NumericalUnit{value: config_desc.max_power() as u32, unit: String::from("mA"), description: None},
             interfaces: build_interfaces(device, handle, &config_desc, with_udev)?,
         });
     }

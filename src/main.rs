@@ -320,6 +320,7 @@ fn main() {
         group_devices: group_devies,
         json: args.json,
         headings: args.headings,
+        verbosity: args.verbose,
         icons: Some(IconTheme::new()),
         ..Default::default()
     };

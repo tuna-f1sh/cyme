@@ -1,7 +1,7 @@
 //! List system USB buses and devices; a modern `lsusb` that attempts to maintain compatibility with, but also add new features. 
 //! Includes a macOS `system_profiler` parser module and `lsusb` for non-macOS systems/gathering more verbose information.
 #![allow(dead_code)]
-#![warn(missing_docs)]
+// #![warn(missing_docs)]
 use std::io::Error;
 use simple_logger::SimpleLogger;
 

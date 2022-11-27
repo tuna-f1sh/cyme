@@ -23,6 +23,8 @@ pub enum Icon {
     ClassifierSubProtocol((ClassCode, u8, u8)),
     /// Icon for unknown vendors
     UnknownVendor,
+    /// Icon for undefined classifier
+    UndefinedClassifier,
     /// Icon to use when tree is being printed within an extending branch
     TreeEdge,
     /// Icon to use for non-last list item
@@ -76,8 +78,10 @@ lazy_static! {
             (Icon::TreeBlank, "   ".into()), // should be same char width as above
             (Icon::TreeBusStart, "\u{25CF}".into()), // "●"
             (Icon::TreeDeviceTerminator, "\u{25CB}".into()), // "○"
-            (Icon::TreeConfigurationTerminiator, "\u{25E6}".into()), // "◦"
+            (Icon::TreeConfigurationTerminiator, "\u{2022}".into()), // "•"
             (Icon::TreeInterfaceTerminiator, "\u{25E6}".into()), // "◦"
+            (Icon::Endpoint(Direction::In), "\u{25E6}\u{2192}".into()), // →
+            (Icon::Endpoint(Direction::Out), "\u{25E6}\u{2190}".into()), // ←
         ])
     };
 
@@ -92,6 +96,8 @@ lazy_static! {
             (Icon::TreeDeviceTerminator, "".into()), // null
             (Icon::TreeConfigurationTerminiator, "".into()), // null
             (Icon::TreeInterfaceTerminiator, "".into()), // null
+            (Icon::Endpoint(Direction::In), "".into()), //
+            (Icon::Endpoint(Direction::Out), "".into()), //
         ])
     };
 
@@ -134,8 +140,7 @@ lazy_static! {
             (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}".into()), // serial 
             (Icon::Classifier(ClassCode::CDCData), "\u{e795}".into()), // serial 
             (Icon::Classifier(ClassCode::HID), "\u{f1c0}".into()), // 
-            (Icon::Endpoint(Direction::In), "\u{21A6}".into()), // ↦
-            (Icon::Endpoint(Direction::Out), "\u{21A4}".into()), // ↤
+            (Icon::UndefinedClassifier, "-".into()),
         ])
     };
 }
@@ -226,6 +231,34 @@ impl IconTheme {
             self.get_vidpid_icon(vid, pid)
         } else {
             String::new()
+        }
+    }
+
+    /// Drill through `DEFAULT_ICONS` first looking for `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> ""
+    pub fn get_default_classifier_icon(class: &ClassCode, sub: u8, protocol: u8) -> String {
+        // try vid pid first
+        DEFAULT_ICONS
+            .get(&Icon::ClassifierSubProtocol((class.to_owned(), sub, protocol)))
+            .unwrap_or(
+                DEFAULT_ICONS
+                    .get(&Icon::Classifier(class.to_owned()))
+                    .unwrap_or(DEFAULT_ICONS.get(&Icon::UndefinedClassifier).unwrap_or(&"")),
+                ).to_string()
+    }
+
+    /// Drill through `Self` icons first looking for `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> get_default_classifier_icon
+    pub fn get_classifier_icon(&self, class: &ClassCode, sub: u8, protocol: u8) -> String {
+        if let Some(user_icons) = self.icons.as_ref() {
+            user_icons
+            .get(&Icon::ClassifierSubProtocol((class.to_owned(), sub, protocol)))
+            .unwrap_or(
+                user_icons
+                    .get(&Icon::Classifier(class.to_owned()))
+                    .unwrap_or(&IconTheme::get_default_classifier_icon(class, sub, protocol)),
+                )
+                .to_owned()
+        } else {
+            IconTheme::get_default_classifier_icon(class, sub, protocol)
         }
     }
 }

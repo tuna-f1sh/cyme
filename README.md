@@ -34,9 +34,9 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 - [x] libusb optional to get more USB data and support other OS with switch from `system_profiler`.
 - [x] Group by in list mode.
 - [x] udev support on Linux to get device driver etc.
-- [ ] Interface and Device Descriptor icon look up.
-- [ ] Drawing of headers.
-- [ ] Tree support of all device interfaces and endpoints.
+- [x] Interface and Device Descriptor icon look up.
+- [x] Drawing of headers.
+- [x] Tree support of all device interfaces and endpoints.
 - [ ] User defined icon map and colour import.
 
 # Install

@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::icon;
 use crate::system_profiler;
 use crate::system_profiler::{USBBus, USBDevice};
+use crate::usb::{USBConfiguration, USBInterface, USBEndpoint};
 
-/// Info that can be printed about a `USBDevice`
+/// Info that can be printed about a [`USBDevice`]
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum DeviceBlocks {
@@ -24,6 +25,8 @@ pub enum DeviceBlocks {
     PortPath,
     /// Linux udev reported syspath
     SysPath,
+    /// Linux udev reported driver loaded for device
+    Driver,
     /// Icon based on VID/PID
     Icon,
     /// Unique vendor identifier - purchased from USB IF
@@ -50,11 +53,11 @@ pub enum DeviceBlocks {
     BcdDevice,
     /// The supported USB version
     BcdUsb,
-    /// USB device class
+    /// Class of interface provided by USB IF
     ClassCode,
 }
 
-/// Info that can be printed about a `USBBus`
+/// Info that can be printed about a [`USBBus`]
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub enum BusBlocks {
@@ -74,6 +77,56 @@ pub enum BusBlocks {
     PCIRevision,
     /// syspath style port path to bus, applicable to Linux only
     PortPath,
+}
+
+/// Info that can be printed about a [`USBConfiguration`]
+#[non_exhaustive]
+#[derive(Debug, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+pub enum ConfigurationBlocks {
+    /// Name from string descriptor
+    Name,
+    /// Number of config, bConfigurationValue; value to set to enable to configuration
+    Number,
+    /// Interfaces available for this configuruation
+    NumInterfaces,
+    /// Attributes of configuration, bmAttributes
+    Attributes,
+    /// Maximum current consumption in mA
+    MaxPower,
+}
+
+/// Info that can be printed about a [`USBInterface`]
+#[non_exhaustive]
+#[derive(Debug, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+pub enum InterfaceBlocks {
+    /// Name from string descriptor
+    Name,
+    /// Interface number
+    Number,
+    PortPath,
+    /// Class of interface provided by USB IF
+    ClassCode,
+    SubClass,
+    Protocol,
+    AltSetting,
+    Driver,
+    SysPath,
+    NumEndpoints,
+    Icon,
+}
+
+/// Info that can be printed about a [`USBEndpoint`]
+#[non_exhaustive]
+#[derive(Debug, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+pub enum EndpointBlocks {
+    /// Endpoint number on interface
+    Number,
+    Direction,
+    TransferType,
+    SyncType,
+    UsageType,
+    MaxPacketSize,
+    Interval,
 }
 
 /// Intended to be `impl` by a xxxBlocks `enum`
@@ -141,6 +194,8 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             (DeviceBlocks::Manufacturer, cmp::max(DeviceBlocks::Manufacturer.heading(&Default::default()).len(), d.iter().map(|d| d.manufacturer.as_ref().unwrap_or(&String::new()).len()).max().unwrap_or(0))),
             (DeviceBlocks::TreePositions, cmp::max(DeviceBlocks::TreePositions.heading(&Default::default()).len(), d.iter().map(|d| d.location_id.tree_positions.len()).max().unwrap_or(0))),
             (DeviceBlocks::PortPath, cmp::max(DeviceBlocks::PortPath.heading(&Default::default()).len(), d.iter().map(|d| d.port_path().len()).max().unwrap_or(0))),
+            (DeviceBlocks::SysPath, cmp::max(DeviceBlocks::SysPath.heading(&Default::default()).len(), d.iter().map(|d| d.extra.as_ref().map_or(0, |e| e.syspath.as_ref().unwrap_or(&String::new()).len())).max().unwrap_or(0))),
+            (DeviceBlocks::Driver, cmp::max(DeviceBlocks::Driver.heading(&Default::default()).len(), d.iter().map(|d| d.extra.as_ref().map_or(0, |e| e.driver.as_ref().unwrap_or(&String::new()).len())).max().unwrap_or(0))),
             (DeviceBlocks::ClassCode, cmp::max(DeviceBlocks::ClassCode.heading(&Default::default()).len(), d.iter().map(|d| d.class.as_ref().map_or(String::new(), |c| c.to_string()).len()).max().unwrap_or(0))),
         ])
     }
@@ -165,6 +220,10 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::PortPath => Some(format!("{:pad$}", d.port_path(), pad = pad.get(self).unwrap_or(&0))),
             DeviceBlocks::SysPath => Some(match d.extra.as_ref() {
                 Some(e) => format!("{:pad$}", e.syspath.as_ref().unwrap_or(&format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))), pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))
+            }),
+            DeviceBlocks::Driver => Some(match d.extra.as_ref() {
+                Some(e) => format!("{:pad$}", e.driver.as_ref().unwrap_or(&format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))), pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))
             }),
             DeviceBlocks::Icon => settings
@@ -218,7 +277,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 None => format!("{:>5}", "-"),
             }),
             DeviceBlocks::ClassCode => Some(match d.class.as_ref() {
-                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                Some(v) => format!("{:pad$}", v.to_string(), pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
             // _ => None,
@@ -252,8 +311,9 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::BusNumber => "Bus".into(),
             DeviceBlocks::DeviceNumber => " # ".into(),
             DeviceBlocks::BranchPosition => "Prt".into(),
-            DeviceBlocks::PortPath => format!("{:^pad$}", "PortPath", pad = 2 + pad.get(self).unwrap_or(&0)),
-            DeviceBlocks::SysPath => format!("{:^pad$}", "SysPath", pad = 2 + pad.get(self).unwrap_or(&0)),
+            DeviceBlocks::PortPath => format!("{:^pad$}", "PortPath", pad = pad.get(self).unwrap_or(&0)),
+            DeviceBlocks::SysPath => format!("{:^pad$}", "SysPath", pad = pad.get(self).unwrap_or(&0)),
+            DeviceBlocks::Driver => format!("{:^pad$}", "Driver", pad = pad.get(self).unwrap_or(&0)),
             DeviceBlocks::VendorID => format!("{:^6}", "VID"),
             DeviceBlocks::ProductID => format!("{:^6}", "PID"),
             DeviceBlocks::Name => format!("{:^pad$}", "Name", pad = pad.get(self).unwrap_or(&0)),
@@ -262,7 +322,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             }
             DeviceBlocks::Serial => format!("{:^pad$}", "Serial", pad = pad.get(self).unwrap_or(&0)),
             DeviceBlocks::Speed => format!("{:^10}", "Speed"),
-            DeviceBlocks::TreePositions => format!("{:^pad$}", "TreePos", pad = pad.get(self).unwrap_or(&0)),
+            DeviceBlocks::TreePositions => format!("{:^pad$}", "TPos", pad = pad.get(self).unwrap_or(&0)),
             // will be 000 mA = 6
             DeviceBlocks::BusPower => "BusPwr".into(),
             DeviceBlocks::BusPowerUsed => "PwrUsd".into(),
@@ -270,8 +330,8 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             // 00.00 = 5
             DeviceBlocks::BcdDevice => "Dev V".into(),
             DeviceBlocks::BcdUsb => "USB V".into(),
-            DeviceBlocks::ClassCode => "Class".into(),
-            DeviceBlocks::Icon => " ".into(),
+            DeviceBlocks::ClassCode => format!("{:^pad$}", "Class", pad = pad.get(self).unwrap_or(&0)),
+            DeviceBlocks::Icon => "\u{25a2}".into(),
             // _ => "",
         }
     }
@@ -359,7 +419,212 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::HostController => {
                 format!("{:^pad$}", "Host Controller", pad = pad.get(self).unwrap_or(&0))
             }
-            BusBlocks::Icon => " ".into(),
+            BusBlocks::Icon => "\u{25A2}".into(),
+            // _ => "",
+        }
+    }
+}
+
+impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
+    fn default_blocks() -> Vec<ConfigurationBlocks> {
+        vec![ConfigurationBlocks::Number, ConfigurationBlocks::Name, ConfigurationBlocks::MaxPower]
+    }
+
+    fn generate_padding(d: &Vec<&USBConfiguration>) -> HashMap<Self, usize> {
+        HashMap::from([
+            (ConfigurationBlocks::Name, cmp::max(ConfigurationBlocks::Name.heading(&Default::default()).len(), d.iter().map(|d| d.name.len()).max().unwrap_or(0))),
+        ])
+    }
+
+    fn value_is_string(&self) -> bool {
+        match self {
+            ConfigurationBlocks::Name|ConfigurationBlocks::Attributes => true,
+            _ => false
+        }
+    }
+
+    fn colour(&self, s: &String) -> ColoredString {
+        match self {
+            ConfigurationBlocks::Number => s.cyan(),
+            ConfigurationBlocks::NumInterfaces => s.bold().yellow(),
+            ConfigurationBlocks::MaxPower => s.purple(),
+            ConfigurationBlocks::Name => s.bold().blue(),
+            ConfigurationBlocks::Attributes => s.green(),
+            // _ => s.normal(),
+        }
+    }
+
+    fn format_value(
+        &self,
+        config: &USBConfiguration,
+        pad: &HashMap<Self, usize>,
+        _settings: &PrintSettings,
+    ) -> Option<String> {
+        match self {
+            ConfigurationBlocks::Number => Some(format!("{:2}", config.number)),
+            ConfigurationBlocks::NumInterfaces => Some(format!("{:2}", config.interfaces.len())),
+            ConfigurationBlocks::Name => Some(format!("{:pad$}", config.name, pad = pad.get(self).unwrap_or(&0))),
+            ConfigurationBlocks::MaxPower => Some(format!("{:3}", config.max_power)),
+            // TODO attributes
+            _ => None,
+        }
+    }
+
+    fn heading(&self, pad: &HashMap<Self, usize>) -> String {
+        match self {
+            ConfigurationBlocks::Number => " #".into(),
+            ConfigurationBlocks::NumInterfaces => "I#".into(),
+            ConfigurationBlocks::MaxPower => "MaxPwr".into(),
+            ConfigurationBlocks::Name => format!("{:^pad$}", "Name", pad = pad.get(self).unwrap_or(&0)),
+            ConfigurationBlocks::Attributes => format!("{:^pad$}", "Attributes", pad = pad.get(self).unwrap_or(&0)),
+            // _ => "",
+        }
+    }
+}
+
+impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
+    fn default_blocks() -> Vec<InterfaceBlocks> {
+        vec![InterfaceBlocks::PortPath, InterfaceBlocks::Icon, InterfaceBlocks::Name, InterfaceBlocks::ClassCode, InterfaceBlocks::SubClass, InterfaceBlocks::Protocol, InterfaceBlocks::AltSetting]
+    }
+
+    fn generate_padding(d: &Vec<&USBInterface>) -> HashMap<Self, usize> {
+        HashMap::from([
+            (InterfaceBlocks::Name, cmp::max(InterfaceBlocks::Name.heading(&Default::default()).len(), d.iter().map(|d| d.name.len()).max().unwrap_or(0))),
+            (InterfaceBlocks::ClassCode, cmp::max(InterfaceBlocks::ClassCode.heading(&Default::default()).len(), d.iter().map(|d| d.class.to_string().len()).max().unwrap_or(0))),
+            (InterfaceBlocks::PortPath, cmp::max(InterfaceBlocks::PortPath.heading(&Default::default()).len(), d.iter().map(|d| d.path.len()).max().unwrap_or(0))),
+            (InterfaceBlocks::SysPath, cmp::max(InterfaceBlocks::SysPath.heading(&Default::default()).len(), d.iter().map(|d| d.syspath.as_ref().unwrap_or(&String::new()).len()).max().unwrap_or(0))),
+            (InterfaceBlocks::Driver, cmp::max(InterfaceBlocks::Driver.heading(&Default::default()).len(), d.iter().map(|d| d.driver.as_ref().unwrap_or(&String::new()).len()).max().unwrap_or(0))),
+        ])
+    }
+
+    fn value_is_string(&self) -> bool {
+        match self {
+            InterfaceBlocks::Name|InterfaceBlocks::PortPath|InterfaceBlocks::ClassCode|InterfaceBlocks::Driver|InterfaceBlocks::SysPath => true,
+            _ => false
+        }
+    }
+
+    fn colour(&self, s: &String) -> ColoredString {
+        match self {
+            InterfaceBlocks::Number => s.cyan(),
+            InterfaceBlocks::Name => s.bold().blue(),
+            InterfaceBlocks::PortPath => s.cyan(),
+            InterfaceBlocks::SysPath => s.bright_cyan(),
+            // InterfaceBlocks::NumInterfaces => s.bold().yellow(),
+            // InterfaceBlocks::MaxPower => s.purple(),
+            // InterfaceBlocks::Attributes => s.green(),
+            _ => s.normal(),
+        }
+    }
+
+    fn format_value(
+        &self,
+        interface: &USBInterface,
+        pad: &HashMap<Self, usize>,
+        settings: &PrintSettings,
+    ) -> Option<String> {
+        match self {
+            InterfaceBlocks::Number => Some(format!("{:2}", interface.number)),
+            InterfaceBlocks::Name => Some(format!("{:pad$}", interface.name, pad = pad.get(self).unwrap_or(&0))),
+            InterfaceBlocks::NumEndpoints => Some(format!("{:2}", interface.endpoints.len())),
+            InterfaceBlocks::PortPath => Some(format!("{:pad$}", interface.path, pad = pad.get(self).unwrap_or(&0))),
+            InterfaceBlocks::SysPath => Some(match interface.syspath.as_ref() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))
+            }),
+            InterfaceBlocks::Driver => Some(match interface.driver.as_ref() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))
+            }),
+            InterfaceBlocks::ClassCode => Some(format!("{:pad$}", interface.class.to_string(), pad = pad.get(self).unwrap_or(&0))),
+            InterfaceBlocks::SubClass => Some(format!("0x{:02x}", interface.sub_class)),
+            InterfaceBlocks::Protocol => Some(format!("0x{:02x}", interface.protocol)),
+            InterfaceBlocks::AltSetting => Some(format!("{:2}", interface.alt_setting)),
+            InterfaceBlocks::Icon => settings
+                .icons
+                .as_ref()
+                .map_or(None, |i| Some(i.get_classifier_icon(&interface.class, interface.sub_class, interface.protocol))),
+            // _ => None,
+        }
+    }
+
+    fn heading(&self, pad: &HashMap<Self, usize>) -> String {
+        match self {
+            InterfaceBlocks::Number => " #".into(),
+            InterfaceBlocks::Name => format!("{:^pad$}", "Name", pad = pad.get(self).unwrap_or(&0)),
+            InterfaceBlocks::NumEndpoints => "E#".into(),
+            InterfaceBlocks::PortPath => format!("{:^pad$}", "PortPath", pad = pad.get(self).unwrap_or(&0)),
+            InterfaceBlocks::SysPath => format!("{:^pad$}", "SysPath", pad = pad.get(self).unwrap_or(&0)),
+            InterfaceBlocks::Driver => format!("{:^pad$}", "Driver", pad = pad.get(self).unwrap_or(&0)),
+            InterfaceBlocks::ClassCode => format!("{:^pad$}", "Class", pad = pad.get(self).unwrap_or(&0)),
+            InterfaceBlocks::SubClass => "SubC".into(),
+            InterfaceBlocks::Protocol => "Pcol".into(),
+            InterfaceBlocks::AltSetting => "A#".into(),
+            InterfaceBlocks::Icon => "\u{25A2}".into(),
+            // _ => "",
+        }
+    }
+}
+
+impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
+    fn default_blocks() -> Vec<EndpointBlocks> {
+        vec![EndpointBlocks::Number, EndpointBlocks::TransferType, EndpointBlocks::SyncType, EndpointBlocks::UsageType, EndpointBlocks::MaxPacketSize]
+    }
+
+    fn generate_padding(d: &Vec<&USBEndpoint>) -> HashMap<Self, usize> {
+        HashMap::from([
+            (EndpointBlocks::TransferType, cmp::max(EndpointBlocks::TransferType.heading(&Default::default()).len(), d.iter().map(|d| d.transfer_type.to_string().len()).max().unwrap_or(0))),
+            (EndpointBlocks::SyncType, cmp::max(EndpointBlocks::SyncType.heading(&Default::default()).len(), d.iter().map(|d| d.sync_type.to_string().len()).max().unwrap_or(0))),
+            (EndpointBlocks::UsageType, cmp::max(EndpointBlocks::UsageType.heading(&Default::default()).len(), d.iter().map(|d| d.usage_type.to_string().len()).max().unwrap_or(0))),
+            (EndpointBlocks::Direction, cmp::max(EndpointBlocks::Direction.heading(&Default::default()).len(), d.iter().map(|d| d.address.direction.to_string().len()).max().unwrap_or(0))),
+        ])
+    }
+
+    fn value_is_string(&self) -> bool {
+        match self {
+            EndpointBlocks::TransferType|EndpointBlocks::SyncType|EndpointBlocks::UsageType|EndpointBlocks::Direction => true,
+            _ => false
+        }
+    }
+
+    fn colour(&self, s: &String) -> ColoredString {
+        match self {
+            EndpointBlocks::Number => s.cyan(),
+            EndpointBlocks::Interval => s.yellow(),
+            EndpointBlocks::MaxPacketSize => s.yellow(),
+            EndpointBlocks::Direction => s.purple(),
+            EndpointBlocks::UsageType|EndpointBlocks::TransferType|EndpointBlocks::SyncType => s.blue(),
+            // _ => s.normal(),
+        }
+    }
+
+    fn format_value(
+        &self,
+        end: &USBEndpoint,
+        pad: &HashMap<Self, usize>,
+        _settings: &PrintSettings,
+    ) -> Option<String> {
+        match self {
+            EndpointBlocks::Number => Some(format!("{:2}", end.address.number)),
+            EndpointBlocks::Interval => Some(format!("{:2}", end.interval)),
+            EndpointBlocks::MaxPacketSize => Some(format!("{:5}", end.max_packet_size)),
+            EndpointBlocks::Direction => Some(format!("{:pad$}", end.address.direction.to_string(), pad = pad.get(self).unwrap_or(&0))),
+            EndpointBlocks::TransferType => Some(format!("{:pad$}", end.transfer_type.to_string(), pad = pad.get(self).unwrap_or(&0))),
+            EndpointBlocks::SyncType => Some(format!("{:pad$}", end.sync_type.to_string(), pad = pad.get(self).unwrap_or(&0))),
+            EndpointBlocks::UsageType => Some(format!("{:pad$}", end.usage_type.to_string(), pad = pad.get(self).unwrap_or(&0))),
+            // _ => None,
+        }
+    }
+
+    fn heading(&self, pad: &HashMap<Self, usize>) -> String {
+        match self {
+            EndpointBlocks::Number => " #".into(),
+            EndpointBlocks::Interval => "Iv".into(),
+            EndpointBlocks::MaxPacketSize => "MaxPt".into(),
+            EndpointBlocks::Direction => format!("{:^pad$}", "Dir", pad = pad.get(self).unwrap_or(&0)),
+            EndpointBlocks::TransferType => format!("{:^pad$}", "TransferT", pad = pad.get(self).unwrap_or(&0)),
+            EndpointBlocks::SyncType => format!("{:^pad$}", "SyncT", pad = pad.get(self).unwrap_or(&0)),
+            EndpointBlocks::UsageType => format!("{:^pad$}", "UsageT", pad = pad.get(self).unwrap_or(&0)),
             // _ => "",
         }
     }
@@ -438,6 +703,8 @@ pub struct PrintSettings {
     pub group_devices: Group,
     /// Print headings for blocks
     pub headings: bool,
+    /// Level of verbosity
+    pub verbosity: u8,
     /// Print as json
     pub json: bool,
     /// `IconTheme` to apply - None to not print any icons
@@ -475,6 +742,7 @@ pub fn render_heading<B, T>(
     ret
 }
 
+/// Generates tree formating and values given `current_tree`, current `branch_length` and item `index` in branch
 fn generate_tree_data(
     current_tree: &TreeData,
     branch_length: usize,
@@ -534,8 +802,7 @@ pub fn print_flattened_devices(
 
     if settings.headings {
         let heading = render_heading(db, &pad).join(" ");
-        println!("{}", heading);
-        println!("{}", "\u{2508}".repeat(heading.len())); // ┈
+        println!("{}", heading.bold().underline());
     }
 
     for device in sorted {
@@ -561,8 +828,7 @@ pub fn print_bus_grouped(
     for (bus, devices) in bus_devices {
         if settings.headings {
             let heading = render_heading(bb, &pad).join(" ");
-            println!("{}", heading);
-            println!("{}", "\u{2508}".repeat(heading.len())); // ┈
+            println!("{}", heading.bold().underline());
         }
         println!("{}", render_value(bus, bb, &pad, settings).join(" "));
         print_flattened_devices(&devices, db, settings);
@@ -582,6 +848,225 @@ pub struct TreeData {
     depth: usize,
     /// Prefix to apply, builds up as depth increases
     prefix: String,
+}
+
+/// All device [`USBEndpoint`]
+pub fn print_endpoints(
+    endpoints: &Vec<USBEndpoint>,
+    blocks: &Vec<EndpointBlocks>,
+    settings: &PrintSettings,
+    tree: &TreeData,
+) {
+    let pad = if !settings.no_padding {
+        EndpointBlocks::generate_padding(&endpoints.iter().map(|d| d).collect())
+    } else {
+        HashMap::new()
+    };
+    log::debug!("Print endpointss padding {:?}, tree {:?}", pad, tree);
+
+    for (i, endpoint) in endpoints.iter().enumerate() {
+        // get current prefix based on if last in tree and whether we are within the tree
+        if settings.tree {
+            let prefix = if tree.depth > 0 {
+                if i + 1 != tree.branch_length {
+                    format!(
+                        "{}{}",
+                        tree.prefix,
+                        settings
+                            .icons
+                            .as_ref()
+                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i
+                                .get_tree_icon(icon::Icon::TreeEdge))
+                    )
+                } else {
+                    format!(
+                        "{}{}",
+                        tree.prefix,
+                        settings
+                            .icons
+                            .as_ref()
+                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
+                                .get_tree_icon(icon::Icon::TreeCorner))
+                    )
+                }
+            // zero depth
+            } else {
+                format!("{}", tree.prefix)
+            };
+
+            if settings.headings && i == 0 {
+                let outerline = settings
+                        .icons
+                        .as_ref()
+                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeLine), |i| i
+                            .get_tree_icon(icon::Icon::TreeLine));
+                let heading = render_heading(blocks, &pad).join(" ");
+                println!("{}{:>spaces$}{} ", outerline, "", heading.bold().underline(), spaces=tree.depth+4);
+            }
+
+            print!(
+                "{}{} ",
+                prefix,
+                settings
+                    .icons
+                    .as_ref()
+                    .map_or(icon::get_default_tree_icon(icon::Icon::Endpoint(endpoint.address.direction)), |i| i
+                        .get_tree_icon(icon::Icon::Endpoint(endpoint.address.direction)))
+            );
+        }
+
+        println!("{}", render_value(endpoint, blocks, &pad, settings).join(" "));
+    }
+}
+
+/// All device [`USBInterface`]
+pub fn print_interfaces(
+    interfaces: &Vec<USBInterface>,
+    blocks: &Vec<InterfaceBlocks>,
+    settings: &PrintSettings,
+    tree: &TreeData,
+) {
+    let pad = if !settings.no_padding {
+        InterfaceBlocks::generate_padding(&interfaces.iter().map(|d| d).collect())
+    } else {
+        HashMap::new()
+    };
+    log::debug!("Print interfacess padding {:?}, tree {:?}", pad, tree);
+
+    for (i, interface) in interfaces.iter().enumerate() {
+        // get current prefix based on if last in tree and whether we are within the tree
+        if settings.tree {
+            let prefix = if tree.depth > 0 {
+                if i + 1 != tree.branch_length {
+                    format!(
+                        "{}{}",
+                        tree.prefix,
+                        settings
+                            .icons
+                            .as_ref()
+                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i
+                                .get_tree_icon(icon::Icon::TreeEdge))
+                    )
+                } else {
+                    format!(
+                        "{}{}",
+                        tree.prefix,
+                        settings
+                            .icons
+                            .as_ref()
+                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
+                                .get_tree_icon(icon::Icon::TreeCorner))
+                    )
+                }
+            // zero depth
+            } else {
+                format!("{}", tree.prefix)
+            };
+
+            if settings.headings && i == 0 {
+                let outerline = settings
+                        .icons
+                        .as_ref()
+                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeLine), |i| i
+                            .get_tree_icon(icon::Icon::TreeLine));
+                let heading = render_heading(blocks, &pad).join(" ");
+                println!("{}{:>spaces$}{} ", outerline, "", heading.bold().underline(), spaces=tree.depth+4);
+            }
+
+            print!(
+                "{}{} ",
+                prefix,
+                settings
+                    .icons
+                    .as_ref()
+                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeInterfaceTerminiator), |i| i
+                        .get_tree_icon(icon::Icon::TreeInterfaceTerminiator))
+            );
+        }
+
+        println!("{}", render_value(interface, blocks, &pad, settings).join(" "));
+
+        // print the endpoints
+        if settings.verbosity >= 3 {
+            let iblocks = Block::<EndpointBlocks, USBEndpoint>::default_blocks();
+            print_endpoints(&interface.endpoints, &iblocks, settings, &generate_tree_data(tree, interface.endpoints.len(), i, settings));
+        }
+    }
+}
+
+/// All device [`USBConfiguration`]
+pub fn print_configurations(
+    configs: &Vec<USBConfiguration>,
+    blocks: &Vec<ConfigurationBlocks>,
+    settings: &PrintSettings,
+    tree: &TreeData,
+) {
+    let pad = if !settings.no_padding {
+        ConfigurationBlocks::generate_padding(&configs.iter().map(|d| d).collect())
+    } else {
+        HashMap::new()
+    };
+    log::debug!("Print configs padding {:?}, tree {:?}", pad, tree);
+
+    for (i, config) in configs.iter().enumerate() {
+        // get current prefix based on if last in tree and whether we are within the tree
+        if settings.tree {
+            let prefix = if tree.depth > 0 {
+                if i + 1 != tree.branch_length {
+                    format!(
+                        "{}{}",
+                        tree.prefix,
+                        settings
+                            .icons
+                            .as_ref()
+                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i
+                                .get_tree_icon(icon::Icon::TreeEdge))
+                    )
+                } else {
+                    format!(
+                        "{}{}",
+                        tree.prefix,
+                        settings
+                            .icons
+                            .as_ref()
+                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
+                                .get_tree_icon(icon::Icon::TreeCorner))
+                    )
+                }
+            // zero depth
+            } else {
+                format!("{}", tree.prefix)
+            };
+
+            if settings.headings && i == 0 {
+                let outerline = settings
+                        .icons
+                        .as_ref()
+                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeLine), |i| i
+                            .get_tree_icon(icon::Icon::TreeLine));
+                let heading = render_heading(blocks, &pad).join(" ");
+                println!("{}{:>spaces$}{} ", outerline, "", heading.bold().underline(), spaces=tree.depth+4);
+            }
+
+            print!(
+                "{}{} ",
+                prefix,
+                settings
+                    .icons
+                    .as_ref()
+                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeConfigurationTerminiator), |i| i
+                        .get_tree_icon(icon::Icon::TreeConfigurationTerminiator))
+            );
+        }
+
+        println!("{}", render_value(config, blocks, &pad, settings).join(" "));
+
+        // print the interfaces
+        if settings.verbosity >= 2 {
+            let iblocks = Block::<InterfaceBlocks, USBInterface>::default_blocks();
+            print_interfaces(&config.interfaces, &iblocks, settings, &generate_tree_data(tree, config.interfaces.len(), i, settings));
+        }
+    }
 }
 
 /// Recursively print `devices`; will call for each `USBDevice` devices if `Some`
@@ -628,25 +1113,20 @@ pub fn print_devices(
                                 .get_tree_icon(icon::Icon::TreeCorner))
                     )
                 }
-            // TODO print not from bus
+            // zero depth
             } else {
-                format!(
-                    "{}{}",
-                    tree.prefix,
-                    settings
-                        .icons
-                        .as_ref()
-                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeBlank), |i| i
-                            .get_tree_icon(icon::Icon::TreeBlank))
-                )
+                format!("{}", tree.prefix)
             };
 
-            // TODO this is not nice with fix but .len() device_prefix is num bytes so not correct for utf-8, nor is chars().count()
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
+                let outerline = settings
+                        .icons
+                        .as_ref()
+                        .map_or(icon::get_default_tree_icon(icon::Icon::TreeLine), |i| i
+                            .get_tree_icon(icon::Icon::TreeLine));
                 let heading = render_heading(db, &pad).join(" ");
-                println!("{:>spaces$}{} ", "", heading, spaces=4 * tree.depth);
-                println!("{:>spaces$}{} ", "", "\u{2508}".repeat(heading.len()), spaces=4 * tree.depth); // ┈
+                println!("{}{:>spaces$}{} ", outerline, "", heading.bold().underline(), spaces=tree.depth);
             }
             // render and print tree if doing it
             print!(
@@ -655,12 +1135,21 @@ pub fn print_devices(
                 settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
+                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeDeviceTerminator), |i| i
                         .get_tree_icon(icon::Icon::TreeDeviceTerminator))
             );
         }
+
         // print the device
         println!("{}", render_value(device, db, &pad, settings).join(" "));
+        // print the configurations
+        if let Some(extra) = device.extra.as_ref() {
+            if settings.verbosity >= 1 {
+                let blocks = Block::<ConfigurationBlocks, USBConfiguration>::default_blocks();
+                // pass branch length as number of configurations for this device plus devices still to print
+                print_configurations(&extra.configurations, &blocks, settings, &generate_tree_data(&tree, extra.configurations.len() + device.devices.as_ref().map_or(0, |d| d.len()), i, settings));
+            }
+        }
 
         match device.devices.as_ref() {
             Some(d) => {
@@ -704,8 +1193,8 @@ pub fn print_sp_usb(
     for (i, bus) in sp_usb.buses.iter().enumerate() {
         if settings.headings {
             let heading = render_heading(bb, &pad).join(" ");
-            println!("{}", heading);
-            println!("{}", "\u{2508}".repeat(heading.len())); // ┈
+            // 2 spaces for bus start icon and space to info
+            println!("{:>spaces$}{}", "", heading.bold().underline(), spaces = 2);
         }
         if settings.tree {
             print!(

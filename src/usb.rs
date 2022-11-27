@@ -221,12 +221,18 @@ impl From<&Speed> for NumericalUnit<f32> {
 }
 
 /// Transfer and endpoint directions.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     /// Direction for write (host to device) transfers.
     Out,
     /// Direction for read (device to host) transfers.
     In
+}
+
+impl fmt::Display for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 /// An endpoint's transfer type.
@@ -242,6 +248,12 @@ pub enum TransferType {
     Interrupt,
 }
 
+impl fmt::Display for TransferType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Isochronous synchronization mode.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncType {
@@ -255,6 +267,12 @@ pub enum SyncType {
     Synchronous,
 }
 
+impl fmt::Display for SyncType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Isochronous usage type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UsageType {
@@ -266,6 +284,12 @@ pub enum UsageType {
     FeedbackData,
     /// Reserved.
     Reserved,
+}
+
+impl fmt::Display for UsageType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 /// Address information for USB endpoint
