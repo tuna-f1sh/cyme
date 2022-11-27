@@ -18,6 +18,7 @@ struct UsbDevice<T: libusb::UsbContext> {
     timeout: Duration,
 }
 
+/// Set log level for rusb
 pub fn set_log_level(debug: u8) -> () {
     let log_level = match debug {
         0 => rusb::LogLevel::None,
@@ -345,6 +346,7 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
     Ok(sp_data)
 }
 
+/// Print USB devices in non-tree lsusb verbose style - a huge dump!
 pub fn lsusb_verbose(filter: &Option<system_profiler::USBFilter>) -> libusb::Result<()> {
     let timeout = Duration::from_secs(1);
 

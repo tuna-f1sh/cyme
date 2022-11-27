@@ -474,10 +474,10 @@ pub struct USBDevice {
     #[serde(rename(deserialize = "_name"))]
     pub name: String,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    /// Unique vendor identifier - purchased from USB foundation
+    /// Unique vendor identifier - purchased from USB IF
     pub vendor_id: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    /// Vendor product identifier
+    /// Vendor unique product identifier
     pub product_id: Option<u16>,
     /// Device location information on bus
     pub location_id: DeviceLocation,

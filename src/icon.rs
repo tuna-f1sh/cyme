@@ -21,10 +21,15 @@ pub enum Icon {
     Classifier(ClassCode),
     /// Class classifier lookup with SubClass and Protocol
     ClassifierSubProtocol((ClassCode, u8, u8)),
+    /// Icon for unknown vendors
     UnknownVendor,
+    /// Icon to use when tree is being printed within an extending branch
     TreeEdge,
+    /// Icon to use for non-last list item
     TreeLine,
+    /// Icon to use at last item in list
     TreeCorner,
+    /// Blanking icon for inset without edge
     TreeBlank,
     /// Icon at prepended before printing `USBBus`
     TreeBusStart,
@@ -128,6 +133,7 @@ lazy_static! {
 }
 
 impl IconTheme {
+    /// New theme with defaults
     pub fn new() -> Self {
         Default::default()
     }

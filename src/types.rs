@@ -24,8 +24,11 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct NumericalUnit<T> {
+    /// Numerical value
     pub value: T,
+    /// SI unit for the numerical value
     pub unit: String,
+    /// Description of numerial value
     pub description: Option<String>,
 }
 
