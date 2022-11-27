@@ -221,7 +221,7 @@ impl From<&Speed> for NumericalUnit<f32> {
 }
 
 /// Transfer and endpoint directions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     /// Direction for write (host to device) transfers.
     Out,

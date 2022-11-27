@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::system_profiler::{USBBus, USBDevice};
-use crate::usb::ClassCode;
+use crate::usb::{ClassCode, Direction};
 
 /// Icon type enum is used as key in `HashMaps`
 /// TODO FromStr and ToStr serialize/deserialize so that can merge with user defined
@@ -35,8 +35,12 @@ pub enum Icon {
     TreeBusStart,
     /// Icon printed at end of tree before printing `USBDevice`
     TreeDeviceTerminator,
-    /// Icon printed at end of tree before printing classifier
-    TreeClassifierTerminiator,
+    /// Icon printed at end of tree before printing configuration
+    TreeConfigurationTerminiator,
+    /// Icon printed at end of tree before printing interface
+    TreeInterfaceTerminiator,
+    /// Icon for endpoint direction
+    Endpoint(Direction),
 }
 
 /// Allows user supplied icons to replace or add to `DEFAULT_ICONS` and `DEFAULT_TREE`
@@ -72,7 +76,8 @@ lazy_static! {
             (Icon::TreeBlank, "   ".into()), // should be same char width as above
             (Icon::TreeBusStart, "\u{25CF}".into()), // "●"
             (Icon::TreeDeviceTerminator, "\u{25CB}".into()), // "○"
-            (Icon::TreeClassifierTerminiator, "\u{25E6}".into()), // "◦"
+            (Icon::TreeConfigurationTerminiator, "\u{25E6}".into()), // "◦"
+            (Icon::TreeInterfaceTerminiator, "\u{25E6}".into()), // "◦"
         ])
     };
 
@@ -85,7 +90,8 @@ lazy_static! {
             (Icon::TreeBlank, "      ".into()), // inset like line
             (Icon::TreeBusStart, "/: ".into()),
             (Icon::TreeDeviceTerminator, "".into()), // null
-            (Icon::TreeClassifierTerminiator, "".into()), // null
+            (Icon::TreeConfigurationTerminiator, "".into()), // null
+            (Icon::TreeInterfaceTerminiator, "".into()), // null
         ])
     };
 
@@ -128,6 +134,8 @@ lazy_static! {
             (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}".into()), // serial 
             (Icon::Classifier(ClassCode::CDCData), "\u{e795}".into()), // serial 
             (Icon::Classifier(ClassCode::HID), "\u{f1c0}".into()), // 
+            (Icon::Endpoint(Direction::In), "\u{21A6}".into()), // ↦
+            (Icon::Endpoint(Direction::Out), "\u{21A4}".into()), // ↤
         ])
     };
 }

@@ -695,7 +695,7 @@ pub fn print_sp_usb(
     };
 
     log::debug!(
-        "SPUSBDataType settings, {:?}, padding {:?}, tree {:?}",
+        "print SPUSBDataType settings, {:?}, padding {:?}, tree {:?}",
         settings,
         pad,
         base_tree
@@ -772,6 +772,8 @@ pub fn cyme_print(
     if settings.sort_buses {
         sp_usb.buses.sort_by_key(|d| d.get_bus_number());
     }
+
+    log::trace!("sp_usb data post filter and sort\n\r{:#}", sp_usb);
 
     // default blocks or those passed
     let bus_blocks = bb.unwrap_or(Block::<BusBlocks, system_profiler::USBBus>::default_blocks());

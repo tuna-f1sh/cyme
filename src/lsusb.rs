@@ -255,6 +255,8 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
     // lookup for root hubs to assign info to bus on linux
     let mut root_hubs: HashMap<u8, system_profiler::USBDevice> = HashMap::new();
 
+    log::info!("Building SPUSBDataType with libusb {:?}", libusb::version());
+
     // run through devices building USBDevice types
     for device in libusb::DeviceList::new()?.iter() {
         match build_spdevice(&device, with_extra) {
@@ -277,7 +279,7 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
 
     // ensure sort of bus so that grouping is not broken up
     cache.sort_by_key(|d| d.location_id.bus);
-    log::debug!("Sorted devices {:?}", cache);
+    log::trace!("Sorted devices {:#?}", cache);
 
     // group by bus number and then stick them into a bus in the returned SPUSBDataType
     for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
@@ -349,6 +351,8 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
 /// Print USB devices in non-tree lsusb verbose style - a huge dump!
 pub fn lsusb_verbose(filter: &Option<system_profiler::USBFilter>) -> libusb::Result<()> {
     let timeout = Duration::from_secs(1);
+
+    log::info!("lsusb verbose dump with libusb {:?}", libusb::version());
 
     for device in libusb::DeviceList::new()?.iter() {
         let device_desc = match device.device_descriptor() {
