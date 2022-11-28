@@ -227,7 +227,7 @@ fn main() {
         })
     } else {
         if cfg!(target_os = "macos") && !args.force_libusb {
-            eprintln!("Forcing libusb for supplied arguments on macOS");
+            log::warn!("Forcing libusb for supplied arguments on macOS");
             args.force_libusb = true;
         }
         abort_not_libusb();
@@ -325,12 +325,6 @@ fn main() {
         ..Default::default()
     };
 
-    // TODO verbose only supported by lsusb mode at the moment
-    // if args.verbose > 0 && !(args.lsusb || args.force_libusb) {
-    //     eprintln!("Forcing '--lsusb' compatibility mode, supply --lsusb to avoid this");
-    //     args.lsusb = true;
-    // }
-
     // TODO do this in main cyme_print so that sorting each is done too
     if args.lsusb {
         if args.tree { 
@@ -340,14 +334,7 @@ fn main() {
             print!("{:+}", sp_usb);
         } else {
             if args.verbose > 0 {
-                abort_not_libusb();
-                #[cfg(feature = "libusb")]
-                lsusb::lsusb_verbose(&filter).unwrap_or_else(|e| {
-                    eprintexit!(Error::new(
-                        ErrorKind::Other,
-                        format!("Failed to use lsusb verbose mode: {}", e)
-                    ));
-                });
+                lsusb::print_verbose(&sp_usb.flatten_devices());
             } else {
                 print_flat_lsusb(&sp_usb.flatten_devices(), &filter);
             }

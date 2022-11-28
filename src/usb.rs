@@ -272,7 +272,7 @@ impl fmt::Display for TransferType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncType {
     /// No synchronisation.
-    NoSync,
+    None,
     /// Asynchronous.
     Asynchronous,
     /// Adaptive.
@@ -339,6 +339,9 @@ pub struct USBEndpoint {
 pub struct USBInterface {
     /// Name from descriptor
     pub name: String,
+    /// Index of name string in descriptor - only useful for lsusb verbose print
+    #[serde(skip_serializing)]
+    pub string_index: u8,
     /// Interface number
     pub number: u8,
     /// Interface port path - could be generated from device but stored here for ease
@@ -371,6 +374,9 @@ impl USBInterface {
 pub struct USBConfiguration {
     /// Name from string descriptor
     pub name: String,
+    /// Index of name string in descriptor - only useful for lsusb verbose print
+    #[serde(skip_serializing)]
+    pub string_index: u8,
     /// Number of config, bConfigurationValue; value to set to enable to configuration
     pub number: u8,
     /// Interfaces available for this configuruation
@@ -385,6 +391,19 @@ impl USBConfiguration {
     /// Converts attributes into a ';' separated String
     pub fn attributes_string(&self) -> String {
         ConfigAttributes::attributes_to_string(&self.attributes)
+    }
+
+    /// Convert attibutes back to reg value
+    pub fn attributes_value(&self) -> u8 {
+        let mut ret: u8 = 0;
+        for attr in self.attributes.iter() {
+            match attr {
+                ConfigAttributes::SelfPowered => ret |= 0x40,
+                ConfigAttributes::RemoteWakeup => ret |= 0x20,
+            }
+        }
+
+        ret
     }
 }
 
@@ -402,6 +421,9 @@ pub struct USBDeviceExtra {
     pub vendor: Option<String>,
     /// Product name from usb_ids VIDPID lookup
     pub product_name: Option<String>,
+    /// Tuple of indexes to strings (iProduct, iManufacturer, iSerialNumber) - only useful for the lsbusb verbose print
+    #[serde(skip_serializing)]
+    pub string_indexes: (u8, u8, u8),
     /// USB devices can be have a number of configurations
     pub configurations: Vec<USBConfiguration>,
 }

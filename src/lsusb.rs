@@ -64,6 +64,7 @@ fn build_interfaces<T: libusb::UsbContext>(
         for interface_desc in interface.descriptors() {
             let mut _interface = usb::USBInterface {
                 name: get_interface_string(&interface_desc, handle),
+                string_index: interface_desc.description_string_index().unwrap_or(0),
                 number: interface_desc.interface_number(),
                 path: usb::get_interface_path(device.bus_number(), &device.port_numbers()?, config_desc.number(), interface_desc.interface_number()),
                 class: usb::ClassCode::from(interface_desc.class_code()),
@@ -113,6 +114,7 @@ fn build_configurations<T: libusb::UsbContext>(
 
         ret.push(usb::USBConfiguration {
             name: get_configuration_string(&config_desc, handle),
+            string_index: config_desc.description_string_index().unwrap_or(0),
             number: config_desc.number(),
             attributes,
             max_power: NumericalUnit{value: config_desc.max_power() as u32, unit: String::from("mA"), description: None},
@@ -133,6 +135,11 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
 ) -> libusb::Result<usb::USBDeviceExtra> {
     let mut _extra = usb::USBDeviceExtra {
         max_packet_size: device_desc.max_packet_size(),
+        string_indexes: (
+            device_desc.product_string_index().unwrap_or(0),
+            device_desc.manufacturer_string_index().unwrap_or(0),
+            device_desc.serial_number_string_index().unwrap_or(0),
+        ),
         driver: None,
         syspath: None,
         vendor: usb_ids::Vendor::from_id(device_desc.vendor_id()).map_or(None, |v| Some(v.name().to_owned())),
@@ -180,9 +187,9 @@ fn build_spdevice<T: libusb::UsbContext>(
                         None
                     }
                 }
-                Err(e) => { error_str = Some(format!("Failed to read open {:?}, will be unable to obtain all data: {}", device, e));  None },
+                Err(e) => { error_str = Some(format!("Failed to open {:?}, will be unable to obtain all data: {}", device, e));  None },
             },
-            Err(e) => { error_str = Some(format!("Failed to read open {:?}, will be unable to obtain all data: {}", device, e));  None },
+            Err(e) => { error_str = Some(format!("Failed to open {:?}, will be unable to obtain all data: {}", device, e));  None },
         }
     };
 
@@ -354,111 +361,29 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
 }
 
 /// Print USB devices in non-tree lsusb verbose style - a huge dump!
-pub fn lsusb_verbose(filter: &Option<system_profiler::USBFilter>) -> libusb::Result<()> {
-    let timeout = Duration::from_secs(1);
+pub fn print_verbose(devices: &Vec<&system_profiler::USBDevice>) -> () {
+    for device in devices {
+        match device.extra.as_ref() {
+            None => log::warn!("Skipping {} because it does not contain extra data required for verbose print", device),
+            Some(device_extra) => {
+                println!(""); // new lines separate in verbose lsusb
+                println!("{}", device.to_lsusb_string());
+                print_device(&device);
 
-    log::info!("lsusb verbose dump with libusb {:?}", libusb::version());
+                for config in &device_extra.configurations {
+                    print_config(&config);
 
-    for device in libusb::DeviceList::new()?.iter() {
-        let device_desc = match device.device_descriptor() {
-            Ok(d) => d,
-            Err(_) => continue,
-        };
+                    for interface in &config.interfaces {
+                        print_interface(&interface);
 
-        if let Some(f) = filter {
-            if let Some(fvid) = f.vid {
-                if device_desc.vendor_id() != fvid {
-                    continue;
-                }
-            }
-
-            if let Some(fpid) = f.pid {
-                if device_desc.product_id() != fpid {
-                    continue;
-                }
-            }
-        }
-
-        let mut usb_device = {
-            match device.open() {
-                Ok(h) => match h.read_languages(timeout) {
-                    Ok(l) => {
-                        if l.len() > 0 {
-                            Some(UsbDevice {
-                                handle: h,
-                                language: l[0],
-                                timeout,
-                            })
-                        } else {
-                            None
+                        for endpoint in &interface.endpoints {
+                            print_endpoint(&endpoint);
                         }
-                    }
-                    Err(_) => None,
-                },
-                Err(_) => None,
-            }
-        };
-
-        // now we have device, filter on bus number and address
-        if let Some(f) = filter {
-            if let Some(bus_number) = f.bus {
-                if bus_number != device.bus_number() {
-                    continue;
-                }
-            }
-
-            if let Some(address) = f.number {
-                if address != device.address() {
-                    continue;
-                }
-            }
-
-            if let Some(name) = &f.name {
-                if !get_product_string(&device_desc, &mut usb_device).contains(name) {
-                    continue;
-                }
-            }
-
-            if let Some(serial) = &f.serial {
-                if !get_serial_string(&device_desc, &mut usb_device).contains(serial) {
-                    continue;
-                }
-            }
-        }
-
-        println!(""); // new lines separate in verbose lsusb
-        println!(
-            "Bus {:03} Device {:03}: ID {:04x}:{:04x} {} {}",
-            device.bus_number(),
-            device.address(),
-            device_desc.vendor_id(),
-            device_desc.product_id(),
-            get_manufacturer_string(&device_desc, &mut usb_device),
-            get_product_string(&device_desc, &mut usb_device)
-        );
-        print_device(&device_desc, &mut usb_device);
-
-        for n in 0..device_desc.num_configurations() {
-            let config_desc = match device.config_descriptor(n) {
-                Ok(c) => c,
-                Err(_) => continue,
-            };
-
-            print_config(&config_desc, &mut usb_device);
-
-            for interface in config_desc.interfaces() {
-                for interface_desc in interface.descriptors() {
-                    print_interface(&interface_desc, &mut usb_device);
-
-                    for endpoint_desc in interface_desc.endpoint_descriptors() {
-                        print_endpoint(&endpoint_desc);
                     }
                 }
             }
         }
     }
-
-    Ok(())
 }
 
 fn get_product_string<T: libusb::UsbContext>(
@@ -549,169 +474,141 @@ fn version_to_float(version: &libusb::Version) -> Option<f32> {
     }
 }
 
-fn print_device<T: libusb::UsbContext>(
-    device_desc: &libusb::DeviceDescriptor,
-    handle: &mut Option<UsbDevice<T>>,
-) {
-    let vendor_name = match usb_ids::Vendor::from_id(device_desc.vendor_id()) {
-        Some(vendor) => vendor.name(),
-        None => "Unknown vendor",
-    };
-
-    let product_name =
-        match usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()) {
-            Some(product) => product.name(),
-            None => "Unknown product",
-    };
+fn print_device(device: &system_profiler::USBDevice) {
+    let device_extra = device.extra.as_ref().expect("Cannot print verbose without extra data");
 
     println!("Device Descriptor:");
     println!(
-        "  bcdUSB             {:2}.{}{}",
-        device_desc.usb_version().major(),
-        device_desc.usb_version().minor(),
-        device_desc.usb_version().sub_minor()
+        "  bcdUSB              {:.2}",
+        device.bcd_usb.unwrap_or(0.0)
     );
     println!(
-        "  bDeviceClass        {:#04x} {:?}",
-        device_desc.class_code(),
-        usb::ClassCode::from(device_desc.class_code())
+        "  bDeviceClass         {:3} {}",
+        device.class.as_ref().map_or(0, |c| c.to_owned() as u8),
+        device.class.as_ref().map_or(String::new(), |c| c.to_string())
     );
     println!(
-        "  bDeviceSubClass     {:#04x}",
-        device_desc.sub_class_code()
+        "  bDeviceSubClass      {:3}",
+        device.sub_class.unwrap_or(0),
     );
-    println!("  bDeviceProtocol     {:#04x}", device_desc.protocol_code());
-    println!("  bMaxPacketSize0      {:3}", device_desc.max_packet_size());
-    println!("  idVendor          {:#06x} {}", device_desc.vendor_id(), vendor_name);
-    println!("  idProduct         {:#06x} {}", device_desc.product_id(), product_name);
+    println!("  bDeviceProtocol      {:3}", device.protocol.unwrap_or(0));
+    println!("  bMaxPacketSize0      {:3}", device_extra.max_packet_size);
+    println!("  idVendor          {:#06x} {}", device.vendor_id.unwrap_or(0), device_extra.vendor.as_ref().unwrap_or(&String::new()));
+    println!("  idProduct         {:#06x} {}", device.product_id.unwrap_or(0), device_extra.product_name.as_ref().unwrap_or(&String::new()));
     println!(
-        "  bcdDevice          {:2}.{}{}",
-        device_desc.device_version().major(),
-        device_desc.device_version().minor(),
-        device_desc.device_version().sub_minor()
+        "  bcdDevice           {:.2}",
+        device.bcd_device.unwrap_or(0.0)
     );
     println!(
         "  iManufacturer        {:3} {}",
-        device_desc.manufacturer_string_index().unwrap_or(0),
-        handle.as_mut().map_or(String::new(), |h| h
-            .handle
-            .read_manufacturer_string(h.language, device_desc, h.timeout)
-            .unwrap_or_default())
+        device_extra.string_indexes.0,
+        device.manufacturer.as_ref().unwrap_or(&String::new())
     );
     println!(
         "  iProduct             {:3} {}",
-        device_desc.product_string_index().unwrap_or(0),
-        handle.as_mut().map_or(String::new(), |h| h
-            .handle
-            .read_product_string(h.language, device_desc, h.timeout)
-            .unwrap_or_default())
+        device_extra.string_indexes.1,
+        device.name
     );
     println!(
         "  iSerialNumber        {:3} {}",
-        device_desc.serial_number_string_index().unwrap_or(0),
-        handle.as_mut().map_or(String::new(), |h| h
-            .handle
-            .read_serial_number_string(h.language, device_desc, h.timeout)
-            .unwrap_or_default())
+        device_extra.string_indexes.2,
+        device.serial_num.as_ref().unwrap_or(&String::new())
     );
     println!(
         "  bNumConfigurations   {:3}",
-        device_desc.num_configurations()
+        device_extra.configurations.len()
     );
 }
 
-fn print_config<T: libusb::UsbContext>(
-    config_desc: &libusb::ConfigDescriptor,
-    handle: &mut Option<UsbDevice<T>>,
-) {
+fn print_config(config: &usb::USBConfiguration) {
     println!("  Config Descriptor:");
     println!(
         "    bNumInterfaces       {:3}",
-        config_desc.num_interfaces()
+        config.interfaces.len()
     );
-    println!("    bConfigurationValue  {:3}", config_desc.number());
+    println!(
+        "    bConfigurationValue  {:3}", config.number);
     println!(
         "    iConfiguration       {:3} {}",
-        config_desc.description_string_index().unwrap_or(0),
-        handle.as_mut().map_or(String::new(), |h| h
-            .handle
-            .read_configuration_string(h.language, config_desc, h.timeout)
-            .unwrap_or_default())
+        config.string_index,
+        config.name
     );
-    println!("    bmAttributes:");
-    println!("      Self Powered     {:>5}", config_desc.self_powered());
-    println!("      Remote Wakeup    {:>5}", config_desc.remote_wakeup());
-    println!("    bMaxPower           {:4}mW", config_desc.max_power());
+    println!(
+        "    bmAttributes:       0x{:02x}", config.attributes_value());
+    if config.attributes.contains(&usb::ConfigAttributes::SelfPowered) {
+        println!("      Self Powered");
+    }
+    if config.attributes.contains(&usb::ConfigAttributes::RemoteWakeup) {
+        println!("      Remote Wakeup");
+    }
+    println!(
+        "    bMaxPower           {:4}{}", config.max_power.value, config.max_power.unit)
 }
 
-fn print_interface<T: libusb::UsbContext>(
-    interface_desc: &libusb::InterfaceDescriptor,
-    handle: &mut Option<UsbDevice<T>>,
-) {
+fn print_interface(interface: &usb::USBInterface) {
     println!("    Interface Descriptor:");
     println!(
         "      bInterfaceNumber     {:3}",
-        interface_desc.interface_number()
+        interface.number
     );
     println!(
         "      bAlternateSetting    {:3}",
-        interface_desc.setting_number()
+        interface.alt_setting
     );
     println!(
         "      bNumEndpoints        {:3}",
-        interface_desc.num_endpoints()
+        interface.endpoints.len()
     );
     println!(
-        "      bInterfaceClass     {:#04x} {:?}",
-        interface_desc.class_code(),
-        usb::ClassCode::from(interface_desc.class_code())
+        "      bInterfaceClass      {:3} {}",
+        interface.class.to_owned() as u8,
+        interface.class.to_string()
     );
     println!(
-        "      bInterfaceSubClass  {:#04x}",
-        interface_desc.sub_class_code()
+        "      bInterfaceSubClass   {:3}",
+        interface.sub_class
     );
     println!(
-        "      bInterfaceProtocol  {:#04x}",
-        interface_desc.protocol_code()
+        "      bInterfaceProtocol   {:3}",
+        interface.protocol
     );
     println!(
         "      iInterface           {:3} {}",
-        interface_desc.description_string_index().unwrap_or(0),
-        handle.as_mut().map_or(String::new(), |h| h
-            .handle
-            .read_interface_string(h.language, interface_desc, h.timeout)
-            .unwrap_or_default())
+        interface.string_index,
+        interface.name
     );
 }
 
-fn print_endpoint(endpoint_desc: &libusb::EndpointDescriptor) {
+fn print_endpoint(endpoint: &usb::USBEndpoint) {
     println!("      Endpoint Descriptor:");
     println!(
-        "        bEndpointAddress    {:#04x} EP {} {:?}",
-        endpoint_desc.address(),
-        endpoint_desc.number(),
-        endpoint_desc.direction()
+        "        bEndpointAddress    {:#04x} EP {} {}",
+        endpoint.address.address,
+        endpoint.address.number,
+        endpoint.address.direction.to_string().to_uppercase()
     );
     println!("        bmAttributes:");
     println!(
         "          Transfer Type          {:?}",
-        endpoint_desc.transfer_type()
+        endpoint.transfer_type
     );
     println!(
         "          Synch Type             {:?}",
-        endpoint_desc.sync_type()
+        endpoint.sync_type
     );
     println!(
         "          Usage Type             {:?}",
-        endpoint_desc.usage_type()
+        endpoint.usage_type
     );
     println!(
-        "        wMaxPacketSize    {:#06x}",
-        endpoint_desc.max_packet_size()
+        "        wMaxPacketSize    {:#06x} {}x {} bytes",
+        endpoint.max_packet_size,
+        ((endpoint.max_packet_size >> 11) & 3) + 1,
+        endpoint.max_packet_size
     );
     println!(
         "        bInterval            {:3}",
-        endpoint_desc.interval()
+        endpoint.interval
     );
 }
 
@@ -763,7 +660,7 @@ impl From<libusb::UsageType> for usb::UsageType {
 impl From<libusb::SyncType> for usb::SyncType {
     fn from(libusb: libusb::SyncType) -> Self {
         match libusb {
-            libusb::SyncType::NoSync => usb::SyncType::NoSync,
+            libusb::SyncType::NoSync => usb::SyncType::None,
             libusb::SyncType::Asynchronous => usb::SyncType::Asynchronous,
             libusb::SyncType::Adaptive => usb::SyncType::Adaptive,
             libusb::SyncType::Synchronous => usb::SyncType::Synchronous,
