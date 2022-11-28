@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::system_profiler::{USBBus, USBDevice};
-use crate::usb::ClassCode;
+use crate::usb::{ClassCode, Direction};
 
 /// Icon type enum is used as key in `HashMaps`
 /// TODO FromStr and ToStr serialize/deserialize so that can merge with user defined
@@ -21,17 +21,28 @@ pub enum Icon {
     Classifier(ClassCode),
     /// Class classifier lookup with SubClass and Protocol
     ClassifierSubProtocol((ClassCode, u8, u8)),
+    /// Icon for unknown vendors
     UnknownVendor,
+    /// Icon for undefined classifier
+    UndefinedClassifier,
+    /// Icon to use when tree is being printed within an extending branch
     TreeEdge,
+    /// Icon to use for non-last list item
     TreeLine,
+    /// Icon to use at last item in list
     TreeCorner,
+    /// Blanking icon for inset without edge
     TreeBlank,
     /// Icon at prepended before printing `USBBus`
     TreeBusStart,
     /// Icon printed at end of tree before printing `USBDevice`
     TreeDeviceTerminator,
-    /// Icon printed at end of tree before printing classifier
-    TreeClassifierTerminiator,
+    /// Icon printed at end of tree before printing configuration
+    TreeConfigurationTerminiator,
+    /// Icon printed at end of tree before printing interface
+    TreeInterfaceTerminiator,
+    /// Icon for endpoint direction
+    Endpoint(Direction),
 }
 
 /// Allows user supplied icons to replace or add to `DEFAULT_ICONS` and `DEFAULT_TREE`
@@ -67,7 +78,10 @@ lazy_static! {
             (Icon::TreeBlank, "   ".into()), // should be same char width as above
             (Icon::TreeBusStart, "\u{25CF}".into()), // "●"
             (Icon::TreeDeviceTerminator, "\u{25CB}".into()), // "○"
-            (Icon::TreeClassifierTerminiator, "\u{25E6}".into()), // "◦"
+            (Icon::TreeConfigurationTerminiator, "\u{2022}".into()), // "•"
+            (Icon::TreeInterfaceTerminiator, "\u{25E6}".into()), // "◦"
+            (Icon::Endpoint(Direction::In), "\u{25E6}\u{2192}".into()), // →
+            (Icon::Endpoint(Direction::Out), "\u{25E6}\u{2190}".into()), // ←
         ])
     };
 
@@ -80,7 +94,10 @@ lazy_static! {
             (Icon::TreeBlank, "      ".into()), // inset like line
             (Icon::TreeBusStart, "/: ".into()),
             (Icon::TreeDeviceTerminator, "".into()), // null
-            (Icon::TreeClassifierTerminiator, "".into()), // null
+            (Icon::TreeConfigurationTerminiator, "".into()), // null
+            (Icon::TreeInterfaceTerminiator, "".into()), // null
+            (Icon::Endpoint(Direction::In), "".into()), //
+            (Icon::Endpoint(Direction::Out), "".into()), //
         ])
     };
 
@@ -123,11 +140,13 @@ lazy_static! {
             (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}".into()), // serial 
             (Icon::Classifier(ClassCode::CDCData), "\u{e795}".into()), // serial 
             (Icon::Classifier(ClassCode::HID), "\u{f1c0}".into()), // 
+            (Icon::UndefinedClassifier, "-".into()),
         ])
     };
 }
 
 impl IconTheme {
+    /// New theme with defaults
     pub fn new() -> Self {
         Default::default()
     }
@@ -212,6 +231,34 @@ impl IconTheme {
             self.get_vidpid_icon(vid, pid)
         } else {
             String::new()
+        }
+    }
+
+    /// Drill through `DEFAULT_ICONS` first looking for `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> ""
+    pub fn get_default_classifier_icon(class: &ClassCode, sub: u8, protocol: u8) -> String {
+        // try vid pid first
+        DEFAULT_ICONS
+            .get(&Icon::ClassifierSubProtocol((class.to_owned(), sub, protocol)))
+            .unwrap_or(
+                DEFAULT_ICONS
+                    .get(&Icon::Classifier(class.to_owned()))
+                    .unwrap_or(DEFAULT_ICONS.get(&Icon::UndefinedClassifier).unwrap_or(&"")),
+                ).to_string()
+    }
+
+    /// Drill through `Self` icons first looking for `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> get_default_classifier_icon
+    pub fn get_classifier_icon(&self, class: &ClassCode, sub: u8, protocol: u8) -> String {
+        if let Some(user_icons) = self.icons.as_ref() {
+            user_icons
+            .get(&Icon::ClassifierSubProtocol((class.to_owned(), sub, protocol)))
+            .unwrap_or(
+                user_icons
+                    .get(&Icon::Classifier(class.to_owned()))
+                    .unwrap_or(&IconTheme::get_default_classifier_icon(class, sub, protocol)),
+                )
+                .to_owned()
+        } else {
+            IconTheme::get_default_classifier_icon(class, sub, protocol)
         }
     }
 }

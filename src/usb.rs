@@ -1,4 +1,8 @@
 //! Defines for USB, mainly thosed covered at [usb.org](https://www.usb.org)
+//!
+//! Also refering to [beyondlogic](https://beyondlogic.org/usbnutshell/usb5.shtml)
+//!
+//! There are some repeated/copied Enum defines from rusb in order to control Serialize/Deserialize and add impl
 use itertools::Itertools;
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
@@ -11,21 +15,27 @@ use crate::types::NumericalUnit;
 /// Configuration attributes
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ConfigAttributes {
+    /// Device powers itself not from bus
     SelfPowered,
+    /// Supports remote wake-up
     RemoteWakeup,
 }
 
 /// Explains how the `ClassCode` is used
 #[derive(Debug)]
 pub enum DescriptorUsage {
+    /// Describes device
     Device,
+    /// Describes interface
     Interface,
+    /// Can be used to describe both
     Both,
 }
 
 /// USB class code defines [ref](https://www.usb.org/defined-class-codes)
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[allow(missing_docs)]
 pub enum ClassCode {
     #[default]
     UseInterfaceDescriptor,
@@ -51,6 +61,12 @@ pub enum ClassCode {
     Miscellaneous,
     ApplicationSpecific,
     VendorSpecific,
+}
+
+impl fmt::Display for ClassCode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl From<u8> for ClassCode {
@@ -110,6 +126,7 @@ impl From<ClassCode> for DescriptorUsage {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 #[serde(untagged, rename_all = "snake_case")]
+#[allow(missing_docs)]
 pub enum Speed {
     Unknown,
     LowSpeed,
@@ -204,12 +221,18 @@ impl From<&Speed> for NumericalUnit<f32> {
 }
 
 /// Transfer and endpoint directions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     /// Direction for write (host to device) transfers.
     Out,
     /// Direction for read (device to host) transfers.
     In
+}
+
+impl fmt::Display for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 /// An endpoint's transfer type.
@@ -225,6 +248,12 @@ pub enum TransferType {
     Interrupt,
 }
 
+impl fmt::Display for TransferType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Isochronous synchronization mode.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncType {
@@ -236,6 +265,12 @@ pub enum SyncType {
     Adaptive,
     /// Synchronous.
     Synchronous,
+}
+
+impl fmt::Display for SyncType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 /// Isochronous usage type.
@@ -251,43 +286,62 @@ pub enum UsageType {
     Reserved,
 }
 
+impl fmt::Display for UsageType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Address information for USB endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EndpointAddress {
-    /// Endpoint address
+    /// Endpoint address byte
     pub address: u8,
-    /// Endpoint number on [`USBInterface`]
+    /// Endpoint number on [`USBInterface`] 0..3b
     pub number: u8,
-    /// Data transfer direction
+    /// Data transfer direction 7b
     pub direction: Direction,
 }
 
 /// Endpoint for an interface
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBEndpoint {
+    /// Address information for endpoint
     pub address: EndpointAddress,
+    /// Type of data transfer endpoint accepts
     pub transfer_type: TransferType,
+    /// Synchronisation type (Iso mode)
     pub sync_type: SyncType,
+    /// Usage type (Iso mode)
     pub usage_type: UsageType,
+    /// Maximum packet size in bytes endpoint can send/recieve
     pub max_packet_size: u16,
+    /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     pub interval: u8,
 }
 
 /// Interface within a configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBInterface {
+    /// Name from descriptor
     pub name: String,
+    /// Interface number
     pub number: u8,
     /// Interface port path - could be generated from device but stored here for ease
     pub path: String,
+    /// Class of interface provided by USB IF
     pub class: ClassCode,
+    /// Sub-class of interface provided by USB IF
     pub sub_class: u8,
+    /// Prototol code for interface provided by USB IF
     pub protocol: u8,
+    /// Interfaces can have the same number but an alternate settings defined here
     pub alt_setting: u8,
     /// Driver obtained from udev on Linux only
     pub driver: Option<String>,
     /// syspath obtained from udev on Linux only
     pub syspath: Option<String>,
+    /// An interface can have many endpoints
     pub endpoints: Vec<USBEndpoint>,
 }
 
@@ -301,10 +355,15 @@ impl USBInterface {
 /// Devices can have multiple configurations, each with different attributes and interfaces
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBConfiguration {
+    /// Name from string descriptor
     pub name: String,
+    /// Number of config, bConfigurationValue; value to set to enable to configuration
     pub number: u8,
+    /// Interfaces available for this configuruation
     pub interfaces: Vec<USBInterface>,
+    /// Attributes of configuration, bmAttributes
     pub attributes: HashSet<ConfigAttributes>,
+    /// Maximum power consumption in mA
     pub max_power: NumericalUnit<u32>,
 }
 
@@ -312,13 +371,17 @@ pub struct USBConfiguration {
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBDeviceExtra {
+    /// Maximum packet size in bytes
     pub max_packet_size: u8,
     /// Driver obtained from udev on Linux only
     pub driver: Option<String>,
     /// syspath obtained from udev on Linux only
     pub syspath: Option<String>,
+    /// Vendor name from usb_ids VID lookup
     pub vendor: Option<String>,
+    /// Product name from usb_ids VIDPID lookup
     pub product_name: Option<String>,
+    /// USB devices can be have a number of configurations
     pub configurations: Vec<USBConfiguration>,
 }
 

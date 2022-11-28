@@ -200,6 +200,15 @@ impl USBBus {
         get_trunk_path(self.get_bus_number(), &vec![])
     }
 
+    /// Gets the device that is the root_hub associated with this bus - Linux only
+    pub fn get_root_hub_device(&mut self) -> Option<&mut USBDevice> {
+        if cfg!(target_os = "linux") {
+            self.get_node_mut(&self.path())
+        } else {
+            None
+        }
+    }
+
     /// Search for [`USBDevice`] in branches of bus
     pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
         if let Some(devices) = self.devices.as_mut() {
@@ -212,6 +221,47 @@ impl USBBus {
         }
 
         None
+    }
+
+    /// Generate a String from self like lsusb default list device
+    pub fn to_lsusb_string(&self) -> String {
+        format!(
+            "Bus {:03} Device 000: ID {:04x}:{:04x} {:} {:}",
+            self.get_bus_number(),
+            self.pci_vendor.unwrap_or(0xffff),
+            self.pci_device.unwrap_or(0xffff),
+            self.name,
+            self.host_controller,
+        )
+    }
+
+    /// Generate a tuple (String, String, String) of the lsusb tree output at all three verbosity levels
+    ///
+    /// Only Linux systems with a root_hub will contain accurate data, others are mainly for styling
+    pub fn to_lsusb_tree_string(&mut self) -> Vec<(String, String, String)> {
+        if let Some(root_device) = self.get_root_hub_device() {
+            root_device.to_lsusb_tree_string()
+        } else {
+            log::warn!("Failed to get root_device in bus");
+            Vec::from([(
+                format!(
+                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=,",
+                    self.get_bus_number(),
+                ),
+                format!(
+                    "ID {:04x}:{:04x} {} {}",
+                    self.pci_vendor.unwrap_or(0xFFFF),
+                    self.pci_device.unwrap_or(0xFFFF),
+                    self.host_controller,
+                    self.name,
+                ),
+                format!(
+                    "/sys/bus/usb/devices/usb{} /dev/bus/usb/{:03}/001",
+                    self.get_bus_number(),
+                    self.get_bus_number(),
+                )
+            )])
+        }
     }
 }
 
@@ -287,9 +337,7 @@ impl fmt::Display for USBBus {
                 self.pci_revision.unwrap_or(0xffff),
             )?;
         } else {
-            // lsusb style with as much data as we have...always Bus.1 dev 1 for a bus and root_hub class but we don't know driver
             if f.sign_plus() {
-                // TODO verbose is like device tree
                 writeln!(
                     f,
                     "{:}Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=,",
@@ -297,15 +345,7 @@ impl fmt::Display for USBBus {
                     self.get_bus_number(),
                 )?;
             } else {
-                writeln!(
-                    f,
-                    "Bus {:03} Device 000: ID {:04x}:{:04x} {:} {:}",
-                    self.get_bus_number(),
-                    self.pci_vendor.unwrap_or(0xffff),
-                    self.pci_device.unwrap_or(0xffff),
-                    self.name,
-                    self.host_controller,
-                )?;
+                write!(f, "{}", self.to_lsusb_string())?;
             }
         }
 
@@ -475,10 +515,10 @@ pub struct USBDevice {
     #[serde(rename(deserialize = "_name"))]
     pub name: String,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    /// Unique vendor identifier - purchased from USB foundation
+    /// Unique vendor identifier - purchased from USB IF
     pub vendor_id: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    /// Vendor product identifier
+    /// Vendor unique product identifier
     pub product_id: Option<u16>,
     /// Device location information on bus
     pub location_id: DeviceLocation,
@@ -630,7 +670,7 @@ impl USBDevice {
     }
 
     /// Generate a tuple (String, String, String) of the lsusb tree output at all three verbosity levels
-    pub fn to_lsusb_tree_string(&self, _verbosity_level: u8) -> Vec<(String, String, String)> {
+    pub fn to_lsusb_tree_string(&self) -> Vec<(String, String, String)> {
         let mut format_strs = Vec::new();
 
         let speed = match &self.device_speed {
@@ -697,7 +737,7 @@ impl USBDevice {
                     "ID {:04x}:{:04x} {} {}",
                     self.vendor_id.unwrap_or(0xFFFF),
                     self.product_id.unwrap_or(0xFFFF),
-                    self.manufacturer.as_ref().unwrap_or(&String::new()),
+                    self.manufacturer.as_ref().unwrap_or(&String::new()), // TODO these are actually usb_id vendor/product
                     self.name,
                 ),
                 format!(
@@ -766,8 +806,8 @@ impl fmt::Display for USBDevice {
                     spaces += 3;
                 }
                 // not verbose for fmt::Display
-                let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
-                // let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
+                // let interface_strs: Vec<String> = self.to_lsusb_tree_string().iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
+                let interface_strs: Vec<String> = self.to_lsusb_tree_string().iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
                 write!(f, "{}", interface_strs.join("\n\r"))
             } else {
                 write!(f, "{}", self.to_lsusb_string())

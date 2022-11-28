@@ -1,7 +1,6 @@
 //! Where the magic happens for `cyme` binary!
 use clap::Parser;
 use colored::*;
-use simple_logger::SimpleLogger;
 use std::env;
 use std::io::{Error, ErrorKind};
 
@@ -94,7 +93,7 @@ struct Args {
     #[arg(long, default_value_t = false)]
     force_libusb: bool,
 
-    /// Turn debugging information on
+    /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
     #[arg(short = 'D', long, action = clap::ArgAction::Count)]
     debug: u8,
 }
@@ -105,6 +104,16 @@ macro_rules! eprintexit {
         // `stringify!` will convert the expression *as it is* into a string.
         eprintln!("{}", $error.to_string().bold().red());
         std::process::exit(1);
+    };
+}
+
+/// Print in bold orange warning and log
+#[allow(unused_macros)]
+macro_rules! wprintln {
+    ($error:expr) => {
+        // `stringify!` will convert the expression *as it is* into a string.
+        println!("{}", $error.to_string().bold().yellow());
+        log::warn!($error)
     };
 }
 
@@ -194,30 +203,12 @@ fn print_flat_lsusb(
 fn main() {
     let mut args = Args::parse();
 
-    match args.debug {
-        0 => (),
-        // just use env if not passed
-        // 0 => SimpleLogger::new()
-        //     .with_utc_timestamps()
-        //     .env()
-        //     .init()
-        //     .unwrap(),
-        1 => SimpleLogger::new()
-            .with_utc_timestamps()
-            .with_level(log::Level::Info.to_level_filter())
-            .init()
-            .unwrap(),
-        2 => SimpleLogger::new()
-            .with_utc_timestamps()
-            .with_level(log::Level::Debug.to_level_filter())
-            .init()
-            .unwrap(),
-        3 | _ => SimpleLogger::new()
-            .with_utc_timestamps()
-            .with_level(log::Level::Trace.to_level_filter())
-            .init()
-            .unwrap(),
-    }
+    cyme::set_log_level(args.debug).unwrap_or_else(|e| {
+        eprintexit!(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to configure logging: {}", e)
+        ));
+    });
 
     // just set the env for this process
     if args.no_colour {
@@ -252,7 +243,7 @@ fn main() {
         })
     };
 
-    log::debug!("Returned system_profiler data\n\r{}", sp_usb);
+    log::trace!("Returned system_profiler data\n\r{:#}", sp_usb);
 
     let filter = if args.hide_hubs
         || args.vidpid.is_some()
@@ -329,6 +320,7 @@ fn main() {
         group_devices: group_devies,
         json: args.json,
         headings: args.headings,
+        verbosity: args.verbose,
         icons: Some(IconTheme::new()),
         ..Default::default()
     };
