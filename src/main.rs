@@ -326,10 +326,10 @@ fn main() {
     };
 
     // TODO verbose only supported by lsusb mode at the moment
-    if args.verbose > 0 && !(args.lsusb || args.force_libusb) {
-        eprintln!("Forcing '--lsusb' compatibility mode, supply --lsusb to avoid this");
-        args.lsusb = true;
-    }
+    // if args.verbose > 0 && !(args.lsusb || args.force_libusb) {
+    //     eprintln!("Forcing '--lsusb' compatibility mode, supply --lsusb to avoid this");
+    //     args.lsusb = true;
+    // }
 
     // TODO do this in main cyme_print so that sorting each is done too
     if args.lsusb {
