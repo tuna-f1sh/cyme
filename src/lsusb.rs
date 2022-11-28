@@ -360,7 +360,7 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
     Ok(sp_data)
 }
 
-const TREE_LSUSB_BUS: &'static str = "/: ";
+const TREE_LSUSB_BUS: &'static str = "/:  ";
 const TREE_LSUSB_DEVICE: &'static str = "|__ ";
 const TREE_LSUSB_SPACE: &'static str = "    ";
 
@@ -372,7 +372,8 @@ pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, verbosity: u8) -> ()
                 log::debug!("lsusb tree skipping root_hub {}", device);
                 continue;
             }
-            let spaces = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + 3;
+            // the const len should get compiled to const...
+            let spaces = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
             let device_tree_strings: Vec<(String, String, String)> = device.to_lsusb_tree_string();
 
             for strings in device_tree_strings {
@@ -397,10 +398,10 @@ pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, verbosity: u8) -> ()
         for strings in bus_tree_strings {
             println!("{}{}", TREE_LSUSB_BUS, strings.0);
             if verbosity >= 1 {
-                println!("{:>spaces$}", strings.1, spaces=TREE_LSUSB_BUS.len());
+                println!("{}{}", TREE_LSUSB_SPACE, strings.1);
             }
             if verbosity >= 2 {
-                println!("{:>spaces$}", strings.2, spaces=TREE_LSUSB_BUS.len());
+                println!("{}{}", TREE_LSUSB_SPACE, strings.2);
             }
         }
 
