@@ -737,7 +737,8 @@ impl USBDevice {
                     "ID {:04x}:{:04x} {} {}",
                     self.vendor_id.unwrap_or(0xFFFF),
                     self.product_id.unwrap_or(0xFFFF),
-                    self.manufacturer.as_ref().unwrap_or(&String::new()), // TODO these are actually usb_id vendor/product
+                    // these are actually usb_ids vendor/product but don't have those without extra
+                    self.manufacturer.as_ref().unwrap_or(&String::new()),
                     self.name,
                 ),
                 format!(

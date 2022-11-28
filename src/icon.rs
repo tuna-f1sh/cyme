@@ -80,8 +80,10 @@ lazy_static! {
             (Icon::TreeDeviceTerminator, "\u{25CB}".into()), // "○"
             (Icon::TreeConfigurationTerminiator, "\u{2022}".into()), // "•"
             (Icon::TreeInterfaceTerminiator, "\u{25E6}".into()), // "◦"
-            (Icon::Endpoint(Direction::In), "\u{25E6}\u{2192}".into()), // →
-            (Icon::Endpoint(Direction::Out), "\u{25E6}\u{2190}".into()), // ←
+            // (Icon::Endpoint(Direction::In), "\u{2192}".into()), // →
+            // (Icon::Endpoint(Direction::Out), "\u{2190}".into()), // ←
+            (Icon::Endpoint(Direction::In), ">".into()), // →
+            (Icon::Endpoint(Direction::Out), "<".into()), // ←
         ])
     };
 
@@ -137,10 +139,26 @@ lazy_static! {
             (Icon::VidPid((0x1d50, 0x606f)), "\u{f5e6}".into()), // candlelight_fw gs_can 
             (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f878}".into()), // lg monitor 
             (Icon::VidPid((0x0781, 0xf7c9)), "\u{f878}".into()), // sandisk external disk 
+            (Icon::Classifier(ClassCode::Audio), "\u{f001}".into()), // 
+            (Icon::Classifier(ClassCode::Image), "\u{f03e}".into()), // 
+            (Icon::Classifier(ClassCode::Video), "\u{f03d}".into()), // 
+            (Icon::Classifier(ClassCode::Printer), "\u{fc05}".into()), // ﰅ
+            // (Icon::Classifier(ClassCode::MassStorage), "\u{fc05}".into()),
+            (Icon::Classifier(ClassCode::Hub), "\u{f126}".into()), // 
+            (Icon::Classifier(ClassCode::ContentSecurity), "\u{f805}".into()), // 
+            (Icon::Classifier(ClassCode::SmartCart), "\u{f805}".into()), // 
+            (Icon::Classifier(ClassCode::PersonalHealthcare), "\u{fbeb}".into()), // ﯭ
+            (Icon::Classifier(ClassCode::Physical), "\u{f5cd}".into()), // 
+            (Icon::Classifier(ClassCode::AudioVideo), "\u{fd3f}".into()), // ﴿
+            (Icon::Classifier(ClassCode::Billboard), "\u{f05a}".into()), // 
+            (Icon::Classifier(ClassCode::I3CDevice), "\u{f493}".into()), // 
+            (Icon::Classifier(ClassCode::Diagnostic), "\u{f489}".into()), // 
+            (Icon::Classifier(ClassCode::WirelessController), "\u{f1eb}".into()), // 
+            (Icon::Classifier(ClassCode::Miscellaneous), "\u{f074}".into()), // 
             (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}".into()), // serial 
             (Icon::Classifier(ClassCode::CDCData), "\u{e795}".into()), // serial 
-            (Icon::Classifier(ClassCode::HID), "\u{f1c0}".into()), // 
-            (Icon::UndefinedClassifier, "-".into()),
+            (Icon::Classifier(ClassCode::HID), "\u{f80b}".into()), // 
+            (Icon::UndefinedClassifier, "\u{2636}".into()), //☶
         ])
     };
 }

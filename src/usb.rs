@@ -21,6 +21,20 @@ pub enum ConfigAttributes {
     RemoteWakeup,
 }
 
+impl fmt::Display for ConfigAttributes {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl ConfigAttributes {
+    /// Converts a HashSet of [`ConfigAttributes`] into a ';' separated string
+    pub fn attributes_to_string(attributes: &HashSet<ConfigAttributes>) -> String {
+        let vec: Vec<String> = attributes.iter().map(|a| a.to_string()).collect();
+        vec.join(";")
+    }
+}
+
 /// Explains how the `ClassCode` is used
 #[derive(Debug)]
 pub enum DescriptorUsage {
@@ -365,6 +379,13 @@ pub struct USBConfiguration {
     pub attributes: HashSet<ConfigAttributes>,
     /// Maximum power consumption in mA
     pub max_power: NumericalUnit<u32>,
+}
+
+impl USBConfiguration {
+    /// Converts attributes into a ';' separated String
+    pub fn attributes_string(&self) -> String {
+        ConfigAttributes::attributes_to_string(&self.attributes)
+    }
 }
 
 /// Extra USB device data for verbose printing
