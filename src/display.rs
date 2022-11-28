@@ -368,7 +368,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::ClassCode => format!("{:^pad$}", "Class", pad = pad.get(self).unwrap_or(&0)),
             DeviceBlocks::SubClass => "SubC".into(),
             DeviceBlocks::Protocol => "Pcol".into(),
-            DeviceBlocks::Icon => "\u{25a2}".into(),
+            DeviceBlocks::Icon => "\u{f2b4}".into(),
             // _ => "",
         }
     }
@@ -456,7 +456,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::HostController => {
                 format!("{:^pad$}", "Host Controller", pad = pad.get(self).unwrap_or(&0))
             }
-            BusBlocks::Icon => "\u{25A2}".into(),
+            BusBlocks::Icon => "\u{f2b4}".into(),
             // _ => "",
         }
     }
@@ -598,7 +598,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::SubClass => "SubC".into(),
             InterfaceBlocks::Protocol => "Pcol".into(),
             InterfaceBlocks::AltSetting => "Alt#".into(),
-            InterfaceBlocks::Icon => "\u{25A2}".into(),
+            InterfaceBlocks::Icon => "\u{f2b4}".into(),
             // _ => "",
         }
     }
