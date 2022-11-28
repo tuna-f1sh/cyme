@@ -161,6 +161,7 @@ fn build_spdevice<T: libusb::UsbContext>(
         v => Some(system_profiler::DeviceSpeed::SpeedValue(v)),
     };
 
+    let mut error_str = None;
     let device_desc = device.device_descriptor()?;
 
     // try to get open device for strings but allowed to continue if this fails - get string functions will return empty
@@ -178,9 +179,9 @@ fn build_spdevice<T: libusb::UsbContext>(
                         None
                     }
                 }
-                Err(_) => None,
+                Err(e) => { error_str = Some(format!("Failed to read open {:?}, will be unable to obtain all data: {}", device, e));  None },
             },
-            Err(_) => None,
+            Err(e) => { error_str = Some(format!("Failed to read open {:?}, will be unable to obtain all data: {}", device, e));  None },
         }
     };
 
@@ -222,7 +223,7 @@ fn build_spdevice<T: libusb::UsbContext>(
         ..Default::default()
     };
 
-    let error_str = if with_extra { 
+    let extra_error_str = if with_extra { 
         match build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device, true) {
             Ok(extra) => { sp_device.extra = Some(extra); None },
             Err(e) => {
@@ -238,6 +239,10 @@ fn build_spdevice<T: libusb::UsbContext>(
     } else {
         None
     };
+
+    if error_str.is_none() {
+        error_str = extra_error_str;
+    }
 
     Ok((sp_device, error_str))
 }

@@ -289,6 +289,7 @@ impl fmt::Display for USBBus {
         } else {
             // lsusb style with as much data as we have...always Bus.1 dev 1 for a bus and root_hub class but we don't know driver
             if f.sign_plus() {
+                // TODO verbose is like device tree
                 writeln!(
                     f,
                     "{:}Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=,",
@@ -696,7 +697,7 @@ impl USBDevice {
                     "ID {:04x}:{:04x} {} {}",
                     self.vendor_id.unwrap_or(0xFFFF),
                     self.product_id.unwrap_or(0xFFFF),
-                    self.manufacturer.as_ref().unwrap_or(&String::new()), // TODO these are actually usb_id vendor/product
+                    self.manufacturer.as_ref().unwrap_or(&String::new()),
                     self.name,
                 ),
                 format!(
@@ -765,8 +766,8 @@ impl fmt::Display for USBDevice {
                     spaces += 3;
                 }
                 // not verbose for fmt::Display
-                // let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
-                let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
+                let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
+                // let interface_strs: Vec<String> = self.to_lsusb_tree_string(0).iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
                 write!(f, "{}", interface_strs.join("\n\r"))
             } else {
                 write!(f, "{}", self.to_lsusb_string())
