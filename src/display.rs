@@ -1155,11 +1155,6 @@ pub fn print_devices(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                // let outerline = settings
-                //         .icons
-                //         .as_ref()
-                //         .map_or(icon::get_default_tree_icon(icon::Icon::TreeLine), |i| i
-                //             .get_tree_icon(icon::Icon::TreeLine));
                 let heading = render_heading(db, &pad).join(" ");
                 println!("{}  {}", device_prefix, heading.bold().underline());
             }
@@ -1295,7 +1290,7 @@ pub fn prepare(
         sp_usb.buses.sort_by_key(|d| d.get_bus_number());
     }
 
-    log::trace!("sp_usb data post filter and sort\n\r{:#}", sp_usb);
+    log::trace!("sp_usb data post filter and bus sort\n\r{:#}", sp_usb);
 }
 
 /// Main cyme bin print function

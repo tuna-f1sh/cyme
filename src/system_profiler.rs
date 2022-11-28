@@ -200,10 +200,15 @@ impl USBBus {
         get_trunk_path(self.get_bus_number(), &vec![])
     }
 
+    /// sysfs style path to bus interface
+    pub fn interface(&self) -> String {
+        get_interface_path(self.get_bus_number(), &Vec::new(), 1, 0)
+    }
+
     /// Gets the device that is the root_hub associated with this bus - Linux only
     pub fn get_root_hub_device(&self) -> Option<&USBDevice> {
         if cfg!(target_os = "linux") {
-            self.get_node(&self.path())
+            self.get_node(&self.interface())
         } else {
             None
         }
@@ -212,7 +217,7 @@ impl USBBus {
     /// Gets a mutable device that is the root_hub associated with this bus - Linux only
     pub fn get_root_hub_device_mut(&mut self) -> Option<&mut USBDevice> {
         if cfg!(target_os = "linux") {
-            self.get_node_mut(&self.path())
+            self.get_node_mut(&self.interface())
         } else {
             None
         }
@@ -263,7 +268,47 @@ impl USBBus {
     /// Only Linux systems with a root_hub will contain accurate data, others are mainly for styling
     pub fn to_lsusb_tree_string(&self) -> Vec<(String, String, String)> {
         if let Some(root_device) = self.get_root_hub_device() {
-            root_device.to_lsusb_tree_string()
+            let speed = match &root_device.device_speed {
+                Some(v) => match v {
+                    DeviceSpeed::SpeedValue(v) => {
+                        let dv = NumericalUnit::<f32>::from(v);
+                        let prefix = dv.unit.chars().next().unwrap_or('M');
+                        match prefix {
+                            'G' => format!("{:.0}{}", dv.value * 1000.0, 'M'),
+                            _ => format!("{:.0}{}", dv.value, prefix)
+                        }
+                    }
+                    DeviceSpeed::Description(_) => String::new()
+                }
+                None => String::from(""),
+            };
+
+            // get these now to save unwrap and to_owned each interface
+            let (driver, _, vendor, product) = match &root_device.extra {
+                Some(v) => (v.driver.to_owned().unwrap_or(String::new()), v.syspath.to_owned().unwrap_or(String::new()), v.vendor.to_owned().unwrap_or(String::new()), v.product_name.to_owned().unwrap_or(String::new())),
+                None => (String::new(), String::new(), String::new(), String::new())
+            };
+
+            Vec::from([(
+                format!(
+                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver={}, {}",
+                    self.get_bus_number(),
+                    driver,
+                    speed
+                ),
+                format!(
+                    "ID {:04x}:{:04x} {} {}",
+                    self.pci_vendor.unwrap_or(0xFFFF),
+                    self.pci_device.unwrap_or(0xFFFF),
+                    vendor,
+                    product,
+                ),
+                format!(
+                    "/sys/bus/usb/devices/usb{} /dev/bus/usb/{:03}/001",
+                    self.get_bus_number(),
+                    self.get_bus_number(),
+                )
+            )])
         } else {
             log::warn!("Failed to get root_device in bus");
             Vec::from([(
@@ -589,15 +634,28 @@ impl USBDevice {
         }
     }
 
+    /// Gets root_hub [`USBDevice`] if it is one
+    pub fn get_root_hub(&self) -> Option<&USBDevice> {
+        if self.is_root_hub() {
+            return Some(self);
+        } else {
+            return None;
+        }
+    }
+
     /// Recursively walk all [`USBDevice`] from self, looking for the one with `port_path` and returning reference
     ///
     /// Will panic if `port_path` is not a child device or if it sits shallower than self
     pub fn get_node(&self, port_path: &str) -> Option<&USBDevice> {
+        // special case for root_hub, it ends with :1.0
+        if port_path.ends_with(":1.0") {
+            return self.get_root_hub();
+        }
         let node_depth = port_path.split('-').last().expect("Invalid port path").split('.').count();
         let current_depth = self.get_depth();
-        log::debug!("Get node at {} with {} ({})", port_path, self.port_path(), self);
+        log::debug!("Get node at {} with {} ({}); depth {}/{}", port_path, self.port_path(), self, current_depth, node_depth);
 
-        // should not be looking for nodes below us
+        // should not be looking for nodes below us unless root
         if current_depth > node_depth {
             panic!("Trying to find node at {}/{} shallower than current position {}!", &port_path, node_depth, current_depth);
         // if we are at depth, just check self or return none
@@ -625,9 +683,16 @@ impl USBDevice {
     ///
     /// Will panic if `port_path` is not a child device or if it sits shallower than self
     pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
+        if port_path.ends_with(":1.0") {
+            if self.is_root_hub() {
+                return Some(self);
+            } else {
+                return None;
+            }
+        }
         let node_depth = port_path.split('-').last().expect("Invalid port path").split('.').count();
         let current_depth = self.get_depth();
-        log::debug!("Get node at {} with {} ({})", port_path, self.port_path(), self);
+        log::debug!("Get node at {} with {} ({}); depth {}/{}", port_path, self.port_path(), self, current_depth, node_depth);
 
         // should not be looking for nodes below us
         if current_depth > node_depth {
@@ -777,7 +842,7 @@ impl USBDevice {
             log::warn!("Rendering {} lsusb tree without extra data because it is missing. No configurations or interfaces will be shown", self);
             format_strs.push((
                 format!(
-                    "Port {:}: Device {:}: If {}, Class={:?}, Driver={}, {}",
+                    "Port {:}: Dev {:}, If {}, Class={:?}, Driver={}, {}",
                     self.get_branch_position(),
                     self.location_id.number,
                     0,

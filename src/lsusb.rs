@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use rusb as libusb;
 use usb_ids::{self, FromId};
+use crate::display;
 use crate::{usb, system_profiler, types::NumericalUnit};
 #[cfg(target_os = "linux")]
 #[cfg(feature = "udev")]
@@ -337,7 +338,8 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
                 } else {
                     new_bus.devices = Some(children.collect());
                 }
-                log::debug!("Updated bus devices {:?}", new_bus.devices);
+                log::debug!("Updated bus {}", new_bus);
+                log::trace!("Updated bus devices {:?}", new_bus.devices);
             // else find and add parent - this should work because we are sorted to accend the tree so parents should be created before their children
             } else {
                 let parent_node = new_bus.get_node_mut(&parent_path).expect("Parent node does not exist in new bus!");
@@ -350,7 +352,8 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
                 } else {
                     parent_node.devices = Some(children.collect());
                 }
-                log::debug!("Updated parent devices {:?}", parent_node.devices);
+                log::debug!("Updated parent {}", parent_node);
+                log::trace!("Updated parent devices {:?}", parent_node.devices);
             }
         }
 
@@ -365,9 +368,11 @@ const TREE_LSUSB_DEVICE: &'static str = "|__ ";
 const TREE_LSUSB_SPACE: &'static str = "    ";
 
 /// Print [`SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
-pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, verbosity: u8) -> () {
-    fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, verbosity: u8) {
-        for device in devices {
+pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, settings: &display::PrintSettings) -> () {
+    fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, settings: &display::PrintSettings) {
+        let sorted = settings.sort_devices.sort_devices(&devices);
+
+        for device in sorted {
             if device.is_root_hub() {
                 log::debug!("lsusb tree skipping root_hub {}", device);
                 continue;
@@ -378,10 +383,10 @@ pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, verbosity: u8) -> ()
 
             for strings in device_tree_strings {
                 println!("{:>spaces$}{}", TREE_LSUSB_DEVICE, strings.0);
-                if verbosity >= 1 {
+                if settings.verbosity >= 1 {
                     println!("{:>spaces$}{}", TREE_LSUSB_SPACE, strings.1);
                 }
-                if verbosity >= 2 {
+                if settings.verbosity >= 2 {
                     println!("{:>spaces$}{}", TREE_LSUSB_SPACE, strings.2);
                 }
             }
@@ -389,7 +394,7 @@ pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, verbosity: u8) -> ()
             device
                 .devices
                 .as_ref()
-                .map_or((), |d| print_tree_devices(d, verbosity))
+                .map_or((), |d| print_tree_devices(d, settings))
         }
     }
 
@@ -397,16 +402,16 @@ pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, verbosity: u8) -> ()
         let bus_tree_strings: Vec<(String, String, String)> = bus.to_lsusb_tree_string();
         for strings in bus_tree_strings {
             println!("{}{}", TREE_LSUSB_BUS, strings.0);
-            if verbosity >= 1 {
+            if settings.verbosity >= 1 {
                 println!("{}{}", TREE_LSUSB_SPACE, strings.1);
             }
-            if verbosity >= 2 {
+            if settings.verbosity >= 2 {
                 println!("{}{}", TREE_LSUSB_SPACE, strings.2);
             }
         }
 
         // followed by devices if there are some
-        bus.devices.as_ref().map_or((), |d| print_tree_devices(d, verbosity))
+        bus.devices.as_ref().map_or((), |d| print_tree_devices(d, settings))
     }
 }
 

@@ -223,7 +223,7 @@ fn main() {
         #[cfg(feature = "libusb")]
         lsusb::set_log_level(args.debug);
         #[cfg(feature = "libusb")]
-        lsusb::get_spusb(args.verbose > 0).unwrap_or_else(|e| {
+        lsusb::get_spusb(args.verbose > 0 || args.tree).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to gather system USB data: {}", e)
@@ -265,19 +265,20 @@ fn main() {
         // exclude root hubs unless dumping a list
         f.no_exclude_root_hub = !(args.tree || args.group_devices == display::Group::Bus);
 
-        log::info!("Filtering with {:?}", f);
         Some(f)
     } else {
         // default filter with exlcude root_hubs on linux if printing tree as they are buses in system_profiler
         if cfg!(target_os = "linux") {
             Some(system_profiler::USBFilter {
-              no_exclude_root_hub: !(args.tree || args.group_devices == display::Group::Bus),
+              no_exclude_root_hub: args.lsusb || !(args.tree || args.group_devices == display::Group::Bus),
               ..Default::default()
             })
         } else {
             None
         }
     };
+
+    log::info!("Filtering with {:?}", filter);
 
     // no sort if just dumping because it looks wierd with buses out of order
     let sort_devices = match args.sort_devices {
@@ -323,9 +324,11 @@ fn main() {
             if !cfg!(feature = "udev") {
                 log::warn!("Without udev, lsusb style tree content will not match lsusb: driver and syspath will be missing");
             }
-            lsusb::print_tree(&sp_usb, args.verbose)
+            lsusb::print_tree(&sp_usb, &settings)
         } else {
-            lsusb::print(&sp_usb.flatten_devices(), args.verbose);
+            let devices = sp_usb.flatten_devices();
+            let sorted = settings.sort_devices.sort_devices_ref(&devices);
+            lsusb::print(&sorted, args.verbose);
         }
     } else {
         display::print(&mut sp_usb, args.blocks, args.bus_blocks, &settings);
