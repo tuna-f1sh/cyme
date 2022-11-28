@@ -998,7 +998,7 @@ mod tests {
         use std::io::{BufReader, Read};
 
         let mut data = String::new();
-        let f = File::open("./test/data/system_profiler_dump.json").expect("Unable to open json dump file");
+        let f = File::open("./tests/data/system_profiler_dump.json").expect("Unable to open json dump file");
         let mut br = BufReader::new(f);
         br.read_to_string(&mut data).expect("Unable to read string");
 

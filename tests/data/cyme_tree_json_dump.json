@@ -1,0 +1,375 @@
+{
+  "buses": [
+    {
+      "name": "Unknown",
+      "host_controller": "Unknown",
+      "usb_bus_number": 0,
+      "devices": [
+        {
+          "name": "4-Port USB 3.0 Hub",
+          "vendor_id": 3034,
+          "product_id": 1041,
+          "location_id": {
+            "bus": 0,
+            "tree_positions": [
+              1
+            ],
+            "number": 1
+          },
+          "serial_num": "",
+          "manufacturer": "Generic",
+          "bcd_device": 1.17,
+          "bcd_usb": 3.0,
+          "device_speed": "5.0 Gb/s",
+          "devices": [
+            {
+              "name": "4-Port USB 3.0 Hub",
+              "vendor_id": 3034,
+              "product_id": 1041,
+              "location_id": {
+                "bus": 0,
+                "tree_positions": [
+                  1,
+                  1
+                ],
+                "number": 2
+              },
+              "serial_num": "",
+              "manufacturer": "Generic",
+              "bcd_device": 1.17,
+              "bcd_usb": 3.0,
+              "device_speed": "5.0 Gb/s",
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 3
+            }
+          ],
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 3
+        }
+      ]
+    },
+    {
+      "name": "Unknown",
+      "host_controller": "Unknown",
+      "usb_bus_number": 2,
+      "devices": [
+        {
+          "name": "USB3.1 Hub",
+          "vendor_id": 1086,
+          "product_id": 39520,
+          "location_id": {
+            "bus": 2,
+            "tree_positions": [
+              3
+            ],
+            "number": 2
+          },
+          "serial_num": "",
+          "manufacturer": "LG Electronics Inc.",
+          "bcd_device": 52.5,
+          "bcd_usb": 3.1,
+          "device_speed": "5.0 Gb/s",
+          "devices": [
+            {
+              "name": "USB3.0 Hub",
+              "vendor_id": 8457,
+              "product_id": 2071,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  3,
+                  3
+                ],
+                "number": 8
+              },
+              "serial_num": "",
+              "manufacturer": "VIA Labs, Inc.",
+              "bcd_device": 4.53,
+              "bcd_usb": 3.1,
+              "device_speed": "5.0 Gb/s",
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 3
+            },
+            {
+              "name": "Extreme SSD",
+              "vendor_id": 1921,
+              "product_id": 21900,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  3,
+                  2
+                ],
+                "number": 6
+              },
+              "serial_num": "323030323247343032303739",
+              "manufacturer": "SanDisk",
+              "bcd_device": 10.12,
+              "bcd_usb": 3.1,
+              "device_speed": "5.0 Gb/s",
+              "class": "use-interface-descriptor",
+              "sub_class": 0,
+              "protocol": 0
+            },
+            {
+              "name": "Belkin USB-C LAN",
+              "vendor_id": 3034,
+              "product_id": 33107,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  3,
+                  1
+                ],
+                "number": 5
+              },
+              "serial_num": "B2C1A1000000",
+              "manufacturer": "Belkin",
+              "bcd_device": 30.0,
+              "bcd_usb": 3.0,
+              "device_speed": "5.0 Gb/s",
+              "class": "use-interface-descriptor",
+              "sub_class": 0,
+              "protocol": 0
+            },
+            {
+              "name": "",
+              "vendor_id": 1086,
+              "product_id": 39537,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  3,
+                  4
+                ],
+                "number": 4
+              },
+              "serial_num": "",
+              "manufacturer": "LG Electronics USA, Inc.",
+              "bcd_device": 1.0,
+              "bcd_usb": 3.0,
+              "device_speed": "5.0 Gb/s",
+              "devices": [
+                {
+                  "name": "LG UltraFine Display Camera",
+                  "vendor_id": 1086,
+                  "product_id": 39528,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      3,
+                      4,
+                      3
+                    ],
+                    "number": 9
+                  },
+                  "serial_num": "",
+                  "manufacturer": "LG Electronlcs Inc.",
+                  "bcd_device": 2.23,
+                  "bcd_usb": 3.0,
+                  "device_speed": "5.0 Gb/s",
+                  "class": "miscellaneous",
+                  "sub_class": 2,
+                  "protocol": 1
+                }
+              ],
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 3
+            }
+          ],
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 3
+        },
+        {
+          "name": "USB2.1 Hub",
+          "vendor_id": 1086,
+          "product_id": 39521,
+          "location_id": {
+            "bus": 2,
+            "tree_positions": [
+              2
+            ],
+            "number": 1
+          },
+          "serial_num": "",
+          "manufacturer": "LG Electronics Inc.",
+          "bcd_device": 52.5,
+          "bcd_usb": 2.1,
+          "device_speed": "480.0 Mb/s",
+          "devices": [
+            {
+              "name": "USB2.0 Hub",
+              "vendor_id": 8457,
+              "product_id": 10263,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  2,
+                  3
+                ],
+                "number": 7
+              },
+              "serial_num": "",
+              "manufacturer": "VIA Labs, Inc.",
+              "bcd_device": 4.53,
+              "bcd_usb": 2.1,
+              "device_speed": "480.0 Mb/s",
+              "devices": [
+                {
+                  "name": "USB Billboard Device",
+                  "vendor_id": 8457,
+                  "product_id": 34839,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      2,
+                      3,
+                      5
+                    ],
+                    "number": 12
+                  },
+                  "serial_num": "0000000000000001",
+                  "manufacturer": "VIA Labs, Inc.",
+                  "bcd_device": 0.01,
+                  "bcd_usb": 2.01,
+                  "device_speed": "480.0 Mb/s",
+                  "class": "application-specific",
+                  "sub_class": 0,
+                  "protocol": 0
+                }
+              ],
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 2
+            },
+            {
+              "name": "",
+              "vendor_id": 1086,
+              "product_id": 39539,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  2,
+                  4
+                ],
+                "number": 3
+              },
+              "serial_num": "AA0A2871A7D0",
+              "manufacturer": "LG Electronics USA, Inc.",
+              "bcd_device": 1.0,
+              "bcd_usb": 2.1,
+              "device_speed": "480.0 Mb/s",
+              "devices": [
+                {
+                  "name": "LG UltraFine Display Audio",
+                  "vendor_id": 1086,
+                  "product_id": 39526,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      2,
+                      4,
+                      1
+                    ],
+                    "number": 11
+                  },
+                  "serial_num": "",
+                  "manufacturer": "LG Electronics Inc.",
+                  "bcd_device": 0.03,
+                  "bcd_usb": 2.0,
+                  "device_speed": "480.0 Mb/s",
+                  "class": "use-interface-descriptor",
+                  "sub_class": 0,
+                  "protocol": 0
+                },
+                {
+                  "name": "LG UltraFine Display Controls",
+                  "vendor_id": 1086,
+                  "product_id": 39536,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      2,
+                      4,
+                      2
+                    ],
+                    "number": 10
+                  },
+                  "serial_num": "",
+                  "manufacturer": "LG Electronics Inc.",
+                  "bcd_device": 4.13,
+                  "bcd_usb": 2.0,
+                  "device_speed": "12.0 Mb/s",
+                  "class": "use-interface-descriptor",
+                  "sub_class": 0,
+                  "protocol": 0
+                }
+              ],
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 2
+            }
+          ],
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 2
+        }
+      ]
+    },
+    {
+      "name": "Unknown",
+      "host_controller": "Unknown",
+      "usb_bus_number": 20,
+      "devices": [
+        {
+          "name": "4-Port USB 2.0 Hub",
+          "vendor_id": 3034,
+          "product_id": 21521,
+          "location_id": {
+            "bus": 20,
+            "tree_positions": [
+              3
+            ],
+            "number": 1
+          },
+          "serial_num": "",
+          "manufacturer": "Generic",
+          "bcd_device": 1.17,
+          "bcd_usb": 2.1,
+          "device_speed": "480.0 Mb/s",
+          "devices": [
+            {
+              "name": "4-Port USB 2.0 Hub",
+              "vendor_id": 3034,
+              "product_id": 21521,
+              "location_id": {
+                "bus": 20,
+                "tree_positions": [
+                  3,
+                  1
+                ],
+                "number": 2
+              },
+              "serial_num": "",
+              "manufacturer": "Generic",
+              "bcd_device": 1.17,
+              "bcd_usb": 2.1,
+              "device_speed": "480.0 Mb/s",
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 2
+            }
+          ],
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 2
+        }
+      ]
+    }
+  ]
+}
