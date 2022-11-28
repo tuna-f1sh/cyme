@@ -46,7 +46,7 @@ jobs:
       - name: Build release
         id: build
         run: |
-          cargo build --release --all-features --target=${{ matrix.job.target }}
+          cargo build --locked --release --all-features --target=${{ matrix.job.target }}
 
       - name: Strip debug information from executable
         id: strip

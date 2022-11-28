@@ -747,7 +747,7 @@ impl USBDevice {
                 for interface in &config.interfaces {
                     format_strs.push((
                         format!(
-                            "Port {:}: Device {:}: If {}, Class={:?}, Driver={}, {}",
+                            "Port {:}: Dev {:}, If {}, Class={:?}, Driver={}, {}",
                             self.get_branch_position(),
                             self.location_id.number,
                             interface.number,
