@@ -360,24 +360,79 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
     Ok(sp_data)
 }
 
+const TREE_LSUSB_BUS: &'static str = "/: ";
+const TREE_LSUSB_DEVICE: &'static str = "|__ ";
+const TREE_LSUSB_SPACE: &'static str = "    ";
+
+/// Print [`SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
+pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, verbosity: u8) -> () {
+    fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, verbosity: u8) {
+        for device in devices {
+            if device.is_root_hub() {
+                log::debug!("lsusb tree skipping root_hub {}", device);
+                continue;
+            }
+            let spaces = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + 3;
+            let device_tree_strings: Vec<(String, String, String)> = device.to_lsusb_tree_string();
+
+            for strings in device_tree_strings {
+                println!("{:>spaces$}{}", TREE_LSUSB_DEVICE, strings.0);
+                if verbosity >= 1 {
+                    println!("{:>spaces$}{}", TREE_LSUSB_SPACE, strings.1);
+                }
+                if verbosity >= 2 {
+                    println!("{:>spaces$}{}", TREE_LSUSB_SPACE, strings.2);
+                }
+            }
+            // print all devices with this device - if hub for example
+            device
+                .devices
+                .as_ref()
+                .map_or((), |d| print_tree_devices(d, verbosity))
+        }
+    }
+
+    for bus in &sp_data.buses {
+        let bus_tree_strings: Vec<(String, String, String)> = bus.to_lsusb_tree_string();
+        for strings in bus_tree_strings {
+            println!("{}{}", TREE_LSUSB_BUS, strings.0);
+            if verbosity >= 1 {
+                println!("{:>spaces$}", strings.1, spaces=TREE_LSUSB_BUS.len());
+            }
+            if verbosity >= 2 {
+                println!("{:>spaces$}", strings.2, spaces=TREE_LSUSB_BUS.len());
+            }
+        }
+
+        // followed by devices if there are some
+        bus.devices.as_ref().map_or((), |d| print_tree_devices(d, verbosity))
+    }
+}
+
 /// Print USB devices in non-tree lsusb verbose style - a huge dump!
-pub fn print_verbose(devices: &Vec<&system_profiler::USBDevice>) -> () {
-    for device in devices {
-        match device.extra.as_ref() {
-            None => log::warn!("Skipping {} because it does not contain extra data required for verbose print", device),
-            Some(device_extra) => {
-                println!(""); // new lines separate in verbose lsusb
-                println!("{}", device.to_lsusb_string());
-                print_device(&device);
+pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbosity: u8) -> () {
+    if verbosity == 0 {
+        for device in devices {
+            println!("{}", device.to_lsusb_string());
+        }
+    } else {
+        for device in devices {
+            match device.extra.as_ref() {
+                None => log::warn!("Skipping {} because it does not contain extra data required for verbose print", device),
+                Some(device_extra) => {
+                    println!(""); // new lines separate in verbose lsusb
+                    println!("{}", device.to_lsusb_string());
+                    print_device(&device);
 
-                for config in &device_extra.configurations {
-                    print_config(&config);
+                    for config in &device_extra.configurations {
+                        print_config(&config);
 
-                    for interface in &config.interfaces {
-                        print_interface(&interface);
+                        for interface in &config.interfaces {
+                            print_interface(&interface);
 
-                        for endpoint in &interface.endpoints {
-                            print_endpoint(&endpoint);
+                            for endpoint in &interface.endpoints {
+                                print_endpoint(&endpoint);
+                            }
                         }
                     }
                 }

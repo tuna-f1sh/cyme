@@ -183,23 +183,6 @@ fn abort_not_libusb() {
     }
 }
 
-fn print_flat_lsusb(
-    devices: &Vec<&system_profiler::USBDevice>,
-    filter: &Option<system_profiler::USBFilter>,
-) {
-    if let Some(f) = filter {
-        for d in devices {
-            if f.is_match(&d) {
-                println!("{:}", d);
-            }
-        }
-    } else {
-        for d in devices {
-            println!("{:}", d);
-        }
-    }
-}
-
 fn main() {
     let mut args = Args::parse();
 
@@ -213,6 +196,11 @@ fn main() {
     // just set the env for this process
     if args.no_colour {
         env::set_var("NO_COLOR", "1");
+    }
+
+    if args.json && args.lsusb {
+        eprintln!("Disabling --lsusb flag because --json flag present");
+        args.lsusb = false;
     }
 
     // TODO use use system_profiler but add extra from libusb for verbose
@@ -310,7 +298,7 @@ fn main() {
         args.group_devices
     };
 
-    let print_settings = display::PrintSettings {
+    let settings = display::PrintSettings {
         no_padding: args.no_padding,
         decimal: args.decimal,
         tree: args.tree,
@@ -325,21 +313,21 @@ fn main() {
         ..Default::default()
     };
 
-    // TODO do this in main cyme_print so that sorting each is done too
+    display::prepare(&mut sp_usb, filter, &settings);
+
     if args.lsusb {
         if args.tree { 
+            if !cfg!(target_os = "linux") {
+                log::warn!("Most of the data in a lsusb style tree is applicable to Linux only!");
+            }
             if !cfg!(feature = "udev") {
-                eprintln!("Without udev, lsusb style tree content will not match lsusb; driver/paths are only applicable to Linux and udev");
+                log::warn!("Without udev, lsusb style tree content will not match lsusb: driver and syspath will be missing");
             }
-            print!("{:+}", sp_usb);
+            lsusb::print_tree(&sp_usb, args.verbose)
         } else {
-            if args.verbose > 0 {
-                lsusb::print_verbose(&sp_usb.flatten_devices());
-            } else {
-                print_flat_lsusb(&sp_usb.flatten_devices(), &filter);
-            }
+            lsusb::print(&sp_usb.flatten_devices(), args.verbose);
         }
     } else {
-        display::cyme_print(&mut sp_usb, filter, args.blocks, args.bus_blocks, &print_settings);
+        display::print(&mut sp_usb, args.blocks, args.bus_blocks, &settings);
     }
 }

@@ -201,7 +201,16 @@ impl USBBus {
     }
 
     /// Gets the device that is the root_hub associated with this bus - Linux only
-    pub fn get_root_hub_device(&mut self) -> Option<&mut USBDevice> {
+    pub fn get_root_hub_device(&self) -> Option<&USBDevice> {
+        if cfg!(target_os = "linux") {
+            self.get_node(&self.path())
+        } else {
+            None
+        }
+    }
+
+    /// Gets a mutable device that is the root_hub associated with this bus - Linux only
+    pub fn get_root_hub_device_mut(&mut self) -> Option<&mut USBDevice> {
         if cfg!(target_os = "linux") {
             self.get_node_mut(&self.path())
         } else {
@@ -209,7 +218,21 @@ impl USBBus {
         }
     }
 
-    /// Search for [`USBDevice`] in branches of bus
+    /// Search for [`USBDevice`] in branches of bus and return reference
+    pub fn get_node(&self, port_path: &str) -> Option<&USBDevice> {
+        if let Some(devices) = self.devices.as_ref() {
+            for dev in devices {
+                if let Some(node) = dev.get_node(port_path) {
+                    log::debug!("Found {}", node);
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Search for [`USBDevice`] in branches of bus and return mutable if found
     pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {
@@ -238,7 +261,7 @@ impl USBBus {
     /// Generate a tuple (String, String, String) of the lsusb tree output at all three verbosity levels
     ///
     /// Only Linux systems with a root_hub will contain accurate data, others are mainly for styling
-    pub fn to_lsusb_tree_string(&mut self) -> Vec<(String, String, String)> {
+    pub fn to_lsusb_tree_string(&self) -> Vec<(String, String, String)> {
         if let Some(root_device) = self.get_root_hub_device() {
             root_device.to_lsusb_tree_string()
         } else {
@@ -338,14 +361,10 @@ impl fmt::Display for USBBus {
             )?;
         } else {
             if f.sign_plus() {
-                writeln!(
-                    f,
-                    "{:}Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=,",
-                    tree,
-                    self.get_bus_number(),
-                )?;
+                let interface_strs: Vec<String> = self.to_lsusb_tree_string().iter().map(|s| format!("{}{}", tree, s.0)).collect();
+                writeln!(f, "{}", interface_strs.join("\n\r"))?
             } else {
-                write!(f, "{}", self.to_lsusb_string())?;
+                writeln!(f, "{}", self.to_lsusb_string())?
             }
         }
 
@@ -570,7 +589,39 @@ impl USBDevice {
         }
     }
 
-    /// Recursively walk all [`USBDevice`] from self, looking for the one with `port_path`
+    /// Recursively walk all [`USBDevice`] from self, looking for the one with `port_path` and returning reference
+    ///
+    /// Will panic if `port_path` is not a child device or if it sits shallower than self
+    pub fn get_node(&self, port_path: &str) -> Option<&USBDevice> {
+        let node_depth = port_path.split('-').last().expect("Invalid port path").split('.').count();
+        let current_depth = self.get_depth();
+        log::debug!("Get node at {} with {} ({})", port_path, self.port_path(), self);
+
+        // should not be looking for nodes below us
+        if current_depth > node_depth {
+            panic!("Trying to find node at {}/{} shallower than current position {}!", &port_path, node_depth, current_depth);
+        // if we are at depth, just check self or return none
+        } else if node_depth == current_depth {
+            if self.port_path() == port_path {
+                return Some(self);
+            } else {
+                return None;
+            }
+        }
+
+        // else walk through devices recursively running function and returning if found
+        if let Some(devices) = self.devices.as_ref() {
+            for dev in devices {
+                if let Some(node) = dev.get_node(port_path) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Recursively walk all [`USBDevice`] from self, looking for the one with `port_path` and returning mutable
     ///
     /// Will panic if `port_path` is not a child device or if it sits shallower than self
     pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
@@ -723,6 +774,7 @@ impl USBDevice {
                 }
             }
         } else {
+            log::warn!("Rendering {} lsusb tree without extra data because it is missing. No configurations or interfaces will be shown", self);
             format_strs.push((
                 format!(
                     "Port {:}: Device {:}: If {}, Class={:?}, Driver={}, {}",
@@ -806,8 +858,6 @@ impl fmt::Display for USBDevice {
                 if spaces > 0 {
                     spaces += 3;
                 }
-                // not verbose for fmt::Display
-                // let interface_strs: Vec<String> = self.to_lsusb_tree_string().iter().map(|s| format!("{:>spaces$}{}\n\r{:>spaces$}{}\n\r{:>spaces$}{}", tree, s.0, "   ", s.1, "   ", s.2)).collect();
                 let interface_strs: Vec<String> = self.to_lsusb_tree_string().iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
                 write!(f, "{}", interface_strs.join("\n\r"))
             } else {

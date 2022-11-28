@@ -1262,12 +1262,10 @@ pub fn print_sp_usb(
     }
 }
 
-/// Main cyme bin print function - changes mutable SPUSBDataType during print
-pub fn cyme_print(
+/// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
+pub fn prepare(
     sp_usb: &mut system_profiler::SPUSBDataType,
     filter: Option<system_profiler::USBFilter>,
-    db: Option<Vec<DeviceBlocks>>,
-    bb: Option<Vec<BusBlocks>>,
     settings: &PrintSettings,
 ) {
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
@@ -1298,7 +1296,15 @@ pub fn cyme_print(
     }
 
     log::trace!("sp_usb data post filter and sort\n\r{:#}", sp_usb);
+}
 
+/// Main cyme bin print function
+pub fn print(
+    sp_usb: &system_profiler::SPUSBDataType,
+    db: Option<Vec<DeviceBlocks>>,
+    bb: Option<Vec<BusBlocks>>,
+    settings: &PrintSettings,
+) {
     // default blocks or those passed
     let bus_blocks = bb.unwrap_or(Block::<BusBlocks, system_profiler::USBBus>::default_blocks());
 
