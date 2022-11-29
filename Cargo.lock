@@ -87,6 +87,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7b3c9eae0de7bf8e3f904a5e40612b21fb2e2e566456d177809a48b892d24da"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -106,6 +115,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d4198f73e42b4936b35b5bb248d81d2b595ecb170da0bac7655c54eedfa8da8"
 dependencies = [
  "os_str_bytes",
+]
+
+[[package]]
+name = "clap_mangen"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e503c3058af0a0854668ea01db55c622482a080092fede9dd2e00a00a9436504"
+dependencies = [
+ "clap",
+ "roff",
 ]
 
 [[package]]
@@ -184,6 +203,8 @@ name = "cyme"
 version = "0.7.3"
 dependencies = [
  "clap",
+ "clap_complete",
+ "clap_mangen",
  "colored",
  "heck",
  "itertools",
@@ -196,6 +217,7 @@ dependencies = [
  "simple_logger",
  "udev",
  "usb-ids",
+ "version_check",
 ]
 
 [[package]]
@@ -577,6 +599,12 @@ checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom",
 ]
+
+[[package]]
+name = "roff"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b833d8d034ea094b1ea68aa6d5c740e0d04bad9d16568d08ba6f76823a114316"
 
 [[package]]
 name = "rusb"
