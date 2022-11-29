@@ -73,7 +73,7 @@ pub enum ClassCode {
     Diagnostic,
     WirelessController,
     Miscellaneous,
-    ApplicationSpecific,
+    ApplicationSpecificInterface,
     VendorSpecific,
 }
 
@@ -107,7 +107,7 @@ impl From<u8> for ClassCode {
             0xdc => ClassCode::Diagnostic,
             0xe0 => ClassCode::WirelessController,
             0xef => ClassCode::Miscellaneous,
-            0xfe => ClassCode::ApplicationSpecific,
+            0xfe => ClassCode::ApplicationSpecificInterface,
             0xff => ClassCode::VendorSpecific,
             _ => ClassCode::UseInterfaceDescriptor,
         }
@@ -126,6 +126,25 @@ impl ClassCode {
             | ClassCode::Miscellaneous
             | ClassCode::VendorSpecific => DescriptorUsage::Both,
             _ => DescriptorUsage::Interface,
+        }
+    }
+
+    /// Converts Pascal case enum to space separated on capitals
+    /// ```
+    /// use cyme::usb::ClassCode;
+    ///
+    /// assert_eq!(ClassCode::UseInterfaceDescriptor.to_title_case(), "Use Interface Descriptor");
+    /// assert_eq!(ClassCode::CDCData.to_title_case(), "CDC Data");
+    /// ```
+    pub fn to_title_case(&self) -> String {
+        let title = heck::AsTitleCase(self.to_string()).to_string();
+        let split: Vec<&str> = title.split(" ").collect();
+        let first = split.first().unwrap_or(&"");
+
+        // keep capitalised abbreviations
+        match first.to_owned() {
+            "Cdc"|"Usb"|"I3c" => title.replace(first, &first.to_uppercase()),
+            _ => title
         }
     }
 }

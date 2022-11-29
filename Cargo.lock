@@ -185,6 +185,7 @@ version = "0.7.3"
 dependencies = [
  "clap",
  "colored",
+ "heck",
  "itertools",
  "lazy_static",
  "log",

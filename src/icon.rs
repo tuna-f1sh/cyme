@@ -125,7 +125,7 @@ lazy_static! {
             (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}".into()), // st-link 
             (Icon::VidPid((0x0483, 0xdf11)), "\u{f019}".into()), // STM DFU 
             (Icon::VidPid((0x1d50, 0x6017)), "\u{f188}".into()), // black magic probe DFU 
-            (Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecific, 0x01, 0x01)), "\u{f188}".into()), // DFU 
+            (Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecificInterface, 0x01, 0x01)), "\u{f188}".into()), // DFU 
             (Icon::ClassifierSubProtocol((ClassCode::WirelessController, 0x01, 0x01)), "\u{f188}".into()), // bluetooth DFU 
             (Icon::Vid(0x2341), "\u{f2db}".into()), // arduino 
             (Icon::Vid(0x239A), "\u{f2db}".into()), // adafruit 

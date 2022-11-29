@@ -816,7 +816,7 @@ impl USBDevice {
                             self.get_branch_position(),
                             self.location_id.number,
                             interface.number,
-                            interface.class,
+                            interface.class.to_title_case(),
                             interface.driver.as_ref().unwrap_or(&String::new()),
                             speed
                         ),
@@ -846,7 +846,7 @@ impl USBDevice {
                     self.get_branch_position(),
                     self.location_id.number,
                     0,
-                    self.class.as_ref().map_or(String::new(), |c| format!("{:?}", c)),
+                    self.class.as_ref().map_or(String::new(), |c| c.to_title_case()),
                     driver,
                     speed
                 ),

@@ -9,7 +9,7 @@ version = "0.7.3"
 edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
 categories = ["command-line-utilities"]
-exclude = ["./img/*", ".github", "./tests/data/*"]
+exclude = ["./img/**", ".github"]
 
 [dependencies]
 clap = { version = "4.0.22", features = ["derive"] }
@@ -23,6 +23,7 @@ serde_json = "1.0.87"
 serde_with = "2.0.1"
 simple_logger = "4.0.0"
 usb-ids = { version = "0.2.4", optional = true }
+heck = "0.4.0"
 
 # [build-dependencies]
 # version_check = "0.9.*"
