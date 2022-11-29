@@ -654,7 +654,7 @@ fn print_endpoint(endpoint: &usb::USBEndpoint) {
         endpoint.transfer_type
     );
     println!(
-        "          Synch Type             {:?}",
+        "          Sync Type             {:?}",
         endpoint.sync_type
     );
     println!(

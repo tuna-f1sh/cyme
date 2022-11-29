@@ -1,0 +1,176 @@
+[
+  {
+    "name": "Virtual Printer (/Users/john/Parallels/Arch.pvm/parallel.txt)",
+    "vendor_id": 8250,
+    "product_id": 65530,
+    "location_id": {
+      "bus": 1,
+      "tree_positions": [
+        6
+      ],
+      "number": 3
+    },
+    "serial_num": "SN0000",
+    "manufacturer": "Parallels",
+    "bcd_device": 1.0,
+    "bcd_usb": 2.0,
+    "device_speed": "480.0 Mb/s",
+    "class": "use-interface-descriptor",
+    "sub_class": 0,
+    "protocol": 0
+  },
+  {
+    "name": "Virtual Mouse",
+    "vendor_id": 8250,
+    "product_id": 65532,
+    "location_id": {
+      "bus": 1,
+      "tree_positions": [
+        2
+      ],
+      "number": 2
+    },
+    "serial_num": "PW3.0",
+    "manufacturer": "Parallels",
+    "bcd_device": 1.0,
+    "bcd_usb": 2.0,
+    "device_speed": "480.0 Mb/s",
+    "class": "use-interface-descriptor",
+    "sub_class": 0,
+    "protocol": 0
+  },
+  {
+    "name": "EHCI Host Controller",
+    "vendor_id": 7531,
+    "product_id": 2,
+    "location_id": {
+      "bus": 1,
+      "tree_positions": [],
+      "number": 1
+    },
+    "serial_num": "0000:00:1d.7",
+    "manufacturer": "Linux 6.0.9-arch1-1 ehci_hcd",
+    "bcd_device": 6.0,
+    "bcd_usb": 2.0,
+    "device_speed": "480.0 Mb/s",
+    "class": "hub",
+    "sub_class": 0,
+    "protocol": 0
+  },
+  {
+    "name": "Virtual USB1.1 HUB",
+    "vendor_id": 8250,
+    "product_id": 65534,
+    "location_id": {
+      "bus": 2,
+      "tree_positions": [
+        2
+      ],
+      "number": 2
+    },
+    "serial_num": "PW3.0",
+    "manufacturer": "Parallels",
+    "bcd_device": 1.01,
+    "bcd_usb": 2.0,
+    "device_speed": "12.0 Mb/s",
+    "class": "hub",
+    "sub_class": 0,
+    "protocol": 0
+  },
+  {
+    "name": "J-Link",
+    "vendor_id": 4966,
+    "product_id": 4176,
+    "location_id": {
+      "bus": 2,
+      "tree_positions": [
+        2,
+        5
+      ],
+      "number": 4
+    },
+    "serial_num": "001050027328",
+    "manufacturer": "SEGGER",
+    "bcd_device": 1.0,
+    "bcd_usb": 2.0,
+    "device_speed": "12.0 Mb/s",
+    "class": "miscellaneous",
+    "sub_class": 2,
+    "protocol": 1
+  },
+  {
+    "name": "Black Magic Probe  v1.8.2",
+    "vendor_id": 7504,
+    "product_id": 24600,
+    "location_id": {
+      "bus": 2,
+      "tree_positions": [
+        2,
+        4
+      ],
+      "number": 3
+    },
+    "serial_num": "97B6A11D",
+    "manufacturer": "Black Magic Debug",
+    "bcd_device": 1.0,
+    "bcd_usb": 2.0,
+    "device_speed": "12.0 Mb/s",
+    "class": "miscellaneous",
+    "sub_class": 2,
+    "protocol": 1
+  },
+  {
+    "name": "UHCI Host Controller",
+    "vendor_id": 7531,
+    "product_id": 1,
+    "location_id": {
+      "bus": 2,
+      "tree_positions": [],
+      "number": 1
+    },
+    "serial_num": "0000:00:1d.0",
+    "manufacturer": "Linux 6.0.9-arch1-1 uhci_hcd",
+    "bcd_device": 6.0,
+    "bcd_usb": 1.1,
+    "device_speed": "12.0 Mb/s",
+    "class": "hub",
+    "sub_class": 0,
+    "protocol": 0
+  },
+  {
+    "name": "xHCI Host Controller",
+    "vendor_id": 7531,
+    "product_id": 2,
+    "location_id": {
+      "bus": 3,
+      "tree_positions": [],
+      "number": 1
+    },
+    "serial_num": "0000:00:1d.6",
+    "manufacturer": "Linux 6.0.9-arch1-1 xhci-hcd",
+    "bcd_device": 6.0,
+    "bcd_usb": 2.0,
+    "device_speed": "480.0 Mb/s",
+    "class": "hub",
+    "sub_class": 0,
+    "protocol": 1
+  },
+  {
+    "name": "xHCI Host Controller",
+    "vendor_id": 7531,
+    "product_id": 3,
+    "location_id": {
+      "bus": 4,
+      "tree_positions": [],
+      "number": 1
+    },
+    "serial_num": "0000:00:1d.6",
+    "manufacturer": "Linux 6.0.9-arch1-1 xhci-hcd",
+    "bcd_device": 6.0,
+    "bcd_usb": 3.1,
+    "device_speed": "10.0 Gb/s",
+    "class": "hub",
+    "sub_class": 0,
+    "protocol": 3
+  }
+]

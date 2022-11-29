@@ -1,14 +1,19 @@
 /:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/12p, 10000M
 /:  Bus 03.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 480M
 /:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=uhci_hcd/2p, 12M
-   |__ Port 2: Dev 2, If 0, Class=Hub, Driver=hub/15p, 12M
-       |__ Port 4: Dev 3, If 0, Class=Communications, Driver=cdc_acm, 12M
-       |__ Port 4: Dev 3, If 1, Class=CDC Data, Driver=cdc_acm, 12M
-       |__ Port 4: Dev 3, If 2, Class=Communications, Driver=cdc_acm, 12M
-       |__ Port 4: Dev 3, If 3, Class=CDC Data, Driver=cdc_acm, 12M
-       |__ Port 4: Dev 3, If 4, Class=Application Specific Interface, Driver=, 12M
-       |__ Port 4: Dev 3, If 5, Class=Vendor Specific Class, Driver=, 12M
+    |__ Port 2: Dev 2, If 0, Class=Hub, Driver=hub/15p, 12M
+        |__ Port 4: Dev 3, If 0, Class=Communications, Driver=, 12M
+        |__ Port 4: Dev 3, If 1, Class=CDC Data, Driver=, 12M
+        |__ Port 4: Dev 3, If 2, Class=Communications, Driver=, 12M
+        |__ Port 4: Dev 3, If 3, Class=CDC Data, Driver=, 12M
+        |__ Port 4: Dev 3, If 4, Class=Application Specific Interface, Driver=, 12M
+        |__ Port 4: Dev 3, If 5, Class=Vendor Specific Class, Driver=, 12M
+        |__ Port 5: Dev 4, If 0, Class=Communications, Driver=, 12M
+        |__ Port 5: Dev 4, If 1, Class=CDC Data, Driver=, 12M
+        |__ Port 5: Dev 4, If 2, Class=Communications, Driver=, 12M
+        |__ Port 5: Dev 4, If 3, Class=CDC Data, Driver=, 12M
+        |__ Port 5: Dev 4, If 4, Class=Vendor Specific Class, Driver=, 12M
 /:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=ehci-pci/15p, 480M
-   |__ Port 2: Dev 2, If 0, Class=Human Interface Device, Driver=usbhid, 480M
-   |__ Port 2: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 480M
-   |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M
+    |__ Port 2: Dev 2, If 0, Class=Human Interface Device, Driver=usbhid, 480M
+    |__ Port 2: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 480M
+    |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M

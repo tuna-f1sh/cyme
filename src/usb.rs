@@ -234,7 +234,7 @@ impl From<&Speed> for NumericalUnit<f32> {
     }
 }
 
-/// Transfer and endpoint directions.
+/// Transfer and [`USBEndpoint`] direction
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     /// Direction for write (host to device) transfers.
@@ -249,7 +249,7 @@ impl fmt::Display for Direction {
     }
 }
 
-/// An endpoint's transfer type.
+/// Transfer type  for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransferType {
     /// Control endpoint.
@@ -268,7 +268,7 @@ impl fmt::Display for TransferType {
     }
 }
 
-/// Isochronous synchronization mode.
+/// Isochronous synchronization mode for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncType {
     /// No synchronisation.
@@ -287,7 +287,7 @@ impl fmt::Display for SyncType {
     }
 }
 
-/// Isochronous usage type.
+/// Isochronous usage type for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UsageType {
     /// Data endpoint.
@@ -306,7 +306,7 @@ impl fmt::Display for UsageType {
     }
 }
 
-/// Address information for USB endpoint
+/// Address information for a [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EndpointAddress {
     /// Endpoint address byte
@@ -317,7 +317,7 @@ pub struct EndpointAddress {
     pub direction: Direction,
 }
 
-/// Endpoint for an interface
+/// Endpoint for a [`USBInterface`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBEndpoint {
     /// Address information for endpoint
@@ -334,7 +334,7 @@ pub struct USBEndpoint {
     pub interval: u8,
 }
 
-/// Interface within a configuration
+/// Interface within a [`USBConfiguration`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBInterface {
     /// Name from descriptor
