@@ -33,6 +33,7 @@ usb-ids = "0.2.4"
 [features]
 libusb = ["dep:rusb", "dep:usb-ids"]
 udev = ["dep:udev"]
+usb_test = []
 default = ["libusb"]
 
 [[bin]]
