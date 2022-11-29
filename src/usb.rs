@@ -143,7 +143,7 @@ impl ClassCode {
 
         // keep capitalised abbreviations
         match first.to_owned() {
-            "Cdc"|"Usb"|"I3c" => title.replace(first, &first.to_uppercase()),
+            "Cdc"|"Usb"|"I3c"|"Hid" => title.replace(first, &first.to_uppercase()),
             _ => title
         }
     }
@@ -249,6 +249,18 @@ impl From<&Speed> for NumericalUnit<f32> {
                 unit: String::from("Mb/s"),
                 description: Some(speed.to_string()),
             },
+        }
+    }
+}
+
+impl Speed {
+    /// lsusb speed is always in Mb/s and shown just a M prefix
+    pub fn to_lsusb_speed(&self) -> String {
+        let dv = NumericalUnit::<f32>::from(self);
+        let prefix = dv.unit.chars().next().unwrap_or('M');
+        match prefix {
+            'G' => format!("{:.0}{}", dv.value * 1000.0, 'M'),
+            _ => format!("{:.0}{}", dv.value, prefix)
         }
     }
 }

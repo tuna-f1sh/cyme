@@ -271,12 +271,7 @@ impl USBBus {
             let speed = match &root_device.device_speed {
                 Some(v) => match v {
                     DeviceSpeed::SpeedValue(v) => {
-                        let dv = NumericalUnit::<f32>::from(v);
-                        let prefix = dv.unit.chars().next().unwrap_or('M');
-                        match prefix {
-                            'G' => format!("{:.0}{}", dv.value * 1000.0, 'M'),
-                            _ => format!("{:.0}{}", dv.value, prefix)
-                        }
+                        v.to_lsusb_speed()
                     }
                     DeviceSpeed::Description(_) => String::new()
                 }
@@ -792,9 +787,7 @@ impl USBDevice {
         let speed = match &self.device_speed {
             Some(v) => match v {
                 DeviceSpeed::SpeedValue(v) => {
-                    let dv = NumericalUnit::<f32>::from(v);
-                    // lsusb actually shows all in M but it think we can let that slide
-                    format!("{:.0}{}", dv.value, dv.unit.chars().next().unwrap())
+                    v.to_lsusb_speed()
                 }
                 DeviceSpeed::Description(_) => String::new()
             }
