@@ -537,12 +537,14 @@ pub fn get_interface_path(bus: u8, ports: &Vec<u8>, config: u8, interface: u8) -
 }
 
 
-/// Build replica of Linux dev path
+/// Build replica of Linux dev path from libusb.c *devbususb for getting device with -D
+///
+/// It's /dev/bus/usb/BUS/DEVNO
 ///
 /// ```
 /// use cyme::usb::get_dev_path;
 ///
-/// assert_eq!(get_dev_path(1, &vec![1, 3]), String::from("/dev/bus/usb/001/001/003"));
+/// assert_eq!(get_dev_path(1, &vec![1, 3]), String::from("/dev/bus/usb/001/003"));
 /// assert_eq!(get_dev_path(1, &vec![2]), String::from("/dev/bus/usb/001/002"));
 /// // bus
 /// assert_eq!(get_dev_path(1, &vec![]), String::from("/dev/bus/usb/001/001"));
@@ -551,6 +553,6 @@ pub fn get_dev_path(bus: u8, ports: &Vec<u8>) -> String {
     if ports.len() == 0 {
         format!("/dev/bus/usb/{:03}/001", bus)
     } else {
-        format!("/dev/bus/usb/{:03}/{}", bus, ports.into_iter().map(|p| format!("{:03}", p)).join("/"))
+        format!("/dev/bus/usb/{:03}/{:03}", bus, ports.last().unwrap())
     }
 }

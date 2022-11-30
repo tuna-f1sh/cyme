@@ -3,6 +3,8 @@ use clap::Parser;
 use colored::*;
 use std::env;
 use std::io::{Error, ErrorKind};
+// use lazy_static::lazy_static;
+// use regex::Regex;
 
 use cyme::display;
 use cyme::icon::IconTheme;
@@ -189,6 +191,34 @@ fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
     }
 }
 
+/// Parse devpath supplied by --device into a show format
+fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
+    // lazy_static! {
+    //     static ref RE: Regex = Regex::new(r"^[\/|\w+\/]+(?'bus'\d{3})\/(?'devno'\d{3})$").unwrap();
+    // }
+    if s.contains("/") {
+        let split: Vec<&str> = s.split("/").collect();
+        // second to last
+        let bus: Option<u8> = split.get(split.len()-2).filter(|v| v.len() > 0).map_or(None, |v| {
+            v.parse::<u8>()
+                .map(Some)
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+                .unwrap_or(None)
+        });
+        // last
+        let device = split.last().filter(|v| v.len() > 0).map_or(None, |v| {
+            v.parse::<u8>()
+                .map(Some)
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+                .unwrap_or(None)
+        });
+
+        Ok((bus, device))
+    } else {
+        Err(Error::new(ErrorKind::Other, format!("Invalid device path {}", s)))
+    }
+}
+
 /// Abort with exit code before trying to call libusb feature if not present
 fn abort_not_libusb() {
     if !cfg!(feature = "libusb") {
@@ -240,7 +270,8 @@ fn main() {
         #[cfg(feature = "libusb")]
         lsusb::set_log_level(args.debug);
         #[cfg(feature = "libusb")]
-        lsusb::get_spusb(args.verbose > 0 || args.tree).unwrap_or_else(|e| {
+        // verbose, tree and devpath require extra data
+        lsusb::get_spusb(args.verbose > 0 || args.tree || args.device.is_some()).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to gather system USB data: {}", e)
@@ -253,6 +284,7 @@ fn main() {
     let filter = if args.hide_hubs
         || args.vidpid.is_some()
         || args.show.is_some()
+        || args.device.is_some()
         || args.filter_name.is_some()
         || args.filter_serial.is_some()
     {
@@ -264,7 +296,17 @@ fn main() {
             f.pid = pid;
         }
 
-        if let Some(show) = &args.show {
+        // decode device devpath into the show filter since that is what it essentially will do
+        if let Some(devpath) = &args.device {
+            let (bus, number) = parse_devpath(&devpath.as_str()).unwrap_or_else(|e| {
+                eprintexit!(Error::new(
+                    ErrorKind::Other,
+                    format!("Failed to parse devpath: {}", e)
+                ));
+            });
+            f.bus = bus;
+            f.number = number;
+        } else if let Some(show) = &args.show {
             let (bus, number) = parse_show(&show.as_str()).unwrap_or_else(|e| {
                 eprintexit!(Error::new(
                     ErrorKind::Other,
@@ -280,7 +322,7 @@ fn main() {
         f.serial = args.filter_serial;
         f.exclude_empty_hub = args.hide_hubs;
         // exclude root hubs unless dumping a list
-        f.no_exclude_root_hub = !(args.tree || args.group_devices == display::Group::Bus);
+        f.no_exclude_root_hub = args.lsusb || !(args.tree || args.group_devices == display::Group::Bus);
 
         Some(f)
     } else {
@@ -340,7 +382,8 @@ fn main() {
     display::prepare(&mut sp_usb, filter, &settings);
 
     if args.lsusb {
-        if args.tree { 
+        // device specific overrides tree on lsusb
+        if args.tree && args.device.is_none() { 
             if !cfg!(target_os = "linux") {
                 log::warn!("Most of the data in a lsusb style tree is applicable to Linux only!");
             }
@@ -350,8 +393,14 @@ fn main() {
             lsusb::print_tree(&sp_usb, &settings)
         } else {
             let devices = sp_usb.flatten_devices();
-            let sorted = settings.sort_devices.sort_devices_ref(&devices);
-            lsusb::print(&sorted, args.verbose);
+            if let Some(dev_path) = args.device {
+                lsusb::dump_one_device(&devices, dev_path).unwrap_or_else(|e| {
+                    eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, e));
+                });
+            } else {
+                let sorted = settings.sort_devices.sort_devices_ref(&devices);
+                lsusb::print(&sorted, args.verbose > 0);
+            }
         }
     } else {
         display::print(&mut sp_usb, &settings);

@@ -759,6 +759,11 @@ impl USBDevice {
         self.location_id.trunk_path()
     }
 
+    /// Linux devpath to [`USBDevice`]
+    pub fn dev_path(&self) -> String {
+        get_dev_path(self.location_id.bus, &self.location_id.tree_positions)
+    }
+
     /// Trunk device is first in tree
     pub fn is_trunk_device(&self) -> bool {
         self.location_id.tree_positions.len() == 1

@@ -415,9 +415,23 @@ pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, settings: &display::
     }
 }
 
-/// Print USB devices in non-tree lsusb verbose style - a huge dump!
-pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbosity: u8) -> () {
-    if verbosity == 0 {
+/// Dump a single [`USBDevice`] matching `dev_path` verbosely
+pub fn dump_one_device(devices: &Vec<&system_profiler::USBDevice>, dev_path: String) -> Result<(), String> {
+    for device in devices {
+        if device.dev_path() == dev_path {
+            print(&vec![device], true);
+            return Ok(())
+        }
+    }
+
+    Err(String::from(format!("Unable to find {}", dev_path)))
+}
+
+/// Print USB devices in lsusb style flat dump
+///
+/// `verbose` flag enables verbose printing like lsusb (configs, interfaces and endpoints) - a huge dump!
+pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) -> () {
+    if !verbose {
         for device in devices {
             println!("{}", device.to_lsusb_string());
         }
