@@ -3,8 +3,6 @@ use clap::Parser;
 use colored::*;
 use std::env;
 use std::io::{Error, ErrorKind};
-// use lazy_static::lazy_static;
-// use regex::Regex;
 
 use cyme::display;
 use cyme::icon::IconTheme;
@@ -226,6 +224,7 @@ fn abort_not_libusb() {
 fn main() {
     let mut args = Args::parse();
 
+    // set the module debug level, will also check env if args.debug == 0
     cyme::set_log_level(args.debug).unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(
             std::io::ErrorKind::Other,
@@ -243,12 +242,17 @@ fn main() {
         args.lsusb = false;
     }
 
+    // create mutable sp_usb to hold USB data, passed to either the macOS system_profiler getter or libusb getter
+    // it's created here so that this can compile without the libusb feature
+    let mut sp_usb = system_profiler::SPUSBDataType { buses: Vec::new() };
+
     // TODO use use system_profiler but merge with extra from libusb for verbose to retain Apple buses which libusb cannot list
-    let mut sp_usb = if cfg!(target_os = "macos") 
+    // could run through finding nodes existing in system_profiler::get_spusb and updating with libusb::get_spusb version but means some will have extra data, some not..
+    if cfg!(target_os = "macos") 
         && !args.force_libusb
         && args.device.is_none() // device path requires extra
         && !((args.tree && args.lsusb) || args.verbose > 0) {
-        system_profiler::get_spusb().unwrap_or_else(|e| {
+        system_profiler::fill_spusb(&mut sp_usb).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to parse system_profiler output: {}", e)
@@ -259,13 +263,13 @@ fn main() {
             log::warn!("Forcing libusb for supplied arguments on macOS");
             args.force_libusb = true;
         }
+        // abort now if libusb feature missing
         abort_not_libusb();
-        // TODO this won't compile without udev due to no return with these compiled out...
         #[cfg(feature = "libusb")]
         lsusb::set_log_level(args.debug);
         #[cfg(feature = "libusb")]
         // verbose, tree and devpath require extra data
-        lsusb::get_spusb(args.verbose > 0 || args.tree || args.device.is_some()).unwrap_or_else(|e| {
+        lsusb::fill_spusb(&mut sp_usb, args.verbose > 0 || args.tree || args.device.is_some()).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to gather system USB data: {}", e)
@@ -381,6 +385,7 @@ fn main() {
     display::prepare(&mut sp_usb, filter, &settings);
 
     if args.lsusb {
+        #[cfg(feature = "libusb")]
         // device specific overrides tree on lsusb
         if args.tree && args.device.is_none() { 
             if !cfg!(target_os = "linux") {

@@ -363,6 +363,14 @@ pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataT
     Ok(sp_data)
 }
 
+/// Fills a passed mutable `spusb` reference to fill using `get_spusb`
+///
+/// This is so that the main bin can switch between system_profiler and libusb without a variable not being set
+pub fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType, with_extra: bool) -> Result<(), libusb::Error> {
+    *spusb = get_spusb(with_extra)?;
+    Ok(())
+}
+
 const TREE_LSUSB_BUS: &'static str = "/:  ";
 const TREE_LSUSB_DEVICE: &'static str = "|__ ";
 const TREE_LSUSB_SPACE: &'static str = "    ";
