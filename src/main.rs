@@ -393,6 +393,7 @@ fn main() {
             lsusb::print_tree(&sp_usb, &settings)
         } else {
             let devices = sp_usb.flatten_devices();
+            // even though we filtered using filter.show and using prepare, keep this here because it will match the exact Linux dev path and exit error if it doesn't match like lsusb
             if let Some(dev_path) = args.device {
                 lsusb::dump_one_device(&devices, dev_path).unwrap_or_else(|e| {
                     eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, e));
@@ -403,6 +404,9 @@ fn main() {
             }
         }
     } else {
+        if args.device.is_some() && !sp_usb.buses.iter().any(|b| b.has_devices()) {
+            eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, format!("Unable to find {:?}", args.device.unwrap())));
+        }
         display::print(&mut sp_usb, &settings);
     }
 }

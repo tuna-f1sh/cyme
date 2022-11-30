@@ -419,8 +419,13 @@ pub fn print_tree(sp_data: &system_profiler::SPUSBDataType, settings: &display::
 pub fn dump_one_device(devices: &Vec<&system_profiler::USBDevice>, dev_path: String) -> Result<(), String> {
     for device in devices {
         if device.dev_path() == dev_path {
-            print(&vec![device], true);
-            return Ok(())
+            // error if extra is none because we need it for vebose
+            if device.extra.is_none() {
+                return Err(String::from(format!("Unable to open {}", dev_path)))
+            } else {
+                print(&vec![device], true);
+                return Ok(())
+            }
         }
     }
 
