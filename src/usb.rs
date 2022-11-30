@@ -359,10 +359,17 @@ pub struct USBEndpoint {
     pub sync_type: SyncType,
     /// Usage type (Iso mode)
     pub usage_type: UsageType,
-    /// Maximum packet size in bytes endpoint can send/recieve
+    /// Maximum packet size in bytes endpoint can send/recieve - encoded with multipler, use `max_packet_string` for packet information
     pub max_packet_size: u16,
     /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     pub interval: u8,
+}
+
+impl USBEndpoint {
+    /// Decodes the max packet value into a multipler and number of bytes
+    pub fn max_packet_string(&self) -> String {
+        format!("{}x {}", ((self.max_packet_size >> 11) & 3) + 1, self.max_packet_size & 0x7ff)
+    }
 }
 
 /// Interface within a [`USBConfiguration`]

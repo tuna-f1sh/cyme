@@ -662,10 +662,9 @@ fn print_endpoint(endpoint: &usb::USBEndpoint) {
         endpoint.usage_type
     );
     println!(
-        "        wMaxPacketSize    {:#06x} {}x {} bytes",
+        "        wMaxPacketSize    {:#06x} {} bytes",
         endpoint.max_packet_size,
-        ((endpoint.max_packet_size >> 11) & 3) + 1,
-        endpoint.max_packet_size
+        endpoint.max_packet_string()
     );
     println!(
         "        bInterval            {:3}",

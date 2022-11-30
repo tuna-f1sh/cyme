@@ -29,22 +29,6 @@ struct Args {
     #[arg(short, long)]
     show: Option<String>,
 
-    /// Specify the blocks which will be displayed for each device and in what order
-    #[arg(short, long, value_enum)]
-    blocks: Option<Vec<display::DeviceBlocks>>,
-
-    /// Specify the blocks which will be displayed for each bus and in what order
-    #[arg(long, value_enum)]
-    bus_blocks: Option<Vec<display::BusBlocks>>,
-
-    /// Hide empty buses; those with no devices
-    #[arg(long, default_value_t = false)]
-    hide_buses: bool,
-
-    /// Hide empty hubs; those with no devices
-    #[arg(long, default_value_t = false)]
-    hide_hubs: bool,
-
     /// Filter on string contained in name
     #[arg(long)]
     filter_name: Option<String>,
@@ -53,21 +37,29 @@ struct Args {
     #[arg(long)]
     filter_serial: Option<String>,
 
-    /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints
+    /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
     verbose: u8,
 
-    /// Disable coloured output, can also use NO_COLOR environment variable
-    #[arg(short, long, default_value_t = false)]
-    no_colour: bool,
+    /// Specify the blocks which will be displayed for each device and in what order
+    #[arg(short, long, value_enum)]
+    blocks: Option<Vec<display::DeviceBlocks>>,
 
-    /// Disable padding to align blocks
-    #[arg(long, default_value_t = false)]
-    no_padding: bool,
+    /// Specify the blocks which will be displayed for each bus and in what order
+    #[arg(long, value_enum)]
+    bus_blocks: Option<Vec<display::BusBlocks>>,
 
-    /// Show base16 values as base10 decimal instead
-    #[arg(long, default_value_t = false)]
-    decimal: bool,
+    /// Specify the blocks which will be displayed for each configuration and in what order
+    #[arg(long, value_enum)]
+    config_blocks: Option<Vec<display::ConfigurationBlocks>>,
+
+    /// Specify the blocks which will be displayed for each interface and in what order
+    #[arg(long, value_enum)]
+    interface_blocks: Option<Vec<display::InterfaceBlocks>>,
+
+    /// Specify the blocks which will be displayed for each endpoint and in what order
+    #[arg(long, value_enum)]
+    endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
 
     /// Sort devices by value
     #[arg(long, value_enum)]
@@ -80,6 +72,26 @@ struct Args {
     /// Group devices by value when listing
     #[arg(long, value_enum, default_value_t = Default::default())]
     group_devices: display::Group,
+
+    /// Hide empty buses; those with no devices
+    #[arg(long, default_value_t = false)]
+    hide_buses: bool,
+
+    /// Hide empty hubs; those with no devices
+    #[arg(long, default_value_t = false)]
+    hide_hubs: bool,
+
+    /// Show base16 values as base10 decimal instead
+    #[arg(long, default_value_t = false)]
+    decimal: bool,
+
+    /// Disable padding to align blocks
+    #[arg(long, default_value_t = false)]
+    no_padding: bool,
+
+    /// Disable coloured output, can also use NO_COLOR environment variable
+    #[arg(long, default_value_t = false)]
+    no_colour: bool,
 
     /// Show block headings
     #[arg(long, default_value_t = false)]
@@ -267,11 +279,12 @@ fn main() {
 
         Some(f)
     } else {
-        // default filter with exlcude root_hubs on linux if printing tree as they are buses in system_profiler
+        // default filter with exlcude root_hubs on linux if printing new tree as they are buses in system_profiler
+        // always include if lsusb compat
         if cfg!(target_os = "linux") {
             Some(system_profiler::USBFilter {
-              no_exclude_root_hub: args.lsusb || !(args.tree || args.group_devices == display::Group::Bus),
-              ..Default::default()
+                no_exclude_root_hub: args.lsusb || !(args.tree || args.group_devices == display::Group::Bus),
+                ..Default::default()
             })
         } else {
             None
@@ -310,6 +323,11 @@ fn main() {
         json: args.json,
         headings: args.headings,
         verbosity: args.verbose,
+        device_blocks: args.blocks,
+        bus_blocks: args.bus_blocks,
+        config_blocks: args.config_blocks,
+        interface_blocks: args.interface_blocks,
+        endpoint_blocks: args.endpoint_blocks,
         icons: Some(IconTheme::new()),
         ..Default::default()
     };
@@ -331,6 +349,6 @@ fn main() {
             lsusb::print(&sorted, args.verbose);
         }
     } else {
-        display::print(&mut sp_usb, args.blocks, args.bus_blocks, &settings);
+        display::print(&mut sp_usb, &settings);
     }
 }
