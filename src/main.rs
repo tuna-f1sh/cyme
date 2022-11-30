@@ -409,3 +409,37 @@ fn main() {
         display::print(&mut sp_usb, &settings);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_vidpid() {
+        assert_eq!(parse_vidpid("000A:0x000b").unwrap(), (Some(0x0A), Some(0x0b)));
+        assert_eq!(parse_vidpid("000A:1").unwrap(), (Some(0x0A), Some(1)));
+        assert_eq!(parse_vidpid("000A:").unwrap(), (Some(0x0A), None));
+        assert_eq!(parse_vidpid("0x000A").unwrap(), (Some(0x0A), None));
+        assert_eq!(parse_vidpid("dfg:sdfd").is_err(), true);
+    }
+
+    #[test]
+    fn test_parse_show() {
+        assert_eq!(parse_show("1").unwrap(), (None, Some(1)));
+        assert_eq!(parse_show("1:124").unwrap(), (Some(1), Some(124)));
+        assert_eq!(parse_show("1:").unwrap(), (Some(1), None));
+        // too big
+        assert_eq!(parse_show("55233:12323").is_err(), true);
+        assert_eq!(parse_show("dfg:sdfd").is_err(), true);
+    }
+
+    #[test]
+    fn test_parse_devpath() {
+        assert_eq!(parse_devpath("/dev/bus/usb/001/003").unwrap(), (Some(1), Some(3)));
+        assert_eq!(parse_devpath("/dev/bus/usb/004/003").unwrap(), (Some(4), Some(3)));
+        assert_eq!(parse_devpath("/dev/bus/usb/004/3").unwrap(), (Some(4), Some(3)));
+        assert_eq!(parse_devpath("004/3").unwrap(), (Some(4), Some(3)));
+        assert_eq!(parse_devpath("004/").is_err(), true);
+        assert_eq!(parse_devpath("sas/ssas").is_err(), true);
+    }
+}
