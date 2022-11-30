@@ -9,7 +9,7 @@ version = "0.7.6"
 edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
 categories = ["command-line-utilities"]
-exclude = ["./img/**", ".github"]
+exclude = [".github"]
 
 [dependencies]
 clap = { version = "4.0.22", features = ["derive"] }
