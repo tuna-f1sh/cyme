@@ -110,7 +110,7 @@ struct Args {
     force_libusb: bool,
 
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
-    #[arg(long, action = clap::ArgAction::Count)]
+    #[arg(short = 'c', long, action = clap::ArgAction::Count)] // short -d taken by lsusb compat vid:pid
     debug: u8,
 }
 

@@ -1,4 +1,6 @@
 //! Provides the main utilities to display USB types within this crate - primarily used by `cyme` binary.
+//!
+//! TODO: There is some repeat code that could probably be made into functions/generics
 use std::collections::HashMap;
 use std::cmp;
 use clap::ValueEnum;
@@ -922,6 +924,8 @@ pub fn print_flattened_devices(
                 // pass branch length as number of configurations for this device plus devices still to print
                 print_configurations(&extra.configurations, blocks, settings, &generate_tree_data(&Default::default(), extra.configurations.len() + device.devices.as_ref().map_or(0, |d| d.len()), i, settings));
             }
+        } else if settings.verbosity >= 1 {
+            log::warn!("Unable to print verbose information for {} because libusb extra data is missing", device)
         }
     }
 }
@@ -1273,6 +1277,8 @@ pub fn print_devices(
                 // pass branch length as number of configurations for this device plus devices still to print
                 print_configurations(&extra.configurations, blocks, settings, &generate_tree_data(&tree, extra.configurations.len() + device.devices.as_ref().map_or(0, |d| d.len()), i, settings));
             }
+        } else if settings.verbosity >= 1 {
+            log::warn!("Unable to print verbose information for {} because libusb extra data is missing", device)
         }
 
         match device.devices.as_ref() {
