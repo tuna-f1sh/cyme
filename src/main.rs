@@ -136,27 +136,27 @@ macro_rules! wprintln {
 }
 
 /// Parse the vidpid filter lsusb format: vid:Option<pid>
-fn parse_vidpid(s: &str) -> (Option<u16>, Option<u16>) {
+fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>), Error> {
     if s.contains(":") {
         let vid_split: Vec<&str> = s.split(":").collect();
-        let vid: Option<u16> = vid_split.first().filter(|v| v.len() > 0).map_or(None, |v| {
+        let vid: Option<u16> = vid_split.first().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
             u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
                 .map(|v| Some(v as u16))
-                .unwrap_or(None)
-        });
-        let pid: Option<u16> = vid_split.last().filter(|v| v.len() > 0).map_or(None, |v| {
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+        })?;
+        let pid: Option<u16> = vid_split.last().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
             u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
                 .map(|v| Some(v as u16))
-                .unwrap_or(None)
-        });
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+        })?;
 
-        (vid, pid)
+        Ok((vid, pid))
     } else {
         let vid: Option<u16> = u32::from_str_radix(s.trim().trim_start_matches("0x"), 16)
             .map(|v| Some(v as u16))
-            .unwrap_or(None);
+            .map_err(|e| Error::new(ErrorKind::Other, e))?;
 
-        (vid, None)
+        Ok((vid, None))
     }
 }
 
@@ -164,19 +164,16 @@ fn parse_vidpid(s: &str) -> (Option<u16>, Option<u16>) {
 fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
     if s.contains(":") {
         let split: Vec<&str> = s.split(":").collect();
-        // TODO this unwrap should return as the result but I struggle with all this chaining...
-        let bus: Option<u8> = split.first().filter(|v| v.len() > 0).map_or(None, |v| {
+        let bus: Option<u8> = split.first().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
             v.parse::<u8>()
                 .map(Some)
                 .map_err(|e| Error::new(ErrorKind::Other, e))
-                .unwrap_or(None)
-        });
-        let device = split.last().filter(|v| v.len() > 0).map_or(None, |v| {
+        })?;
+        let device = split.last().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
             v.parse::<u8>()
                 .map(Some)
                 .map_err(|e| Error::new(ErrorKind::Other, e))
-                .unwrap_or(None)
-        });
+        })?;
 
         Ok((bus, device))
     } else {
@@ -192,26 +189,23 @@ fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
 }
 
 /// Parse devpath supplied by --device into a show format
+///
+/// Could be a regex match r"^[\/|\w+\/]+(?'bus'\d{3})\/(?'devno'\d{3})$" but this saves another crate
 fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
-    // lazy_static! {
-    //     static ref RE: Regex = Regex::new(r"^[\/|\w+\/]+(?'bus'\d{3})\/(?'devno'\d{3})$").unwrap();
-    // }
     if s.contains("/") {
         let split: Vec<&str> = s.split("/").collect();
         // second to last
-        let bus: Option<u8> = split.get(split.len()-2).filter(|v| v.len() > 0).map_or(None, |v| {
+        let bus: Option<u8> = split.get(split.len()-2).map_or(Ok(None), |v| {
             v.parse::<u8>()
                 .map(Some)
                 .map_err(|e| Error::new(ErrorKind::Other, e))
-                .unwrap_or(None)
-        });
+        })?;
         // last
-        let device = split.last().filter(|v| v.len() > 0).map_or(None, |v| {
+        let device = split.last().map_or(Ok(None), |v| {
             v.parse::<u8>()
                 .map(Some)
                 .map_err(|e| Error::new(ErrorKind::Other, e))
-                .unwrap_or(None)
-        });
+        })?;
 
         Ok((bus, device))
     } else {
@@ -291,7 +285,12 @@ fn main() {
         let mut f = system_profiler::USBFilter::new();
 
         if let Some(vidpid) = &args.vidpid {
-            let (vid, pid) = parse_vidpid(&vidpid.as_str());
+            let (vid, pid) = parse_vidpid(&vidpid.as_str()).unwrap_or_else(|e| {
+                eprintexit!(Error::new(
+                    ErrorKind::Other,
+                    format!("Failed to parse vidpid '{}': {}", vidpid, e)
+                ));
+            });
             f.vid = vid;
             f.pid = pid;
         }
@@ -301,7 +300,7 @@ fn main() {
             let (bus, number) = parse_devpath(&devpath.as_str()).unwrap_or_else(|e| {
                 eprintexit!(Error::new(
                     ErrorKind::Other,
-                    format!("Failed to parse devpath: {}", e)
+                    format!("Failed to parse devpath '{}', should end with 'BUS/DEVNO': {}", devpath, e)
                 ));
             });
             f.bus = bus;
@@ -310,7 +309,7 @@ fn main() {
             let (bus, number) = parse_show(&show.as_str()).unwrap_or_else(|e| {
                 eprintexit!(Error::new(
                     ErrorKind::Other,
-                    format!("Failed to parse show parameter: {}", e)
+                    format!("Failed to parse show parameter '{}': {}", show, e)
                 ));
             });
             f.bus = bus;
