@@ -39,6 +39,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 - [x] Interface and Device Descriptor icon look up.
 - [x] Drawing of headers.
 - [x] Tree support of all device interfaces and endpoints.
+- [ ] -D device path arg using get_usb_device on Linux
 - [ ] Merge of macOS `system_profiler` output with libusb output to keep special Apple buses.
 - [ ] Integration tests for lsusb output and new output.
 - [ ] User defined icon map and colour import.

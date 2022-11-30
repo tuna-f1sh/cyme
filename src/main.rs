@@ -29,6 +29,10 @@ struct Args {
     #[arg(short, long)]
     show: Option<String>,
 
+    /// Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path
+    #[arg(short = 'D', long)]
+    device: Option<String>,
+
     /// Filter on string contained in name
     #[arg(long)]
     filter_name: Option<String>,
@@ -106,7 +110,7 @@ struct Args {
     force_libusb: bool,
 
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
-    #[arg(short = 'D', long, action = clap::ArgAction::Count)]
+    #[arg(long, action = clap::ArgAction::Count)]
     debug: u8,
 }
 
@@ -215,9 +219,10 @@ fn main() {
         args.lsusb = false;
     }
 
-    // TODO use use system_profiler but add extra from libusb for verbose
+    // TODO use use system_profiler but merge with extra from libusb for verbose to retain Apple buses which libusb cannot list
     let mut sp_usb = if cfg!(target_os = "macos") 
         && !args.force_libusb
+        && args.device.is_none() // device path requires extra
         && !((args.tree && args.lsusb) || args.verbose > 0) {
         system_profiler::get_spusb().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
