@@ -124,6 +124,7 @@ bus\:"Group into buses with bus info as heading - like a flat tree"))' \
 '--force-libusb[Force libusb mode on macOS rather than using system_profiler output]' \
 '*-c[Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE]' \
 '*--debug[Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE]' \
+'--gen[Generate cli completions and man page]' \
 '-h[Print help information (use `--help` for more detail)]' \
 '--help[Print help information (use `--help` for more detail)]' \
 '-V[Print version information]' \

@@ -122,6 +122,10 @@ struct Args {
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
     #[arg(short = 'c', long, action = clap::ArgAction::Count)] // short -d taken by lsusb compat vid:pid
     debug: u8,
+
+    /// Generate cli completions and man page
+    #[arg(long, hide=true, exclusive=true)]
+    gen: bool,
 }
 
 /// Print in bold red and exit with error
@@ -299,7 +303,10 @@ fn main() {
     let mut args = Args::parse();
 
     #[cfg(feature = "cli_generate")]
-    print_man().expect("Failed to generate extra CLI material");
+    if args.gen {
+        print_man().expect("Failed to generate extra CLI material");
+        std::process::exit(0);
+    }
 
     // set the module debug level, will also check env if args.debug == 0
     cyme::set_log_level(args.debug).unwrap_or_else(|e| {

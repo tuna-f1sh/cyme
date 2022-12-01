@@ -54,6 +54,7 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--force-libusb', 'force-libusb', [CompletionResultType]::ParameterName, 'Force libusb mode on macOS rather than using system_profiler output')
             [CompletionResult]::new('-c', 'c', [CompletionResultType]::ParameterName, 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE')
             [CompletionResult]::new('--debug', 'debug', [CompletionResultType]::ParameterName, 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE')
+            [CompletionResult]::new('--gen', 'gen', [CompletionResultType]::ParameterName, 'Generate cli completions and man page')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information (use `--help` for more detail)')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information (use `--help` for more detail)')
             [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Print version information')

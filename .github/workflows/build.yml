@@ -106,14 +106,19 @@ jobs:
           ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
           mkdir -p "${ARCHIVE_DIR}"
 
+          # generate cli data
+          "${{ steps.strip.outputs.BIN_PATH }}" --gen
+
           # Binary
           cp "${{ steps.strip.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
           # README and LICENSE
           cp "README.md" "LICENSE" "$ARCHIVE_DIR"
           # Man page
-          # cp 'doc/${{ env.PROJECT_NAME }}.1' "$ARCHIVE_DIR"
+          cp 'doc/${{ env.PROJECT_NAME }}.1' "$ARCHIVE_DIR"
           # Autocompletion files
-          # cp -r autocomplete "${ARCHIVE_DIR}"
+          mkdir -p autocomplete
+          cp 'doc/${{ env.PROJECT_NAME }}.fish' 'doc/${{ env.PROJECT_NAME }}.bash' 'doc/_${{ env.PROJECT_NAME }}' 'doc/_${{ env.PROJECT_NAME }}.ps1' autocomplete
+          cp -r autocomplete "${ARCHIVE_DIR}"
           # base compressed package
           pushd "${PKG_STAGING}/" >/dev/null
           case ${{ matrix.job.target }} in
