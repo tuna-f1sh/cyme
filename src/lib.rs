@@ -12,7 +12,6 @@ pub mod icon;
 pub mod system_profiler;
 pub mod types;
 pub mod usb;
-
 pub mod lsusb;
 #[cfg(target_os = "linux")]
 #[cfg(feature = "udev")]

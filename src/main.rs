@@ -1,5 +1,7 @@
 //! Where the magic happens for `cyme` binary!
 use clap::Parser;
+// #[cfg(feature = "completions")]
+// use clap_complete::Shell;
 use colored::*;
 use std::env;
 use std::io::{Error, ErrorKind};
@@ -101,7 +103,7 @@ struct Args {
     headings: bool,
 
     /// Output as json format after sorting, filters and tree settings are applied
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, overrides_with="lsusb")]
     json: bool,
 
     /// Force libusb mode on macOS rather than using system_profiler output
@@ -111,6 +113,10 @@ struct Args {
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
     #[arg(short = 'c', long, action = clap::ArgAction::Count)] // short -d taken by lsusb compat vid:pid
     debug: u8,
+
+    // #[cfg(feature = "mancompletions")]
+    // #[arg(long, hide = true, exclusive = true)]
+    // gen_completions: Option<Option<Shell>>,
 }
 
 /// Print in bold red and exit with error
@@ -269,11 +275,6 @@ fn main() {
     // just set the env for this process
     if args.no_colour {
         env::set_var("NO_COLOR", "1");
-    }
-
-    if args.json && args.lsusb {
-        eprintln!("Disabling --lsusb flag because --json flag present");
-        args.lsusb = false;
     }
 
     // TODO use use system_profiler but merge with extra from libusb for verbose to retain Apple buses which libusb cannot list
