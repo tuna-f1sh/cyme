@@ -7,7 +7,6 @@ use std::io::{Error, ErrorKind};
 use cyme::display;
 use cyme::icon::IconTheme;
 use cyme::system_profiler;
-#[cfg(feature = "libusb")]
 use cyme::lsusb;
 
 #[derive(Parser, Debug)]
@@ -212,12 +211,47 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
 }
 
 /// Abort with exit code before trying to call libusb feature if not present
-fn abort_not_libusb() {
-    if !cfg!(feature = "libusb") {
-        eprintexit!(Error::new(
-            ErrorKind::Other,
-            "libusb feature is required to do this, install with `cargo install --features libusb`"
+#[cfg(not(feature = "libusb"))]
+fn get_libusb_spusb(_args: &Args) -> system_profiler::SPUSBDataType {
+    eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+}
+
+#[cfg(feature = "libusb")]
+fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
+    lsusb::profiler::set_log_level(args.debug);
+    lsusb::profiler::get_spusb(args.verbose > 0 || args.tree || args.device.is_some()).unwrap_or_else(|e| {
+        eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to gather system USB data: {}", e)
         ));
+    })
+}
+
+fn print_lsusb(sp_usb: &system_profiler::SPUSBDataType, device: &Option<String>, settings: &display::PrintSettings) {
+    // device specific overrides tree on lsusb
+    if settings.tree && device.is_none() { 
+        if !cfg!(target_os = "linux") {
+            log::warn!("Most of the data in a lsusb style tree is applicable to Linux only!");
+        }
+        if !cfg!(feature = "udev") {
+            log::warn!("Without udev, lsusb style tree content will not match lsusb: driver and syspath will be missing");
+        }
+        lsusb::display::print_tree(&sp_usb, &settings)
+    } else {
+        // can't print verbose if not using libusb
+        if !cfg!(feature = "libusb") && (settings.verbosity > 0 || device.is_some()) {
+            eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+        }
+        let devices = sp_usb.flatten_devices();
+        // even though we filtered using filter.show and using prepare, keep this here because it will match the exact Linux dev path and exit error if it doesn't match like lsusb
+        if let Some(dev_path) = &device {
+            lsusb::display::dump_one_device(&devices, dev_path).unwrap_or_else(|e| {
+                eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, e));
+            });
+        } else {
+            let sorted = settings.sort_devices.sort_devices_ref(&devices);
+            lsusb::display::print(&sorted, settings.verbosity > 0);
+        }
     }
 }
 
@@ -242,17 +276,13 @@ fn main() {
         args.lsusb = false;
     }
 
-    // create mutable sp_usb to hold USB data, passed to either the macOS system_profiler getter or libusb getter
-    // it's created here so that this can compile without the libusb feature
-    let mut sp_usb = system_profiler::SPUSBDataType { buses: Vec::new() };
-
     // TODO use use system_profiler but merge with extra from libusb for verbose to retain Apple buses which libusb cannot list
     // could run through finding nodes existing in system_profiler::get_spusb and updating with libusb::get_spusb version but means some will have extra data, some not..
-    if cfg!(target_os = "macos") 
+    let mut spusb = if cfg!(target_os = "macos") 
         && !args.force_libusb
         && args.device.is_none() // device path requires extra
         && !((args.tree && args.lsusb) || args.verbose > 0) {
-        system_profiler::fill_spusb(&mut sp_usb).unwrap_or_else(|e| {
+        system_profiler::get_spusb().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to parse system_profiler output: {}", e)
@@ -263,21 +293,10 @@ fn main() {
             log::warn!("Forcing libusb for supplied arguments on macOS");
             args.force_libusb = true;
         }
-        // abort now if libusb feature missing
-        abort_not_libusb();
-        #[cfg(feature = "libusb")]
-        lsusb::set_log_level(args.debug);
-        #[cfg(feature = "libusb")]
-        // verbose, tree and devpath require extra data
-        lsusb::fill_spusb(&mut sp_usb, args.verbose > 0 || args.tree || args.device.is_some()).unwrap_or_else(|e| {
-            eprintexit!(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to gather system USB data: {}", e)
-            ));
-        })
+        get_libusb_spusb(&args)
     };
 
-    log::trace!("Returned system_profiler data\n\r{:#}", sp_usb);
+    log::trace!("Returned system_profiler data\n\r{:#}", spusb);
 
     let filter = if args.hide_hubs
         || args.vidpid.is_some()
@@ -382,36 +401,16 @@ fn main() {
         ..Default::default()
     };
 
-    display::prepare(&mut sp_usb, filter, &settings);
+    display::prepare(&mut spusb, filter, &settings);
 
     if args.lsusb {
-        #[cfg(feature = "libusb")]
-        // device specific overrides tree on lsusb
-        if args.tree && args.device.is_none() { 
-            if !cfg!(target_os = "linux") {
-                log::warn!("Most of the data in a lsusb style tree is applicable to Linux only!");
-            }
-            if !cfg!(feature = "udev") {
-                log::warn!("Without udev, lsusb style tree content will not match lsusb: driver and syspath will be missing");
-            }
-            lsusb::print_tree(&sp_usb, &settings)
-        } else {
-            let devices = sp_usb.flatten_devices();
-            // even though we filtered using filter.show and using prepare, keep this here because it will match the exact Linux dev path and exit error if it doesn't match like lsusb
-            if let Some(dev_path) = args.device {
-                lsusb::dump_one_device(&devices, dev_path).unwrap_or_else(|e| {
-                    eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, e));
-                });
-            } else {
-                let sorted = settings.sort_devices.sort_devices_ref(&devices);
-                lsusb::print(&sorted, args.verbose > 0);
-            }
-        }
+        print_lsusb(&spusb, &args.device, &settings);
     } else {
-        if args.device.is_some() && !sp_usb.buses.iter().any(|b| b.has_devices()) {
+        // check and report if was looking for args.device
+        if args.device.is_some() && !spusb.buses.iter().any(|b| b.has_devices()) {
             eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, format!("Unable to find {:?}", args.device.unwrap())));
         }
-        display::print(&mut sp_usb, &settings);
+        display::print(&mut spusb, &settings);
     }
 }
 

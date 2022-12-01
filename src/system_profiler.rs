@@ -1035,14 +1035,6 @@ pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
 }
 
-/// Fills a passed mutable `spusb` reference to fill using `get_spusb`
-///
-/// This is so that the main bin can switch between system_profiler and libusb without a variable not being set
-pub fn fill_spusb(spusb: &mut SPUSBDataType) -> Result<(), io::Error> {
-    *spusb = get_spusb()?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
