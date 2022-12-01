@@ -1,0 +1,257 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH cyme 1  "cyme 0.7.6" 
+.SH NAME
+cyme \- List system USB buses and devices; a modern `lsusb` that attempts to maintain compatibility with, but also add new features
+.SH SYNOPSIS
+\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-no\-colour\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-debug\fR]... [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
+.SH DESCRIPTION
+List system USB buses and devices; a modern `lsusb` that attempts to maintain compatibility with, but also add new features
+.SH OPTIONS
+.TP
+\fB\-l\fR, \fB\-\-lsusb\fR=\fILSUSB\fR
+Attempt to maintain compatibility with lsusb output
+.TP
+\fB\-t\fR, \fB\-\-tree\fR=\fITREE\fR
+Dump USB device hierarchy as a tree
+.TP
+\fB\-d\fR, \fB\-\-vidpid\fR=\fIVIDPID\fR
+Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:[PID]
+.TP
+\fB\-s\fR, \fB\-\-show\fR=\fISHOW\fR
+Show only devices with specified device and/or bus numbers (in decimal) in format [[bus]:][devnum]
+.TP
+\fB\-D\fR, \fB\-\-device\fR=\fIDEVICE\fR
+Selects which device lsusb will examine \- supplied as Linux /dev/bus/usb/BBB/DDD style path
+.TP
+\fB\-\-filter\-name\fR=\fIFILTER_NAME\fR
+Filter on string contained in name
+.TP
+\fB\-\-filter\-serial\fR=\fIFILTER_SERIAL\fR
+Filter on string contained in serial
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR=\fIVERBOSE\fR
+Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
+.TP
+\fB\-b\fR, \fB\-\-blocks\fR=\fIBLOCKS\fR
+Specify the blocks which will be displayed for each device and in what order
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+bus\-number: Number of bus device is attached
+.IP \(bu 2
+device\-number: Bus issued device number
+.IP \(bu 2
+branch\-position: Position of device in parent branch
+.IP \(bu 2
+port\-path: Linux style port path
+.IP \(bu 2
+sys\-path: Linux udev reported syspath
+.IP \(bu 2
+driver: Linux udev reported driver loaded for device
+.IP \(bu 2
+icon: Icon based on VID/PID
+.IP \(bu 2
+vendor\-id: Unique vendor identifier \- purchased from USB IF
+.IP \(bu 2
+product\-id: Vendor unique product identifier
+.IP \(bu 2
+name: The device name as reported in descriptor or using usb_ids if None
+.IP \(bu 2
+manufacturer: The device manufacturer as provided in descriptor or using usb_ids if None
+.IP \(bu 2
+product\-name: The device product name as reported by usb_ids vidpid lookup
+.IP \(bu 2
+vendor\-name: The device vendor name as reported by usb_ids vid lookup
+.IP \(bu 2
+serial: Device serial string as reported by descriptor
+.IP \(bu 2
+speed: Advertised device capable speed
+.IP \(bu 2
+tree\-positions: Position along all branches back to trunk device
+.IP \(bu 2
+bus\-power: macOS system_profiler only \- actually bus current in mA not power!
+.IP \(bu 2
+bus\-power\-used: macOS system_profiler only \- actually bus current used in mA not power!
+.IP \(bu 2
+extra\-current\-used: macOS system_profiler only \- actually bus current used in mA not power!
+.IP \(bu 2
+bcd\-device: The device version
+.IP \(bu 2
+bcd\-usb: The supported USB version
+.IP \(bu 2
+class\-code: Class of interface provided by USB IF \- only available when using libusb
+.IP \(bu 2
+sub\-class: Sub\-class of interface provided by USB IF \- only available when using libusb
+.IP \(bu 2
+protocol: Prototol code for interface provided by USB IF \- only available when using libusb
+.RE
+.TP
+\fB\-\-bus\-blocks\fR=\fIBUS_BLOCKS\fR
+Specify the blocks which will be displayed for each bus and in what order
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+bus\-number: System bus number identifier
+.IP \(bu 2
+icon: Icon based on VID/PID
+.IP \(bu 2
+name: Bus name from descriptor or usb_ids
+.IP \(bu 2
+host\-controller: Host Controller on macOS, vendor put here when using libusb
+.IP \(bu 2
+pci\-vendor: Understood to be vendor ID \- it is when using libusb
+.IP \(bu 2
+pci\-device: Understood to be product ID \- it is when using libusb
+.IP \(bu 2
+pci\-revision: Revsision of hardware
+.IP \(bu 2
+port\-path: syspath style port path to bus, applicable to Linux only
+.RE
+.TP
+\fB\-\-config\-blocks\fR=\fICONFIG_BLOCKS\fR
+Specify the blocks which will be displayed for each configuration and in what order
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+name: Name from string descriptor
+.IP \(bu 2
+number: Number of config, bConfigurationValue; value to set to enable to configuration
+.IP \(bu 2
+num\-interfaces: Interfaces available for this configuruation
+.IP \(bu 2
+attributes: Attributes of configuration, bmAttributes
+.IP \(bu 2
+max\-power: Maximum current consumption in mA
+.RE
+.TP
+\fB\-\-interface\-blocks\fR=\fIINTERFACE_BLOCKS\fR
+Specify the blocks which will be displayed for each interface and in what order
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+name: Name from string descriptor
+.IP \(bu 2
+number: Interface number
+.IP \(bu 2
+port\-path: Interface port path, applicable to Linux
+.IP \(bu 2
+class\-code: Class of interface provided by USB IF
+.IP \(bu 2
+sub\-class: Sub\-class of interface provided by USB IF
+.IP \(bu 2
+protocol: Prototol code for interface provided by USB IF
+.IP \(bu 2
+alt\-setting: Interfaces can have the same number but an alternate settings defined here
+.IP \(bu 2
+driver: Driver obtained from udev on Linux only
+.IP \(bu 2
+sys\-path: syspath obtained from udev on Linux only
+.IP \(bu 2
+num\-endpoints: An interface can have many endpoints
+.IP \(bu 2
+icon: Icon based on ClassCode/SubCode/Protocol
+.RE
+.TP
+\fB\-\-endpoint\-blocks\fR=\fIENDPOINT_BLOCKS\fR
+Specify the blocks which will be displayed for each endpoint and in what order
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+number: Endpoint number on interface
+.IP \(bu 2
+direction: Direction of data into endpoint
+.IP \(bu 2
+transfer\-type: Type of data transfer endpoint accepts
+.IP \(bu 2
+sync\-type: Synchronisation type (Iso mode)
+.IP \(bu 2
+usage\-type: Usage type (Iso mode)
+.IP \(bu 2
+max\-packet\-size: Maximum packet size in bytes endpoint can send/recieve
+.IP \(bu 2
+interval: Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints
+.RE
+.TP
+\fB\-\-sort\-devices\fR=\fISORT_DEVICES\fR
+Sort devices by value
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+branch\-position: Sort by position in parent branch
+.IP \(bu 2
+device\-number: Sort by bus device number
+.IP \(bu 2
+no\-sort: No sorting; whatever order it was parsed
+.RE
+.TP
+\fB\-\-sort\-buses\fR=\fISORT_BUSES\fR
+Sort devices by bus number
+.TP
+\fB\-\-group\-devices\fR=\fIGROUP_DEVICES\fR [default: no\-group]
+Group devices by value when listing
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+no\-group: No grouping
+.IP \(bu 2
+bus: Group into buses with bus info as heading \- like a flat tree
+.RE
+.TP
+\fB\-\-hide\-buses\fR=\fIHIDE_BUSES\fR
+Hide empty buses; those with no devices
+.TP
+\fB\-\-hide\-hubs\fR=\fIHIDE_HUBS\fR
+Hide empty hubs; those with no devices
+.TP
+\fB\-\-decimal\fR=\fIDECIMAL\fR
+Show base16 values as base10 decimal instead
+.TP
+\fB\-\-no\-padding\fR=\fINO_PADDING\fR
+Disable padding to align blocks
+.TP
+\fB\-\-no\-colour\fR=\fINO_COLOUR\fR
+Disable coloured output, can also use NO_COLOR environment variable
+.TP
+\fB\-\-headings\fR=\fIHEADINGS\fR
+Show block headings
+.TP
+\fB\-\-json\fR=\fIJSON\fR
+Output as json format after sorting, filters and tree settings are applied
+.TP
+\fB\-\-force\-libusb\fR=\fIFORCE_LIBUSB\fR
+Force libusb mode on macOS rather than using system_profiler output
+.TP
+\fB\-c\fR, \fB\-\-debug\fR=\fIDEBUG\fR
+Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help information (use `\-h` for a summary)
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version information
+.SH VERSION
+v0.7.6
+.SH AUTHORS
+John Whittington <john@jbrengineering.co.uk>

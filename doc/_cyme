@@ -1,0 +1,140 @@
+#compdef cyme
+
+autoload -U is-at-least
+
+_cyme() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" \
+'-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:\[PID\]]:VIDPID: ' \
+'--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:\[PID\]]:VIDPID: ' \
+'-s+[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]:\]\[devnum\]]:SHOW: ' \
+'--show=[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]:\]\[devnum\]]:SHOW: ' \
+'-D+[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE: ' \
+'--device=[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE: ' \
+'--filter-name=[Filter on string contained in name]:FILTER_NAME: ' \
+'--filter-serial=[Filter on string contained in serial]:FILTER_SERIAL: ' \
+'*-b+[Specify the blocks which will be displayed for each device and in what order]:BLOCKS:((bus-number\:"Number of bus device is attached"
+device-number\:"Bus issued device number"
+branch-position\:"Position of device in parent branch"
+port-path\:"Linux style port path"
+sys-path\:"Linux udev reported syspath"
+driver\:"Linux udev reported driver loaded for device"
+icon\:"Icon based on VID/PID"
+vendor-id\:"Unique vendor identifier - purchased from USB IF"
+product-id\:"Vendor unique product identifier"
+name\:"The device name as reported in descriptor or using usb_ids if None"
+manufacturer\:"The device manufacturer as provided in descriptor or using usb_ids if None"
+product-name\:"The device product name as reported by usb_ids vidpid lookup"
+vendor-name\:"The device vendor name as reported by usb_ids vid lookup"
+serial\:"Device serial string as reported by descriptor"
+speed\:"Advertised device capable speed"
+tree-positions\:"Position along all branches back to trunk device"
+bus-power\:"macOS system_profiler only - actually bus current in mA not power!"
+bus-power-used\:"macOS system_profiler only - actually bus current used in mA not power!"
+extra-current-used\:"macOS system_profiler only - actually bus current used in mA not power!"
+bcd-device\:"The device version"
+bcd-usb\:"The supported USB version"
+class-code\:"Class of interface provided by USB IF - only available when using libusb"
+sub-class\:"Sub-class of interface provided by USB IF - only available when using libusb"
+protocol\:"Prototol code for interface provided by USB IF - only available when using libusb"))' \
+'*--blocks=[Specify the blocks which will be displayed for each device and in what order]:BLOCKS:((bus-number\:"Number of bus device is attached"
+device-number\:"Bus issued device number"
+branch-position\:"Position of device in parent branch"
+port-path\:"Linux style port path"
+sys-path\:"Linux udev reported syspath"
+driver\:"Linux udev reported driver loaded for device"
+icon\:"Icon based on VID/PID"
+vendor-id\:"Unique vendor identifier - purchased from USB IF"
+product-id\:"Vendor unique product identifier"
+name\:"The device name as reported in descriptor or using usb_ids if None"
+manufacturer\:"The device manufacturer as provided in descriptor or using usb_ids if None"
+product-name\:"The device product name as reported by usb_ids vidpid lookup"
+vendor-name\:"The device vendor name as reported by usb_ids vid lookup"
+serial\:"Device serial string as reported by descriptor"
+speed\:"Advertised device capable speed"
+tree-positions\:"Position along all branches back to trunk device"
+bus-power\:"macOS system_profiler only - actually bus current in mA not power!"
+bus-power-used\:"macOS system_profiler only - actually bus current used in mA not power!"
+extra-current-used\:"macOS system_profiler only - actually bus current used in mA not power!"
+bcd-device\:"The device version"
+bcd-usb\:"The supported USB version"
+class-code\:"Class of interface provided by USB IF - only available when using libusb"
+sub-class\:"Sub-class of interface provided by USB IF - only available when using libusb"
+protocol\:"Prototol code for interface provided by USB IF - only available when using libusb"))' \
+'*--bus-blocks=[Specify the blocks which will be displayed for each bus and in what order]:BUS_BLOCKS:((bus-number\:"System bus number identifier"
+icon\:"Icon based on VID/PID"
+name\:"Bus name from descriptor or usb_ids"
+host-controller\:"Host Controller on macOS, vendor put here when using libusb"
+pci-vendor\:"Understood to be vendor ID - it is when using libusb"
+pci-device\:"Understood to be product ID - it is when using libusb"
+pci-revision\:"Revsision of hardware"
+port-path\:"syspath style port path to bus, applicable to Linux only"))' \
+'*--config-blocks=[Specify the blocks which will be displayed for each configuration and in what order]:CONFIG_BLOCKS:((name\:"Name from string descriptor"
+number\:"Number of config, bConfigurationValue; value to set to enable to configuration"
+num-interfaces\:"Interfaces available for this configuruation"
+attributes\:"Attributes of configuration, bmAttributes"
+max-power\:"Maximum current consumption in mA"))' \
+'*--interface-blocks=[Specify the blocks which will be displayed for each interface and in what order]:INTERFACE_BLOCKS:((name\:"Name from string descriptor"
+number\:"Interface number"
+port-path\:"Interface port path, applicable to Linux"
+class-code\:"Class of interface provided by USB IF"
+sub-class\:"Sub-class of interface provided by USB IF"
+protocol\:"Prototol code for interface provided by USB IF"
+alt-setting\:"Interfaces can have the same number but an alternate settings defined here"
+driver\:"Driver obtained from udev on Linux only"
+sys-path\:"syspath obtained from udev on Linux only"
+num-endpoints\:"An interface can have many endpoints"
+icon\:"Icon based on ClassCode/SubCode/Protocol"))' \
+'*--endpoint-blocks=[Specify the blocks which will be displayed for each endpoint and in what order]:ENDPOINT_BLOCKS:((number\:"Endpoint number on interface"
+direction\:"Direction of data into endpoint"
+transfer-type\:"Type of data transfer endpoint accepts"
+sync-type\:"Synchronisation type (Iso mode)"
+usage-type\:"Usage type (Iso mode)"
+max-packet-size\:"Maximum packet size in bytes endpoint can send/recieve"
+interval\:"Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints"))' \
+'--sort-devices=[Sort devices by value]:SORT_DEVICES:((branch-position\:"Sort by position in parent branch"
+device-number\:"Sort by bus device number"
+no-sort\:"No sorting; whatever order it was parsed"))' \
+'--group-devices=[Group devices by value when listing]:GROUP_DEVICES:((no-group\:"No grouping"
+bus\:"Group into buses with bus info as heading - like a flat tree"))' \
+'-l[Attempt to maintain compatibility with lsusb output]' \
+'--lsusb[Attempt to maintain compatibility with lsusb output]' \
+'-t[Dump USB device hierarchy as a tree]' \
+'--tree[Dump USB device hierarchy as a tree]' \
+'*-v[Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks]' \
+'*--verbose[Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks]' \
+'--sort-buses[Sort devices by bus number]' \
+'--hide-buses[Hide empty buses; those with no devices]' \
+'--hide-hubs[Hide empty hubs; those with no devices]' \
+'--decimal[Show base16 values as base10 decimal instead]' \
+'--no-padding[Disable padding to align blocks]' \
+'--no-colour[Disable coloured output, can also use NO_COLOR environment variable]' \
+'--headings[Show block headings]' \
+'--json[Output as json format after sorting, filters and tree settings are applied]' \
+'--force-libusb[Force libusb mode on macOS rather than using system_profiler output]' \
+'*-c[Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE]' \
+'*--debug[Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE]' \
+'-h[Print help information (use `--help` for more detail)]' \
+'--help[Print help information (use `--help` for more detail)]' \
+'-V[Print version information]' \
+'--version[Print version information]' \
+&& ret=0
+}
+
+(( $+functions[_cyme_commands] )) ||
+_cyme_commands() {
+    local commands; commands=()
+    _describe -t commands 'cyme commands' commands "$@"
+}
+
+_cyme "$@"

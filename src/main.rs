@@ -1,13 +1,23 @@
 //! Where the magic happens for `cyme` binary!
-use clap::Parser;
-use colored::*;
 use std::env;
 use std::io::{Error, ErrorKind};
+use clap::Parser;
+use colored::*;
+
+#[cfg(feature = "cli_generate")]
+use clap_complete::generate_to;
+#[cfg(feature = "cli_generate")]
+use clap::CommandFactory;
+#[cfg(feature = "cli_generate")]
+use clap_complete::shells::*;
+#[cfg(feature = "cli_generate")]
+use std::fs;
+#[cfg(feature = "cli_generate")]
+use std::path::PathBuf;
 
 use cyme::display;
 use cyme::icon::IconTheme;
 use cyme::system_profiler;
-#[cfg(feature = "libusb")]
 use cyme::lsusb;
 
 #[derive(Parser, Debug)]
@@ -29,21 +39,9 @@ struct Args {
     #[arg(short, long)]
     show: Option<String>,
 
-    /// Specify the blocks which will be displayed for each device and in what order
-    #[arg(short, long, value_enum)]
-    blocks: Option<Vec<display::DeviceBlocks>>,
-
-    /// Specify the blocks which will be displayed for each bus and in what order
-    #[arg(long, value_enum)]
-    bus_blocks: Option<Vec<display::BusBlocks>>,
-
-    /// Hide empty buses; those with no devices
-    #[arg(long, default_value_t = false)]
-    hide_buses: bool,
-
-    /// Hide empty hubs; those with no devices
-    #[arg(long, default_value_t = false)]
-    hide_hubs: bool,
+    /// Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path
+    #[arg(short = 'D', long)]
+    device: Option<String>,
 
     /// Filter on string contained in name
     #[arg(long)]
@@ -53,21 +51,29 @@ struct Args {
     #[arg(long)]
     filter_serial: Option<String>,
 
-    /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints
+    /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
     verbose: u8,
 
-    /// Disable coloured output, can also use NO_COLOR environment variable
-    #[arg(short, long, default_value_t = false)]
-    no_colour: bool,
+    /// Specify the blocks which will be displayed for each device and in what order
+    #[arg(short, long, value_enum)]
+    blocks: Option<Vec<display::DeviceBlocks>>,
 
-    /// Disable padding to align blocks
-    #[arg(long, default_value_t = false)]
-    no_padding: bool,
+    /// Specify the blocks which will be displayed for each bus and in what order
+    #[arg(long, value_enum)]
+    bus_blocks: Option<Vec<display::BusBlocks>>,
 
-    /// Show base16 values as base10 decimal instead
-    #[arg(long, default_value_t = false)]
-    decimal: bool,
+    /// Specify the blocks which will be displayed for each configuration and in what order
+    #[arg(long, value_enum)]
+    config_blocks: Option<Vec<display::ConfigurationBlocks>>,
+
+    /// Specify the blocks which will be displayed for each interface and in what order
+    #[arg(long, value_enum)]
+    interface_blocks: Option<Vec<display::InterfaceBlocks>>,
+
+    /// Specify the blocks which will be displayed for each endpoint and in what order
+    #[arg(long, value_enum)]
+    endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
 
     /// Sort devices by value
     #[arg(long, value_enum)]
@@ -81,12 +87,32 @@ struct Args {
     #[arg(long, value_enum, default_value_t = Default::default())]
     group_devices: display::Group,
 
+    /// Hide empty buses; those with no devices
+    #[arg(long, default_value_t = false)]
+    hide_buses: bool,
+
+    /// Hide empty hubs; those with no devices
+    #[arg(long, default_value_t = false)]
+    hide_hubs: bool,
+
+    /// Show base16 values as base10 decimal instead
+    #[arg(long, default_value_t = false)]
+    decimal: bool,
+
+    /// Disable padding to align blocks
+    #[arg(long, default_value_t = false)]
+    no_padding: bool,
+
+    /// Disable coloured output, can also use NO_COLOR environment variable
+    #[arg(long, default_value_t = false)]
+    no_colour: bool,
+
     /// Show block headings
     #[arg(long, default_value_t = false)]
     headings: bool,
 
     /// Output as json format after sorting, filters and tree settings are applied
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, overrides_with="lsusb")]
     json: bool,
 
     /// Force libusb mode on macOS rather than using system_profiler output
@@ -94,7 +120,7 @@ struct Args {
     force_libusb: bool,
 
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
-    #[arg(short = 'D', long, action = clap::ArgAction::Count)]
+    #[arg(short = 'c', long, action = clap::ArgAction::Count)] // short -d taken by lsusb compat vid:pid
     debug: u8,
 }
 
@@ -118,27 +144,27 @@ macro_rules! wprintln {
 }
 
 /// Parse the vidpid filter lsusb format: vid:Option<pid>
-fn parse_vidpid(s: &str) -> (Option<u16>, Option<u16>) {
+fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>), Error> {
     if s.contains(":") {
         let vid_split: Vec<&str> = s.split(":").collect();
-        let vid: Option<u16> = vid_split.first().filter(|v| v.len() > 0).map_or(None, |v| {
+        let vid: Option<u16> = vid_split.first().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
             u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
                 .map(|v| Some(v as u16))
-                .unwrap_or(None)
-        });
-        let pid: Option<u16> = vid_split.last().filter(|v| v.len() > 0).map_or(None, |v| {
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+        })?;
+        let pid: Option<u16> = vid_split.last().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
             u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
                 .map(|v| Some(v as u16))
-                .unwrap_or(None)
-        });
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+        })?;
 
-        (vid, pid)
+        Ok((vid, pid))
     } else {
         let vid: Option<u16> = u32::from_str_radix(s.trim().trim_start_matches("0x"), 16)
             .map(|v| Some(v as u16))
-            .unwrap_or(None);
+            .map_err(|e| Error::new(ErrorKind::Other, e))?;
 
-        (vid, None)
+        Ok((vid, None))
     }
 }
 
@@ -146,19 +172,16 @@ fn parse_vidpid(s: &str) -> (Option<u16>, Option<u16>) {
 fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
     if s.contains(":") {
         let split: Vec<&str> = s.split(":").collect();
-        // TODO this unwrap should return as the result but I struggle with all this chaining...
-        let bus: Option<u8> = split.first().filter(|v| v.len() > 0).map_or(None, |v| {
+        let bus: Option<u8> = split.first().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
             v.parse::<u8>()
                 .map(Some)
                 .map_err(|e| Error::new(ErrorKind::Other, e))
-                .unwrap_or(None)
-        });
-        let device = split.last().filter(|v| v.len() > 0).map_or(None, |v| {
+        })?;
+        let device = split.last().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
             v.parse::<u8>()
                 .map(Some)
                 .map_err(|e| Error::new(ErrorKind::Other, e))
-                .unwrap_or(None)
-        });
+        })?;
 
         Ok((bus, device))
     } else {
@@ -173,19 +196,112 @@ fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
     }
 }
 
-/// Abort with exit code before trying to call libusb feature if not present
-fn abort_not_libusb() {
-    if !cfg!(feature = "libusb") {
-        eprintexit!(Error::new(
-            ErrorKind::Other,
-            "libusb feature is required to do this, install with `cargo install --features libusb`"
-        ));
+/// Parse devpath supplied by --device into a show format
+///
+/// Could be a regex match r"^[\/|\w+\/]+(?'bus'\d{3})\/(?'devno'\d{3})$" but this saves another crate
+fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
+    if s.contains("/") {
+        let split: Vec<&str> = s.split("/").collect();
+        // second to last
+        let bus: Option<u8> = split.get(split.len()-2).map_or(Ok(None), |v| {
+            v.parse::<u8>()
+                .map(Some)
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+        })?;
+        // last
+        let device = split.last().map_or(Ok(None), |v| {
+            v.parse::<u8>()
+                .map(Some)
+                .map_err(|e| Error::new(ErrorKind::Other, e))
+        })?;
+
+        Ok((bus, device))
+    } else {
+        Err(Error::new(ErrorKind::Other, format!("Invalid device path {}", s)))
     }
+}
+
+/// Abort with exit code before trying to call libusb feature if not present
+#[cfg(not(feature = "libusb"))]
+fn get_libusb_spusb(_args: &Args) -> system_profiler::SPUSBDataType {
+    eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+}
+
+#[cfg(feature = "libusb")]
+fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
+    lsusb::profiler::set_log_level(args.debug);
+    lsusb::profiler::get_spusb(args.verbose > 0 || args.tree || args.device.is_some()).unwrap_or_else(|e| {
+        eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to gather system USB data: {}", e)
+        ));
+    })
+}
+
+fn print_lsusb(sp_usb: &system_profiler::SPUSBDataType, device: &Option<String>, settings: &display::PrintSettings) {
+    // device specific overrides tree on lsusb
+    if settings.tree && device.is_none() { 
+        if !cfg!(target_os = "linux") {
+            log::warn!("Most of the data in a lsusb style tree is applicable to Linux only!");
+        }
+        if !cfg!(feature = "udev") {
+            log::warn!("Without udev, lsusb style tree content will not match lsusb: driver and syspath will be missing");
+        }
+        lsusb::display::print_tree(&sp_usb, &settings)
+    } else {
+        // can't print verbose if not using libusb
+        if !cfg!(feature = "libusb") && (settings.verbosity > 0 || device.is_some()) {
+            eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+        }
+        let devices = sp_usb.flatten_devices();
+        // even though we filtered using filter.show and using prepare, keep this here because it will match the exact Linux dev path and exit error if it doesn't match like lsusb
+        if let Some(dev_path) = &device {
+            lsusb::display::dump_one_device(&devices, dev_path).unwrap_or_else(|e| {
+                eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, e));
+            });
+        } else {
+            let sorted = settings.sort_devices.sort_devices_ref(&devices);
+            lsusb::display::print(&sorted, settings.verbosity > 0);
+        }
+    }
+}
+
+/// Generates extra CLI information for packaging
+#[cfg(feature = "cli_generate")]
+#[cold]
+fn print_man() -> Result<(), Error> {
+    let outdir = std::env::var_os("BUILD_SCRIPT_DIR")
+        .or_else(|| std::env::var_os("OUT_DIR"))
+            .unwrap_or_else(|| "./doc".into());
+    fs::create_dir_all(&outdir).unwrap();
+    println!("Generating CLI info to {:?}", outdir);
+
+    let mut app = Args::command();
+
+    // completions
+    let bin_name = "cyme";
+    generate_to(Bash, &mut app, bin_name, &outdir).expect("Failed to generate Bash completions");
+    generate_to(Fish, &mut app, bin_name, &outdir).expect("Failed to generate Fish completions");
+    generate_to(Zsh, &mut app, bin_name, &outdir).expect("Failed to generate Zsh completions");
+    generate_to(PowerShell, &mut app, bin_name, &outdir).expect("Failed to generate PowerShell completions");
+
+    // man page
+    let man = clap_mangen::Man::new(app);
+    let mut buffer: Vec<u8> = Default::default();
+    man.render(&mut buffer)?;
+
+    std::fs::write(PathBuf::from(outdir).join("cyme.1"), buffer)?;
+
+    Ok(())
 }
 
 fn main() {
     let mut args = Args::parse();
 
+    #[cfg(feature = "cli_generate")]
+    print_man().expect("Failed to generate extra CLI material");
+
+    // set the module debug level, will also check env if args.debug == 0
     cyme::set_log_level(args.debug).unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(
             std::io::ErrorKind::Other,
@@ -198,14 +314,11 @@ fn main() {
         env::set_var("NO_COLOR", "1");
     }
 
-    if args.json && args.lsusb {
-        eprintln!("Disabling --lsusb flag because --json flag present");
-        args.lsusb = false;
-    }
-
-    // TODO use use system_profiler but add extra from libusb for verbose
-    let mut sp_usb = if cfg!(target_os = "macos") 
+    // TODO use use system_profiler but merge with extra from libusb for verbose to retain Apple buses which libusb cannot list
+    // could run through finding nodes existing in system_profiler::get_spusb and updating with libusb::get_spusb version but means some will have extra data, some not..
+    let mut spusb = if cfg!(target_os = "macos") 
         && !args.force_libusb
+        && args.device.is_none() // device path requires extra
         && !((args.tree && args.lsusb) || args.verbose > 0) {
         system_profiler::get_spusb().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
@@ -218,40 +331,46 @@ fn main() {
             log::warn!("Forcing libusb for supplied arguments on macOS");
             args.force_libusb = true;
         }
-        abort_not_libusb();
-        // TODO this won't compile without udev due to no return with these compiled out...
-        #[cfg(feature = "libusb")]
-        lsusb::set_log_level(args.debug);
-        #[cfg(feature = "libusb")]
-        lsusb::get_spusb(args.verbose > 0 || args.tree).unwrap_or_else(|e| {
-            eprintexit!(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to gather system USB data: {}", e)
-            ));
-        })
+        get_libusb_spusb(&args)
     };
 
-    log::trace!("Returned system_profiler data\n\r{:#}", sp_usb);
+    log::trace!("Returned system_profiler data\n\r{:#}", spusb);
 
     let filter = if args.hide_hubs
         || args.vidpid.is_some()
         || args.show.is_some()
+        || args.device.is_some()
         || args.filter_name.is_some()
         || args.filter_serial.is_some()
     {
         let mut f = system_profiler::USBFilter::new();
 
         if let Some(vidpid) = &args.vidpid {
-            let (vid, pid) = parse_vidpid(&vidpid.as_str());
+            let (vid, pid) = parse_vidpid(&vidpid.as_str()).unwrap_or_else(|e| {
+                eprintexit!(Error::new(
+                    ErrorKind::Other,
+                    format!("Failed to parse vidpid '{}': {}", vidpid, e)
+                ));
+            });
             f.vid = vid;
             f.pid = pid;
         }
 
-        if let Some(show) = &args.show {
+        // decode device devpath into the show filter since that is what it essentially will do
+        if let Some(devpath) = &args.device {
+            let (bus, number) = parse_devpath(&devpath.as_str()).unwrap_or_else(|e| {
+                eprintexit!(Error::new(
+                    ErrorKind::Other,
+                    format!("Failed to parse devpath '{}', should end with 'BUS/DEVNO': {}", devpath, e)
+                ));
+            });
+            f.bus = bus;
+            f.number = number;
+        } else if let Some(show) = &args.show {
             let (bus, number) = parse_show(&show.as_str()).unwrap_or_else(|e| {
                 eprintexit!(Error::new(
                     ErrorKind::Other,
-                    format!("Failed to parse show parameter: {}", e)
+                    format!("Failed to parse show parameter '{}': {}", show, e)
                 ));
             });
             f.bus = bus;
@@ -263,15 +382,16 @@ fn main() {
         f.serial = args.filter_serial;
         f.exclude_empty_hub = args.hide_hubs;
         // exclude root hubs unless dumping a list
-        f.no_exclude_root_hub = !(args.tree || args.group_devices == display::Group::Bus);
+        f.no_exclude_root_hub = args.lsusb || !(args.tree || args.group_devices == display::Group::Bus);
 
         Some(f)
     } else {
-        // default filter with exlcude root_hubs on linux if printing tree as they are buses in system_profiler
+        // default filter with exlcude root_hubs on linux if printing new tree as they are buses in system_profiler
+        // always include if lsusb compat
         if cfg!(target_os = "linux") {
             Some(system_profiler::USBFilter {
-              no_exclude_root_hub: args.lsusb || !(args.tree || args.group_devices == display::Group::Bus),
-              ..Default::default()
+                no_exclude_root_hub: args.lsusb || !(args.tree || args.group_devices == display::Group::Bus),
+                ..Default::default()
             })
         } else {
             None
@@ -310,27 +430,58 @@ fn main() {
         json: args.json,
         headings: args.headings,
         verbosity: args.verbose,
+        device_blocks: args.blocks,
+        bus_blocks: args.bus_blocks,
+        config_blocks: args.config_blocks,
+        interface_blocks: args.interface_blocks,
+        endpoint_blocks: args.endpoint_blocks,
         icons: Some(IconTheme::new()),
         ..Default::default()
     };
 
-    display::prepare(&mut sp_usb, filter, &settings);
+    display::prepare(&mut spusb, filter, &settings);
 
     if args.lsusb {
-        if args.tree { 
-            if !cfg!(target_os = "linux") {
-                log::warn!("Most of the data in a lsusb style tree is applicable to Linux only!");
-            }
-            if !cfg!(feature = "udev") {
-                log::warn!("Without udev, lsusb style tree content will not match lsusb: driver and syspath will be missing");
-            }
-            lsusb::print_tree(&sp_usb, &settings)
-        } else {
-            let devices = sp_usb.flatten_devices();
-            let sorted = settings.sort_devices.sort_devices_ref(&devices);
-            lsusb::print(&sorted, args.verbose);
-        }
+        print_lsusb(&spusb, &args.device, &settings);
     } else {
-        display::print(&mut sp_usb, args.blocks, args.bus_blocks, &settings);
+        // check and report if was looking for args.device
+        if args.device.is_some() && !spusb.buses.iter().any(|b| b.has_devices()) {
+            eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, format!("Unable to find {:?}", args.device.unwrap())));
+        }
+        display::print(&mut spusb, &settings);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_vidpid() {
+        assert_eq!(parse_vidpid("000A:0x000b").unwrap(), (Some(0x0A), Some(0x0b)));
+        assert_eq!(parse_vidpid("000A:1").unwrap(), (Some(0x0A), Some(1)));
+        assert_eq!(parse_vidpid("000A:").unwrap(), (Some(0x0A), None));
+        assert_eq!(parse_vidpid("0x000A").unwrap(), (Some(0x0A), None));
+        assert_eq!(parse_vidpid("dfg:sdfd").is_err(), true);
+    }
+
+    #[test]
+    fn test_parse_show() {
+        assert_eq!(parse_show("1").unwrap(), (None, Some(1)));
+        assert_eq!(parse_show("1:124").unwrap(), (Some(1), Some(124)));
+        assert_eq!(parse_show("1:").unwrap(), (Some(1), None));
+        // too big
+        assert_eq!(parse_show("55233:12323").is_err(), true);
+        assert_eq!(parse_show("dfg:sdfd").is_err(), true);
+    }
+
+    #[test]
+    fn test_parse_devpath() {
+        assert_eq!(parse_devpath("/dev/bus/usb/001/003").unwrap(), (Some(1), Some(3)));
+        assert_eq!(parse_devpath("/dev/bus/usb/004/003").unwrap(), (Some(4), Some(3)));
+        assert_eq!(parse_devpath("/dev/bus/usb/004/3").unwrap(), (Some(4), Some(3)));
+        assert_eq!(parse_devpath("004/3").unwrap(), (Some(4), Some(3)));
+        assert_eq!(parse_devpath("004/").is_err(), true);
+        assert_eq!(parse_devpath("sas/ssas").is_err(), true);
     }
 }

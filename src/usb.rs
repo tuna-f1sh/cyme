@@ -143,7 +143,7 @@ impl ClassCode {
 
         // keep capitalised abbreviations
         match first.to_owned() {
-            "Cdc"|"Usb"|"I3c" => title.replace(first, &first.to_uppercase()),
+            "Cdc"|"Usb"|"I3c"|"Hid" => title.replace(first, &first.to_uppercase()),
             _ => title
         }
     }
@@ -253,6 +253,18 @@ impl From<&Speed> for NumericalUnit<f32> {
     }
 }
 
+impl Speed {
+    /// lsusb speed is always in Mb/s and shown just a M prefix
+    pub fn to_lsusb_speed(&self) -> String {
+        let dv = NumericalUnit::<f32>::from(self);
+        let prefix = dv.unit.chars().next().unwrap_or('M');
+        match prefix {
+            'G' => format!("{:.0}{}", dv.value * 1000.0, 'M'),
+            _ => format!("{:.0}{}", dv.value, prefix)
+        }
+    }
+}
+
 /// Transfer and [`USBEndpoint`] direction
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -347,10 +359,17 @@ pub struct USBEndpoint {
     pub sync_type: SyncType,
     /// Usage type (Iso mode)
     pub usage_type: UsageType,
-    /// Maximum packet size in bytes endpoint can send/recieve
+    /// Maximum packet size in bytes endpoint can send/recieve - encoded with multipler, use `max_packet_string` for packet information
     pub max_packet_size: u16,
     /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     pub interval: u8,
+}
+
+impl USBEndpoint {
+    /// Decodes the max packet value into a multipler and number of bytes
+    pub fn max_packet_string(&self) -> String {
+        format!("{}x {}", ((self.max_packet_size >> 11) & 3) + 1, self.max_packet_size & 0x7ff)
+    }
 }
 
 /// Interface within a [`USBConfiguration`]
@@ -515,4 +534,25 @@ pub fn get_trunk_path(bus: u8, ports: &Vec<u8>) -> String {
 /// ```
 pub fn get_interface_path(bus: u8, ports: &Vec<u8>, config: u8, interface: u8) -> String {
     format!("{}:{}.{}", get_port_path(bus, ports), config, interface)
+}
+
+
+/// Build replica of Linux dev path from libusb.c *devbususb for getting device with -D
+///
+/// It's /dev/bus/usb/BUS/DEVNO
+///
+/// ```
+/// use cyme::usb::get_dev_path;
+///
+/// assert_eq!(get_dev_path(1, &vec![1, 3]), String::from("/dev/bus/usb/001/003"));
+/// assert_eq!(get_dev_path(1, &vec![2]), String::from("/dev/bus/usb/001/002"));
+/// // bus
+/// assert_eq!(get_dev_path(1, &vec![]), String::from("/dev/bus/usb/001/001"));
+/// ```
+pub fn get_dev_path(bus: u8, ports: &Vec<u8>) -> String {
+    if ports.len() == 0 {
+        format!("/dev/bus/usb/{:03}/001", bus)
+    } else {
+        format!("/dev/bus/usb/{:03}/{:03}", bus, ports.last().unwrap())
+    }
 }

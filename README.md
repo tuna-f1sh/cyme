@@ -17,7 +17,7 @@ The project started as a quick replacement for the barely working [lsusb script]
 
 The name comes from the technical term for the type of blossom on a Apple tree: [cyme](https://en.wikipedia.org/wiki/Inflorescence#Determinate_or_cymose) - it is Apple related and also looks like a USB device tree 😃🌸.
 
-![cli tree output](./img/cli-tree.png)
+![cli tree output](./doc/cli-tree.png)
 
 # Features
 
@@ -39,6 +39,9 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 - [x] Interface and Device Descriptor icon look up.
 - [x] Drawing of headers.
 - [x] Tree support of all device interfaces and endpoints.
+- [x] --device devpath arg to dump single device.
+- [ ] Merge of macOS `system_profiler` output with libusb output to keep special Apple buses.
+- [ ] Integration tests for lsusb output and new output.
 - [ ] User defined icon map and colour import.
 
 # Install

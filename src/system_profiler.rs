@@ -14,7 +14,7 @@ use crate::types::NumericalUnit;
 use crate::usb::get_interface_path;
 use crate::usb::get_parent_path;
 use crate::usb::get_trunk_path;
-use crate::usb::{get_port_path, ClassCode, Speed, USBDeviceExtra};
+use crate::usb::{get_port_path, get_dev_path, ClassCode, Speed, USBDeviceExtra};
 
 /// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
 /// Deserializes an option number from string or a number.
@@ -271,12 +271,7 @@ impl USBBus {
             let speed = match &root_device.device_speed {
                 Some(v) => match v {
                     DeviceSpeed::SpeedValue(v) => {
-                        let dv = NumericalUnit::<f32>::from(v);
-                        let prefix = dv.unit.chars().next().unwrap_or('M');
-                        match prefix {
-                            'G' => format!("{:.0}{}", dv.value * 1000.0, 'M'),
-                            _ => format!("{:.0}{}", dv.value, prefix)
-                        }
+                        v.to_lsusb_speed()
                     }
                     DeviceSpeed::Description(_) => String::new()
                 }
@@ -304,9 +299,9 @@ impl USBBus {
                     product,
                 ),
                 format!(
-                    "/sys/bus/usb/devices/usb{} /dev/bus/usb/{:03}/001",
+                    "/sys/bus/usb/devices/usb{} {}",
                     self.get_bus_number(),
-                    self.get_bus_number(),
+                    get_dev_path(self.get_bus_number(), &Vec::new())
                 )
             )])
         } else {
@@ -324,9 +319,9 @@ impl USBBus {
                     self.name,
                 ),
                 format!(
-                    "/sys/bus/usb/devices/usb{} /dev/bus/usb/{:03}/001",
+                    "/sys/bus/usb/devices/usb{} {}",
                     self.get_bus_number(),
-                    self.get_bus_number(),
+                    get_dev_path(self.get_bus_number(), &Vec::new())
                 )
             )])
         }
@@ -764,6 +759,11 @@ impl USBDevice {
         self.location_id.trunk_path()
     }
 
+    /// Linux devpath to [`USBDevice`]
+    pub fn dev_path(&self) -> String {
+        get_dev_path(self.location_id.bus, &self.location_id.tree_positions)
+    }
+
     /// Trunk device is first in tree
     pub fn is_trunk_device(&self) -> bool {
         self.location_id.tree_positions.len() == 1
@@ -792,9 +792,7 @@ impl USBDevice {
         let speed = match &self.device_speed {
             Some(v) => match v {
                 DeviceSpeed::SpeedValue(v) => {
-                    let dv = NumericalUnit::<f32>::from(v);
-                    // lsusb actually shows all in M but it think we can let that slide
-                    format!("{:.0}{}", dv.value, dv.unit.chars().next().unwrap())
+                    v.to_lsusb_speed()
                 }
                 DeviceSpeed::Description(_) => String::new()
             }
@@ -828,12 +826,10 @@ impl USBDevice {
                             product,
                         ),
                         format!(
-                            "{}/{} /dev/bus/usb/{:03}/{:03}",
+                            "{}/{} {}",
                             "/sys/bus/usb/devices",
                             interface.path,
-                            // interface.syspath.as_ref().unwrap_or(&String::new()),
-                            self.location_id.bus,
-                            self.get_depth(),
+                            get_dev_path(self.location_id.bus, &self.location_id.tree_positions)
                         ))
                     );
                 }
@@ -859,12 +855,10 @@ impl USBDevice {
                     self.name,
                 ),
                 format!(
-                    "{}/{} /dev/bus/usb/{:03}/{:03}",
+                    "{}/{} {}",
                     "/sys/bus/usb/devices",
                     self.port_path(),
-                    // syspath,
-                    self.location_id.bus,
-                    self.get_depth(),
+                    get_dev_path(self.location_id.bus, &self.location_id.tree_positions)
                 ))
             );
         }
