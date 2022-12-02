@@ -1,4 +1,6 @@
 //! Where the magic happens for `cyme` binary!
+use std::fs;
+use std::io::Read;
 use std::env;
 use std::io::{Error, ErrorKind};
 use clap::Parser;
@@ -11,7 +13,6 @@ use clap::CommandFactory;
 #[cfg(feature = "cli_generate")]
 use clap_complete::shells::*;
 #[cfg(feature = "cli_generate")]
-use std::fs;
 #[cfg(feature = "cli_generate")]
 use std::path::PathBuf;
 
@@ -112,9 +113,13 @@ struct Args {
     #[arg(long, default_value_t = false)]
     headings: bool,
 
-    /// Output as json format after sorting, filters and tree settings are applied
+    /// Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices
     #[arg(long, default_value_t = false, overrides_with="lsusb")]
     json: bool,
+
+    /// Read from json output rather than profiling system - must use --tree json dump
+    #[arg(long)]
+    from_json: Option<String>,
 
     /// Force libusb mode on macOS rather than using system_profiler output
     #[arg(long, default_value_t = false)]
@@ -238,7 +243,7 @@ fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
     lsusb::profiler::get_spusb(args.verbose > 0 || args.tree || args.device.is_some()).unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Failed to gather system USB data: {}", e)
+                format!("Failed to gather system USB data: Error({})", e)
         ));
     })
 }
@@ -300,6 +305,21 @@ fn print_man() -> Result<(), Error> {
     Ok(())
 }
 
+/// Reads a json dump with serde deserializer
+///
+/// Must be a full tree including buses
+fn read_json_dump(file_path: &str) -> Result<system_profiler::SPUSBDataType, Error> {
+    let mut file = fs::File::options().read(true).open(file_path)?;
+
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
+
+    let json_dump: system_profiler::SPUSBDataType =
+        serde_json::from_str(&data).map_err(|e| Error::new(ErrorKind::Other, e))?;
+
+    Ok(json_dump)
+}
+
 fn main() {
     let mut args = Args::parse();
 
@@ -313,7 +333,7 @@ fn main() {
     cyme::set_log_level(args.debug).unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(
             std::io::ErrorKind::Other,
-            format!("Failed to configure logging: {}", e)
+            format!("Failed to configure logging: Error({})", e)
         ));
     });
 
@@ -327,14 +347,21 @@ fn main() {
 
     // TODO use use system_profiler but merge with extra from libusb for verbose to retain Apple buses which libusb cannot list
     // could run through finding nodes existing in system_profiler::get_spusb and updating with libusb::get_spusb version but means some will have extra data, some not..
-    let mut spusb = if cfg!(target_os = "macos") 
+    let mut spusb = if let Some(file_path) = args.from_json {
+        read_json_dump(&file_path.as_str()).unwrap_or_else(|e| {
+            eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to parse system_profiler dump: Error({})", e)
+            ));
+        })
+    } else if cfg!(target_os = "macos") 
         && !args.force_libusb
         && args.device.is_none() // device path requires extra
         && !((args.tree && args.lsusb) || args.verbose > 0) {
         system_profiler::get_spusb().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Failed to parse system_profiler output: {}", e)
+                format!("Failed to parse system_profiler output: Error({})", e)
             ));
         })
     } else {
@@ -345,7 +372,7 @@ fn main() {
         get_libusb_spusb(&args)
     };
 
-    log::trace!("Returned system_profiler data\n\r{:#}", spusb);
+    log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
 
     let filter = if args.hide_hubs
         || args.vidpid.is_some()
@@ -360,7 +387,7 @@ fn main() {
             let (vid, pid) = parse_vidpid(&vidpid.as_str()).unwrap_or_else(|e| {
                 eprintexit!(Error::new(
                     ErrorKind::Other,
-                    format!("Failed to parse vidpid '{}': {}", vidpid, e)
+                    format!("Failed to parse vidpid '{}': Error({})", vidpid, e)
                 ));
             });
             f.vid = vid;
@@ -372,7 +399,7 @@ fn main() {
             let (bus, number) = parse_devpath(&devpath.as_str()).unwrap_or_else(|e| {
                 eprintexit!(Error::new(
                     ErrorKind::Other,
-                    format!("Failed to parse devpath '{}', should end with 'BUS/DEVNO': {}", devpath, e)
+                    format!("Failed to parse devpath '{}', should end with 'BUS/DEVNO': Error({})", devpath, e)
                 ));
             });
             f.bus = bus;
@@ -381,7 +408,7 @@ fn main() {
             let (bus, number) = parse_show(&show.as_str()).unwrap_or_else(|e| {
                 eprintexit!(Error::new(
                     ErrorKind::Other,
-                    format!("Failed to parse show parameter '{}': {}", show, e)
+                    format!("Failed to parse show parameter '{}': Error({})", show, e)
                 ));
             });
             f.bus = bus;
@@ -392,8 +419,8 @@ fn main() {
         f.name = args.filter_name;
         f.serial = args.filter_serial;
         f.exclude_empty_hub = args.hide_hubs;
-        // exclude root hubs unless dumping a list
-        f.no_exclude_root_hub = args.lsusb || !(args.tree || args.group_devices == display::Group::Bus);
+        // exclude root hubs unless dumping a list or json
+        f.no_exclude_root_hub = args.lsusb || args.json || !(args.tree || args.group_devices == display::Group::Bus);
 
         Some(f)
     } else {
@@ -401,7 +428,7 @@ fn main() {
         // always include if lsusb compat
         if cfg!(target_os = "linux") {
             Some(system_profiler::USBFilter {
-                no_exclude_root_hub: args.lsusb || !(args.tree || args.group_devices == display::Group::Bus),
+                no_exclude_root_hub: args.lsusb || args.json || !(args.tree || args.group_devices == display::Group::Bus),
                 ..Default::default()
             })
         } else {

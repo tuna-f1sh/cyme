@@ -33,18 +33,6 @@ impl ConfigAttributes {
         let vec: Vec<String> = attributes.iter().map(|a| a.to_string()).collect();
         vec.join(";")
     }
-
-    /// Converts a HashSet of [`ConfigAttributes`] a String of nerd icons
-    pub fn attributes_to_icons(attributes: &HashSet<ConfigAttributes>) -> String {
-        let mut icon_strs = Vec::new();
-        if attributes.contains(&ConfigAttributes::SelfPowered) {
-               icon_strs.push("\u{fba4}"); // ﮤ
-        }
-        if attributes.contains(&ConfigAttributes::RemoteWakeup) {
-               icon_strs.push("\u{f654}"); // 
-        }
-        icon_strs.join(" ")
-    }
 }
 
 /// Explains how the `ClassCode` is used
@@ -187,11 +175,11 @@ impl FromStr for Speed {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "super_speed_plus" => Speed::SuperSpeedPlus,
-            "super_speed" => Speed::SuperSpeed,
-            "high_speed" | "high_bandwidth" => Speed::HighSpeed,
-            "full_speed" => Speed::FullSpeed,
-            "low_speed" => Speed::LowSpeed,
+            "10.0 Gb/s"|"super_speed_plus" => Speed::SuperSpeedPlus,
+            "5.0 Gb/s"|"super_speed" => Speed::SuperSpeed,
+            "480.0 Mb/s"|"high_speed" | "high_bandwidth" => Speed::HighSpeed,
+            "12.0 Mb/s"|"full_speed" => Speed::FullSpeed,
+            "1.5 Mb/s"|"low_speed" => Speed::LowSpeed,
             _ => Speed::Unknown,
         })
     }
@@ -390,7 +378,7 @@ pub struct USBInterface {
     /// Name from descriptor
     pub name: String,
     /// Index of name string in descriptor - only useful for lsusb verbose print
-    #[serde(skip_serializing)]
+    #[serde(default)]
     pub string_index: u8,
     /// Interface number
     pub number: u8,
@@ -425,7 +413,7 @@ pub struct USBConfiguration {
     /// Name from string descriptor
     pub name: String,
     /// Index of name string in descriptor - only useful for lsusb verbose print
-    #[serde(skip_serializing)]
+    #[serde(default)]
     pub string_index: u8,
     /// Number of config, bConfigurationValue; value to set to enable to configuration
     pub number: u8,
@@ -441,11 +429,6 @@ impl USBConfiguration {
     /// Converts attributes into a ';' separated String
     pub fn attributes_string(&self) -> String {
         ConfigAttributes::attributes_to_string(&self.attributes)
-    }
-
-    /// Converts attributes into nerd font icons
-    pub fn attributes_icons(&self) -> String {
-        ConfigAttributes::attributes_to_icons(&self.attributes)
     }
 
     /// Convert attibutes back to reg value
@@ -477,7 +460,7 @@ pub struct USBDeviceExtra {
     /// Product name from usb_ids VIDPID lookup
     pub product_name: Option<String>,
     /// Tuple of indexes to strings (iProduct, iManufacturer, iSerialNumber) - only useful for the lsbusb verbose print
-    #[serde(skip_serializing)]
+    #[serde(default)]
     pub string_indexes: (u8, u8, u8),
     /// USB devices can be have a number of configurations
     pub configurations: Vec<USBConfiguration>,

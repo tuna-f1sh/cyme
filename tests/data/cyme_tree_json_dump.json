@@ -238,7 +238,7 @@
                   "bcd_device": 0.01,
                   "bcd_usb": 2.01,
                   "device_speed": "480.0 Mb/s",
-                  "class": "application-specific",
+                  "class": "application-specific-interface",
                   "sub_class": 0,
                   "protocol": 0
                 }

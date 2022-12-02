@@ -1,7 +1,7 @@
 //! Provides the main utilities to display USB types within this crate - primarily used by `cyme` binary.
 //!
 //! TODO: There is some repeat code that could probably be made into functions/generics
-use std::collections::HashMap;
+use std::collections::{HashSet, HashMap};
 use std::cmp;
 use clap::ValueEnum;
 use colored::*;
@@ -12,7 +12,7 @@ use crate::icon;
 use crate::colour;
 use crate::system_profiler;
 use crate::system_profiler::{USBBus, USBDevice};
-use crate::usb::{USBConfiguration, USBInterface, USBEndpoint};
+use crate::usb::{USBConfiguration, USBInterface, USBEndpoint, ConfigAttributes};
 
 const MAX_VERBOSITY: u8 = 4;
 const ICON_HEADING: &'static str = "\u{f2b4}";
@@ -552,7 +552,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         &self,
         config: &USBConfiguration,
         pad: &HashMap<Self, usize>,
-        _settings: &PrintSettings,
+        settings: &PrintSettings,
     ) -> Option<String> {
         match self {
             ConfigurationBlocks::Number => Some(format!("{:2}", config.number)),
@@ -560,7 +560,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             ConfigurationBlocks::Name => Some(format!("{:pad$}", config.name, pad = pad.get(self).unwrap_or(&0))),
             ConfigurationBlocks::MaxPower => Some(format!("{:3}", config.max_power)),
             ConfigurationBlocks::Attributes => Some(format!("{:pad$}", config.attributes_string(), pad = pad.get(self).unwrap_or(&0))),
-            ConfigurationBlocks::IconAttributes => Some(format!("{:pad$}", config.attributes_icons(), pad = pad.get(self).unwrap_or(&0))),
+            ConfigurationBlocks::IconAttributes => Some(format!("{:pad$}", attributes_to_icons(&config.attributes, settings), pad = pad.get(self).unwrap_or(&3))),
             // _ => None,
         }
     }
@@ -824,6 +824,20 @@ pub struct PrintSettings {
     pub icons: Option<icon::IconTheme>,
     /// [`ColourTheme`] to apply - None to not colour
     pub colours: Option<colour::ColourTheme>,
+}
+
+/// Converts a HashSet of [`ConfigAttributes`] a String of nerd icons
+fn attributes_to_icons(attributes: &HashSet<ConfigAttributes>, settings: &PrintSettings) -> String {
+    let mut icon_strs = Vec::new();
+    if settings.icons.is_some() {
+        if attributes.contains(&ConfigAttributes::SelfPowered) {
+            icon_strs.push("\u{fba4}"); // ﮤ
+        }
+        if attributes.contains(&ConfigAttributes::RemoteWakeup) {
+            icon_strs.push("\u{f654}"); // 
+        }
+    }
+    icon_strs.join(" ")
 }
 
 /// Formats each [`Block`] value shown from a device `d`

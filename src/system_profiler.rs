@@ -6,7 +6,7 @@ use std::io;
 use std::process::Command;
 use std::str::FromStr;
 use colored::*;
-use serde::de::{self, Visitor};
+use serde::de::{self, Visitor, SeqAccess, MapAccess};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 
@@ -69,7 +69,7 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SPUSBDataType {
     /// system buses
-    #[serde(rename(deserialize = "SPUSBDataType"))]
+    #[serde(rename(deserialize = "SPUSBDataType"), alias = "buses")]
     pub buses: Vec<USBBus>,
 }
 
@@ -122,7 +122,7 @@ impl fmt::Display for SPUSBDataType {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct USBBus {
     /// Bus name or product name
-    #[serde(rename(deserialize = "_name"))]
+    #[serde(rename(deserialize = "_name"), alias = "name")]
     pub name: String,
     /// Host Controller on macOS, vendor put here when using libusb
     pub host_controller: String,
@@ -139,7 +139,7 @@ pub struct USBBus {
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub usb_bus_number: Option<u8>,
     /// `USBDevices` on the `USBBus`. Since a device can have devices too, need to walk all down all
-    #[serde(rename(deserialize = "_items"))]
+    #[serde(rename(deserialize = "_items"), alias = "devices")]
     pub devices: Option<Vec<USBDevice>>,
 }
 
@@ -203,6 +203,11 @@ impl USBBus {
     /// sysfs style path to bus interface
     pub fn interface(&self) -> String {
         get_interface_path(self.get_bus_number(), &Vec::new(), 1, 0)
+    }
+
+    /// Remove the root_hub if existing in bus
+    pub fn remove_root_hub_device(&mut self) -> () {
+        self.devices.as_mut().map_or((), |devs| devs.retain(|d| !d.is_root_hub()));
     }
 
     /// Gets the device that is the root_hub associated with this bus - Linux only
@@ -492,13 +497,65 @@ impl<'de> Deserialize<'de> for DeviceLocation {
     where
         D: Deserializer<'de>,
     {
+
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "snake_case")]
+        enum Field { Bus, Number, TreePositions }
         struct DeviceLocationVisitor;
 
         impl<'de> Visitor<'de> for DeviceLocationVisitor {
             type Value = DeviceLocation;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a string representation of speed")
+                formatter.write_str("a string with 0xLOCATION_REG/DEVICE_NO")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<DeviceLocation, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let bus = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let tree_positions = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let number = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(2, &self))?;
+                Ok(DeviceLocation{ bus, number, tree_positions })
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<DeviceLocation, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut bus = None;
+                let mut number = None;
+                let mut tree_positions = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Bus => {
+                            if bus.is_some() {
+                                return Err(de::Error::duplicate_field("bus"));
+                            }
+                            bus = Some(map.next_value()?);
+                        }
+                        Field::Number => {
+                            if number.is_some() {
+                                return Err(de::Error::duplicate_field("number"));
+                            }
+                            number = Some(map.next_value()?);
+                        }
+                        Field::TreePositions => {
+                            if tree_positions.is_some() {
+                                return Err(de::Error::duplicate_field("tree_positions"));
+                            }
+                            tree_positions = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let bus = bus.ok_or_else(|| de::Error::missing_field("bus"))?;
+                let number = number.ok_or_else(|| de::Error::missing_field("number"))?;
+                let tree_positions = tree_positions.ok_or_else(|| de::Error::missing_field("tree_positions"))?;
+                Ok(DeviceLocation{ bus, number, tree_positions })
             }
 
             fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
@@ -571,7 +628,7 @@ impl FromStr for DeviceSpeed {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct USBDevice {
     /// The device product name as reported in descriptor or using usb_ids if None
-    #[serde(rename(deserialize = "_name"))]
+    #[serde(rename(deserialize = "_name"), alias = "name")]
     pub name: String,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     /// Unique vendor identifier - purchased from USB IF
@@ -603,20 +660,17 @@ pub struct USBDevice {
     /// macOS system_profiler only - actually bus current used in mA not power!
     pub extra_current_used: Option<u8>,
     /// Devices can be hub and have devices attached so need to walk each device's devices...
-    #[serde(rename(deserialize = "_items"))]
+    #[serde(rename(deserialize = "_items"), alias = "devices")]
     pub devices: Option<Vec<USBDevice>>,
     // below are not in macOS system profiler but useful enough to have outside of extra
     /// USB device class
-    #[serde(skip_deserializing)]
     pub class: Option<ClassCode>,
     /// USB sub-class
-    #[serde(skip_deserializing)]
     pub sub_class: Option<u8>,
     /// USB protocol
-    #[serde(skip_deserializing)]
     pub protocol: Option<u8>,
     /// Extra data obtained by libusb/udev exploration
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     pub extra: Option<USBDeviceExtra>,
 }
 
@@ -970,7 +1024,7 @@ impl USBFilter {
                     .map_or(false, |s| s.contains(n.as_str()))
             }))
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
-            && (!device.is_root_hub() || self.no_exclude_root_hub)
+            // && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
     /// Recursively retain only `USBBus` in `buses` with `USBDevice` matching filter

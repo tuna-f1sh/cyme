@@ -553,7 +553,7 @@
                         "name": "Black Magic DFU",
                         "number": 4,
                         "path": "2-2.4:1.4",
-                        "class": "application-specific",
+                        "class": "application-specific-interface",
                         "sub_class": 1,
                         "protocol": 1,
                         "alt_setting": 0,
