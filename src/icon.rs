@@ -176,16 +176,16 @@ impl IconTheme {
     }
 
     /// Get tree building icon checks `Self` for user `tree` and tries to find `icon` there, otherwise uses `DEFAULT_TREE`
-    pub fn get_tree_icon(&self, icon: Icon) -> String {
+    pub fn get_tree_icon(&self, icon: &Icon) -> String {
         // unwrap on DEFAULT_TREE is ok here since should panic if missing from static list
         if let Some(user_tree) = self.tree.as_ref() {
             user_tree
-                .get(&icon)
-                .unwrap_or(&DEFAULT_TREE.get(&icon).unwrap().to_string())
+                .get(icon)
+                .unwrap_or(&DEFAULT_TREE.get(icon).unwrap().to_string())
                 .to_string()
                 .to_owned()
         } else {
-            get_default_tree_icon(icon)
+            get_default_tree_icon(&icon)
         }
     }
 
@@ -286,8 +286,8 @@ impl IconTheme {
 }
 
 /// Gets tree icon from `DEFAULT_TREE` as `String` with `unwrap` because should panic if missing from there
-pub fn get_default_tree_icon(i: Icon) -> String {
-    DEFAULT_TREE.get(&i).unwrap().to_string()
+pub fn get_default_tree_icon(i: &Icon) -> String {
+    DEFAULT_TREE.get(i).unwrap().to_string()
 }
 
 #[cfg(test)]

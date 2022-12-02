@@ -27,6 +27,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 * Modern terminal features with coloured output, utf-8 characters and icons. Can be turned off and customised.
 * Can be used as a library too with `system_profiler` parsing module, `lsusb` module using libusb and `display` module for printing amoungst others.
 * `--json` output that honours filters and `--tree`.
+* Targets for Linux, macOS, perhaps Windows...
 
 ## Planned Features for 1.0.0 Release
 

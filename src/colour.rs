@@ -168,8 +168,8 @@ impl ColourTheme {
             tree_bus_terminator: Some(Color::BrightBlack),
             tree_configuration_terminator: Some(Color::BrightBlack),
             tree_interface_terminator: Some(Color::BrightBlack),
-            tree_endpoint_in: Some(Color::Blue),
-            tree_endpoint_out: Some(Color::Green),
+            tree_endpoint_in: Some(Color::Yellow),
+            tree_endpoint_out: Some(Color::Magenta),
         }
     }
 }
