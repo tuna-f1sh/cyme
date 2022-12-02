@@ -9,7 +9,8 @@ o---/
 ```
 # Cyme
 
-[![Crates.io](https://img.shields.io/crates/v/cyme)](https://crates.io/crates/cyme)
+[![Crates.io](https://img.shields.io/crates/v/cyme?style=flat-square)](https://crates.io/crates/cyme)
+[![docs.rs](https://img.shields.io/docsrs/cyme?style=flat-square)](https://docs.rs/cyme/latest/cyme/)
 
 List system USB buses and devices; a modern `lsusb` that attempts to maintain compatibility with, but also add new features. Includes a macOS `system_profiler SPUSBDataType` parser module and libusb tool for non-macOS systems/gathering more verbose information.
 
@@ -73,3 +74,5 @@ If one wishes to create a macOS version of lsusb or just use this instead, creat
 # Usage
 
 Will cover this more as it develops. Use `cyme --help` for basic usage or `man ./doc/cyme.1`.
+
+For usage as a library, the crate is 100% documented so look at [docs.rs](https://docs.rs/cyme/latest/cyme/)
