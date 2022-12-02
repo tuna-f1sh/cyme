@@ -259,7 +259,7 @@ impl USBBus {
     /// Generate a String from self like lsusb default list device
     pub fn to_lsusb_string(&self) -> String {
         format!(
-            "Bus {:03} Device 000: ID {:04x}:{:04x} {:} {:}",
+            "Bus {:03} Device 000: ID {:04x}:{:04x} {} {}",
             self.get_bus_number(),
             self.pci_vendor.unwrap_or(0xffff),
             self.pci_device.unwrap_or(0xffff),
@@ -304,9 +304,9 @@ impl USBBus {
                     product,
                 ),
                 format!(
-                    "/sys/bus/usb/devices/usb{} {}",
+                    "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number(),
-                    get_dev_path(self.get_bus_number(), &Vec::new())
+                    get_dev_path(self.get_bus_number(), None)
                 )
             )])
         } else {
@@ -324,9 +324,9 @@ impl USBBus {
                     self.name,
                 ),
                 format!(
-                    "/sys/bus/usb/devices/usb{} {}",
+                    "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number(),
-                    get_dev_path(self.get_bus_number(), &Vec::new())
+                    get_dev_path(self.get_bus_number(), None)
                 )
             )])
         }
@@ -815,7 +815,7 @@ impl USBDevice {
 
     /// Linux devpath to [`USBDevice`]
     pub fn dev_path(&self) -> String {
-        get_dev_path(self.location_id.bus, &self.location_id.tree_positions)
+        get_dev_path(self.location_id.bus, Some(self.location_id.number))
     }
 
     /// Trunk device is first in tree
@@ -828,14 +828,24 @@ impl USBDevice {
         self.location_id.tree_positions.len() == 0
     }
 
+    /// From lsusb.c: Attempt to get friendly vendor and product names from the udev hwdb. If either or both are not present, instead populate those from the device's own string descriptors
+    pub fn get_vendor_product_with_fallback(&self) -> (String, String) {
+        match &self.extra {
+            Some(v) => (v.vendor.to_owned().unwrap_or(self.manufacturer.as_ref().unwrap_or(&String::new()).to_owned()), v.product_name.to_owned().unwrap_or(self.name.trim().to_string())),
+            None => (self.manufacturer.as_ref().unwrap_or(&String::new()).to_owned(), self.name.trim().to_string())
+        }
+    }
+
     /// Generate a String from self like lsusb default list device
     pub fn to_lsusb_string(&self) -> String {
-        format!("Bus {:03} Device {:03}: ID {:04x}:{:04x} {}",
+        let (vendor, product) = self.get_vendor_product_with_fallback();
+        format!("Bus {:03} Device {:03}: ID {:04x}:{:04x} {} {}",
             self.location_id.bus,
             self.location_id.number,
             self.vendor_id.unwrap_or(0xffff),
             self.product_id.unwrap_or(0xffff),
-            self.name.trim(),
+            vendor,
+            product,
         )
     }
 
@@ -864,7 +874,7 @@ impl USBDevice {
                 for interface in &config.interfaces {
                     format_strs.push((
                         format!(
-                            "Port {:}: Dev {:}, If {}, Class={:?}, Driver={}, {}",
+                            "Port {:}: Dev {:}, If {}, Class={}, Driver={}, {}",
                             self.get_branch_position(),
                             self.location_id.number,
                             interface.number,
@@ -880,10 +890,10 @@ impl USBDevice {
                             product,
                         ),
                         format!(
-                            "{}/{} {}",
+                            "{}/{}  {}",
                             "/sys/bus/usb/devices",
-                            interface.path,
-                            get_dev_path(self.location_id.bus, &self.location_id.tree_positions)
+                            self.port_path(),
+                            self.dev_path(),
                         ))
                     );
                 }
@@ -892,7 +902,7 @@ impl USBDevice {
             log::warn!("Rendering {} lsusb tree without extra data because it is missing. No configurations or interfaces will be shown", self);
             format_strs.push((
                 format!(
-                    "Port {:}: Dev {:}, If {}, Class={:?}, Driver={}, {}",
+                    "Port {:}: Dev {:}, If {}, Class={}, Driver={}, {}",
                     self.get_branch_position(),
                     self.location_id.number,
                     0,
@@ -909,10 +919,10 @@ impl USBDevice {
                     self.name,
                 ),
                 format!(
-                    "{}/{} {}",
+                    "{}/{}  {}",
                     "/sys/bus/usb/devices",
                     self.port_path(),
-                    get_dev_path(self.location_id.bus, &self.location_id.tree_positions)
+                    self.dev_path(),
                 ))
             );
         }

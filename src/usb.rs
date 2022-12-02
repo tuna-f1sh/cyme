@@ -74,12 +74,17 @@ pub enum ClassCode {
     WirelessController,
     Miscellaneous,
     ApplicationSpecificInterface,
-    VendorSpecific,
+    VendorSpecificClass,
 }
 
 impl fmt::Display for ClassCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        // lsusb is explicit for some
+        match self {
+            ClassCode::HID => write!(f, "Human Interface Device"),
+            ClassCode::CDCCommunications => write!(f, "Communications"),
+            _ => write!(f, "{:?}", self)
+        }
     }
 }
 
@@ -108,7 +113,7 @@ impl From<u8> for ClassCode {
             0xe0 => ClassCode::WirelessController,
             0xef => ClassCode::Miscellaneous,
             0xfe => ClassCode::ApplicationSpecificInterface,
-            0xff => ClassCode::VendorSpecific,
+            0xff => ClassCode::VendorSpecificClass,
             _ => ClassCode::UseInterfaceDescriptor,
         }
     }
@@ -124,7 +129,7 @@ impl ClassCode {
             ClassCode::CDCCommunications
             | ClassCode::Diagnostic
             | ClassCode::Miscellaneous
-            | ClassCode::VendorSpecific => DescriptorUsage::Both,
+            | ClassCode::VendorSpecificClass => DescriptorUsage::Both,
             _ => DescriptorUsage::Interface,
         }
     }
@@ -541,18 +546,20 @@ pub fn get_interface_path(bus: u8, ports: &Vec<u8>, config: u8, interface: u8) -
 ///
 /// It's /dev/bus/usb/BUS/DEVNO
 ///
+/// Supply `device_no` as None for bus
+///
 /// ```
 /// use cyme::usb::get_dev_path;
 ///
-/// assert_eq!(get_dev_path(1, &vec![1, 3]), String::from("/dev/bus/usb/001/003"));
-/// assert_eq!(get_dev_path(1, &vec![2]), String::from("/dev/bus/usb/001/002"));
-/// // bus
-/// assert_eq!(get_dev_path(1, &vec![]), String::from("/dev/bus/usb/001/001"));
+/// assert_eq!(get_dev_path(1, Some(3)), String::from("/dev/bus/usb/001/003"));
+/// assert_eq!(get_dev_path(1, Some(2)), String::from("/dev/bus/usb/001/002"));
+/// // special case for bus
+/// assert_eq!(get_dev_path(1, None), String::from("/dev/bus/usb/001/001"));
 /// ```
-pub fn get_dev_path(bus: u8, ports: &Vec<u8>) -> String {
-    if ports.len() == 0 {
-        format!("/dev/bus/usb/{:03}/001", bus)
+pub fn get_dev_path(bus: u8, device_no: Option<u8>) -> String {
+    if let Some(devno) = device_no {
+        format!("/dev/bus/usb/{:03}/{:03}", bus, devno)
     } else {
-        format!("/dev/bus/usb/{:03}/{:03}", bus, ports.last().unwrap())
+        format!("/dev/bus/usb/{:03}/001", bus)
     }
 }

@@ -1,9 +1,9 @@
 Bus 001 Device 003: ID 203a:fffa PARALLELS Virtual Printer (/Users/john/Parallels/Arch.pvm/parallel.txt)
 Bus 001 Device 002: ID 203a:fffc PARALLELS Virtual Mouse
 Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
-Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
-Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
-Bus 002 Device 004: ID 1366:1050 SEGGER J-Link
-Bus 002 Device 003: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
-Bus 002 Device 002: ID 203a:fffe PARALLELS Virtual USB1.1 HUB
+Bus 002 Device 022: ID 203a:fffe PARALLELS Virtual USB1.1 HUB
+Bus 002 Device 024: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
+Bus 002 Device 023: ID 1366:1050 SEGGER J-Link
 Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub

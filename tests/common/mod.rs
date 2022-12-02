@@ -5,7 +5,7 @@ use std::io::{BufReader, Read};
 use std::env;
 #[cfg(windows)]
 use std::os::windows;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process;
 use std::env::temp_dir;
 
@@ -62,6 +62,8 @@ pub struct TestEnv {
     cyme_exe: PathBuf,
     /// Normalize each line by sorting the whitespace-separated words
     normalize_line: bool,
+    /// Strip whitespace at start
+    strip_start: bool,
 }
 
 /// Find the *cyme* executable.
@@ -116,18 +118,18 @@ fn format_output_error(args: &[&str], expected: &str, actual: &str) -> String {
 /// Normalize the output for comparison.
 fn normalize_output(s: &str, trim_start: bool, normalize_line: bool) -> String {
     // Split into lines and normalize separators.
+    // TODO strip regex matches
     let mut lines = s
         .replace('\0', "NULL\n")
         .lines()
         .map(|line| {
             let line = if trim_start { line.trim_start() } else { line };
-            let line = line.replace('/', &std::path::MAIN_SEPARATOR.to_string());
             if normalize_line {
                 let mut words: Vec<_> = line.split_whitespace().collect();
                 words.sort_unstable();
                 return words.join(" ");
             }
-            line
+            line.to_string()
         })
         .collect::<Vec<_>>();
 
@@ -155,14 +157,16 @@ impl TestEnv {
             temp_dir,
             cyme_exe,
             normalize_line: false,
+            strip_start: false,
         }
     }
 
-    pub fn normalize_line(self, normalize: bool) -> TestEnv {
+    pub fn normalize_line(self, normalize: bool, strip_start: bool) -> TestEnv {
         TestEnv {
             temp_dir: self.temp_dir,
             cyme_exe: self.cyme_exe,
             normalize_line: normalize,
+            strip_start,
         }
     }
 
@@ -181,6 +185,7 @@ impl TestEnv {
     ) -> process::Output {
         // Setup *cyme* command.
         let mut cmd = process::Command::new(&self.cyme_exe);
+        // cmd.current_dir(&self.temp_dir);
         if let Some(dump) = dump_file {
             cmd.arg("--from-json").arg(dump).args(args);
         } else {
@@ -206,74 +211,72 @@ impl TestEnv {
         let output = self.assert_success_and_get_output(dump_file, args);
         normalize_output(
             &String::from_utf8_lossy(&output.stdout),
-            false,
+            self.strip_start,
             self.normalize_line,
         )
     }
 
     /// Assert that calling *cyme* with the specified arguments produces the expected output.
-    pub fn assert_output(&self, dump_file: Option<&str>, args: &[&str], expected: &str) {
-        self.assert_output_subdirectory(dump_file, args, expected)
+    pub fn assert_output(&self, dump_file: Option<&str>, args: &[&str], expected: &str, contains: bool) {
+        // Normalize both expected and actual output.
+        let (expected, actual) = if contains {
+            (normalize_output(expected, self.strip_start, self.normalize_line), self.assert_success_and_get_normalized_output(dump_file, args))
+        } else {
+            let output = self.assert_success_and_get_output(dump_file, args);
+            (expected.to_string(), String::from_utf8_lossy(&output.stdout).to_string())
+        };
+
+        // Compare actual output to expected output.
+        if contains {
+            if !actual.contains(&expected) {
+                panic!("{}", format_output_error(&args, &expected, &actual));
+            }
+        } else {
+            if expected != actual {
+                panic!("{}", format_output_error(&args, &expected, &actual));
+            }
+        }
     }
 
     /// Similar to assert_output, but able to handle non-utf8 output
     #[cfg(all(unix, not(target_os = "macos")))]
-    pub fn assert_output_raw(&self, args: &[&str], expected: &[u8]) {
-        let output = self.assert_success_and_get_output(".", args);
+    pub fn assert_output_raw(&self, dump_file: Option<&str>, args: &[&str], expected: &[u8]) {
+        let output = self.assert_success_and_get_output(dump_file, args);
 
         assert_eq!(expected, &output.stdout[..]);
     }
 
-    pub fn assert_output_subdirectory(
-        &self,
-        dump_file: Option<&str>,
-        args: &[&str],
-        expected: &str,
-    ) {
-        // Normalize both expected and actual output.
-        let expected = normalize_output(expected, true, self.normalize_line);
-        let actual = self.assert_success_and_get_normalized_output(dump_file, args);
-
-        // Compare actual output to expected output.
-        if expected != actual {
-            panic!("{}", format_output_error(args, &expected, &actual));
-        }
-    }
-
     /// Assert that calling *cyme* with the specified arguments produces the expected error,
     /// and does not succeed.
-    pub fn assert_failure_with_error(&self, args: &[&str], expected: &str) {
-        let status = self.assert_error_subdirectory(".", args, Some(expected));
+    pub fn assert_failure_with_error(&self, dump_file: Option<&str>,args: &[&str], expected: &str) {
+        let status = self.assert_error(dump_file, args, Some(expected));
         if status.success() {
             panic!("error '{}' did not occur.", expected);
         }
     }
 
     /// Assert that calling *cyme* with the specified arguments does not succeed.
-    pub fn assert_failure(&self, args: &[&str]) {
-        let status = self.assert_error_subdirectory(".", args, None);
+    pub fn assert_failure(&self, dump_file: Option<&str>, args: &[&str]) {
+        let status = self.assert_error(dump_file, args, None);
         if status.success() {
             panic!("Failure did not occur as expected.");
         }
     }
 
-    /// Assert that calling *cyme* with the specified arguments produces the expected error.
-    pub fn assert_error(&self, args: &[&str], expected: &str) -> process::ExitStatus {
-        self.assert_error_subdirectory(".", args, Some(expected))
-    }
-
-    /// Assert that calling *cyme* in the specified path under the root working directory,
-    /// and with the specified arguments produces an error with the expected message.
-    fn assert_error_subdirectory<P: AsRef<Path>>(
+    fn assert_error(
         &self,
-        path: P,
+        dump_file: Option<&str>,
         args: &[&str],
         expected: Option<&str>,
     ) -> process::ExitStatus {
         // Setup *cyme* command.
         let mut cmd = process::Command::new(&self.cyme_exe);
-        cmd.current_dir(self.temp_dir.join(path));
-        cmd.arg("--no-global-ignore-file").args(args);
+        // cmd.current_dir(&self.temp_dir);
+        if let Some(dump) = dump_file {
+            cmd.arg("--from-json").arg(dump).args(args);
+        } else {
+            cmd.arg("--json ").args(args);
+        }
 
         // Run *cyme*.
         let output = cmd.output().expect("cyme output");

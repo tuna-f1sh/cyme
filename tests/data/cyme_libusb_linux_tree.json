@@ -2,7 +2,7 @@
   "buses": [
     {
       "name": "EHCI Host Controller",
-      "host_controller": "Linux 6.0.9-arch1-1 ehci_hcd",
+      "host_controller": "Linux 6.0.10-arch2-1 ehci_hcd",
       "pci_device": 2,
       "pci_vendor": 7531,
       "usb_bus_number": 1,
@@ -31,13 +31,20 @@
             "driver": "usb",
             "syspath": "/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-6",
             "vendor": "PARALLELS",
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
             "configurations": [
               {
                 "name": "Parallels",
+                "string_index": 1,
                 "number": 1,
                 "interfaces": [
                   {
                     "name": "Virtual USB Printer Interface",
+                    "string_index": 4,
                     "number": 0,
                     "path": "1-6:1.0",
                     "class": "printer",
@@ -98,13 +105,20 @@
             "driver": "usb",
             "syspath": "/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-2",
             "vendor": "PARALLELS",
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
             "configurations": [
               {
                 "name": "Parallels",
+                "string_index": 1,
                 "number": 1,
                 "interfaces": [
                   {
                     "name": "Absolute Coordinate Interface",
+                    "string_index": 4,
                     "number": 0,
                     "path": "1-2:1.0",
                     "class": "h-i-d",
@@ -130,6 +144,7 @@
                   },
                   {
                     "name": "Relative Coordinate Interface",
+                    "string_index": 5,
                     "number": 1,
                     "path": "1-2:1.1",
                     "class": "h-i-d",
@@ -165,12 +180,86 @@
               }
             ]
           }
+        },
+        {
+          "name": "EHCI Host Controller",
+          "vendor_id": 7531,
+          "product_id": 2,
+          "location_id": {
+            "bus": 1,
+            "tree_positions": [],
+            "number": 1
+          },
+          "serial_num": "0000:00:1d.7",
+          "manufacturer": "Linux 6.0.10-arch2-1 ehci_hcd",
+          "bcd_device": 6.0,
+          "bcd_usb": 2.0,
+          "device_speed": "480.0 Mb/s",
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 0,
+          "extra": {
+            "max_packet_size": 64,
+            "driver": "hub",
+            "syspath": "/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-0:1.0",
+            "vendor": "Linux Foundation",
+            "product_name": "2.0 root hub",
+            "string_indexes": [
+              2,
+              3,
+              1
+            ],
+            "configurations": [
+              {
+                "name": "",
+                "string_index": 0,
+                "number": 1,
+                "interfaces": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "1-0:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 0,
+                    "alt_setting": 0,
+                    "driver": "hub",
+                    "syspath": "/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-0:1.0",
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "number": 1,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 4,
+                        "interval": 12
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  "SelfPowered",
+                  "RemoteWakeup"
+                ],
+                "max_power": {
+                  "value": 0,
+                  "unit": "mA",
+                  "description": null
+                }
+              }
+            ]
+          }
         }
       ]
     },
     {
       "name": "UHCI Host Controller",
-      "host_controller": "Linux 6.0.9-arch1-1 uhci_hcd",
+      "host_controller": "Linux 6.0.10-arch2-1 uhci_hcd",
       "pci_device": 1,
       "pci_vendor": 7531,
       "usb_bus_number": 2,
@@ -184,7 +273,7 @@
             "tree_positions": [
               2
             ],
-            "number": 2
+            "number": 22
           },
           "serial_num": "PW3.0",
           "manufacturer": "Parallels",
@@ -193,208 +282,6 @@
           "device_speed": "12.0 Mb/s",
           "devices": [
             {
-              "name": "J-Link",
-              "vendor_id": 4966,
-              "product_id": 4176,
-              "location_id": {
-                "bus": 2,
-                "tree_positions": [
-                  2,
-                  5
-                ],
-                "number": 4
-              },
-              "serial_num": "001050027328",
-              "manufacturer": "SEGGER",
-              "bcd_device": 1.0,
-              "bcd_usb": 2.0,
-              "device_speed": "12.0 Mb/s",
-              "class": "miscellaneous",
-              "sub_class": 2,
-              "protocol": 1,
-              "extra": {
-                "max_packet_size": 64,
-                "driver": "usb",
-                "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.5",
-                "vendor": "SEGGER",
-                "configurations": [
-                  {
-                    "name": "Configuration",
-                    "number": 1,
-                    "interfaces": [
-                      {
-                        "name": "CDC",
-                        "number": 0,
-                        "path": "2-2.5:1.0",
-                        "class": "c-d-c-communications",
-                        "sub_class": 2,
-                        "protocol": 1,
-                        "alt_setting": 0,
-                        "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.5/2-2.5:1.0",
-                        "endpoints": [
-                          {
-                            "address": {
-                              "address": 130,
-                              "number": 2,
-                              "direction": "In"
-                            },
-                            "transfer_type": "Interrupt",
-                            "sync_type": "None",
-                            "usage_type": "Data",
-                            "max_packet_size": 64,
-                            "interval": 1
-                          }
-                        ]
-                      },
-                      {
-                        "name": "CDC DATA interface",
-                        "number": 1,
-                        "path": "2-2.5:1.1",
-                        "class": "c-d-c-data",
-                        "sub_class": 0,
-                        "protocol": 0,
-                        "alt_setting": 0,
-                        "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.5/2-2.5:1.1",
-                        "endpoints": [
-                          {
-                            "address": {
-                              "address": 129,
-                              "number": 1,
-                              "direction": "In"
-                            },
-                            "transfer_type": "Bulk",
-                            "sync_type": "None",
-                            "usage_type": "Data",
-                            "max_packet_size": 64,
-                            "interval": 1
-                          },
-                          {
-                            "address": {
-                              "address": 1,
-                              "number": 1,
-                              "direction": "Out"
-                            },
-                            "transfer_type": "Bulk",
-                            "sync_type": "None",
-                            "usage_type": "Data",
-                            "max_packet_size": 64,
-                            "interval": 1
-                          }
-                        ]
-                      },
-                      {
-                        "name": "CDC",
-                        "number": 2,
-                        "path": "2-2.5:1.2",
-                        "class": "c-d-c-communications",
-                        "sub_class": 2,
-                        "protocol": 1,
-                        "alt_setting": 0,
-                        "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.5/2-2.5:1.2",
-                        "endpoints": [
-                          {
-                            "address": {
-                              "address": 132,
-                              "number": 4,
-                              "direction": "In"
-                            },
-                            "transfer_type": "Interrupt",
-                            "sync_type": "None",
-                            "usage_type": "Data",
-                            "max_packet_size": 64,
-                            "interval": 1
-                          }
-                        ]
-                      },
-                      {
-                        "name": "CDC DATA interface",
-                        "number": 3,
-                        "path": "2-2.5:1.3",
-                        "class": "c-d-c-data",
-                        "sub_class": 0,
-                        "protocol": 0,
-                        "alt_setting": 0,
-                        "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.5/2-2.5:1.3",
-                        "endpoints": [
-                          {
-                            "address": {
-                              "address": 131,
-                              "number": 3,
-                              "direction": "In"
-                            },
-                            "transfer_type": "Bulk",
-                            "sync_type": "None",
-                            "usage_type": "Data",
-                            "max_packet_size": 64,
-                            "interval": 1
-                          },
-                          {
-                            "address": {
-                              "address": 2,
-                              "number": 2,
-                              "direction": "Out"
-                            },
-                            "transfer_type": "Bulk",
-                            "sync_type": "None",
-                            "usage_type": "Data",
-                            "max_packet_size": 64,
-                            "interval": 1
-                          }
-                        ]
-                      },
-                      {
-                        "name": "BULK interface",
-                        "number": 4,
-                        "path": "2-2.5:1.4",
-                        "class": "vendor-specific",
-                        "sub_class": 255,
-                        "protocol": 255,
-                        "alt_setting": 0,
-                        "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.5/2-2.5:1.4",
-                        "endpoints": [
-                          {
-                            "address": {
-                              "address": 133,
-                              "number": 5,
-                              "direction": "In"
-                            },
-                            "transfer_type": "Bulk",
-                            "sync_type": "None",
-                            "usage_type": "Data",
-                            "max_packet_size": 64,
-                            "interval": 1
-                          },
-                          {
-                            "address": {
-                              "address": 3,
-                              "number": 3,
-                              "direction": "Out"
-                            },
-                            "transfer_type": "Bulk",
-                            "sync_type": "None",
-                            "usage_type": "Data",
-                            "max_packet_size": 64,
-                            "interval": 1
-                          }
-                        ]
-                      }
-                    ],
-                    "attributes": [],
-                    "max_power": {
-                      "value": 100,
-                      "unit": "mA",
-                      "description": null
-                    }
-                  }
-                ]
-              }
-            },
-            {
               "name": "Black Magic Probe  v1.8.2",
               "vendor_id": 7504,
               "product_id": 24600,
@@ -402,9 +289,9 @@
                 "bus": 2,
                 "tree_positions": [
                   2,
-                  4
+                  8
                 ],
-                "number": 3
+                "number": 24
               },
               "serial_num": "97B6A11D",
               "manufacturer": "Black Magic Debug",
@@ -417,24 +304,31 @@
               "extra": {
                 "max_packet_size": 32,
                 "driver": "usb",
-                "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.4",
+                "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8",
                 "vendor": "OpenMoko, Inc.",
                 "product_name": "Black Magic Debug Probe (Application)",
+                "string_indexes": [
+                  2,
+                  1,
+                  3
+                ],
                 "configurations": [
                   {
                     "name": "",
+                    "string_index": 0,
                     "number": 1,
                     "interfaces": [
                       {
                         "name": "Black Magic GDB Server",
+                        "string_index": 4,
                         "number": 0,
-                        "path": "2-2.4:1.0",
+                        "path": "2-2.8:1.0",
                         "class": "c-d-c-communications",
                         "sub_class": 2,
                         "protocol": 0,
                         "alt_setting": 0,
-                        "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.4/2-2.4:1.0",
+                        "driver": "cdc_acm",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.0",
                         "endpoints": [
                           {
                             "address": {
@@ -452,14 +346,15 @@
                       },
                       {
                         "name": "",
+                        "string_index": 0,
                         "number": 1,
-                        "path": "2-2.4:1.1",
+                        "path": "2-2.8:1.1",
                         "class": "c-d-c-data",
                         "sub_class": 0,
                         "protocol": 0,
                         "alt_setting": 0,
-                        "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.4/2-2.4:1.1",
+                        "driver": "cdc_acm",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.1",
                         "endpoints": [
                           {
                             "address": {
@@ -489,14 +384,15 @@
                       },
                       {
                         "name": "Black Magic UART Port",
+                        "string_index": 5,
                         "number": 2,
-                        "path": "2-2.4:1.2",
+                        "path": "2-2.8:1.2",
                         "class": "c-d-c-communications",
                         "sub_class": 2,
                         "protocol": 0,
                         "alt_setting": 0,
-                        "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.4/2-2.4:1.2",
+                        "driver": "cdc_acm",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.2",
                         "endpoints": [
                           {
                             "address": {
@@ -514,14 +410,15 @@
                       },
                       {
                         "name": "",
+                        "string_index": 0,
                         "number": 3,
-                        "path": "2-2.4:1.3",
+                        "path": "2-2.8:1.3",
                         "class": "c-d-c-data",
                         "sub_class": 0,
                         "protocol": 0,
                         "alt_setting": 0,
-                        "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.4/2-2.4:1.3",
+                        "driver": "cdc_acm",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.3",
                         "endpoints": [
                           {
                             "address": {
@@ -551,26 +448,28 @@
                       },
                       {
                         "name": "Black Magic DFU",
+                        "string_index": 6,
                         "number": 4,
-                        "path": "2-2.4:1.4",
+                        "path": "2-2.8:1.4",
                         "class": "application-specific-interface",
                         "sub_class": 1,
                         "protocol": 1,
                         "alt_setting": 0,
                         "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.4/2-2.4:1.4",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.4",
                         "endpoints": []
                       },
                       {
                         "name": "Black Magic Trace Capture",
+                        "string_index": 7,
                         "number": 5,
-                        "path": "2-2.4:1.5",
-                        "class": "vendor-specific",
+                        "path": "2-2.8:1.5",
+                        "class": "vendor-specific-class",
                         "sub_class": 255,
                         "protocol": 255,
                         "alt_setting": 0,
                         "driver": null,
-                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.4/2-2.4:1.5",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.5",
                         "endpoints": [
                           {
                             "address": {
@@ -596,6 +495,219 @@
                   }
                 ]
               }
+            },
+            {
+              "name": "J-Link",
+              "vendor_id": 4966,
+              "product_id": 4176,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  2,
+                  1
+                ],
+                "number": 23
+              },
+              "serial_num": "001050027328",
+              "manufacturer": "SEGGER",
+              "bcd_device": 1.0,
+              "bcd_usb": 2.0,
+              "device_speed": "12.0 Mb/s",
+              "class": "miscellaneous",
+              "sub_class": 2,
+              "protocol": 1,
+              "extra": {
+                "max_packet_size": 64,
+                "driver": "usb",
+                "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1",
+                "vendor": "SEGGER",
+                "string_indexes": [
+                  2,
+                  1,
+                  3
+                ],
+                "configurations": [
+                  {
+                    "name": "Configuration",
+                    "string_index": 4,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "CDC",
+                        "string_index": 5,
+                        "number": 0,
+                        "path": "2-2.1:1.0",
+                        "class": "c-d-c-communications",
+                        "sub_class": 2,
+                        "protocol": 1,
+                        "alt_setting": 0,
+                        "driver": "cdc_acm",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.0",
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 130,
+                              "number": 2,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          }
+                        ]
+                      },
+                      {
+                        "name": "CDC DATA interface",
+                        "string_index": 6,
+                        "number": 1,
+                        "path": "2-2.1:1.1",
+                        "class": "c-d-c-data",
+                        "sub_class": 0,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": "cdc_acm",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.1",
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          },
+                          {
+                            "address": {
+                              "address": 1,
+                              "number": 1,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          }
+                        ]
+                      },
+                      {
+                        "name": "CDC",
+                        "string_index": 7,
+                        "number": 2,
+                        "path": "2-2.1:1.2",
+                        "class": "c-d-c-communications",
+                        "sub_class": 2,
+                        "protocol": 1,
+                        "alt_setting": 0,
+                        "driver": "cdc_acm",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.2",
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 132,
+                              "number": 4,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          }
+                        ]
+                      },
+                      {
+                        "name": "CDC DATA interface",
+                        "string_index": 8,
+                        "number": 3,
+                        "path": "2-2.1:1.3",
+                        "class": "c-d-c-data",
+                        "sub_class": 0,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": "cdc_acm",
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.3",
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 131,
+                              "number": 3,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          },
+                          {
+                            "address": {
+                              "address": 2,
+                              "number": 2,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          }
+                        ]
+                      },
+                      {
+                        "name": "BULK interface",
+                        "string_index": 9,
+                        "number": 4,
+                        "path": "2-2.1:1.4",
+                        "class": "vendor-specific-class",
+                        "sub_class": 255,
+                        "protocol": 255,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.4",
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 133,
+                              "number": 5,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          },
+                          {
+                            "address": {
+                              "address": 3,
+                              "number": 3,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [],
+                    "max_power": {
+                      "value": 100,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
             }
           ],
           "class": "hub",
@@ -606,13 +718,20 @@
             "driver": "usb",
             "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2",
             "vendor": "PARALLELS",
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
             "configurations": [
               {
                 "name": "",
+                "string_index": 0,
                 "number": 1,
                 "interfaces": [
                   {
                     "name": "",
+                    "string_index": 0,
                     "number": 0,
                     "path": "2-2:1.0",
                     "class": "hub",
@@ -648,24 +767,248 @@
               }
             ]
           }
+        },
+        {
+          "name": "UHCI Host Controller",
+          "vendor_id": 7531,
+          "product_id": 1,
+          "location_id": {
+            "bus": 2,
+            "tree_positions": [],
+            "number": 1
+          },
+          "serial_num": "0000:00:1d.0",
+          "manufacturer": "Linux 6.0.10-arch2-1 uhci_hcd",
+          "bcd_device": 6.0,
+          "bcd_usb": 1.1,
+          "device_speed": "12.0 Mb/s",
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 0,
+          "extra": {
+            "max_packet_size": 64,
+            "driver": "hub",
+            "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-0:1.0",
+            "vendor": "Linux Foundation",
+            "product_name": "1.1 root hub",
+            "string_indexes": [
+              2,
+              3,
+              1
+            ],
+            "configurations": [
+              {
+                "name": "",
+                "string_index": 0,
+                "number": 1,
+                "interfaces": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "2-0:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 0,
+                    "alt_setting": 0,
+                    "driver": "hub",
+                    "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-0:1.0",
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "number": 1,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 2,
+                        "interval": 255
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  "RemoteWakeup",
+                  "SelfPowered"
+                ],
+                "max_power": {
+                  "value": 0,
+                  "unit": "mA",
+                  "description": null
+                }
+              }
+            ]
+          }
         }
       ]
     },
     {
       "name": "xHCI Host Controller",
-      "host_controller": "Linux 6.0.9-arch1-1 xhci-hcd",
+      "host_controller": "Linux 6.0.10-arch2-1 xhci-hcd",
       "pci_device": 2,
       "pci_vendor": 7531,
       "usb_bus_number": 3,
-      "devices": []
+      "devices": [
+        {
+          "name": "xHCI Host Controller",
+          "vendor_id": 7531,
+          "product_id": 2,
+          "location_id": {
+            "bus": 3,
+            "tree_positions": [],
+            "number": 1
+          },
+          "serial_num": "0000:00:1d.6",
+          "manufacturer": "Linux 6.0.10-arch2-1 xhci-hcd",
+          "bcd_device": 6.0,
+          "bcd_usb": 2.0,
+          "device_speed": "480.0 Mb/s",
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 1,
+          "extra": {
+            "max_packet_size": 64,
+            "driver": "hub",
+            "syspath": "/sys/devices/pci0000:00/0000:00:1d.6/usb3/3-0:1.0",
+            "vendor": "Linux Foundation",
+            "product_name": "2.0 root hub",
+            "string_indexes": [
+              2,
+              3,
+              1
+            ],
+            "configurations": [
+              {
+                "name": "",
+                "string_index": 0,
+                "number": 1,
+                "interfaces": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "3-0:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 0,
+                    "alt_setting": 0,
+                    "driver": "hub",
+                    "syspath": "/sys/devices/pci0000:00/0000:00:1d.6/usb3/3-0:1.0",
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "number": 1,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 4,
+                        "interval": 12
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  "RemoteWakeup",
+                  "SelfPowered"
+                ],
+                "max_power": {
+                  "value": 0,
+                  "unit": "mA",
+                  "description": null
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "xHCI Host Controller",
-      "host_controller": "Linux 6.0.9-arch1-1 xhci-hcd",
+      "host_controller": "Linux 6.0.10-arch2-1 xhci-hcd",
       "pci_device": 3,
       "pci_vendor": 7531,
       "usb_bus_number": 4,
-      "devices": []
+      "devices": [
+        {
+          "name": "xHCI Host Controller",
+          "vendor_id": 7531,
+          "product_id": 3,
+          "location_id": {
+            "bus": 4,
+            "tree_positions": [],
+            "number": 1
+          },
+          "serial_num": "0000:00:1d.6",
+          "manufacturer": "Linux 6.0.10-arch2-1 xhci-hcd",
+          "bcd_device": 6.0,
+          "bcd_usb": 3.1,
+          "device_speed": "10.0 Gb/s",
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 3,
+          "extra": {
+            "max_packet_size": 9,
+            "driver": "hub",
+            "syspath": "/sys/devices/pci0000:00/0000:00:1d.6/usb4/4-0:1.0",
+            "vendor": "Linux Foundation",
+            "product_name": "3.0 root hub",
+            "string_indexes": [
+              2,
+              3,
+              1
+            ],
+            "configurations": [
+              {
+                "name": "",
+                "string_index": 0,
+                "number": 1,
+                "interfaces": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "4-0:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 0,
+                    "alt_setting": 0,
+                    "driver": "hub",
+                    "syspath": "/sys/devices/pci0000:00/0000:00:1d.6/usb4/4-0:1.0",
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "number": 1,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 4,
+                        "interval": 12
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  "RemoteWakeup",
+                  "SelfPowered"
+                ],
+                "max_power": {
+                  "value": 0,
+                  "unit": "mA",
+                  "description": null
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }
