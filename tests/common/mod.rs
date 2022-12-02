@@ -3,11 +3,12 @@
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::env;
-#[cfg(windows)]
-use std::os::windows;
 use std::path::PathBuf;
 use std::process;
 use std::env::temp_dir;
+use serde_json::json;
+// #[cfg(windows)]
+// use std::os::windows;
 
 /// Dump from the `system_profiler` command on macOS
 pub const SYSTEM_PROFILER_DUMP_PATH: &'static str = "./tests/data/system_profiler_dump.json";
@@ -218,12 +219,13 @@ impl TestEnv {
 
     /// Assert that calling *cyme* with the specified arguments produces the expected output.
     pub fn assert_output(&self, dump_file: Option<&str>, args: &[&str], expected: &str, contains: bool) {
-        // Normalize both expected and actual output.
+        // Don't touch if doing contains
         let (expected, actual) = if contains {
-            (normalize_output(expected, self.strip_start, self.normalize_line), self.assert_success_and_get_normalized_output(dump_file, args))
-        } else {
             let output = self.assert_success_and_get_output(dump_file, args);
             (expected.to_string(), String::from_utf8_lossy(&output.stdout).to_string())
+        // Normalize both expected and actual output.
+        } else {
+            (normalize_output(expected, self.strip_start, self.normalize_line), self.assert_success_and_get_normalized_output(dump_file, args))
         };
 
         // Compare actual output to expected output.
@@ -235,6 +237,17 @@ impl TestEnv {
             if expected != actual {
                 panic!("{}", format_output_error(&args, &expected, &actual));
             }
+        }
+    }
+
+    pub fn assert_output_json(&self, dump_file: Option<&str>, args: &[&str], expected: &str) {
+        // Normalize both expected and actual output.
+        let output = self.assert_success_and_get_output(dump_file, args);
+        let actual = String::from_utf8_lossy(&output.stdout).to_string();
+
+        // Compare actual output to expected output.
+        if json!(actual) != json!(expected) {
+            panic!("{}", format_output_error(&args, &expected, &actual));
         }
     }
 

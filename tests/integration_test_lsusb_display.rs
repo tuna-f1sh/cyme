@@ -1,0 +1,134 @@
+mod common;
+
+/// Tests lsusb with no args compatiability mode
+#[test]
+fn test_lsusb_list() {
+    let te = common::TestEnv::new();
+
+    let comp = common::read_dump_to_string(common::LSUSB_OUTPUT);
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb"],
+        comp.as_str(),
+        false,
+    );
+}
+
+/// Tests lsusb --tree compatiability mode
+///
+/// Requires feature udev because comparison contains drivers
+#[cfg(feature = "udev")]
+#[test]
+fn test_lsusb_tree() {
+    let te = common::TestEnv::new();
+
+    let comp = common::read_dump_to_string(common::LSUSB_TREE_OUTPUT);
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--tree"],
+        comp.as_str(),
+        false,
+    );
+}
+
+/// Tests lsusb --tree fully verbose compatiability mode
+///
+/// Requires feature udev because comparison contains drivers
+#[cfg(feature = "udev")]
+#[test]
+fn test_lsusb_tree_verbose() {
+    let te = common::TestEnv::new();
+
+    let comp = common::read_dump_to_string(common::LSUSB_TREE_OUTPUT_VERBOSE);
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--tree", "-vvv"],
+        comp.as_str(),
+        false,
+    );
+}
+
+/// Tests lsusb -d vidpid filter
+#[test]
+fn test_lsusb_vidpid() {
+    let te = common::TestEnv::new();
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--vidpid", "1d50"],
+        "Bus 002 Device 024: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)",
+        false,
+    );
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--vidpid", "1d50:"],
+        "Bus 002 Device 024: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)",
+        false,
+    );
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--vidpid", "1d50:6018"],
+        "Bus 002 Device 024: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)",
+        false,
+    );
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--vidpid", "1d6b:"],
+        r#"Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub"#,
+        true,
+    );
+}
+
+/// Tests lsusb -s bus:devno filter
+#[test]
+fn test_lsusb_show() {
+    let te = common::TestEnv::new();
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--show", "24"],
+        "Bus 002 Device 024: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)",
+        false,
+    );
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--show", "2:24"],
+        "Bus 002 Device 024: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)",
+        false,
+    );
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--show", "2:"],
+        r#"Bus 002 Device 022: ID 203a:fffe PARALLELS Virtual USB1.1 HUB
+Bus 002 Device 024: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
+Bus 002 Device 023: ID 1366:1050 SEGGER J-Link
+Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub"#,
+        false,
+    );
+}
+
+/// Only tests contains first line...full verbose is not exactly the same but too difficult to match!
+#[test]
+fn test_lsusb_device() {
+    let te = common::TestEnv::new();
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--device", "/dev/bus/usb/002/024"],
+        "Bus 002 Device 024: ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)",
+        true,
+    );
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--device", "/dev/bus/usb/002/001"],
+        "Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub",
+        true,
+    );
+}
+

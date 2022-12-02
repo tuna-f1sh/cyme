@@ -16,10 +16,9 @@ use crate::usb::get_parent_path;
 use crate::usb::get_trunk_path;
 use crate::usb::{get_port_path, get_dev_path, ClassCode, Speed, USBDeviceExtra};
 
+/// Deserializes an option number from String (base10 or base16 encoding) or a number
+///
 /// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
-/// Deserializes an option number from string or a number.
-/// TODO: - Only really used for vendor id and product id so make struct for these?
-///       - handle DeviceNumericalUnit here or another deserializer?
 fn deserialize_option_number_from_string<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
@@ -284,10 +283,12 @@ impl USBBus {
             };
 
             // get these now to save unwrap and to_owned each interface
-            let (driver, _, vendor, product) = match &root_device.extra {
-                Some(v) => (v.driver.to_owned().unwrap_or(String::new()), v.syspath.to_owned().unwrap_or(String::new()), v.vendor.to_owned().unwrap_or(String::new()), v.product_name.to_owned().unwrap_or(String::new())),
-                None => (String::new(), String::new(), String::new(), String::new())
+            let driver = match &root_device.extra {
+                Some(v) => v.driver.to_owned().unwrap_or(String::new()),
+                None => String::new()
             };
+
+            let (vendor, product) = root_device.get_vendor_product_with_fallback();
 
             Vec::from([(
                 format!(
@@ -864,10 +865,12 @@ impl USBDevice {
         };
 
         // get these now to save unwrap and to_owned each interface
-        let (driver, _, vendor, product) = match &self.extra {
-            Some(v) => (v.driver.to_owned().unwrap_or(String::new()), v.syspath.to_owned().unwrap_or(String::new()), v.vendor.to_owned().unwrap_or(String::new()), v.product_name.to_owned().unwrap_or(String::new())),
-            None => (String::new(), String::new(), String::new(), String::new())
+        let driver = match &self.extra {
+            Some(v) => v.driver.to_owned().unwrap_or(String::new()),
+            None => String::new()
         };
+
+        let (vendor, product) = self.get_vendor_product_with_fallback();
 
         if let Some(extra) = self.extra.as_ref() {
             for config in &extra.configurations {
