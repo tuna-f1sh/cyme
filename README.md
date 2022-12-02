@@ -46,11 +46,18 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Install
 
+For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases).
+
 From crates.io with a Rust tool-chain installed: `cargo install cyme`. If wishing to do it from within a local clone: `cargo install --path .`.
 
 If wishing to use only macOS `system_profiler` and not more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
 
-I also have a Homebrew tap: `brew tap tuna-f1sh/cyme`.
+I also have a Homebrew tap, which will also install a man page and completions: 
+
+```
+brew tap tuna-f1sh/cyme
+brew install cyme
+```
 
 ## Linux udev
 

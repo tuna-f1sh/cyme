@@ -9,6 +9,7 @@ use simple_logger::SimpleLogger;
 extern crate lazy_static;
 pub mod display;
 pub mod icon;
+pub mod colour;
 pub mod system_profiler;
 pub mod types;
 pub mod usb;

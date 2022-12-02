@@ -33,6 +33,18 @@ impl ConfigAttributes {
         let vec: Vec<String> = attributes.iter().map(|a| a.to_string()).collect();
         vec.join(";")
     }
+
+    /// Converts a HashSet of [`ConfigAttributes`] a String of nerd icons
+    pub fn attributes_to_icons(attributes: &HashSet<ConfigAttributes>) -> String {
+        let mut icon_strs = Vec::new();
+        if attributes.contains(&ConfigAttributes::SelfPowered) {
+               icon_strs.push("\u{fba4}"); // ﮤ
+        }
+        if attributes.contains(&ConfigAttributes::RemoteWakeup) {
+               icon_strs.push("\u{f654}"); // 
+        }
+        icon_strs.join(" ")
+    }
 }
 
 /// Explains how the `ClassCode` is used
@@ -429,6 +441,11 @@ impl USBConfiguration {
     /// Converts attributes into a ';' separated String
     pub fn attributes_string(&self) -> String {
         ConfigAttributes::attributes_to_string(&self.attributes)
+    }
+
+    /// Converts attributes into nerd font icons
+    pub fn attributes_icons(&self) -> String {
+        ConfigAttributes::attributes_to_icons(&self.attributes)
     }
 
     /// Convert attibutes back to reg value

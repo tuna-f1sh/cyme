@@ -9,11 +9,13 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::icon;
+use crate::colour;
 use crate::system_profiler;
 use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{USBConfiguration, USBInterface, USBEndpoint};
 
 const MAX_VERBOSITY: u8 = 4;
+const ICON_HEADING: &'static str = "\u{f2b4}";
 
 /// Info that can be printed about a [`USBDevice`]
 #[non_exhaustive]
@@ -103,6 +105,8 @@ pub enum ConfigurationBlocks {
     NumInterfaces,
     /// Attributes of configuration, bmAttributes
     Attributes,
+    /// Icon representation of bmAttributes
+    IconAttributes,
     /// Maximum current consumption in mA
     MaxPower,
 }
@@ -166,7 +170,7 @@ pub trait Block<B, T> {
     fn generate_padding(d: &Vec<&T>) -> HashMap<B, usize>;
 
     /// Colour the block String
-    fn colour(&self, s: &String) -> ColoredString;
+    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString;
 
     /// Creates the heading for the block value, for use with the heading flag
     fn heading(&self, pad: &HashMap<B, usize>) -> String;
@@ -359,25 +363,24 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn colour(&self, s: &String) -> ColoredString {
+    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
         match self {
-            DeviceBlocks::BusNumber => s.cyan(),
-            DeviceBlocks::DeviceNumber => s.bright_magenta(),
-            DeviceBlocks::BranchPosition => s.magenta(),
-            DeviceBlocks::PortPath => s.cyan(),
-            DeviceBlocks::SysPath => s.bright_cyan(),
-            DeviceBlocks::VendorID => s.bold().yellow(),
-            DeviceBlocks::ProductID => s.yellow(),
-            DeviceBlocks::Name => s.bold().blue(),
-            DeviceBlocks::Manufacturer => s.blue(),
-            DeviceBlocks::Serial => s.green(),
-            DeviceBlocks::Speed => s.purple(),
-            DeviceBlocks::TreePositions => s.magenta(),
-            DeviceBlocks::BusPower => s.purple(),
-            DeviceBlocks::BusPowerUsed => s.bright_purple(),
-            DeviceBlocks::ExtraCurrentUsed => s.red(),
-            DeviceBlocks::BcdDevice => s.purple(),
-            _ => s.normal(),
+            DeviceBlocks::BcdUsb|DeviceBlocks::BcdDevice|DeviceBlocks::DeviceNumber => ct.number.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::BusNumber|DeviceBlocks::BranchPosition|DeviceBlocks::TreePositions => ct.location.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::PortPath|DeviceBlocks::SysPath => ct.path.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::VendorID => ct.vid.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::ProductID => ct.pid.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::Name|DeviceBlocks::ProductName => ct.name.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::Serial => ct.serial.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::Manufacturer|DeviceBlocks::VendorName => ct.manufacturer.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::Driver => ct.driver.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::Speed => ct.speed.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::BusPower|DeviceBlocks::BusPowerUsed|DeviceBlocks::ExtraCurrentUsed => ct.power.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::ClassCode => ct.class_code.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::SubClass => ct.sub_code.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::Protocol => ct.protocol.map_or(s.normal(), |c| s.color(c)),
+            // _ => s.normal(),
         }
     }
 
@@ -410,7 +413,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::ClassCode => format!("{:^pad$}", "Class", pad = pad.get(self).unwrap_or(&0)),
             DeviceBlocks::SubClass => "SubC".into(),
             DeviceBlocks::Protocol => "Pcol".into(),
-            DeviceBlocks::Icon => "\u{f2b4}".into(),
+            DeviceBlocks::Icon => ICON_HEADING.into(),
             // _ => "",
         }
     }
@@ -440,15 +443,17 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         }
     }
 
-    fn colour(&self, s: &String) -> ColoredString {
+    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
         match self {
-            BusBlocks::BusNumber => s.cyan(),
-            BusBlocks::PCIVendor => s.bold().yellow(),
-            BusBlocks::PCIDevice => s.yellow(),
-            BusBlocks::Name => s.bold().blue(),
-            BusBlocks::HostController => s.green(),
-            BusBlocks::PCIRevision => s.normal(),
-            _ => s.normal(),
+            BusBlocks::BusNumber => ct.location.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::PCIVendor => ct.vid.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::PCIDevice => ct.pid.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::Name => ct.name.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::HostController => ct.serial.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::PCIRevision => ct.number.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::PortPath => ct.path.map_or(s.normal(), |c| s.color(c)),
+            // _ => s.normal(),
         }
     }
 
@@ -502,7 +507,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::HostController => {
                 format!("{:^pad$}", "Host Controller", pad = pad.get(self).unwrap_or(&0))
             }
-            BusBlocks::Icon => "\u{f2b4}".into(),
+            BusBlocks::Icon => ICON_HEADING.into(),
             // _ => "",
         }
     }
@@ -513,7 +518,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         if verbose {
             vec![ConfigurationBlocks::Number, ConfigurationBlocks::Name, ConfigurationBlocks::Attributes, ConfigurationBlocks::NumInterfaces, ConfigurationBlocks::MaxPower]
         } else {
-            vec![ConfigurationBlocks::Number, ConfigurationBlocks::Name, ConfigurationBlocks::Attributes, ConfigurationBlocks::MaxPower]
+            vec![ConfigurationBlocks::Number, ConfigurationBlocks::Name, ConfigurationBlocks::IconAttributes, ConfigurationBlocks::MaxPower]
         }
     }
 
@@ -531,13 +536,14 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         }
     }
 
-    fn colour(&self, s: &String) -> ColoredString {
+    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
         match self {
-            ConfigurationBlocks::Number => s.cyan(),
-            ConfigurationBlocks::NumInterfaces => s.bold().yellow(),
-            ConfigurationBlocks::MaxPower => s.purple(),
-            ConfigurationBlocks::Name => s.bold().blue(),
-            ConfigurationBlocks::Attributes => s.magenta(),
+            ConfigurationBlocks::Number => ct.location.map_or(s.normal(), |c| s.color(c)),
+            ConfigurationBlocks::NumInterfaces => ct.number.map_or(s.normal(), |c| s.color(c)),
+            ConfigurationBlocks::MaxPower => ct.power.map_or(s.normal(), |c| s.color(c)),
+            ConfigurationBlocks::Name => ct.name.map_or(s.normal(), |c| s.color(c)),
+            ConfigurationBlocks::Attributes => ct.attributes.map_or(s.normal(), |c| s.color(c)),
+            ConfigurationBlocks::IconAttributes => ct.icon.map_or(s.normal(), |c| s.color(c)),
             // _ => s.normal(),
         }
     }
@@ -554,6 +560,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             ConfigurationBlocks::Name => Some(format!("{:pad$}", config.name, pad = pad.get(self).unwrap_or(&0))),
             ConfigurationBlocks::MaxPower => Some(format!("{:3}", config.max_power)),
             ConfigurationBlocks::Attributes => Some(format!("{:pad$}", config.attributes_string(), pad = pad.get(self).unwrap_or(&0))),
+            ConfigurationBlocks::IconAttributes => Some(format!("{:pad$}", config.attributes_icons(), pad = pad.get(self).unwrap_or(&0))),
             // _ => None,
         }
     }
@@ -565,6 +572,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             ConfigurationBlocks::MaxPower => "MaxPwr".into(),
             ConfigurationBlocks::Name => format!("{:^pad$}", "Name", pad = pad.get(self).unwrap_or(&0)),
             ConfigurationBlocks::Attributes => format!("{:^pad$}", "Attributes", pad = pad.get(self).unwrap_or(&0)),
+            ConfigurationBlocks::IconAttributes => format!("{:^pad$}", ICON_HEADING, pad = pad.get(self).unwrap_or(&3)), // getting len of utf-8 icons is not pretty so resort to fixed 3
             // _ => "",
         }
     }
@@ -596,15 +604,18 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
         }
     }
 
-    fn colour(&self, s: &String) -> ColoredString {
+    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
         match self {
-            InterfaceBlocks::Number => s.cyan(),
-            InterfaceBlocks::Name => s.bold().blue(),
-            InterfaceBlocks::PortPath => s.cyan(),
-            InterfaceBlocks::SysPath => s.bright_cyan(),
-            // InterfaceBlocks::NumInterfaces => s.bold().yellow(),
-            // InterfaceBlocks::Attributes => s.green(),
-            _ => s.normal(),
+            InterfaceBlocks::Number => ct.number.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::Name => ct.name.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::PortPath|InterfaceBlocks::SysPath => ct.path.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::ClassCode => ct.class_code.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::SubClass => ct.sub_code.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::Protocol => ct.protocol.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::Driver => ct.driver.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::AltSetting|InterfaceBlocks::NumEndpoints => ct.number.map_or(s.normal(), |c| s.color(c)),
+            // _ => s.normal(),
         }
     }
 
@@ -651,7 +662,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::SubClass => "SubC".into(),
             InterfaceBlocks::Protocol => "Pcol".into(),
             InterfaceBlocks::AltSetting => "Alt#".into(),
-            InterfaceBlocks::Icon => "\u{f2b4}".into(),
+            InterfaceBlocks::Icon => ICON_HEADING.into(),
             // _ => "",
         }
     }
@@ -683,14 +694,10 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
         }
     }
 
-    fn colour(&self, s: &String) -> ColoredString {
+    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
         match self {
-            EndpointBlocks::Number => s.cyan(),
-            EndpointBlocks::Interval => s.yellow(),
-            EndpointBlocks::MaxPacketSize => s.yellow(),
-            EndpointBlocks::Direction => s.purple(),
-            EndpointBlocks::UsageType|EndpointBlocks::TransferType|EndpointBlocks::SyncType => s.blue(),
-            // _ => s.normal(),
+            EndpointBlocks::Number|EndpointBlocks::Interval|EndpointBlocks::MaxPacketSize => ct.number.map_or(s.normal(), |c| s.color(c)),
+            EndpointBlocks::Direction|EndpointBlocks::UsageType|EndpointBlocks::TransferType|EndpointBlocks::SyncType => ct.attributes.map_or(s.normal(), |c| s.color(c)),
         }
     }
 
@@ -813,8 +820,10 @@ pub struct PrintSettings {
     pub interface_blocks: Option<Vec<InterfaceBlocks>>,
     /// [`EndpointBlocks`] to use for printing
     pub endpoint_blocks: Option<Vec<EndpointBlocks>>,
-    /// `IconTheme` to apply - None to not print any icons
+    /// [`IconTheme`] to apply - None to not print any icons
     pub icons: Option<icon::IconTheme>,
+    /// [`ColourTheme`] to apply - None to not colour
+    pub colours: Option<colour::ColourTheme>,
 }
 
 /// Formats each [`Block`] value shown from a device `d`
@@ -827,7 +836,10 @@ pub fn render_value<B, T>(
     let mut ret = Vec::new();
     for b in blocks {
         if let Some(string) = b.format_value(d, pad, settings) {
-            ret.push(format!("{}", b.colour(&string)));
+            match &settings.colours {
+                Some(c) => ret.push(format!("{}", b.colour(&string, &c))),
+                None => ret.push(format!("{}", string)),
+            }
         }
     }
 

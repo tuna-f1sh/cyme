@@ -1,7 +1,7 @@
 //! Icons and themeing of cyme output
-use colored::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 
 use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{ClassCode, Direction};
@@ -9,7 +9,8 @@ use crate::usb::{ClassCode, Direction};
 /// Icon type enum is used as key in `HashMaps`
 /// TODO FromStr and ToStr serialize/deserialize so that can merge with user defined
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")] // this doesn't really worked, not does untagged...
+// #[serde(untagged)]
 pub enum Icon {
     /// Vendor ID lookup
     Vid(u16),
@@ -45,9 +46,14 @@ pub enum Icon {
     Endpoint(Direction),
 }
 
+impl fmt::Display for Icon {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Allows user supplied icons to replace or add to `DEFAULT_ICONS` and `DEFAULT_TREE`
-/// TODO FromStr deserialize so that we can import user file
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[serde(default)]
@@ -106,7 +112,7 @@ lazy_static! {
     /// Default icon lookup can be overridden by user icons with IconTheme `icons`
     ///
     /// Should probably keep fairly short but I've added things I use like debuggers, mcus as examples
-    static ref DEFAULT_ICONS: HashMap<Icon, &'static str> = {
+    pub static ref DEFAULT_ICONS: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
             (Icon::Vid(0x05ac), "\u{f179}".into()), // apple 
@@ -176,8 +182,6 @@ impl IconTheme {
             user_tree
                 .get(&icon)
                 .unwrap_or(&DEFAULT_TREE.get(&icon).unwrap().to_string())
-                // TODO use colouring theme
-                .bright_black()
                 .to_string()
                 .to_owned()
         } else {
@@ -283,6 +287,45 @@ impl IconTheme {
 
 /// Gets tree icon from `DEFAULT_TREE` as `String` with `unwrap` because should panic if missing from there
 pub fn get_default_tree_icon(i: Icon) -> String {
-    // TODO use colouring theme
-    DEFAULT_TREE.get(&i).unwrap().bright_black().to_string()
+    DEFAULT_TREE.get(&i).unwrap().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serialize_theme() {
+        let theme = IconTheme{
+            icons: Some(HashMap::from([
+                (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
+            ])),
+            ..Default::default()
+        };
+        assert_eq!(serde_json::to_string(&theme).unwrap(), "{\"icons\":{\"unknown-vendor\":\"\"},\"tree\":null}");
+    }
+
+    #[test]
+    fn test_deserialize_theme() {
+        let theme: IconTheme = serde_json::from_str("{\"icons\":{\"unknown-vendor\":\"\"},\"tree\":null}").unwrap();
+        let actual_theme = IconTheme{
+            icons: Some(HashMap::from([
+                (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
+            ])),
+            ..Default::default()
+        };
+        assert_eq!(theme, actual_theme);
+    }
+
+    // #[test]
+    // fn test_serialize_defaults() {
+    //     let theme = IconTheme{
+    //         icons: Some(HashMap::from([
+    //             (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
+    //             // (Icon::Classifier(ClassCode::HID), "\u{f80b}".into()), // 
+    //         ])),
+    //         ..Default::default()
+    //     };
+    //     println!("{}", serde_json::to_string(&theme).unwrap());
+    // }
 }

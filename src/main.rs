@@ -17,6 +17,7 @@ use std::path::PathBuf;
 
 use cyme::display;
 use cyme::icon::IconTheme;
+use cyme::colour::ColourTheme;
 use cyme::system_profiler;
 use cyme::lsusb;
 
@@ -316,10 +317,13 @@ fn main() {
         ));
     });
 
-    // just set the env for this process
-    if args.no_colour {
+    let colours = if args.no_colour {
+        // set env to be sure too
         env::set_var("NO_COLOR", "1");
-    }
+        None
+    } else {
+        Some(ColourTheme::new())
+    };
 
     // TODO use use system_profiler but merge with extra from libusb for verbose to retain Apple buses which libusb cannot list
     // could run through finding nodes existing in system_profiler::get_spusb and updating with libusb::get_spusb version but means some will have extra data, some not..
@@ -443,6 +447,7 @@ fn main() {
         interface_blocks: args.interface_blocks,
         endpoint_blocks: args.endpoint_blocks,
         icons: Some(IconTheme::new()),
+        colours,
         ..Default::default()
     };
 
