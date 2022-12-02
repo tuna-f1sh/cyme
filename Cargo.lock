@@ -200,12 +200,13 @@ dependencies = [
 
 [[package]]
 name = "cyme"
-version = "0.7.8"
+version = "0.8.0"
 dependencies = [
  "clap",
  "clap_complete",
  "clap_mangen",
  "colored",
+ "diff",
  "heck",
  "itertools",
  "lazy_static",
@@ -253,6 +254,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "diff"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
 
 [[package]]
 name = "either"
