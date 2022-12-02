@@ -512,8 +512,18 @@ pub mod profiler {
     ///
     /// This is so that the main bin can switch between system_profiler and libusb without a variable not being set
     pub fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType, with_extra: bool) -> Result<(), libusb::Error> {
-        // TODO merge existing data in spusb
-        *spusb = get_spusb(with_extra)?;
+        let libusb_spusb = get_spusb(with_extra)?;
+
+        // merge if passed has any buses
+        if !spusb.buses.is_empty() {
+            for mut bus in libusb_spusb.buses {
+                if let Some(mut existing) = spusb.buses.iter_mut().find(|b| b.get_bus_number() == bus.get_bus_number()) {
+                    // just take the devices and put them in since libusb will be more verbose
+                    existing.devices = std::mem::take(&mut bus.devices);
+                }
+            }
+        }
+
         Ok(())
     }
 }

@@ -40,8 +40,9 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 - [x] Drawing of headers.
 - [x] Tree support of all device interfaces and endpoints.
 - [x] --device devpath arg to dump single device.
-- [ ] Merge of macOS `system_profiler` output with libusb output to keep special Apple buses.
-- [ ] Integration tests for lsusb output and new output.
+- [x] Merge of macOS `system_profiler` output with libusb output to keep non-user Apple buses.
+- [x] Integration tests for lsusb output.
+- [ ] Integration tests for internal bin operation.
 - [ ] User defined icon map and colour import.
 
 # Install

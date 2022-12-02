@@ -121,7 +121,7 @@ struct Args {
     #[arg(long)]
     from_json: Option<String>,
 
-    /// Force libusb mode on macOS rather than using system_profiler output
+    /// Force libusb profiler on macOS rather than using/combining system_profiler output
     #[arg(long, default_value_t = false)]
     force_libusb: bool,
 
@@ -237,13 +237,29 @@ fn get_libusb_spusb(_args: &Args) -> system_profiler::SPUSBDataType {
     eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
 }
 
+#[cfg(not(feature = "libusb"))]
+fn merge_libusb_spusb(_spdata: &mut system_profiler::SPUSBDataType, _args: &Args) -> () {
+    eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+}
+
 #[cfg(feature = "libusb")]
 fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
     lsusb::profiler::set_log_level(args.debug);
     lsusb::profiler::get_spusb(args.verbose > 0 || args.tree || args.device.is_some() || args.lsusb || args.json).unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Failed to gather system USB data: Error({})", e)
+                format!("Failed to gather system USB data from libusb: Error({})", e)
+        ));
+    })
+}
+
+#[cfg(feature = "libusb")]
+fn merge_libusb_spusb(spdata: &mut system_profiler::SPUSBDataType, args: &Args) -> () {
+    lsusb::profiler::set_log_level(args.debug);
+    lsusb::profiler::fill_spusb(spdata, true).unwrap_or_else(|e| {
+        eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to gather system USB data from libusb: Error({})", e)
         ));
     })
 }
@@ -321,7 +337,7 @@ fn read_json_dump(file_path: &str) -> Result<system_profiler::SPUSBDataType, Err
 }
 
 fn main() {
-    let mut args = Args::parse();
+    let args = Args::parse();
 
     #[cfg(feature = "cli_generate")]
     if args.gen {
@@ -345,8 +361,6 @@ fn main() {
         Some(ColourTheme::new())
     };
 
-    // TODO use use system_profiler but merge with extra from libusb for verbose to retain Apple buses which libusb cannot list
-    // could run through finding nodes existing in system_profiler::get_spusb and updating with libusb::get_spusb version but means some will have extra data, some not..
     let mut spusb = if let Some(file_path) = args.from_json {
         read_json_dump(&file_path.as_str()).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
@@ -365,11 +379,20 @@ fn main() {
             ));
         })
     } else {
+        // if not forcing libusb, get system_profiler and the merge with libusb
         if cfg!(target_os = "macos") && !args.force_libusb {
-            log::warn!("Forcing libusb for supplied arguments on macOS");
-            args.force_libusb = true;
+            let mut spdata = system_profiler::get_spusb().unwrap_or_else(|e| {
+                eprintexit!(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to parse system_profiler output: Error({})", e)
+                ));
+            });
+            log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
+            merge_libusb_spusb(&mut spdata, &args);
+            spdata
+        } else {
+            get_libusb_spusb(&args)
         }
-        get_libusb_spusb(&args)
     };
 
     log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
