@@ -1,7 +1,5 @@
 mod common;
 
-// TODO the HashSet of ConfigAttributes will not always print in same order
-#[ignore]
 #[test]
 fn test_json_round_trip() {
     let te = common::TestEnv::new();

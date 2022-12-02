@@ -1,7 +1,7 @@
 //! Provides the main utilities to display USB types within this crate - primarily used by `cyme` binary.
 //!
 //! TODO: There is some repeat code that could probably be made into functions/generics
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 use std::cmp;
 use clap::ValueEnum;
 use colored::*;
@@ -516,7 +516,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
 impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
     fn default_blocks(verbose: bool) -> Vec<ConfigurationBlocks> {
         if verbose {
-            vec![ConfigurationBlocks::Number, ConfigurationBlocks::Name, ConfigurationBlocks::Attributes, ConfigurationBlocks::NumInterfaces, ConfigurationBlocks::MaxPower]
+            vec![ConfigurationBlocks::Number, ConfigurationBlocks::Name, ConfigurationBlocks::IconAttributes, ConfigurationBlocks::Attributes, ConfigurationBlocks::NumInterfaces, ConfigurationBlocks::MaxPower]
         } else {
             vec![ConfigurationBlocks::Number, ConfigurationBlocks::Name, ConfigurationBlocks::IconAttributes, ConfigurationBlocks::MaxPower]
         }
@@ -787,6 +787,20 @@ pub enum Group {
     Bus,
 }
 
+/// Charactor printing settings
+// TODO use this as printing: Vec<display::Printing> with default [display::Printing::Utf8, display::Printing::Icons]
+#[derive(Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Printing {
+    /// Use utf-8 charactors
+    Utf8,
+    /// Use ascii charactors
+    Ascii,
+    /// Show icons
+    Icons,
+    /// Show no icons
+    NoIcons,
+}
+
 /// Passed to printing functions allows default args
 #[derive(Debug, Default)]
 pub struct PrintSettings {
@@ -808,6 +822,8 @@ pub struct PrintSettings {
     pub headings: bool,
     /// Level of verbosity
     pub verbosity: u8,
+    /// Print more blocks by default
+    pub more: bool,
     /// Print as json
     pub json: bool,
     /// [`DeviceBlocks`] to use for printing
@@ -827,14 +843,14 @@ pub struct PrintSettings {
 }
 
 /// Converts a HashSet of [`ConfigAttributes`] a String of nerd icons
-fn attributes_to_icons(attributes: &HashSet<ConfigAttributes>, settings: &PrintSettings) -> String {
+fn attributes_to_icons(attributes: &Vec<ConfigAttributes>, settings: &PrintSettings) -> String {
     let mut icon_strs = Vec::new();
     if settings.icons.is_some() {
-        if attributes.contains(&ConfigAttributes::SelfPowered) {
-            icon_strs.push("\u{fba4}"); // ﮤ
-        }
-        if attributes.contains(&ConfigAttributes::RemoteWakeup) {
-            icon_strs.push("\u{f654}"); // 
+        for a in attributes {
+            match a {
+                ConfigAttributes::SelfPowered => icon_strs.push("\u{fba4}"), // ﮤ
+                ConfigAttributes::RemoteWakeup => icon_strs.push("\u{f654}"), // 
+            }
         }
     }
     icon_strs.join(" ")
@@ -898,7 +914,7 @@ fn generate_tree_data(
                 settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_default_tree_icon(&edge_icon), |i| i.get_tree_icon(&edge_icon))
+                    .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| i.get_tree_icon(&edge_icon))
             )
         } else {
             format!("{}", pass_tree.prefix)
@@ -917,7 +933,7 @@ pub fn print_flattened_devices(
     devices: &Vec<&system_profiler::USBDevice>,
     settings: &PrintSettings,
 ) {
-    let db = settings.device_blocks.to_owned().unwrap_or(DeviceBlocks::default_blocks(settings.verbosity >= MAX_VERBOSITY));
+    let db = settings.device_blocks.to_owned().unwrap_or(DeviceBlocks::default_blocks(settings.verbosity >= MAX_VERBOSITY || settings.more));
     let pad = if !settings.no_padding {
         DeviceBlocks::generate_padding(devices)
     } else {
@@ -938,9 +954,9 @@ pub fn print_flattened_devices(
         if let Some(extra) = device.extra.as_ref() {
             if settings.verbosity >= 1 {
                 let blocks = (
-                    &settings.config_blocks.to_owned().unwrap_or(Block::<ConfigurationBlocks, USBConfiguration>::default_blocks(settings.verbosity >= MAX_VERBOSITY)),
-                    &settings.interface_blocks.to_owned().unwrap_or(Block::<InterfaceBlocks, USBInterface>::default_blocks(settings.verbosity >= MAX_VERBOSITY)),
-                    &settings.endpoint_blocks.to_owned().unwrap_or(Block::<EndpointBlocks, USBEndpoint>::default_blocks(settings.verbosity >= MAX_VERBOSITY)),
+                    &settings.config_blocks.to_owned().unwrap_or(Block::<ConfigurationBlocks, USBConfiguration>::default_blocks(settings.verbosity >= MAX_VERBOSITY || settings.more)),
+                    &settings.interface_blocks.to_owned().unwrap_or(Block::<InterfaceBlocks, USBInterface>::default_blocks(settings.verbosity >= MAX_VERBOSITY || settings.more)),
+                    &settings.endpoint_blocks.to_owned().unwrap_or(Block::<EndpointBlocks, USBEndpoint>::default_blocks(settings.verbosity >= MAX_VERBOSITY || settings.more)),
                 );
                 // pass branch length as number of configurations for this device plus devices still to print
                 print_configurations(&extra.configurations, blocks, settings, &generate_tree_data(&Default::default(), extra.configurations.len() + device.devices.as_ref().map_or(0, |d| d.len()), i, settings));
@@ -958,7 +974,7 @@ pub fn print_bus_grouped(
     bus_devices: Vec<(&system_profiler::USBBus, Vec<&system_profiler::USBDevice>)>,
     settings: &PrintSettings,
 ) {
-    let bb = settings.bus_blocks.to_owned().unwrap_or(Block::<BusBlocks, system_profiler::USBBus>::default_blocks(settings.verbosity >= MAX_VERBOSITY));
+    let bb = settings.bus_blocks.to_owned().unwrap_or(Block::<BusBlocks, system_profiler::USBBus>::default_blocks(settings.verbosity >= MAX_VERBOSITY || settings.more));
     let pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
         BusBlocks::generate_padding(&bus_devices.iter().map(|bd| bd.0).collect())
     } else {
@@ -1014,7 +1030,7 @@ pub fn print_endpoints(
                     icon::Icon::TreeCorner
                 };
                 let edge = settings.icons.as_ref()
-                        .map_or(icon::get_default_tree_icon(&edge_icon), |i| i
+                        .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| i
                             .get_tree_icon(&edge_icon));
                 format!("{}{}", tree.prefix, edge)
             // zero depth
@@ -1025,7 +1041,7 @@ pub fn print_endpoints(
             let mut terminator = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_default_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction)), |i| i
+                    .map_or(icon::get_ascii_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction)), |i| i
                         .get_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction)));
 
             // colour tree
@@ -1083,7 +1099,7 @@ pub fn print_interfaces(
                     icon::Icon::TreeCorner
                 };
                 let edge = settings.icons.as_ref()
-                        .map_or(icon::get_default_tree_icon(&edge_icon), |i| i
+                        .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| i
                             .get_tree_icon(&edge_icon));
                 format!("{}{}", tree.prefix, edge)
             // zero depth
@@ -1094,7 +1110,7 @@ pub fn print_interfaces(
             let mut terminator = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_default_tree_icon(&icon::Icon::TreeInterfaceTerminiator), |i| i
+                    .map_or(icon::get_ascii_tree_icon(&icon::Icon::TreeInterfaceTerminiator), |i| i
                         .get_tree_icon(&icon::Icon::TreeInterfaceTerminiator));
 
             // colour tree
@@ -1153,7 +1169,7 @@ pub fn print_configurations(
                     icon::Icon::TreeCorner
                 };
                 let edge = settings.icons.as_ref()
-                        .map_or(icon::get_default_tree_icon(&edge_icon), |i| i
+                        .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| i
                             .get_tree_icon(&edge_icon));
                 format!("{}{}", tree.prefix, edge)
             // zero depth
@@ -1164,7 +1180,7 @@ pub fn print_configurations(
             let mut terminator = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_default_tree_icon(&icon::Icon::TreeConfigurationTerminiator), |i| i
+                    .map_or(icon::get_ascii_tree_icon(&icon::Icon::TreeConfigurationTerminiator), |i| i
                         .get_tree_icon(&icon::Icon::TreeConfigurationTerminiator));
 
             // colour tree
@@ -1228,7 +1244,7 @@ pub fn print_devices(
                     icon::Icon::TreeCorner
                 };
                 let edge = settings.icons.as_ref()
-                        .map_or(icon::get_default_tree_icon(&edge_icon), |i| i
+                        .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| i
                             .get_tree_icon(&edge_icon));
                 format!("{}{}", tree.prefix, edge)
             // zero depth
@@ -1239,7 +1255,7 @@ pub fn print_devices(
             let mut terminator = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_default_tree_icon(&icon::Icon::TreeDeviceTerminator), |i| i
+                    .map_or(icon::get_ascii_tree_icon(&icon::Icon::TreeDeviceTerminator), |i| i
                         .get_tree_icon(&icon::Icon::TreeDeviceTerminator));
 
             // colour tree
@@ -1270,9 +1286,9 @@ pub fn print_devices(
         if let Some(extra) = device.extra.as_ref() {
             if settings.verbosity >= 1 {
                 let blocks = (
-                    &settings.config_blocks.to_owned().unwrap_or(Block::<ConfigurationBlocks, USBConfiguration>::default_blocks(settings.verbosity >= MAX_VERBOSITY)),
-                    &settings.interface_blocks.to_owned().unwrap_or(Block::<InterfaceBlocks, USBInterface>::default_blocks(settings.verbosity >= MAX_VERBOSITY)),
-                    &settings.endpoint_blocks.to_owned().unwrap_or(Block::<EndpointBlocks, USBEndpoint>::default_blocks(settings.verbosity >= MAX_VERBOSITY)),
+                    &settings.config_blocks.to_owned().unwrap_or(Block::<ConfigurationBlocks, USBConfiguration>::default_blocks(settings.verbosity >= MAX_VERBOSITY || settings.more)),
+                    &settings.interface_blocks.to_owned().unwrap_or(Block::<InterfaceBlocks, USBInterface>::default_blocks(settings.verbosity >= MAX_VERBOSITY || settings.more)),
+                    &settings.endpoint_blocks.to_owned().unwrap_or(Block::<EndpointBlocks, USBEndpoint>::default_blocks(settings.verbosity >= MAX_VERBOSITY || settings.more)),
                 );
                 // pass branch length as number of configurations for this device plus devices still to print
                 print_configurations(&extra.configurations, blocks, settings, &generate_tree_data(&tree, extra.configurations.len() + device.devices.as_ref().map_or(0, |d| d.len()), i, settings));
@@ -1301,8 +1317,8 @@ pub fn print_sp_usb(
     sp_usb: &system_profiler::SPUSBDataType,
     settings: &PrintSettings,
 ) {
-    let bb = settings.bus_blocks.to_owned().unwrap_or(Block::<BusBlocks, system_profiler::USBBus>::default_blocks(settings.verbosity >= MAX_VERBOSITY));
-    let db = settings.device_blocks.to_owned().unwrap_or(if settings.verbosity >= MAX_VERBOSITY {
+    let bb = settings.bus_blocks.to_owned().unwrap_or(Block::<BusBlocks, system_profiler::USBBus>::default_blocks(settings.verbosity >= MAX_VERBOSITY || settings.more));
+    let db = settings.device_blocks.to_owned().unwrap_or(if settings.verbosity >= MAX_VERBOSITY || settings.more {
         DeviceBlocks::default_blocks(true)
     } else {
         if settings.tree {
@@ -1335,7 +1351,7 @@ pub fn print_sp_usb(
             let mut start = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_default_tree_icon(&icon::Icon::TreeBusStart), |i| i
+                    .map_or(icon::get_ascii_tree_icon(&icon::Icon::TreeBusStart), |i| i
                         .get_tree_icon(&icon::Icon::TreeBusStart));
 
             // colour tree

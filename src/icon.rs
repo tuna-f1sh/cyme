@@ -94,18 +94,18 @@ lazy_static! {
     };
 
     /// Ascii chars used by lsusb compatible mode or no utf-8
-    static ref LSUSB_TREE: HashMap<Icon, &'static str> = {
+    static ref ASCII_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::TreeEdge, "|__".into()), // same as corner
-            (Icon::TreeLine, "   ".into()), // no outside line but inset so starts under parent device
+            (Icon::TreeLine, "|  ".into()), // no outside line but inset so starts under parent device
             (Icon::TreeCorner, "|__".into()),
             (Icon::TreeBlank, "   ".into()), // inset like line
             (Icon::TreeBusStart, "/: ".into()),
-            (Icon::TreeDeviceTerminator, "".into()), // null
-            (Icon::TreeConfigurationTerminiator, "".into()), // null
-            (Icon::TreeInterfaceTerminiator, "".into()), // null
-            (Icon::Endpoint(Direction::In), "".into()), //
-            (Icon::Endpoint(Direction::Out), "".into()), //
+            (Icon::TreeDeviceTerminator, "O".into()), // null
+            (Icon::TreeConfigurationTerminiator, "o".into()), // null
+            (Icon::TreeInterfaceTerminiator, ".".into()), // null
+            (Icon::Endpoint(Direction::In), ">".into()), //
+            (Icon::Endpoint(Direction::Out), "<".into()), //
         ])
     };
 
@@ -288,6 +288,11 @@ impl IconTheme {
 /// Gets tree icon from `DEFAULT_TREE` as `String` with `unwrap` because should panic if missing from there
 pub fn get_default_tree_icon(i: &Icon) -> String {
     DEFAULT_TREE.get(i).unwrap().to_string()
+}
+
+/// Gets tree icon from `LSUSB_TREE` as `String` with `unwrap` because should panic if missing from there
+pub fn get_ascii_tree_icon(i: &Icon) -> String {
+    ASCII_TREE.get(i).unwrap().to_string()
 }
 
 #[cfg(test)]

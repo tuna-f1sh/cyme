@@ -1,6 +1,9 @@
 //! Colouring of cyme output
 use colored::*;
 use std::fmt;
+// use serde::de::{self, Visitor, MapAccess, SeqAccess};
+// use serde::{Deserialize, Deserializer, Serialize};
+// use std::str::FromStr;
 
 /// Colours [`Block`] fields based on loose typing of field type
 ///
@@ -8,76 +11,54 @@ use std::fmt;
 #[derive(Debug)]
 pub struct ColourTheme {
     /// Colour to use for name from descriptor
+    // #[serde(default)]
     // #[serde(deserialize_with = "deserialize_color")]
     pub name: Option<Color>,
     /// Colour to use for serial from descriptor
-    // #[serde(deserialize_with = "deserialize_color")]
     pub serial: Option<Color>,
     /// Colour to use for manufacturer from descriptor
-    // #[serde(deserialize_with = "deserialize_color")]
     pub manufacturer: Option<Color>,
     /// Colour to use for driver from udev
-    // #[serde(deserialize_with = "deserialize_color")]
     pub driver: Option<Color>,
     /// Colour to use for general String data
-    // #[serde(deserialize_with = "deserialize_color")]
     pub string: Option<Color>,
     /// Colour to use for icons
-    // #[serde(deserialize_with = "deserialize_color")]
     pub icon: Option<Color>,
     /// Colour to use for location data
-    // #[serde(deserialize_with = "deserialize_color")]
     pub location: Option<Color>,
     /// Colour to use for path data
-    // #[serde(deserialize_with = "deserialize_color")]
     pub path: Option<Color>,
     /// Colour to use for general number values
-    // #[serde(deserialize_with = "deserialize_color")]
     pub number: Option<Color>,
     /// Colour to use for speed
-    // #[serde(deserialize_with = "deserialize_color")]
     pub speed: Option<Color>,
     /// Colour to use for Vendor ID
-    // #[serde(deserialize_with = "deserialize_color")]
     pub vid: Option<Color>,
     /// Colour to use for Product ID
-    // #[serde(deserialize_with = "deserialize_color")]
     pub pid: Option<Color>,
     /// Colour to use for generic ClassCode
-    // #[serde(deserialize_with = "deserialize_color")]
     pub class_code: Option<Color>,
     /// Colour to use for SubCodes
-    // #[serde(deserialize_with = "deserialize_color")]
     pub sub_code: Option<Color>,
     /// Colour to use for protocol
-    // #[serde(deserialize_with = "deserialize_color")]
     pub protocol: Option<Color>,
     /// Colour to use for info/enum type
-    // #[serde(deserialize_with = "deserialize_color")]
     pub attributes: Option<Color>,
     /// Colour to use for power information
-    // #[serde(deserialize_with = "deserialize_color")]
     pub power: Option<Color>,
     /// Tree colour
-    // #[serde(deserialize_with = "deserialize_color")]
     pub tree: Option<Color>,
     /// Colour at prepended before printing `USBBus`
-    // #[serde(deserialize_with = "deserialize_color")]
     pub tree_bus_start: Option<Color>,
     /// Colour printed at end of tree before printing `USBDevice`
-    // #[serde(deserialize_with = "deserialize_color")]
     pub tree_bus_terminator: Option<Color>,
     /// Colour printed at end of tree before printing configuration
-    // #[serde(deserialize_with = "deserialize_color")]
     pub tree_configuration_terminator: Option<Color>,
     /// Colour printed at end of tree before printing interface
-    // #[serde(deserialize_with = "deserialize_color")]
     pub tree_interface_terminator: Option<Color>,
     /// Colour for endpoint in before print
-    // #[serde(deserialize_with = "deserialize_color")]
     pub tree_endpoint_in: Option<Color>,
     /// Colour for endpoint out before print
-    // #[serde(deserialize_with = "deserialize_color")]
     pub tree_endpoint_out: Option<Color>,
 }
 

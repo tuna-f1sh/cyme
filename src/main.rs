@@ -77,6 +77,10 @@ struct Args {
     #[arg(long, value_enum)]
     endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
 
+    /// Print more blocks by default at each verbosity
+    #[arg(short, long, default_value_t = false)]
+    more: bool,
+
     /// Sort devices by value
     #[arg(long, value_enum)]
     sort_devices: Option<display::Sort>,
@@ -109,6 +113,10 @@ struct Args {
     #[arg(long, default_value_t = false)]
     no_colour: bool,
 
+    /// Disables icons and utf-8 charactors
+    #[arg(long, default_value_t = false)]
+    ascii: bool,
+
     /// Show block headings
     #[arg(long, default_value_t = false)]
     headings: bool,
@@ -122,7 +130,7 @@ struct Args {
     from_json: Option<String>,
 
     /// Force libusb profiler on macOS rather than using/combining system_profiler output
-    #[arg(long, default_value_t = false)]
+    #[arg(short='F', long, default_value_t = false)]
     force_libusb: bool,
 
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
@@ -245,7 +253,7 @@ fn merge_libusb_spusb(_spdata: &mut system_profiler::SPUSBDataType, _args: &Args
 #[cfg(feature = "libusb")]
 fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
     lsusb::profiler::set_log_level(args.debug);
-    lsusb::profiler::get_spusb(args.verbose > 0 || args.tree || args.device.is_some() || args.lsusb || args.json).unwrap_or_else(|e| {
+    lsusb::profiler::get_spusb(args.verbose > 0 || args.tree || args.device.is_some() || args.lsusb || args.json || args.more).unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to gather system USB data from libusb: Error({})", e)
@@ -361,6 +369,12 @@ fn main() {
         Some(ColourTheme::new())
     };
 
+    let icons = if args.ascii {
+        None
+    } else {
+        Some(IconTheme::new())
+    };
+
     let mut spusb = if let Some(file_path) = args.from_json {
         read_json_dump(&file_path.as_str()).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
@@ -371,7 +385,7 @@ fn main() {
     } else if cfg!(target_os = "macos") 
         && !args.force_libusb
         && args.device.is_none() // device path requires extra
-        && !((args.tree && args.lsusb) || args.verbose > 0) {
+        && !((args.tree && args.lsusb) || args.verbose > 0 || args.more) {
         system_profiler::get_spusb().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -491,12 +505,13 @@ fn main() {
         json: args.json,
         headings: args.headings,
         verbosity: args.verbose,
+        more: args.more,
         device_blocks: args.blocks,
         bus_blocks: args.bus_blocks,
         config_blocks: args.config_blocks,
         interface_blocks: args.interface_blocks,
         endpoint_blocks: args.endpoint_blocks,
-        icons: Some(IconTheme::new()),
+        icons,
         colours,
         ..Default::default()
     };

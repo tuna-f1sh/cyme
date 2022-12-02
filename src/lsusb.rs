@@ -5,7 +5,6 @@ pub mod profiler {
     //!
     //! lsusb uses udev for tree building, which libusb does not have access to and is Linux only. udev-rs is used on Linux to attempt to mirror the output of lsusb on Linux. On other platforms, certain information like driver used cannot be obtained.
     use std::time::Duration;
-    use std::collections::HashSet;
     use std::collections::HashMap;
     use itertools::Itertools;
     use rusb as libusb;
@@ -249,13 +248,13 @@ pub mod profiler {
                 Err(_) => continue,
             };
 
-            let mut attributes = HashSet::new();
+            let mut attributes = Vec::new();
             if config_desc.remote_wakeup() {
-                attributes.insert(usb::ConfigAttributes::RemoteWakeup);
+                attributes.push(usb::ConfigAttributes::RemoteWakeup);
             }
 
             if config_desc.self_powered() {
-                attributes.insert(usb::ConfigAttributes::SelfPowered);
+                attributes.push(usb::ConfigAttributes::SelfPowered);
             }
 
             ret.push(usb::USBConfiguration {

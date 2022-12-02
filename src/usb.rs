@@ -4,7 +4,6 @@
 //!
 //! There are some repeated/copied Enum defines from rusb in order to control Serialize/Deserialize and add impl
 use itertools::Itertools;
-use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::fmt;
@@ -29,7 +28,7 @@ impl fmt::Display for ConfigAttributes {
 
 impl ConfigAttributes {
     /// Converts a HashSet of [`ConfigAttributes`] into a ';' separated string
-    pub fn attributes_to_string(attributes: &HashSet<ConfigAttributes>) -> String {
+    pub fn attributes_to_string(attributes: &Vec<ConfigAttributes>) -> String {
         let vec: Vec<String> = attributes.iter().map(|a| a.to_string()).collect();
         vec.join(";")
     }
@@ -424,8 +423,8 @@ pub struct USBConfiguration {
     pub number: u8,
     /// Interfaces available for this configuruation
     pub interfaces: Vec<USBInterface>,
-    /// Attributes of configuration, bmAttributes
-    pub attributes: HashSet<ConfigAttributes>,
+    /// Attributes of configuration, bmAttributes - was a HashSet since attributes should be unique but caused issues printing out of order
+    pub attributes: Vec<ConfigAttributes>,
     /// Maximum power consumption in mA
     pub max_power: NumericalUnit<u32>,
 }

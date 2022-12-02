@@ -16,54 +16,6 @@ use crate::usb::get_parent_path;
 use crate::usb::get_trunk_path;
 use crate::usb::{get_port_path, get_dev_path, ClassCode, Speed, USBDeviceExtra};
 
-/// Deserializes an option number from String (base10 or base16 encoding) or a number
-///
-/// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
-fn deserialize_option_number_from_string<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: FromStr + serde::Deserialize<'de>,
-    <T as FromStr>::Err: fmt::Display,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum NumericOrNull<'a, T> {
-        Str(&'a str),
-        FromStr(T),
-        Null,
-    }
-
-    match NumericOrNull::<T>::deserialize(deserializer)? {
-        NumericOrNull::Str(mut s) => match s {
-            "" => Ok(None),
-            _ => {
-                // -json returns apple_vendor_id in vendor_id for some reason not base16 like normal
-                if s.contains("apple_vendor_id") {
-                    s = "0x05ac";
-                }
-                // the vendor_id can be appended with manufacturer name for some reason...split with space to get just base16 encoding
-                let vendor_vec: Vec<&str> = s.split(" ").collect();
-
-                if s.contains("0x") {
-                    let removed_0x = vendor_vec[0].trim_start_matches("0x");
-                    let base16_num = u64::from_str_radix(removed_0x.trim(), 16);
-                    let result = match base16_num {
-                        Ok(num) => T::from_str(num.to_string().as_str()),
-                        Err(e) => return Err(serde::de::Error::custom(e)),
-                    };
-                    result.map(Some).map_err(serde::de::Error::custom)
-                } else {
-                    T::from_str(s.trim())
-                        .map(Some)
-                        .map_err(serde::de::Error::custom)
-                }
-            }
-        },
-        NumericOrNull::FromStr(i) => Ok(Some(i)),
-        NumericOrNull::Null => Ok(None),
-    }
-}
-
 /// Root JSON returned from system_profiler and used as holder for all static USB bus data
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SPUSBDataType {
@@ -1089,6 +1041,54 @@ pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
 
     serde_json::from_str(String::from_utf8(output.stdout).unwrap().as_str())
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+}
+
+/// Deserializes an option number from String (base10 or base16 encoding) or a number
+///
+/// Modified from https://github.com/vityafx/serde-aux/blob/master/src/field_attributes.rs with addition of base16 encoding
+fn deserialize_option_number_from_string<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromStr + serde::Deserialize<'de>,
+    <T as FromStr>::Err: fmt::Display,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumericOrNull<'a, T> {
+        Str(&'a str),
+        FromStr(T),
+        Null,
+    }
+
+    match NumericOrNull::<T>::deserialize(deserializer)? {
+        NumericOrNull::Str(mut s) => match s {
+            "" => Ok(None),
+            _ => {
+                // -json returns apple_vendor_id in vendor_id for some reason not base16 like normal
+                if s.contains("apple_vendor_id") {
+                    s = "0x05ac";
+                }
+                // the vendor_id can be appended with manufacturer name for some reason...split with space to get just base16 encoding
+                let vendor_vec: Vec<&str> = s.split(" ").collect();
+
+                if s.contains("0x") {
+                    let removed_0x = vendor_vec[0].trim_start_matches("0x");
+                    let base16_num = u64::from_str_radix(removed_0x.trim(), 16);
+                    let result = match base16_num {
+                        Ok(num) => T::from_str(num.to_string().as_str()),
+                        Err(e) => return Err(serde::de::Error::custom(e)),
+                    };
+                    result.map(Some).map_err(serde::de::Error::custom)
+                } else {
+                    T::from_str(s.trim())
+                        .map(Some)
+                        .map_err(serde::de::Error::custom)
+                }
+            }
+        },
+        NumericOrNull::FromStr(i) => Ok(Some(i)),
+        NumericOrNull::Null => Ok(None),
+    }
 }
 
 #[cfg(test)]
