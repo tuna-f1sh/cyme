@@ -12,10 +12,10 @@ use crate::icon;
 use crate::colour;
 use crate::system_profiler;
 use crate::system_profiler::{USBBus, USBDevice};
-use crate::usb::{USBConfiguration, USBInterface, USBEndpoint, ConfigAttributes};
+use crate::usb::{USBConfiguration, USBInterface, USBEndpoint, Direction, ConfigAttributes};
 
 const MAX_VERBOSITY: u8 = 4;
-const ICON_HEADING: &'static str = "\u{f2b4}";
+const ICON_HEADING: &'static str = "I";
 
 /// Info that can be printed about a [`USBDevice`]
 #[non_exhaustive]
@@ -886,25 +886,20 @@ fn generate_tree_data(
     // get prefix from icons if tree - maybe should cache these before build rather than lookup each time...
     if settings.tree {
         pass_tree.prefix = if pass_tree.depth > 0 {
-            if index + 1 != pass_tree.branch_length {
-                format!(
-                    "{}{}",
-                    pass_tree.prefix,
-                    settings
-                        .icons
-                        .as_ref()
-                        .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeLine))
-                )
+            let edge_icon = if index + 1 != pass_tree.branch_length {
+                icon::Icon::TreeLine
             } else {
-                format!(
-                    "{}{}",
-                    pass_tree.prefix,
-                    settings
-                        .icons
-                        .as_ref()
-                        .map_or(String::new(), |i| i.get_tree_icon(icon::Icon::TreeBlank))
-                )
-            }
+                icon::Icon::TreeBlank
+            };
+
+            format!(
+                "{}{}",
+                pass_tree.prefix,
+                settings
+                    .icons
+                    .as_ref()
+                    .map_or(icon::get_default_tree_icon(&edge_icon), |i| i.get_tree_icon(&edge_icon))
+            )
         } else {
             format!("{}", pass_tree.prefix)
         };
@@ -1012,47 +1007,45 @@ pub fn print_endpoints(
     for (i, endpoint) in endpoints.iter().enumerate() {
         // get current prefix based on if last in tree and whether we are within the tree
         if settings.tree {
-            let prefix = if tree.depth > 0 {
-                if i + 1 != tree.branch_length {
-                    format!(
-                        "{}{}",
-                        tree.prefix,
-                        settings
-                            .icons
-                            .as_ref()
-                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i
-                                .get_tree_icon(icon::Icon::TreeEdge))
-                    )
+            let mut prefix = if tree.depth > 0 {
+                let edge_icon = if i + 1 != tree.branch_length {
+                    icon::Icon::TreeEdge
                 } else {
-                    format!(
-                        "{}{}",
-                        tree.prefix,
-                        settings
-                            .icons
-                            .as_ref()
-                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
-                                .get_tree_icon(icon::Icon::TreeCorner))
-                    )
-                }
+                    icon::Icon::TreeCorner
+                };
+                let edge = settings.icons.as_ref()
+                        .map_or(icon::get_default_tree_icon(&edge_icon), |i| i
+                            .get_tree_icon(&edge_icon));
+                format!("{}{}", tree.prefix, edge)
             // zero depth
             } else {
                 format!("{}", tree.prefix)
             };
 
+            let mut terminator = settings
+                    .icons
+                    .as_ref()
+                    .map_or(icon::get_default_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction)), |i| i
+                        .get_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction)));
+
+            // colour tree
+            if let Some(ct) = settings.colours.as_ref() {
+                prefix = ct.tree.map_or(prefix.normal(), |c| prefix.color(c)).to_string();
+                terminator = if endpoint.address.direction == Direction::In {
+                    ct.tree_endpoint_in.map_or(terminator.normal(), |c| terminator.color(c)).to_string()
+                } else {
+                    ct.tree_endpoint_out.map_or(terminator.normal(), |c| terminator.color(c)).to_string()
+                };
+            }
+
+            // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks, &pad).join(" ");
+                let heading = render_heading(&blocks, &pad).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
-            print!(
-                "{}{} ",
-                prefix,
-                settings
-                    .icons
-                    .as_ref()
-                    .map_or(icon::get_default_tree_icon(icon::Icon::Endpoint(endpoint.address.direction)), |i| i
-                        .get_tree_icon(icon::Icon::Endpoint(endpoint.address.direction)))
-            );
+            // render and print tree if doing it
+            print!("{}{} ", prefix, terminator);
             println!("{}", render_value(endpoint, blocks, &pad, settings).join(" "));
         } else {
             if settings.headings && i == 0 {
@@ -1083,47 +1076,41 @@ pub fn print_interfaces(
     for (i, interface) in interfaces.iter().enumerate() {
         // get current prefix based on if last in tree and whether we are within the tree
         if settings.tree {
-            let prefix = if tree.depth > 0 {
-                if i + 1 != tree.branch_length {
-                    format!(
-                        "{}{}",
-                        tree.prefix,
-                        settings
-                            .icons
-                            .as_ref()
-                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i
-                                .get_tree_icon(icon::Icon::TreeEdge))
-                    )
+            let mut prefix = if tree.depth > 0 {
+                let edge_icon = if i + 1 != tree.branch_length {
+                    icon::Icon::TreeEdge
                 } else {
-                    format!(
-                        "{}{}",
-                        tree.prefix,
-                        settings
-                            .icons
-                            .as_ref()
-                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
-                                .get_tree_icon(icon::Icon::TreeCorner))
-                    )
-                }
+                    icon::Icon::TreeCorner
+                };
+                let edge = settings.icons.as_ref()
+                        .map_or(icon::get_default_tree_icon(&edge_icon), |i| i
+                            .get_tree_icon(&edge_icon));
+                format!("{}{}", tree.prefix, edge)
             // zero depth
             } else {
                 format!("{}", tree.prefix)
             };
 
+            let mut terminator = settings
+                    .icons
+                    .as_ref()
+                    .map_or(icon::get_default_tree_icon(&icon::Icon::TreeInterfaceTerminiator), |i| i
+                        .get_tree_icon(&icon::Icon::TreeInterfaceTerminiator));
+
+            // colour tree
+            if let Some(ct) = settings.colours.as_ref() {
+                prefix = ct.tree.map_or(prefix.normal(), |c| prefix.color(c)).to_string();
+                terminator = ct.tree_interface_terminator.map_or(terminator.normal(), |c| terminator.color(c)).to_string();
+            }
+
+            // maybe should just do once at start of bus
             if settings.headings && i == 0 {
                 let heading = render_heading(&blocks.0, &pad).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
-            print!(
-                "{}{} ",
-                prefix,
-                settings
-                    .icons
-                    .as_ref()
-                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeInterfaceTerminiator), |i| i
-                        .get_tree_icon(icon::Icon::TreeInterfaceTerminiator))
-            );
+            // render and print tree if doing it
+            print!("{}{} ", prefix, terminator);
 
             println!("{}", render_value(interface, &blocks.0, &pad, settings).join(" "));
         } else {
@@ -1159,47 +1146,41 @@ pub fn print_configurations(
     for (i, config) in configs.iter().enumerate() {
         // get current prefix based on if last in tree and whether we are within the tree
         if settings.tree {
-            let prefix = if tree.depth > 0 {
-                if i + 1 != tree.branch_length {
-                    format!(
-                        "{}{}",
-                        tree.prefix,
-                        settings
-                            .icons
-                            .as_ref()
-                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i
-                                .get_tree_icon(icon::Icon::TreeEdge))
-                    )
+            let mut prefix = if tree.depth > 0 {
+                let edge_icon = if i + 1 != tree.branch_length {
+                    icon::Icon::TreeEdge
                 } else {
-                    format!(
-                        "{}{}",
-                        tree.prefix,
-                        settings
-                            .icons
-                            .as_ref()
-                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
-                                .get_tree_icon(icon::Icon::TreeCorner))
-                    )
-                }
+                    icon::Icon::TreeCorner
+                };
+                let edge = settings.icons.as_ref()
+                        .map_or(icon::get_default_tree_icon(&edge_icon), |i| i
+                            .get_tree_icon(&edge_icon));
+                format!("{}{}", tree.prefix, edge)
             // zero depth
             } else {
                 format!("{}", tree.prefix)
             };
 
+            let mut terminator = settings
+                    .icons
+                    .as_ref()
+                    .map_or(icon::get_default_tree_icon(&icon::Icon::TreeConfigurationTerminiator), |i| i
+                        .get_tree_icon(&icon::Icon::TreeConfigurationTerminiator));
+
+            // colour tree
+            if let Some(ct) = settings.colours.as_ref() {
+                prefix = ct.tree.map_or(prefix.normal(), |c| prefix.color(c)).to_string();
+                terminator = ct.tree_configuration_terminator.map_or(terminator.normal(), |c| terminator.color(c)).to_string();
+            }
+
+            // maybe should just do once at start of bus
             if settings.headings && i == 0 {
                 let heading = render_heading(blocks.0, &pad).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
-            print!(
-                "{}{} ",
-                prefix,
-                settings
-                    .icons
-                    .as_ref()
-                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeConfigurationTerminiator), |i| i
-                        .get_tree_icon(icon::Icon::TreeConfigurationTerminiator))
-            );
+            // render and print tree if doing it
+            print!("{}{} ", prefix, terminator);
 
             println!("{}", render_value(config, blocks.0, &pad, settings).join(" "));
         } else {
@@ -1240,48 +1221,41 @@ pub fn print_devices(
     for (i, device) in sorted.iter().enumerate() {
         // get current prefix based on if last in tree and whether we are within the tree
         if settings.tree {
-            let device_prefix = if tree.depth > 0 {
-                if i + 1 != tree.branch_length {
-                    format!(
-                        "{}{}",
-                        tree.prefix,
-                        settings
-                            .icons
-                            .as_ref()
-                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeEdge), |i| i
-                                .get_tree_icon(icon::Icon::TreeEdge))
-                    )
+            let mut prefix = if tree.depth > 0 {
+                let edge_icon = if i + 1 != tree.branch_length {
+                    icon::Icon::TreeEdge
                 } else {
-                    format!(
-                        "{}{}",
-                        tree.prefix,
-                        settings
-                            .icons
-                            .as_ref()
-                            .map_or(icon::get_default_tree_icon(icon::Icon::TreeCorner), |i| i
-                                .get_tree_icon(icon::Icon::TreeCorner))
-                    )
-                }
+                    icon::Icon::TreeCorner
+                };
+                let edge = settings.icons.as_ref()
+                        .map_or(icon::get_default_tree_icon(&edge_icon), |i| i
+                            .get_tree_icon(&edge_icon));
+                format!("{}{}", tree.prefix, edge)
             // zero depth
             } else {
                 format!("{}", tree.prefix)
             };
 
+            let mut terminator = settings
+                    .icons
+                    .as_ref()
+                    .map_or(icon::get_default_tree_icon(&icon::Icon::TreeDeviceTerminator), |i| i
+                        .get_tree_icon(&icon::Icon::TreeDeviceTerminator));
+
+            // colour tree
+            if let Some(ct) = settings.colours.as_ref() {
+                prefix = ct.tree.map_or(prefix.normal(), |c| prefix.color(c)).to_string();
+                terminator = ct.tree_bus_terminator.map_or(terminator.normal(), |c| terminator.color(c)).to_string();
+            }
+
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
                 let heading = render_heading(db, &pad).join(" ");
-                println!("{}  {}", device_prefix, heading.bold().underline());
+                println!("{}  {}", prefix, heading.bold().underline());
             }
+
             // render and print tree if doing it
-            print!(
-                "{}{} ",
-                device_prefix,
-                settings
-                    .icons
-                    .as_ref()
-                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeDeviceTerminator), |i| i
-                        .get_tree_icon(icon::Icon::TreeDeviceTerminator))
-            );
+            print!("{}{} ", prefix, terminator);
         } else {
             if settings.headings && i == 0 {
                 let heading = render_heading(db, &pad).join(" ");
@@ -1356,21 +1330,33 @@ pub fn print_sp_usb(
     );
 
     for (i, bus) in sp_usb.buses.iter().enumerate() {
-        if settings.headings {
-            let heading = render_heading(&bb, &pad).join(" ");
-            // 2 spaces for bus start icon and space to info
-            println!("{:>spaces$}{}", "", heading.bold().underline(), spaces = 2);
-        }
         if settings.tree {
-            print!(
-                "{}{} ",
-                base_tree.prefix,
-                settings
+            let mut prefix = base_tree.prefix.to_owned();
+            let mut start = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_default_tree_icon(icon::Icon::TreeBusStart), |i| i
-                        .get_tree_icon(icon::Icon::TreeBusStart))
-            );
+                    .map_or(icon::get_default_tree_icon(&icon::Icon::TreeBusStart), |i| i
+                        .get_tree_icon(&icon::Icon::TreeBusStart));
+
+            // colour tree
+            if let Some(ct) = settings.colours.as_ref() {
+                prefix = ct.tree.map_or(prefix.normal(), |c| prefix.color(c)).to_string();
+                start = ct.tree_bus_start.map_or(start.normal(), |c| start.color(c)).to_string();
+            }
+
+            if settings.headings {
+                let heading = render_heading(&bb, &pad).join(" ");
+                // 2 spaces for bus start icon and space to info
+                println!("{:>spaces$}{}", "", heading.bold().underline(), spaces = 2);
+            }
+
+            print!("{}{} ", prefix, start);
+        } else {
+            if settings.headings {
+                let heading = render_heading(&bb, &pad).join(" ");
+                // 2 spaces for bus start icon and space to info
+                println!("{}", heading.bold().underline());
+            }
         }
         println!("{}", render_value(bus, &bb, &pad, settings).join(" "));
 
