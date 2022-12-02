@@ -81,15 +81,15 @@ jobs:
           fi
 
           # Let subsequent steps know where to find the (stripped) bin
-          echo "BIN_PATH=${BIN_PATH}" >> $GITHUB_OUTPUT
-          echo "BIN_NAME=${BIN_NAME}" >> $GITHUB_OUTPUT
+          echo "BIN_PATH=${BIN_PATH}" >> "$GITHUB_OUTPUT"
+          echo "BIN_NAME=${BIN_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Extract crate information
         shell: bash
         run: |
           echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> "$GITHUB_ENV"
           echo "PROJECT_MAINTAINER=$(sed -n 's/^authors = \["\(.*\)"\]/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
-          echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' Cargo.toml)" >> $GITHUB_ENV
+          echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
 
       - name: Create tarball
         id: package
@@ -100,7 +100,7 @@ jobs:
           PKG_BASENAME=${PROJECT_NAME}-v${PROJECT_VERSION}-${{ matrix.job.target }}
           PKG_NAME=${PKG_BASENAME}${PKG_suffix}
 
-          echo "PKG_NAME=${PKG_NAME}" >> $GITHUB_OUTPUT
+          echo "PKG_NAME=${PKG_NAME}" >> "$GITHUB_OUTPUT"
 
           PKG_STAGING="${{ env.INTERMEDIATES_DIR }}/package"
           ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
@@ -127,7 +127,7 @@ jobs:
           esac;
           popd >/dev/null
           # Let subsequent steps know where to find the compressed package
-          echo "PKG_PATH=${PKG_STAGING}/${PKG_NAME}" >> $GITHUB_OUTPUT
+          echo "PKG_PATH=${PKG_STAGING}/${PKG_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Upload package artifact
         uses: actions/upload-artifact@master
