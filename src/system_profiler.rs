@@ -209,22 +209,14 @@ impl USBBus {
         self.devices.as_mut().map_or((), |devs| devs.retain(|d| !d.is_root_hub()));
     }
 
-    /// Gets the device that is the root_hub associated with this bus - Linux only
+    /// Gets the device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device(&self) -> Option<&USBDevice> {
-        if cfg!(target_os = "linux") {
-            self.get_node(&self.interface())
-        } else {
-            None
-        }
+        self.get_node(&self.interface())
     }
 
-    /// Gets a mutable device that is the root_hub associated with this bus - Linux only
+    /// Gets a mutable device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device_mut(&mut self) -> Option<&mut USBDevice> {
-        if cfg!(target_os = "linux") {
-            self.get_node_mut(&self.interface())
-        } else {
-            None
-        }
+        self.get_node_mut(&self.interface())
     }
 
     /// Search for [`USBDevice`] in branches of bus and return reference
@@ -282,13 +274,12 @@ impl USBBus {
                 None => String::from(""),
             };
 
-            // get these now to save unwrap and to_owned each interface
-            let driver = match &root_device.extra {
-                Some(v) => v.driver.to_owned().unwrap_or(String::new()),
-                None => String::new()
-            };
 
-            let (vendor, product) = root_device.get_vendor_product_with_fallback();
+            // no fallback for lsusb tree mode
+            let (driver, vendor, product) = match &root_device.extra {
+                Some(v) => (v.driver.to_owned().unwrap_or(String::new()), v.vendor.to_owned().unwrap_or(String::new()), v.product_name.to_owned().unwrap_or(String::new())),
+                None => (String::new(), String::new(), String::new())
+            };
 
             Vec::from([(
                 format!(
@@ -864,13 +855,11 @@ impl USBDevice {
             None => String::from(""),
         };
 
-        // get these now to save unwrap and to_owned each interface
-        let driver = match &self.extra {
-            Some(v) => v.driver.to_owned().unwrap_or(String::new()),
-            None => String::new()
+        // no fallback for lsusb tree mode
+        let (driver, vendor, product) = match &self.extra {
+            Some(v) => (v.driver.to_owned().unwrap_or(String::new()), v.vendor.to_owned().unwrap_or(String::new()), v.product_name.to_owned().unwrap_or(String::new())),
+            None => (String::new(), String::new(), String::new())
         };
-
-        let (vendor, product) = self.get_vendor_product_with_fallback();
 
         if let Some(extra) = self.extra.as_ref() {
             for config in &extra.configurations {

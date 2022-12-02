@@ -16,9 +16,6 @@ fn test_lsusb_list() {
 }
 
 /// Tests lsusb --tree compatiability mode
-///
-/// Requires feature udev because comparison contains drivers
-#[cfg(feature = "udev")]
 #[test]
 fn test_lsusb_tree() {
     let te = common::TestEnv::new();
@@ -34,9 +31,6 @@ fn test_lsusb_tree() {
 }
 
 /// Tests lsusb --tree fully verbose compatiability mode
-///
-/// Requires feature udev because comparison contains drivers
-#[cfg(feature = "udev")]
 #[test]
 fn test_lsusb_tree_verbose() {
     let te = common::TestEnv::new();
