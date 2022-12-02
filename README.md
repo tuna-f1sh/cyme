@@ -21,9 +21,9 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Features
 
-* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb.
+* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb. Output is indentical for use with no args (list), almost matching for tree (driver port number not included) and near match for verbose.
 * Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial` and option to hide empty `--hide-buses`/`--hide-hubs`.
-* Improved `--tree` mode.
+* Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
 * Modern terminal features with coloured output, utf-8 characters and icons. Can be turned off and customised.
 * Can be used as a library too with `system_profiler` parsing module, `lsusb` module using libusb and `display` module for printing amoungst others.
 * `--json` output that honours filters and `--tree`.
@@ -51,7 +51,7 @@ For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/
 
 From crates.io with a Rust tool-chain installed: `cargo install cyme`. If wishing to do it from within a local clone: `cargo install --path .`.
 
-If wishing to use only macOS `system_profiler` and not more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
+If wishing to use only macOS `system_profiler` and not obtain more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
 
 I also have a Homebrew tap, which will also install a man page and completions: 
 
@@ -66,21 +66,10 @@ To obtain device and interface drivers being used on Linux like `lsusb`, one mus
 
 ## Alias `lsusb`
 
-If you want to create a macOS version of lsusb, create an alias in your environment with the `--lsusb` compatibility flag:
+If one wishes to create a macOS version of lsusb or just use this instead, create an alias one's environment with the `--lsusb` compatibility flag:
 
 `alias lsusb='cyme --lsusb'`
 
-Examples output:
-
-```
-> lsusb
-Bus 000 Device 001: ID 0bda:0411 4-Port USB 3.0 Hub
-Bus 002 Device 002: ID 043e:9a60 USB3.1 Hub
-Bus 002 Device 007: ID 0781:558c Extreme SSD
-Bus 002 Device 008: ID 0bda:8153 Belkin USB-C LAN
-Bus 002 Device 005: ID 2109:2817 USB2.0 Hub
-```
-
 # Usage
 
-Will cover this more as it develops. Use `cyme --help` for basic usage.
+Will cover this more as it develops. Use `cyme --help` for basic usage or `man ./doc/cyme.1`.
