@@ -1,6 +1,6 @@
 on: [push, pull_request]
 
-name: build
+name: Test, build and package
 
 env:
   PROJECT_NAME: cyme

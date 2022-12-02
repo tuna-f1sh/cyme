@@ -2,34 +2,27 @@ name: Deploy release to homebrew
 
 on:
   release:
-    types: [published]
 
 jobs:
-  deploy-to-homebrew:
-    runs-on: ubuntu-20.04
+  homebrew:
+    name: Bump Homebrew formula
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - name: Get latest tag version
-        id: latest_tag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
-
-      - name: Get sha-256 of macOS version
-        id: shasum_mac_os
+      - name: Extract version
+        id: extract-version
         run: |
-          wget https://github.com/tuna-f1sh/cyme/releases/download/${{ steps.latest_tag.outputs.tag }}/cyme-v${{ steps.latest_tag.outputs.tag }}-x86_64-apple-darwin.tar.gz
-          echo "sha=$(shasum -a 256 ./cyme-v${{ steps.latest_tag.outputs.tag }}-x86_64-apple-darwin.tar.gz | awk '{printf $1}')" >> "$GITHUB_OUTPUT"
-
-      - name: Update cyme homebrew formula
-        uses: naijabx/update-formula-homebrew-action@v1.1
+          printf "::set-output name=%s::%s\n" tag-name "${GITHUB_REF#refs/tags/}"
+      - uses: mislav/bump-homebrew-formula-action@v2
+        if: "!contains(github.ref, '-')" # skip prereleases
         with:
-          repo: tuna-f1sh/cyme
-          tap: tuna-f1sh/homebrew-cyme
-          formula: cyme.rb
-          download-url: https://github.com/tuna-f1sh/cyme/releases/download/${{ steps.latest_tag.outputs.tag }}/cyme-v${{ steps.latest_tag.outputs.tag }}-x86_64-apple-darwin.tar.gz
-          sha256: ${{ steps.shasum_mac_os.outputs.sha }}
+          formula-name: cyme
+          formula-path: cyme.rb
+          homebrew-tap: tuna-f1sh/homebrew-cyme
+          download-url: https://github.com/tuna-f1sh/cyme/releases/download/${{ steps.extract-version.outputs.tag-name }}/cyme-v${{ steps.extract-version.outputs.tag-name }}-x86_64-apple-darwin.tar.gz
+          commit-message: |
+            {{formulaName}} {{version}}
+
+            Created by https://github.com/mislav/bump-homebrew-formula-action
         env:
-          COMMIT_TOKEN: ${{ secrets.CYME_TAP_TOKEN }}
+          COMMITTER_TOKEN: ${{ secrets.COMMITTER_TOKEN }}
 
