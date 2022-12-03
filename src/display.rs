@@ -1634,8 +1634,8 @@ pub fn print_interfaces(
             };
 
             let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_ascii_tree_icon(&icon::Icon::TreeInterfaceTerminiator),
-                |i| i.get_tree_icon(&icon::Icon::TreeInterfaceTerminiator),
+                icon::get_ascii_tree_icon(&icon::Icon::TreeInterfaceTerminator),
+                |i| i.get_tree_icon(&icon::Icon::TreeInterfaceTerminator),
             );
 
             // colour tree
@@ -1729,8 +1729,8 @@ pub fn print_configurations(
             };
 
             let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_ascii_tree_icon(&icon::Icon::TreeConfigurationTerminiator),
-                |i| i.get_tree_icon(&icon::Icon::TreeConfigurationTerminiator),
+                icon::get_ascii_tree_icon(&icon::Icon::TreeConfigurationTerminator),
+                |i| i.get_tree_icon(&icon::Icon::TreeConfigurationTerminator),
             );
 
             // colour tree

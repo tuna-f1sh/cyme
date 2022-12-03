@@ -39,9 +39,9 @@ pub enum Icon {
     /// Icon printed at end of tree before printing `USBDevice`
     TreeDeviceTerminator,
     /// Icon printed at end of tree before printing configuration
-    TreeConfigurationTerminiator,
+    TreeConfigurationTerminator,
     /// Icon printed at end of tree before printing interface
-    TreeInterfaceTerminiator,
+    TreeInterfaceTerminator,
     /// Icon for endpoint direction
     Endpoint(Direction),
 }
@@ -59,12 +59,13 @@ impl FromStr for Icon {
                 "unknown-vendor" => Ok(Icon::UnknownVendor),
                 "undefined-classifier" => Ok(Icon::UndefinedClassifier),
                 "tree-edge" => Ok(Icon::TreeEdge),
+                "tree-blank" => Ok(Icon::TreeBlank),
                 "tree-line" => Ok(Icon::TreeLine),
                 "tree-corner" => Ok(Icon::TreeCorner),
                 "tree-bus-start" => Ok(Icon::TreeBusStart),
                 "tree-device-terminator" => Ok(Icon::TreeDeviceTerminator),
-                "tree-configuration-terminator" => Ok(Icon::TreeConfigurationTerminiator),
-                "tree-interface-terminator" => Ok(Icon::TreeInterfaceTerminiator),
+                "tree-configuration-terminator" => Ok(Icon::TreeConfigurationTerminator),
+                "tree-interface-terminator" => Ok(Icon::TreeInterfaceTerminator),
                 "endpoint_in" => Ok(Icon::Endpoint(Direction::In)),
                 "endpoint_out" => Ok(Icon::Endpoint(Direction::Out)),
                 _ => Err(io::Error::new(
@@ -179,7 +180,7 @@ impl fmt::Display for Icon {
 #[serde(default)]
 pub struct IconTheme {
     /// Will merge with `DEFAULT_ICONS` for user supplied
-    pub icons: Option<HashMap<Icon, String>>,
+    pub user: Option<HashMap<Icon, String>>,
     /// Will merge with `DEFAULT_TREE` for user supplied tree drawing
     pub tree: Option<HashMap<Icon, String>>,
 }
@@ -188,7 +189,7 @@ pub struct IconTheme {
 impl Default for IconTheme {
     fn default() -> Self {
         IconTheme {
-            icons: None,
+            user: None,
             tree: None,
         }
     }
@@ -204,8 +205,8 @@ lazy_static! {
             (Icon::TreeBlank, "   ".into()), // should be same char width as above
             (Icon::TreeBusStart, "\u{25CF}".into()), // "●"
             (Icon::TreeDeviceTerminator, "\u{25CB}".into()), // "○"
-            (Icon::TreeConfigurationTerminiator, "\u{2022}".into()), // "•"
-            (Icon::TreeInterfaceTerminiator, "\u{25E6}".into()), // "◦"
+            (Icon::TreeConfigurationTerminator, "\u{2022}".into()), // "•"
+            (Icon::TreeInterfaceTerminator, "\u{25E6}".into()), // "◦"
             (Icon::Endpoint(Direction::In), "\u{2192}".into()), // →
             (Icon::Endpoint(Direction::Out), "\u{2190}".into()), // ←
             // (Icon::Endpoint(Direction::In), ">".into()), // →
@@ -222,8 +223,8 @@ lazy_static! {
             (Icon::TreeBlank, "   ".into()), // inset like line
             (Icon::TreeBusStart, "/: ".into()),
             (Icon::TreeDeviceTerminator, "O".into()), // null
-            (Icon::TreeConfigurationTerminiator, "o".into()), // null
-            (Icon::TreeInterfaceTerminiator, ".".into()), // null
+            (Icon::TreeConfigurationTerminator, "o".into()), // null
+            (Icon::TreeInterfaceTerminator, ".".into()), // null
             (Icon::Endpoint(Direction::In), ">".into()), //
             (Icon::Endpoint(Direction::Out), "<".into()), //
         ])
@@ -328,7 +329,7 @@ impl IconTheme {
 
     /// Drill through `Self` `icons` if present first looking for `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> `get_default_vidpid_icon`
     pub fn get_vidpid_icon(&self, vid: u16, pid: u16) -> String {
-        if let Some(user_icons) = self.icons.as_ref() {
+        if let Some(user_icons) = self.user.as_ref() {
             // try vid pid first
             user_icons
                 .get(&Icon::VidPid((vid, pid)))
@@ -395,7 +396,7 @@ impl IconTheme {
 
     /// Drill through `Self` icons first looking for `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> get_default_classifier_icon
     pub fn get_classifier_icon(&self, class: &ClassCode, sub: u8, protocol: u8) -> String {
-        if let Some(user_icons) = self.icons.as_ref() {
+        if let Some(user_icons) = self.user.as_ref() {
             user_icons
                 .get(&Icon::ClassifierSubProtocol((
                     class.to_owned(),
@@ -456,7 +457,7 @@ pub fn example_theme() -> IconTheme {
     let tree_strings: HashMap<Icon, String> = DEFAULT_TREE.iter().map(|(k, v)| (k.to_owned(), v.to_string())).collect();
 
     IconTheme {
-        icons: Some(example()),
+        user: Some(example()),
         tree: Some(tree_strings),
     }
 }
@@ -468,7 +469,7 @@ mod tests {
     #[test]
     fn test_serialize_theme() {
         let theme = IconTheme {
-            icons: Some(HashMap::from([
+            user: Some(HashMap::from([
                 (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
             ])),
             ..Default::default()
@@ -484,7 +485,7 @@ mod tests {
         let theme: IconTheme =
             serde_json::from_str("{\"icons\":{\"unknown-vendor\":\"\"},\"tree\":null}").unwrap();
         let actual_theme = IconTheme {
-            icons: Some(HashMap::from([
+            user: Some(HashMap::from([
                 (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
             ])),
             ..Default::default()

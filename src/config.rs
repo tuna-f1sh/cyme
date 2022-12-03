@@ -15,12 +15,13 @@ const CONF_NAME: &'static str = "cyme.json";
 
 /// Allows user supplied icons to replace or add to `DEFAULT_ICONS` and `DEFAULT_TREE`
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Config {
     /// User supplied [`IconTheme`] - will merge with default
+    #[serde(default)]
     pub icons: icon::IconTheme,
     /// User supplied [`ColourTheme`] - overrides default
+    #[serde(default)]
     pub colours: colour::ColourTheme,
     /// Default [`DeviceBlocks`] to use for displaying devices
     pub blocks: Option<Vec<display::DeviceBlocks>>,
