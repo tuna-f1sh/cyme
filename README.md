@@ -27,34 +27,22 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 * Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb. Output is identical for use with no args (list), almost matching for tree (driver port number not included) and near match for verbose.
 * Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
-* Modern terminal features with coloured output, utf-8 characters and icons. Can be turned off and customised.
+* Controllable block data like `lsd --blocks` for device, bus, configurations, interfaces and endpoints. Use `--more` to see more by default.
+* Modern terminal features with coloured output, utf-8 characters and icon look-up based device data. Can be turned off and customised.
 * Can be used as a library too with `system_profiler` parsing module, `lsusb` module using libusb and `display` module for printing amongst others.
 * `--json` output that honours filters and `--tree`.
+* `--headers` to show meta data only when asked and not take space otherwise.
 * Targets for Linux, macOS, perhaps Windows...
 
-## Planned Features for 1.0.0 Release
+## Demo
 
-- [x] Controllable block data like `lsd --blocks`
-- [x] Modern drawing of device tree with utf-8 boxes.
-- [x] Nerd font icon look up and icon theming like `lsd --icon`.
-- [x] libusb optional to get more USB data and support other OS with switch from `system_profiler`.
-- [x] Group by in list mode.
-- [x] udev support on Linux to get device driver etc.
-- [x] Interface and Device Descriptor icon look up.
-- [x] Drawing of headers.
-- [x] Tree support of all device interfaces and endpoints.
-- [x] --device devpath arg to dump single device.
-- [x] Merge of macOS `system_profiler` output with libusb output to keep non-user Apple buses.
-- [x] Integration tests for lsusb output.
-- [x] User defined icon map and colour import.
-- [x] XDG_CONFIG_HOME default read config and merge with Args - non-Option merge would be nice.
-- [x] Integration tests for internal bin operation.
+[![asciicast](https://asciinema.org/a/542306.svg)](https://asciinema.org/a/542306)
 
 ## Feature Ideas
 
-- Fully decode device class based base class on tables at [USB-IF](https://www.usb.org/defined-class-codes).
-- Support 'auto', 'always', 'never' or icon, colours, utf-8 etc.
-- Print format for width constrained devices? Can remove blocks with args but maybe there is a different format to consider.
+* Fully decode device class based base class on tables at [USB-IF](https://www.usb.org/defined-class-codes).
+* Support 'auto', 'always', 'never' or icon, colours, utf-8 etc.
+* Print format for width constrained devices? Can remove blocks with args but maybe there is a different format to consider.
 
 # Install
 
