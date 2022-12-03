@@ -119,7 +119,6 @@ fn format_output_error(args: &[&str], expected: &str, actual: &str) -> String {
 /// Normalize the output for comparison.
 fn normalize_output(s: &str, trim_start: bool, normalize_line: bool) -> String {
     // Split into lines and normalize separators.
-    // TODO strip regex matches
     let mut lines = s
         .replace('\0', "NULL\n")
         .lines()

@@ -1,4 +1,6 @@
 //! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb output and provide cross-platform SPUSBDataType getter
+//!
+//! The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for a lot of the styling and content of the display module
 #[cfg(feature = "libusb")]
 pub mod profiler {
     //! Uses rusb (upto date libusb fork) to get system USB information, most of which has parity with lsusb. Uses [`system_profiler`] types to hold data so that it is cross-compatiable with macOS system_profiler command.
