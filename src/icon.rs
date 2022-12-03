@@ -453,11 +453,11 @@ pub fn example() -> HashMap<Icon, String> {
 
 /// Returns example theme with [`Icon`] types and default tree
 pub fn example_theme() -> IconTheme {
-    // TODO
-    let tree = DEFAULT_TREE.clone();
+    let tree_strings: HashMap<Icon, String> = DEFAULT_TREE.iter().map(|(k, v)| (k.to_owned(), v.to_string())).collect();
+
     IconTheme {
         icons: Some(example()),
-        tree: None,
+        tree: Some(tree_strings),
     }
 }
 

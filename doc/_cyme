@@ -109,8 +109,8 @@ no-sort\:"No sorting; whatever order it was parsed"))' \
 '--group-devices=[Group devices by value when listing]:GROUP_DEVICES:((no-group\:"No grouping"
 bus\:"Group into buses with bus info as heading - like a flat tree"))' \
 '--from-json=[Read from json output rather than profiling system - must use --tree json dump]:FROM_JSON: ' \
-'-c+[Path to user config file to use for custom icons and colours]:CONFIG: ' \
-'--config=[Path to user config file to use for custom icons and colours]:CONFIG: ' \
+'-c+[Path to user config file to use for custom icons, colours and default settings]:CONFIG: ' \
+'--config=[Path to user config file to use for custom icons, colours and default settings]:CONFIG: ' \
 '-l[Attempt to maintain compatibility with lsusb output]' \
 '--lsusb[Attempt to maintain compatibility with lsusb output]' \
 '-t[Dump USB device hierarchy as a tree]' \

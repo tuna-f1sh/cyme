@@ -11,7 +11,7 @@ complete -c cyme -l endpoint-blocks -d 'Specify the blocks which will be display
 complete -c cyme -l sort-devices -d 'Sort devices by value' -r -f -a "{branch-position	Sort by position in parent branch,device-number	Sort by bus device number,no-sort	No sorting; whatever order it was parsed}"
 complete -c cyme -l group-devices -d 'Group devices by value when listing' -r -f -a "{no-group	No grouping,bus	Group into buses with bus info as heading - like a flat tree}"
 complete -c cyme -l from-json -d 'Read from json output rather than profiling system - must use --tree json dump' -r
-complete -c cyme -s c -l config -d 'Path to user config file to use for custom icons and colours' -r
+complete -c cyme -s c -l config -d 'Path to user config file to use for custom icons, colours and default settings' -r
 complete -c cyme -s l -l lsusb -d 'Attempt to maintain compatibility with lsusb output'
 complete -c cyme -s t -l tree -d 'Dump USB device hierarchy as a tree'
 complete -c cyme -s v -l verbose -d 'Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks'

@@ -2,15 +2,26 @@
   "icons": {
     "icons": {
       "vid#05ac": "",
-      "classifier-sub-protocol#15:01:01": "",
-      "unknown-vendor": "",
-      "classifier#02": "",
-      "undefined-classifier": "☶",
       "vid-pid#1d50:6018": "",
+      "unknown-vendor": "",
       "vid-pid-msb#0483:37": "",
-      "vid#2e8a": ""
+      "vid#2e8a": "",
+      "undefined-classifier": "☶",
+      "classifier#02": "",
+      "classifier-sub-protocol#15:01:01": ""
     },
-    "tree": null
+    "tree": {
+      "tree-configuration-terminiator": "•",
+      "endpoint_in": "→",
+      "tree-device-terminator": "○",
+      "tree-bus-start": "●",
+      "endpoint_out": "←",
+      "tree-line": "│  ",
+      "tree-edge": "├──",
+      "tree-interface-terminiator": "◦",
+      "tree-corner": "└──",
+      "tree-blank": "   "
+    }
   },
   "colours": {
     "name": "bright blue",
