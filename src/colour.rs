@@ -1,8 +1,8 @@
 //! Colouring of cyme output
 use colored::*;
-use std::fmt;
-use serde::{Deserialize, Deserializer, Serialize};
 use serde::ser::SerializeSeq;
+use serde::{Deserialize, Deserializer, Serialize};
+use std::fmt;
 
 /// Colours [`Block`] fields based on loose typing of field type
 ///
@@ -11,76 +11,172 @@ use serde::ser::SerializeSeq;
 #[serde(deny_unknown_fields)]
 pub struct ColourTheme {
     /// Colour to use for name from descriptor
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub name: Option<Color>,
     /// Colour to use for serial from descriptor
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub serial: Option<Color>,
     /// Colour to use for manufacturer from descriptor
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub manufacturer: Option<Color>,
     /// Colour to use for driver from udev
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub driver: Option<Color>,
     /// Colour to use for general String data
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub string: Option<Color>,
     /// Colour to use for icons
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub icon: Option<Color>,
     /// Colour to use for location data
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub location: Option<Color>,
     /// Colour to use for path data
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub path: Option<Color>,
     /// Colour to use for general number values
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub number: Option<Color>,
     /// Colour to use for speed
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub speed: Option<Color>,
     /// Colour to use for Vendor ID
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub vid: Option<Color>,
     /// Colour to use for Product ID
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub pid: Option<Color>,
     /// Colour to use for generic ClassCode
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub class_code: Option<Color>,
     /// Colour to use for SubCodes
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub sub_code: Option<Color>,
     /// Colour to use for protocol
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub protocol: Option<Color>,
     /// Colour to use for info/enum type
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub attributes: Option<Color>,
     /// Colour to use for power information
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub power: Option<Color>,
     /// Tree colour
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub tree: Option<Color>,
     /// Colour at prepended before printing `USBBus`
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub tree_bus_start: Option<Color>,
     /// Colour printed at end of tree before printing `USBDevice`
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub tree_bus_terminator: Option<Color>,
     /// Colour printed at end of tree before printing configuration
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub tree_configuration_terminator: Option<Color>,
     /// Colour printed at end of tree before printing interface
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub tree_interface_terminator: Option<Color>,
     /// Colour for endpoint in before print
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub tree_endpoint_in: Option<Color>,
     /// Colour for endpoint out before print
-    #[serde(default, serialize_with = "color_serializer", deserialize_with = "deserialize_option_color_from_string")]
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
     pub tree_endpoint_out: Option<Color>,
 }
 
@@ -100,15 +196,14 @@ where
     match NumericOrNull::deserialize(deserializer)? {
         NumericOrNull::Str(s) => match s {
             "" => Ok(None),
-            _ => {
-                Color::try_from(s).map(Some).map_err(serde::de::Error::custom)
-            }
+            _ => Color::try_from(s)
+                .map(Some)
+                .map_err(serde::de::Error::custom),
         },
         NumericOrNull::FromStr(i) => Ok(Some(i)),
         NumericOrNull::Null => Ok(None),
     }
 }
-
 
 // Custom color deserialize, adapted from: https://github.com/Peltoche/lsd/blob/master/src/theme/color.rs
 fn deserialize_color<'de, D>(deserializer: D) -> Result<Color, D::Error>
@@ -120,9 +215,7 @@ where
         type Value = Color;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str(
-                "colour string or `3 u8 RGB array`",
-            )
+            formatter.write_str("colour string or `3 u8 RGB array`")
         }
 
         fn visit_str<E>(self, value: &str) -> Result<Color, E>
@@ -141,8 +234,8 @@ where
             if let Some(size) = seq.size_hint() {
                 if size != 3 {
                     return Err(serde::de::Error::invalid_length(
-                            size,
-                            &"a list of size 3(RGB)",
+                        size,
+                        &"a list of size 3(RGB)",
                     ));
                 }
             }
@@ -160,11 +253,15 @@ where
             // recheck as size_hint sometimes not working
             if values.len() != 3 {
                 return Err(serde::de::Error::invalid_length(
-                        values.len(),
-                        &"A u8 list of size 3: [R, G, B]",
+                    values.len(),
+                    &"A u8 list of size 3: [R, G, B]",
                 ));
             }
-            Ok(Color::TrueColor{r: values[0], g: values[1], b: values[2]})
+            Ok(Color::TrueColor {
+                r: values[0],
+                g: values[1],
+                b: values[2],
+            })
         }
     }
 
@@ -189,14 +286,15 @@ fn color_to_string(color: Color) -> String {
         Color::BrightMagenta => "bright magenta".into(),
         Color::BrightCyan => "bright cyan".into(),
         Color::BrightWhite => "bright white".into(),
-        Color::TrueColor { r, g, b } => format!("[{}, {}, {}]", r, g ,b),
+        Color::TrueColor { r, g, b } => format!("[{}, {}, {}]", r, g, b),
     }
 }
 
 /// Have to make this because external crate does not impl Display
 fn color_serializer<'a, S>(color: &'a Option<Color>, s: S) -> Result<S::Ok, S::Error>
 where
-    S: serde::ser::Serializer {
+    S: serde::ser::Serializer,
+{
     match color {
         Some(c) => match c {
             Color::TrueColor { r, g, b } => {
@@ -205,9 +303,9 @@ where
                 seq.serialize_element(g)?;
                 seq.serialize_element(b)?;
                 seq.end()
-            },
+            }
             _ => s.serialize_str(&color_to_string(*c)),
-        }
+        },
         None => s.serialize_none(),
     }
 }
@@ -218,11 +316,10 @@ impl Default for ColourTheme {
     }
 }
 
-
 impl ColourTheme {
     /// New theme with defaults
     pub fn new() -> Self {
-        ColourTheme{
+        ColourTheme {
             name: Some(Color::BrightBlue),
             serial: Some(Color::Green),
             manufacturer: Some(Color::Blue),

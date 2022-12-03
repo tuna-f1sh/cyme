@@ -6,15 +6,15 @@ pub mod profiler {
     //! Uses rusb (upto date libusb fork) to get system USB information, most of which has parity with lsusb. Uses [`system_profiler`] types to hold data so that it is cross-compatiable with macOS system_profiler command.
     //!
     //! lsusb uses udev for tree building, which libusb does not have access to and is Linux only. udev-rs is used on Linux to attempt to mirror the output of lsusb on Linux. On other platforms, certain information like driver used cannot be obtained.
-    use std::time::Duration;
-    use std::collections::HashMap;
-    use itertools::Itertools;
-    use rusb as libusb;
-    use usb_ids::{self, FromId};
-    use crate::{usb, system_profiler, types::NumericalUnit};
     #[cfg(target_os = "linux")]
     #[cfg(feature = "udev")]
     use crate::udev;
+    use crate::{system_profiler, types::NumericalUnit, usb};
+    use itertools::Itertools;
+    use rusb as libusb;
+    use std::collections::HashMap;
+    use std::time::Duration;
+    use usb_ids::{self, FromId};
     struct UsbDevice<T: libusb::UsbContext> {
         handle: libusb::DeviceHandle<T>,
         language: libusb::Language,
@@ -186,7 +186,7 @@ pub mod profiler {
                 address: usb::EndpointAddress {
                     address: endpoint_desc.address(),
                     number: endpoint_desc.number(),
-                    direction: usb::Direction::from(endpoint_desc.direction())
+                    direction: usb::Direction::from(endpoint_desc.direction()),
                 },
                 transfer_type: usb::TransferType::from(endpoint_desc.transfer_type()),
                 sync_type: usb::SyncType::from(endpoint_desc.sync_type()),
@@ -213,20 +213,30 @@ pub mod profiler {
                     name: get_interface_string(&interface_desc, handle),
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
-                    path: usb::get_interface_path(device.bus_number(), &device.port_numbers()?, config_desc.number(), interface_desc.interface_number()),
+                    path: usb::get_interface_path(
+                        device.bus_number(),
+                        &device.port_numbers()?,
+                        config_desc.number(),
+                        interface_desc.interface_number(),
+                    ),
                     class: usb::ClassCode::from(interface_desc.class_code()),
                     sub_class: interface_desc.sub_class_code(),
                     protocol: interface_desc.protocol_code(),
                     alt_setting: interface_desc.setting_number(),
                     driver: None,
                     syspath: None,
-                    endpoints: build_endpoints(&interface_desc)?
+                    endpoints: build_endpoints(&interface_desc)?,
                 };
 
                 #[cfg(target_os = "linux")]
                 #[cfg(feature = "udev")]
                 if _with_udev {
-                    udev::get_udev_info(&mut _interface.driver, &mut _interface.syspath, &_interface.path).or(Err(libusb::Error::Other))?;
+                    udev::get_udev_info(
+                        &mut _interface.driver,
+                        &mut _interface.syspath,
+                        &_interface.path,
+                    )
+                    .or(Err(libusb::Error::Other))?;
                 }
 
                 ret.push(_interface);
@@ -264,14 +274,17 @@ pub mod profiler {
                 string_index: config_desc.description_string_index().unwrap_or(0),
                 number: config_desc.number(),
                 attributes,
-                max_power: NumericalUnit{value: config_desc.max_power() as u32, unit: String::from("mA"), description: None},
+                max_power: NumericalUnit {
+                    value: config_desc.max_power() as u32,
+                    unit: String::from("mA"),
+                    description: None,
+                },
                 interfaces: build_interfaces(device, handle, &config_desc, with_udev)?,
             });
         }
 
         Ok(ret)
     }
-
 
     fn build_spdevice_extra<T: libusb::UsbContext>(
         device: &libusb::Device<T>,
@@ -289,15 +302,25 @@ pub mod profiler {
             ),
             driver: None,
             syspath: None,
-            vendor: usb_ids::Vendor::from_id(device_desc.vendor_id()).map_or(None, |v| Some(v.name().to_owned())),
-            product_name: usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()).map_or(None, |v| Some(v.name().to_owned())),
-            configurations: build_configurations(device, handle, device_desc, _with_udev)?
+            vendor: usb_ids::Vendor::from_id(device_desc.vendor_id())
+                .map_or(None, |v| Some(v.name().to_owned())),
+            product_name: usb_ids::Device::from_vid_pid(
+                device_desc.vendor_id(),
+                device_desc.product_id(),
+            )
+            .map_or(None, |v| Some(v.name().to_owned())),
+            configurations: build_configurations(device, handle, device_desc, _with_udev)?,
         };
 
         #[cfg(target_os = "linux")]
         #[cfg(feature = "udev")]
         if _with_udev {
-            udev::get_udev_info(&mut _extra.driver, &mut _extra.syspath, &_sp_device.port_path()).or(Err(libusb::Error::Other))?;
+            udev::get_udev_info(
+                &mut _extra.driver,
+                &mut _extra.syspath,
+                &_sp_device.port_path(),
+            )
+            .or(Err(libusb::Error::Other))?;
         }
 
         Ok(_extra)
@@ -334,9 +357,21 @@ pub mod profiler {
                             None
                         }
                     }
-                    Err(e) => { error_str = Some(format!("Failed to open {:?}, will be unable to obtain all data: {}", device, e));  None },
+                    Err(e) => {
+                        error_str = Some(format!(
+                            "Failed to open {:?}, will be unable to obtain all data: {}",
+                            device, e
+                        ));
+                        None
+                    }
                 },
-                Err(e) => { error_str = Some(format!("Failed to open {:?}, will be unable to obtain all data: {}", device, e));  None },
+                Err(e) => {
+                    error_str = Some(format!(
+                        "Failed to open {:?}, will be unable to obtain all data: {}",
+                        device, e
+                    ));
+                    None
+                }
             }
         };
 
@@ -378,13 +413,22 @@ pub mod profiler {
             ..Default::default()
         };
 
-        let extra_error_str = if with_extra { 
+        let extra_error_str = if with_extra {
             match build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device, true) {
-                Ok(extra) => { sp_device.extra = Some(extra); None },
+                Ok(extra) => {
+                    sp_device.extra = Some(extra);
+                    None
+                }
                 Err(e) => {
                     // try again without udev if we have that feature but return message so device still added
                     if cfg!(feature = "udev") && e == libusb::Error::Other {
-                        sp_device.extra = Some(build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device, false)?);
+                        sp_device.extra = Some(build_spdevice_extra(
+                            device,
+                            &mut usb_device,
+                            &device_desc,
+                            &sp_device,
+                            false,
+                        )?);
                         Some(format!( "Failed to get udev data for {}, probably requires elevated permissions", sp_device ))
                     } else {
                         Some(format!( "Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e ))
@@ -431,8 +475,8 @@ pub mod profiler {
                             root_hubs.insert(sp_device.location_id.bus, sp_device);
                         }
                     }
-                },
-                Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e.to_string())
+                }
+                Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e.to_string()),
             }
         }
 
@@ -459,7 +503,11 @@ pub mod profiler {
 
             if let Some(root_hub) = root {
                 new_bus.name = root_hub.name.to_owned();
-                new_bus.host_controller = root_hub.manufacturer.as_ref().unwrap_or(&String::new()).to_owned();
+                new_bus.host_controller = root_hub
+                    .manufacturer
+                    .as_ref()
+                    .unwrap_or(&String::new())
+                    .to_owned();
                 new_bus.pci_vendor = root_hub.vendor_id;
                 new_bus.pci_device = root_hub.product_id;
             }
@@ -470,11 +518,14 @@ pub mod profiler {
             // now go through parent paths inserting devices owned by that parent
             // this is not perfect...if the sort of devices does not result in order of depth, it will panic because the parent of a device will not exist. But that won't happen, right...
             // sort key - ends_with to ensure root_hubs, which will have same str length as trunk devices will still be ahead
-            for (parent_path, children) in parent_groups.into_iter().sorted_by_key(|x| x.0.len() - x.0.ends_with("-0") as usize) {
+            for (parent_path, children) in parent_groups
+                .into_iter()
+                .sorted_by_key(|x| x.0.len() - x.0.ends_with("-0") as usize)
+            {
                 log::debug!("Adding devices to parent {}", parent_path);
                 // if root devices, add them to bus
                 if parent_path.ends_with("-0") {
-                // if parent_path == "-" {
+                    // if parent_path == "-" {
                     let devices = std::mem::take(&mut new_bus.devices);
                     if let Some(mut d) = devices {
                         for new_device in children {
@@ -488,7 +539,9 @@ pub mod profiler {
                     log::trace!("Updated bus devices {:?}", new_bus.devices);
                 // else find and add parent - this should work because we are sorted to accend the tree so parents should be created before their children
                 } else {
-                    let parent_node = new_bus.get_node_mut(&parent_path).expect("Parent node does not exist in new bus!");
+                    let parent_node = new_bus
+                        .get_node_mut(&parent_path)
+                        .expect("Parent node does not exist in new bus!");
                     let devices = std::mem::take(&mut parent_node.devices);
                     if let Some(mut d) = devices {
                         for new_device in children {
@@ -512,13 +565,20 @@ pub mod profiler {
     /// Fills a passed mutable `spusb` reference to fill using `get_spusb`
     ///
     /// This is so that the main bin can switch between system_profiler and libusb without a variable not being set
-    pub fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType, with_extra: bool) -> Result<(), libusb::Error> {
+    pub fn fill_spusb(
+        spusb: &mut system_profiler::SPUSBDataType,
+        with_extra: bool,
+    ) -> Result<(), libusb::Error> {
         let libusb_spusb = get_spusb(with_extra)?;
 
         // merge if passed has any buses
         if !spusb.buses.is_empty() {
             for mut bus in libusb_spusb.buses {
-                if let Some(mut existing) = spusb.buses.iter_mut().find(|b| b.get_bus_number() == bus.get_bus_number()) {
+                if let Some(mut existing) = spusb
+                    .buses
+                    .iter_mut()
+                    .find(|b| b.get_bus_number() == bus.get_bus_number())
+                {
                     // just take the devices and put them in since libusb will be more verbose
                     existing.devices = std::mem::take(&mut bus.devices);
                 }
@@ -531,8 +591,8 @@ pub mod profiler {
 
 pub mod display {
     //! Printing functions for lsusb style output of USB data
-    use crate::{usb, system_profiler};
     use crate::display::PrintSettings;
+    use crate::{system_profiler, usb};
 
     const TREE_LSUSB_BUS: &'static str = "/:  ";
     const TREE_LSUSB_DEVICE: &'static str = "|__ ";
@@ -549,8 +609,10 @@ pub mod display {
                     continue;
                 }
                 // the const len should get compiled to const...
-                let spaces = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
-                let device_tree_strings: Vec<(String, String, String)> = device.to_lsusb_tree_string();
+                let spaces =
+                    (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
+                let device_tree_strings: Vec<(String, String, String)> =
+                    device.to_lsusb_tree_string();
 
                 for strings in device_tree_strings {
                     println!("{:>spaces$}{}", TREE_LSUSB_DEVICE, strings.0);
@@ -582,20 +644,25 @@ pub mod display {
             }
 
             // followed by devices if there are some
-            bus.devices.as_ref().map_or((), |d| print_tree_devices(d, settings))
+            bus.devices
+                .as_ref()
+                .map_or((), |d| print_tree_devices(d, settings))
         }
     }
 
     /// Dump a single [`USBDevice`] matching `dev_path` verbosely
-    pub fn dump_one_device(devices: &Vec<&system_profiler::USBDevice>, dev_path: &String) -> Result<(), String> {
+    pub fn dump_one_device(
+        devices: &Vec<&system_profiler::USBDevice>,
+        dev_path: &String,
+    ) -> Result<(), String> {
         for device in devices {
             if &device.dev_path() == dev_path {
                 // error if extra is none because we need it for vebose
                 if device.extra.is_none() {
-                    return Err(String::from(format!("Unable to open {}", dev_path)))
+                    return Err(String::from(format!("Unable to open {}", dev_path)));
                 } else {
                     print(&vec![device], true);
-                    return Ok(())
+                    return Ok(());
                 }
             }
         }
@@ -638,26 +705,34 @@ pub mod display {
     }
 
     fn print_device(device: &system_profiler::USBDevice) {
-        let device_extra = device.extra.as_ref().expect("Cannot print verbose without extra data");
+        let device_extra = device
+            .extra
+            .as_ref()
+            .expect("Cannot print verbose without extra data");
 
         println!("Device Descriptor:");
-        println!(
-            "  bcdUSB              {:.2}",
-            device.bcd_usb.unwrap_or(0.0)
-        );
+        println!("  bcdUSB              {:.2}", device.bcd_usb.unwrap_or(0.0));
         println!(
             "  bDeviceClass         {:3} {}",
             device.class.as_ref().map_or(0, |c| c.to_owned() as u8),
-            device.class.as_ref().map_or(String::new(), |c| c.to_string())
+            device
+                .class
+                .as_ref()
+                .map_or(String::new(), |c| c.to_string())
         );
-        println!(
-            "  bDeviceSubClass      {:3}",
-            device.sub_class.unwrap_or(0),
-        );
+        println!("  bDeviceSubClass      {:3}", device.sub_class.unwrap_or(0),);
         println!("  bDeviceProtocol      {:3}", device.protocol.unwrap_or(0));
         println!("  bMaxPacketSize0      {:3}", device_extra.max_packet_size);
-        println!("  idVendor          {:#06x} {}", device.vendor_id.unwrap_or(0), device_extra.vendor.as_ref().unwrap_or(&String::new()));
-        println!("  idProduct         {:#06x} {}", device.product_id.unwrap_or(0), device_extra.product_name.as_ref().unwrap_or(&String::new()));
+        println!(
+            "  idVendor          {:#06x} {}",
+            device.vendor_id.unwrap_or(0),
+            device_extra.vendor.as_ref().unwrap_or(&String::new())
+        );
+        println!(
+            "  idProduct         {:#06x} {}",
+            device.product_id.unwrap_or(0),
+            device_extra.product_name.as_ref().unwrap_or(&String::new())
+        );
         println!(
             "  bcdDevice           {:.2}",
             device.bcd_device.unwrap_or(0.0)
@@ -669,8 +744,7 @@ pub mod display {
         );
         println!(
             "  iProduct             {:3} {}",
-            device_extra.string_indexes.1,
-            device.name
+            device_extra.string_indexes.1, device.name
         );
         println!(
             "  iSerialNumber        {:3} {}",
@@ -685,60 +759,49 @@ pub mod display {
 
     fn print_config(config: &usb::USBConfiguration) {
         println!("  Config Descriptor:");
-        println!(
-            "    bNumInterfaces       {:3}",
-            config.interfaces.len()
-        );
-        println!(
-            "    bConfigurationValue  {:3}", config.number);
+        println!("    bNumInterfaces       {:3}", config.interfaces.len());
+        println!("    bConfigurationValue  {:3}", config.number);
         println!(
             "    iConfiguration       {:3} {}",
-            config.string_index,
-            config.name
+            config.string_index, config.name
         );
         println!(
-            "    bmAttributes:       0x{:02x}", config.attributes_value());
-        if config.attributes.contains(&usb::ConfigAttributes::SelfPowered) {
+            "    bmAttributes:       0x{:02x}",
+            config.attributes_value()
+        );
+        if config
+            .attributes
+            .contains(&usb::ConfigAttributes::SelfPowered)
+        {
             println!("      Self Powered");
         }
-        if config.attributes.contains(&usb::ConfigAttributes::RemoteWakeup) {
+        if config
+            .attributes
+            .contains(&usb::ConfigAttributes::RemoteWakeup)
+        {
             println!("      Remote Wakeup");
         }
         println!(
-            "    bMaxPower           {:4}{}", config.max_power.value, config.max_power.unit)
+            "    bMaxPower           {:4}{}",
+            config.max_power.value, config.max_power.unit
+        )
     }
 
     fn print_interface(interface: &usb::USBInterface) {
         println!("    Interface Descriptor:");
-        println!(
-            "      bInterfaceNumber     {:3}",
-            interface.number
-        );
-        println!(
-            "      bAlternateSetting    {:3}",
-            interface.alt_setting
-        );
-        println!(
-            "      bNumEndpoints        {:3}",
-            interface.endpoints.len()
-        );
+        println!("      bInterfaceNumber     {:3}", interface.number);
+        println!("      bAlternateSetting    {:3}", interface.alt_setting);
+        println!("      bNumEndpoints        {:3}", interface.endpoints.len());
         println!(
             "      bInterfaceClass      {:3} {}",
             interface.class.to_owned() as u8,
             interface.class.to_string()
         );
-        println!(
-            "      bInterfaceSubClass   {:3}",
-            interface.sub_class
-        );
-        println!(
-            "      bInterfaceProtocol   {:3}",
-            interface.protocol
-        );
+        println!("      bInterfaceSubClass   {:3}", interface.sub_class);
+        println!("      bInterfaceProtocol   {:3}", interface.protocol);
         println!(
             "      iInterface           {:3} {}",
-            interface.string_index,
-            interface.name
+            interface.string_index, interface.name
         );
     }
 
@@ -755,22 +818,13 @@ pub mod display {
             "          Transfer Type          {:?}",
             endpoint.transfer_type
         );
-        println!(
-            "          Sync Type             {:?}",
-            endpoint.sync_type
-        );
-        println!(
-            "          Usage Type             {:?}",
-            endpoint.usage_type
-        );
+        println!("          Sync Type             {:?}", endpoint.sync_type);
+        println!("          Usage Type             {:?}", endpoint.usage_type);
         println!(
             "        wMaxPacketSize    {:#06x} {} bytes",
             endpoint.max_packet_size,
             endpoint.max_packet_string()
         );
-        println!(
-            "        bInterval            {:3}",
-            endpoint.interval
-        );
+        println!("        bInterval            {:3}", endpoint.interval);
     }
 }

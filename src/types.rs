@@ -3,7 +3,7 @@ use std::fmt;
 use std::io;
 use std::str::FromStr;
 
-use serde::de::{self, Visitor, MapAccess, SeqAccess};
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// A numerical `value` converted from a String, which includes a `unit` and `description`
@@ -105,10 +105,10 @@ impl<'de> Deserialize<'de> for NumericalUnit<u32> {
         #[derive(Deserialize)]
         #[serde(field_identifier, rename_all = "lowercase")]
         #[serde(untagged)]
-        enum Field { 
-            Value, 
-            Unit, 
-            Description
+        enum Field {
+            Value,
+            Unit,
+            Description,
         }
 
         struct DeviceNumericalUnitU32Visitor;
@@ -124,13 +124,21 @@ impl<'de> Deserialize<'de> for NumericalUnit<u32> {
             where
                 V: SeqAccess<'de>,
             {
-                let value = seq.next_element()?
+                let value = seq
+                    .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let unit = seq.next_element()?
+                let unit = seq
+                    .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let description = seq.next_element().map_or(None, |s| Some(s))
+                let description = seq
+                    .next_element()
+                    .map_or(None, |s| Some(s))
                     .ok_or_else(|| de::Error::invalid_length(2, &self))?;
-                Ok(NumericalUnit::<u32>{ value, unit, description })
+                Ok(NumericalUnit::<u32> {
+                    value,
+                    unit,
+                    description,
+                })
             }
 
             fn visit_map<V>(self, mut map: V) -> Result<NumericalUnit<u32>, V::Error>
@@ -164,7 +172,11 @@ impl<'de> Deserialize<'de> for NumericalUnit<u32> {
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
                 let unit = unit.ok_or_else(|| de::Error::missing_field("unit"))?;
-                Ok(NumericalUnit::<u32>{ value, unit, description })
+                Ok(NumericalUnit::<u32> {
+                    value,
+                    unit,
+                    description,
+                })
             }
 
             fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
@@ -194,11 +206,11 @@ impl<'de> Deserialize<'de> for NumericalUnit<f32> {
         #[derive(Deserialize)]
         #[serde(field_identifier, rename_all = "lowercase")]
         #[serde(untagged)]
-        enum Field { 
-            Value, 
-            Unit, 
+        enum Field {
+            Value,
+            Unit,
             #[serde(deserialize_with = "deserialize_description")]
-            Description
+            Description,
         }
 
         struct DeviceNumericalUnitF32Visitor;
@@ -214,13 +226,21 @@ impl<'de> Deserialize<'de> for NumericalUnit<f32> {
             where
                 V: SeqAccess<'de>,
             {
-                let value = seq.next_element()?
+                let value = seq
+                    .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let unit = seq.next_element()?
+                let unit = seq
+                    .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let description = seq.next_element().map_or(None, |s| Some(s))
+                let description = seq
+                    .next_element()
+                    .map_or(None, |s| Some(s))
                     .ok_or_else(|| de::Error::invalid_length(2, &self))?;
-                Ok(NumericalUnit::<f32>{ value, unit, description })
+                Ok(NumericalUnit::<f32> {
+                    value,
+                    unit,
+                    description,
+                })
             }
 
             fn visit_map<V>(self, mut map: V) -> Result<NumericalUnit<f32>, V::Error>
@@ -254,7 +274,11 @@ impl<'de> Deserialize<'de> for NumericalUnit<f32> {
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
                 let unit = unit.ok_or_else(|| de::Error::missing_field("unit"))?;
-                Ok(NumericalUnit::<f32>{ value, unit, description })
+                Ok(NumericalUnit::<f32> {
+                    value,
+                    unit,
+                    description,
+                })
             }
 
             fn visit_string<E>(self, value: String) -> Result<Self::Value, E>

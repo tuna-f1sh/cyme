@@ -87,7 +87,7 @@ impl fmt::Display for ClassCode {
         match self {
             ClassCode::HID => write!(f, "Human Interface Device"),
             ClassCode::CDCCommunications => write!(f, "Communications"),
-            _ => write!(f, "{:?}", self)
+            _ => write!(f, "{:?}", self),
         }
     }
 }
@@ -135,20 +135,20 @@ impl Into<u8> for ClassCode {
             ClassCode::Printer => 7,
             ClassCode::MassStorage => 8,
             ClassCode::Hub => 9,
-            ClassCode::CDCData => 0x0a, 
-            ClassCode::SmartCart => 0x0b, 
-            ClassCode::ContentSecurity => 0x0d, 
-            ClassCode::Video => 0x0e, 
-            ClassCode::PersonalHealthcare => 0x0f, 
-            ClassCode::AudioVideo => 0x10, 
-            ClassCode::Billboard => 0x11, 
-            ClassCode::USBTypeCBridge => 0x12, 
-            ClassCode::I3CDevice => 0x3c, 
-            ClassCode::Diagnostic => 0xdc, 
-            ClassCode::WirelessController => 0xe0, 
-            ClassCode::Miscellaneous => 0xef, 
-            ClassCode::ApplicationSpecificInterface => 0xfe, 
-            ClassCode::VendorSpecificClass => 0xff, 
+            ClassCode::CDCData => 0x0a,
+            ClassCode::SmartCart => 0x0b,
+            ClassCode::ContentSecurity => 0x0d,
+            ClassCode::Video => 0x0e,
+            ClassCode::PersonalHealthcare => 0x0f,
+            ClassCode::AudioVideo => 0x10,
+            ClassCode::Billboard => 0x11,
+            ClassCode::USBTypeCBridge => 0x12,
+            ClassCode::I3CDevice => 0x3c,
+            ClassCode::Diagnostic => 0xdc,
+            ClassCode::WirelessController => 0xe0,
+            ClassCode::Miscellaneous => 0xef,
+            ClassCode::ApplicationSpecificInterface => 0xfe,
+            ClassCode::VendorSpecificClass => 0xff,
         }
     }
 }
@@ -183,8 +183,8 @@ impl ClassCode {
 
         // keep capitalised abbreviations
         match first.to_owned() {
-            "Cdc"|"Usb"|"I3c"|"Hid" => title.replace(first, &first.to_uppercase()),
-            _ => title
+            "Cdc" | "Usb" | "I3c" | "Hid" => title.replace(first, &first.to_uppercase()),
+            _ => title,
         }
     }
 }
@@ -215,11 +215,11 @@ impl FromStr for Speed {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "10.0 Gb/s"|"super_speed_plus" => Speed::SuperSpeedPlus,
-            "5.0 Gb/s"|"super_speed" => Speed::SuperSpeed,
-            "480.0 Mb/s"|"high_speed" | "high_bandwidth" => Speed::HighSpeed,
-            "12.0 Mb/s"|"full_speed" => Speed::FullSpeed,
-            "1.5 Mb/s"|"low_speed" => Speed::LowSpeed,
+            "10.0 Gb/s" | "super_speed_plus" => Speed::SuperSpeedPlus,
+            "5.0 Gb/s" | "super_speed" => Speed::SuperSpeed,
+            "480.0 Mb/s" | "high_speed" | "high_bandwidth" => Speed::HighSpeed,
+            "12.0 Mb/s" | "full_speed" => Speed::FullSpeed,
+            "1.5 Mb/s" | "low_speed" => Speed::LowSpeed,
             _ => Speed::Unknown,
         })
     }
@@ -300,7 +300,7 @@ impl Speed {
         let prefix = dv.unit.chars().next().unwrap_or('M');
         match prefix {
             'G' => format!("{:.0}{}", dv.value * 1000.0, 'M'),
-            _ => format!("{:.0}{}", dv.value, prefix)
+            _ => format!("{:.0}{}", dv.value, prefix),
         }
     }
 }
@@ -311,7 +311,7 @@ pub enum Direction {
     /// Direction for write (host to device) transfers.
     Out,
     /// Direction for read (device to host) transfers.
-    In
+    In,
 }
 
 impl fmt::Display for Direction {
@@ -408,7 +408,11 @@ pub struct USBEndpoint {
 impl USBEndpoint {
     /// Decodes the max packet value into a multipler and number of bytes
     pub fn max_packet_string(&self) -> String {
-        format!("{}x {}", ((self.max_packet_size >> 11) & 3) + 1, self.max_packet_size & 0x7ff)
+        format!(
+            "{}x {}",
+            ((self.max_packet_size >> 11) & 3) + 1,
+            self.max_packet_size & 0x7ff
+        )
     }
 }
 
@@ -575,7 +579,6 @@ pub fn get_trunk_path(bus: u8, ports: &Vec<u8>) -> String {
 pub fn get_interface_path(bus: u8, ports: &Vec<u8>, config: u8, interface: u8) -> String {
     format!("{}:{}.{}", get_port_path(bus, ports), config, interface)
 }
-
 
 /// Build replica of Linux dev path from libusb.c *devbususb for getting device with -D
 ///

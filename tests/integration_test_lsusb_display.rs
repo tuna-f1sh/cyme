@@ -125,4 +125,3 @@ fn test_lsusb_device() {
         true,
     );
 }
-

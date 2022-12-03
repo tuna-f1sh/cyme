@@ -1,20 +1,20 @@
 //! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
 //!
 //! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
+use colored::*;
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 use std::fmt;
 use std::io;
 use std::process::Command;
 use std::str::FromStr;
-use colored::*;
-use serde::de::{self, Visitor, SeqAccess, MapAccess};
-use serde::{Deserialize, Deserializer, Serialize};
-use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 
 use crate::types::NumericalUnit;
 use crate::usb::get_interface_path;
 use crate::usb::get_parent_path;
 use crate::usb::get_trunk_path;
-use crate::usb::{get_port_path, get_dev_path, ClassCode, Speed, USBDeviceExtra};
+use crate::usb::{get_dev_path, get_port_path, ClassCode, Speed, USBDeviceExtra};
 
 /// Root JSON returned from system_profiler and used as holder for all static USB bus data
 #[derive(Debug, Serialize, Deserialize)]
@@ -102,11 +102,16 @@ impl USBBus {
     ///
     /// Not very pretty or efficient, probably a better way...
     pub fn flatten(&mut self) -> () {
-        self.devices = Some(self.flattened_devices().iter().map(|d| {
-            let mut new = d.clone().to_owned();
-            new.devices = None;
-            new
-        }).collect());
+        self.devices = Some(
+            self.flattened_devices()
+                .iter()
+                .map(|d| {
+                    let mut new = d.clone().to_owned();
+                    new.devices = None;
+                    new
+                })
+                .collect(),
+        );
     }
 
     /// Returns a flattened `Vec` of references to all `USBDevice`s on the bus
@@ -158,7 +163,9 @@ impl USBBus {
 
     /// Remove the root_hub if existing in bus
     pub fn remove_root_hub_device(&mut self) -> () {
-        self.devices.as_mut().map_or((), |devs| devs.retain(|d| !d.is_root_hub()));
+        self.devices
+            .as_mut()
+            .map_or((), |devs| devs.retain(|d| !d.is_root_hub()));
     }
 
     /// Gets the device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
@@ -218,19 +225,20 @@ impl USBBus {
         if let Some(root_device) = self.get_root_hub_device() {
             let speed = match &root_device.device_speed {
                 Some(v) => match v {
-                    DeviceSpeed::SpeedValue(v) => {
-                        v.to_lsusb_speed()
-                    }
-                    DeviceSpeed::Description(_) => String::new()
-                }
+                    DeviceSpeed::SpeedValue(v) => v.to_lsusb_speed(),
+                    DeviceSpeed::Description(_) => String::new(),
+                },
                 None => String::from(""),
             };
 
-
             // no fallback for lsusb tree mode
             let (driver, vendor, product) = match &root_device.extra {
-                Some(v) => (v.driver.to_owned().unwrap_or(String::new()), v.vendor.to_owned().unwrap_or(String::new()), v.product_name.to_owned().unwrap_or(String::new())),
-                None => (String::new(), String::new(), String::new())
+                Some(v) => (
+                    v.driver.to_owned().unwrap_or(String::new()),
+                    v.vendor.to_owned().unwrap_or(String::new()),
+                    v.product_name.to_owned().unwrap_or(String::new()),
+                ),
+                None => (String::new(), String::new(), String::new()),
             };
 
             Vec::from([(
@@ -251,7 +259,7 @@ impl USBBus {
                     "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number(),
                     get_dev_path(self.get_bus_number(), None)
-                )
+                ),
             )])
         } else {
             log::warn!("Failed to get root_device in bus");
@@ -271,7 +279,7 @@ impl USBBus {
                     "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number(),
                     get_dev_path(self.get_bus_number(), None)
-                )
+                ),
             )])
         }
     }
@@ -297,7 +305,7 @@ pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>)
     for device in devices {
         // don't print root hubs in tree
         if f.sign_plus() && device.is_root_hub() {
-            continue
+            continue;
         }
         // print the device details
         if f.alternate() {
@@ -350,7 +358,11 @@ impl fmt::Display for USBBus {
             )?;
         } else {
             if f.sign_plus() {
-                let interface_strs: Vec<String> = self.to_lsusb_tree_string().iter().map(|s| format!("{}{}", tree, s.0)).collect();
+                let interface_strs: Vec<String> = self
+                    .to_lsusb_tree_string()
+                    .iter()
+                    .map(|s| format!("{}{}", tree, s.0))
+                    .collect();
                 writeln!(f, "{}", interface_strs.join("\n\r"))?
             } else {
                 writeln!(f, "{}", self.to_lsusb_string())?
@@ -358,7 +370,9 @@ impl fmt::Display for USBBus {
         }
 
         // followed by devices if there are some
-        self.devices.as_ref().map_or(Ok(()), |d| write_devices_recursive(f, d))
+        self.devices
+            .as_ref()
+            .map_or(Ok(()), |d| write_devices_recursive(f, d))
     }
 }
 
@@ -441,10 +455,13 @@ impl<'de> Deserialize<'de> for DeviceLocation {
     where
         D: Deserializer<'de>,
     {
-
         #[derive(Deserialize)]
         #[serde(field_identifier, rename_all = "snake_case")]
-        enum Field { Bus, Number, TreePositions }
+        enum Field {
+            Bus,
+            Number,
+            TreePositions,
+        }
         struct DeviceLocationVisitor;
 
         impl<'de> Visitor<'de> for DeviceLocationVisitor {
@@ -458,13 +475,20 @@ impl<'de> Deserialize<'de> for DeviceLocation {
             where
                 V: SeqAccess<'de>,
             {
-                let bus = seq.next_element()?
+                let bus = seq
+                    .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let tree_positions = seq.next_element()?
+                let tree_positions = seq
+                    .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let number = seq.next_element()?
+                let number = seq
+                    .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(2, &self))?;
-                Ok(DeviceLocation{ bus, number, tree_positions })
+                Ok(DeviceLocation {
+                    bus,
+                    number,
+                    tree_positions,
+                })
             }
 
             fn visit_map<V>(self, mut map: V) -> Result<DeviceLocation, V::Error>
@@ -498,8 +522,13 @@ impl<'de> Deserialize<'de> for DeviceLocation {
                 }
                 let bus = bus.ok_or_else(|| de::Error::missing_field("bus"))?;
                 let number = number.ok_or_else(|| de::Error::missing_field("number"))?;
-                let tree_positions = tree_positions.ok_or_else(|| de::Error::missing_field("tree_positions"))?;
-                Ok(DeviceLocation{ bus, number, tree_positions })
+                let tree_positions =
+                    tree_positions.ok_or_else(|| de::Error::missing_field("tree_positions"))?;
+                Ok(DeviceLocation {
+                    bus,
+                    number,
+                    tree_positions,
+                })
             }
 
             fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
@@ -644,13 +673,28 @@ impl USBDevice {
         if port_path.ends_with(":1.0") {
             return self.get_root_hub();
         }
-        let node_depth = port_path.split('-').last().expect("Invalid port path").split('.').count();
+        let node_depth = port_path
+            .split('-')
+            .last()
+            .expect("Invalid port path")
+            .split('.')
+            .count();
         let current_depth = self.get_depth();
-        log::debug!("Get node at {} with {} ({}); depth {}/{}", port_path, self.port_path(), self, current_depth, node_depth);
+        log::debug!(
+            "Get node at {} with {} ({}); depth {}/{}",
+            port_path,
+            self.port_path(),
+            self,
+            current_depth,
+            node_depth
+        );
 
         // should not be looking for nodes below us unless root
         if current_depth > node_depth {
-            panic!("Trying to find node at {}/{} shallower than current position {}!", &port_path, node_depth, current_depth);
+            panic!(
+                "Trying to find node at {}/{} shallower than current position {}!",
+                &port_path, node_depth, current_depth
+            );
         // if we are at depth, just check self or return none
         } else if node_depth == current_depth {
             if self.port_path() == port_path {
@@ -683,13 +727,28 @@ impl USBDevice {
                 return None;
             }
         }
-        let node_depth = port_path.split('-').last().expect("Invalid port path").split('.').count();
+        let node_depth = port_path
+            .split('-')
+            .last()
+            .expect("Invalid port path")
+            .split('.')
+            .count();
         let current_depth = self.get_depth();
-        log::debug!("Get node at {} with {} ({}); depth {}/{}", port_path, self.port_path(), self, current_depth, node_depth);
+        log::debug!(
+            "Get node at {} with {} ({}); depth {}/{}",
+            port_path,
+            self.port_path(),
+            self,
+            current_depth,
+            node_depth
+        );
 
         // should not be looking for nodes below us
         if current_depth > node_depth {
-            panic!("Trying to find node at {}/{} shallower than current position {}!", &port_path, node_depth, current_depth);
+            panic!(
+                "Trying to find node at {}/{} shallower than current position {}!",
+                &port_path, node_depth, current_depth
+            );
         // if we are at depth, just check self or return none
         } else if node_depth == current_depth {
             if self.port_path() == port_path {
@@ -775,15 +834,32 @@ impl USBDevice {
     /// From lsusb.c: Attempt to get friendly vendor and product names from the udev hwdb. If either or both are not present, instead populate those from the device's own string descriptors
     pub fn get_vendor_product_with_fallback(&self) -> (String, String) {
         match &self.extra {
-            Some(v) => (v.vendor.to_owned().unwrap_or(self.manufacturer.as_ref().unwrap_or(&String::new()).to_owned()), v.product_name.to_owned().unwrap_or(self.name.trim().to_string())),
-            None => (self.manufacturer.as_ref().unwrap_or(&String::new()).to_owned(), self.name.trim().to_string())
+            Some(v) => (
+                v.vendor.to_owned().unwrap_or(
+                    self.manufacturer
+                        .as_ref()
+                        .unwrap_or(&String::new())
+                        .to_owned(),
+                ),
+                v.product_name
+                    .to_owned()
+                    .unwrap_or(self.name.trim().to_string()),
+            ),
+            None => (
+                self.manufacturer
+                    .as_ref()
+                    .unwrap_or(&String::new())
+                    .to_owned(),
+                self.name.trim().to_string(),
+            ),
         }
     }
 
     /// Generate a String from self like lsusb default list device
     pub fn to_lsusb_string(&self) -> String {
         let (vendor, product) = self.get_vendor_product_with_fallback();
-        format!("Bus {:03} Device {:03}: ID {:04x}:{:04x} {} {}",
+        format!(
+            "Bus {:03} Device {:03}: ID {:04x}:{:04x} {} {}",
             self.location_id.bus,
             self.location_id.number,
             self.vendor_id.unwrap_or(0xffff),
@@ -799,18 +875,20 @@ impl USBDevice {
 
         let speed = match &self.device_speed {
             Some(v) => match v {
-                DeviceSpeed::SpeedValue(v) => {
-                    v.to_lsusb_speed()
-                }
-                DeviceSpeed::Description(_) => String::new()
-            }
+                DeviceSpeed::SpeedValue(v) => v.to_lsusb_speed(),
+                DeviceSpeed::Description(_) => String::new(),
+            },
             None => String::from(""),
         };
 
         // no fallback for lsusb tree mode
         let (driver, vendor, product) = match &self.extra {
-            Some(v) => (v.driver.to_owned().unwrap_or(String::new()), v.vendor.to_owned().unwrap_or(String::new()), v.product_name.to_owned().unwrap_or(String::new())),
-            None => (String::new(), String::new(), String::new())
+            Some(v) => (
+                v.driver.to_owned().unwrap_or(String::new()),
+                v.vendor.to_owned().unwrap_or(String::new()),
+                v.product_name.to_owned().unwrap_or(String::new()),
+            ),
+            None => (String::new(), String::new(), String::new()),
         };
 
         if let Some(extra) = self.extra.as_ref() {
@@ -838,8 +916,8 @@ impl USBDevice {
                             "/sys/bus/usb/devices",
                             self.port_path(),
                             self.dev_path(),
-                        ))
-                    );
+                        ),
+                    ));
                 }
             }
         } else {
@@ -850,7 +928,9 @@ impl USBDevice {
                     self.get_branch_position(),
                     self.location_id.number,
                     0,
-                    self.class.as_ref().map_or(String::new(), |c| c.to_title_case()),
+                    self.class
+                        .as_ref()
+                        .map_or(String::new(), |c| c.to_title_case()),
                     driver,
                     speed
                 ),
@@ -867,8 +947,8 @@ impl USBDevice {
                     "/sys/bus/usb/devices",
                     self.port_path(),
                     self.dev_path(),
-                ))
-            );
+                ),
+            ));
         }
 
         format_strs
@@ -908,7 +988,9 @@ impl fmt::Display for USBDevice {
                 tree.bright_black(),
                 format!("{:03}", self.location_id.bus).cyan(),
                 format!("{:03}", self.location_id.number).magenta(),
-                format!("0x{:04x}", self.vendor_id.unwrap_or(0)).yellow().bold(),
+                format!("0x{:04x}", self.vendor_id.unwrap_or(0))
+                    .yellow()
+                    .bold(),
                 format!("0x{:04x}", self.product_id.unwrap_or(0)).yellow(),
                 self.name.trim().bold().blue(),
                 self.serial_num
@@ -925,7 +1007,11 @@ impl fmt::Display for USBDevice {
                 if spaces > 0 {
                     spaces += 3;
                 }
-                let interface_strs: Vec<String> = self.to_lsusb_tree_string().iter().map(|s| format!("{:>spaces$}{}", tree, s.0)).collect();
+                let interface_strs: Vec<String> = self
+                    .to_lsusb_tree_string()
+                    .iter()
+                    .map(|s| format!("{:>spaces$}{}", tree, s.0))
+                    .collect();
                 write!(f, "{}", interface_strs.join("\n\r"))
             } else {
                 write!(f, "{}", self.to_lsusb_string())
@@ -978,7 +1064,7 @@ impl USBFilter {
                     .map_or(false, |s| s.contains(n.as_str()))
             }))
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
-            // && (!device.is_root_hub() || self.no_exclude_root_hub)
+        // && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
     /// Recursively retain only `USBBus` in `buses` with `USBDevice` matching filter
@@ -1163,7 +1249,8 @@ mod tests {
         use std::io::{BufReader, Read};
 
         let mut data = String::new();
-        let f = File::open("./tests/data/system_profiler_dump.json").expect("Unable to open json dump file");
+        let f = File::open("./tests/data/system_profiler_dump.json")
+            .expect("Unable to open json dump file");
         let mut br = BufReader::new(f);
         br.read_to_string(&mut data).expect("Unable to read string");
 

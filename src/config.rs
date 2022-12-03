@@ -1,11 +1,11 @@
 //! Config for cyme binary
-use std::io;
-use std::fs::File;
-use std::io::{BufReader, Read};
 use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io;
+use std::io::{BufReader, Read};
 
-use crate::icon;
 use crate::colour;
+use crate::icon;
 
 /// Allows user supplied icons to replace or add to `DEFAULT_ICONS` and `DEFAULT_TREE`
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -41,7 +41,6 @@ impl Config {
         let mut data = String::new();
 
         br.read_to_string(&mut data)?;
-        serde_json::from_str::<Config>(&data)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+        serde_json::from_str::<Config>(&data).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 }

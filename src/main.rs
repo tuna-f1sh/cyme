@@ -1,26 +1,26 @@
 //! Where the magic happens for `cyme` binary!
-use std::fs;
-use std::io::Read;
-use std::env;
-use std::io::{Error, ErrorKind};
 use clap::Parser;
 use colored::*;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::env;
+use std::fs;
+use std::io::Read;
+use std::io::{Error, ErrorKind};
 
 #[cfg(feature = "cli_generate")]
-use clap_complete::generate_to;
-#[cfg(feature = "cli_generate")]
 use clap::CommandFactory;
+#[cfg(feature = "cli_generate")]
+use clap_complete::generate_to;
 #[cfg(feature = "cli_generate")]
 use clap_complete::shells::*;
 #[cfg(feature = "cli_generate")]
 use std::path::PathBuf;
 
-use cyme::display;
-use cyme::system_profiler;
-use cyme::lsusb;
 use cyme::config::Config;
+use cyme::display;
+use cyme::lsusb;
+use cyme::system_profiler;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -123,7 +123,7 @@ struct Args {
     headings: bool,
 
     /// Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices
-    #[arg(long, default_value_t = false, overrides_with="lsusb")]
+    #[arg(long, default_value_t = false, overrides_with = "lsusb")]
     json: bool,
 
     /// Read from json output rather than profiling system - must use --tree json dump
@@ -131,19 +131,20 @@ struct Args {
     from_json: Option<String>,
 
     /// Force libusb profiler on macOS rather than using/combining system_profiler output
-    #[arg(short='F', long, default_value_t = false)]
+    #[arg(short = 'F', long, default_value_t = false)]
     force_libusb: bool,
 
     /// Path to user config file to use for custom icons, colours and default settings
-    #[arg(short='c', long)]
+    #[arg(short = 'c', long)]
     config: Option<String>,
 
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
-    #[arg(short = 'z', long, action = clap::ArgAction::Count)] // short -d taken by lsusb compat vid:pid
+    #[arg(short = 'z', long, action = clap::ArgAction::Count)]
+    // short -d taken by lsusb compat vid:pid
     debug: u8,
 
     /// Generate cli completions and man page
-    #[arg(long, hide=true, exclusive=true)]
+    #[arg(long, hide = true, exclusive = true)]
     gen: bool,
 }
 
@@ -170,16 +171,22 @@ macro_rules! wprintln {
 fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>), Error> {
     if s.contains(":") {
         let vid_split: Vec<&str> = s.split(":").collect();
-        let vid: Option<u16> = vid_split.first().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
-            u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
-                .map(|v| Some(v as u16))
-                .map_err(|e| Error::new(ErrorKind::Other, e))
-        })?;
-        let pid: Option<u16> = vid_split.last().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
-            u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
-                .map(|v| Some(v as u16))
-                .map_err(|e| Error::new(ErrorKind::Other, e))
-        })?;
+        let vid: Option<u16> = vid_split
+            .first()
+            .filter(|v| v.len() > 0)
+            .map_or(Ok(None), |v| {
+                u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
+                    .map(|v| Some(v as u16))
+                    .map_err(|e| Error::new(ErrorKind::Other, e))
+            })?;
+        let pid: Option<u16> = vid_split
+            .last()
+            .filter(|v| v.len() > 0)
+            .map_or(Ok(None), |v| {
+                u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
+                    .map(|v| Some(v as u16))
+                    .map_err(|e| Error::new(ErrorKind::Other, e))
+            })?;
 
         Ok((vid, pid))
     } else {
@@ -195,11 +202,14 @@ fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>), Error> {
 fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
     if s.contains(":") {
         let split: Vec<&str> = s.split(":").collect();
-        let bus: Option<u8> = split.first().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
-            v.parse::<u8>()
-                .map(Some)
-                .map_err(|e| Error::new(ErrorKind::Other, e))
-        })?;
+        let bus: Option<u8> = split
+            .first()
+            .filter(|v| v.len() > 0)
+            .map_or(Ok(None), |v| {
+                v.parse::<u8>()
+                    .map(Some)
+                    .map_err(|e| Error::new(ErrorKind::Other, e))
+            })?;
         let device = split.last().filter(|v| v.len() > 0).map_or(Ok(None), |v| {
             v.parse::<u8>()
                 .map(Some)
@@ -226,7 +236,7 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
     if s.contains("/") {
         let split: Vec<&str> = s.split("/").collect();
         // second to last
-        let bus: Option<u8> = split.get(split.len()-2).map_or(Ok(None), |v| {
+        let bus: Option<u8> = split.get(split.len() - 2).map_or(Ok(None), |v| {
             v.parse::<u8>()
                 .map(Some)
                 .map_err(|e| Error::new(ErrorKind::Other, e))
@@ -240,28 +250,45 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
 
         Ok((bus, device))
     } else {
-        Err(Error::new(ErrorKind::Other, format!("Invalid device path {}", s)))
+        Err(Error::new(
+            ErrorKind::Other,
+            format!("Invalid device path {}", s),
+        ))
     }
 }
 
 /// Abort with exit code before trying to call libusb feature if not present
 #[cfg(not(feature = "libusb"))]
 fn get_libusb_spusb(_args: &Args) -> system_profiler::SPUSBDataType {
-    eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+    eprintexit!(Error::new(
+        ErrorKind::Other,
+        "libusb feature is required to do this, install with `cargo install --features libusb`"
+    ));
 }
 
 #[cfg(not(feature = "libusb"))]
 fn merge_libusb_spusb(_spdata: &mut system_profiler::SPUSBDataType, _args: &Args) -> () {
-    eprintexit!(Error::new(ErrorKind::Other, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+    eprintexit!(Error::new(
+        ErrorKind::Other,
+        "libusb feature is required to do this, install with `cargo install --features libusb`"
+    ));
 }
 
 #[cfg(feature = "libusb")]
 fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
     lsusb::profiler::set_log_level(args.debug);
-    lsusb::profiler::get_spusb(args.verbose > 0 || args.tree || args.device.is_some() || args.lsusb || args.json || args.more).unwrap_or_else(|e| {
+    lsusb::profiler::get_spusb(
+        args.verbose > 0
+            || args.tree
+            || args.device.is_some()
+            || args.lsusb
+            || args.json
+            || args.more,
+    )
+    .unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to gather system USB data from libusb: Error({})", e)
+            std::io::ErrorKind::Other,
+            format!("Failed to gather system USB data from libusb: Error({})", e)
         ));
     })
 }
@@ -271,15 +298,19 @@ fn merge_libusb_spusb(spdata: &mut system_profiler::SPUSBDataType, args: &Args) 
     lsusb::profiler::set_log_level(args.debug);
     lsusb::profiler::fill_spusb(spdata, true).unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to gather system USB data from libusb: Error({})", e)
+            std::io::ErrorKind::Other,
+            format!("Failed to gather system USB data from libusb: Error({})", e)
         ));
     })
 }
 
-fn print_lsusb(sp_usb: &system_profiler::SPUSBDataType, device: &Option<String>, settings: &display::PrintSettings) {
+fn print_lsusb(
+    sp_usb: &system_profiler::SPUSBDataType,
+    device: &Option<String>,
+    settings: &display::PrintSettings,
+) {
     // device specific overrides tree on lsusb
-    if settings.tree && device.is_none() { 
+    if settings.tree && device.is_none() {
         if !cfg!(target_os = "linux") {
             log::warn!("Most of the data in a lsusb style tree is applicable to Linux only!");
         }
@@ -311,7 +342,7 @@ fn print_lsusb(sp_usb: &system_profiler::SPUSBDataType, device: &Option<String>,
 fn print_man() -> Result<(), Error> {
     let outdir = std::env::var_os("BUILD_SCRIPT_DIR")
         .or_else(|| std::env::var_os("OUT_DIR"))
-            .unwrap_or_else(|| "./doc".into());
+        .unwrap_or_else(|| "./doc".into());
     fs::create_dir_all(&outdir).unwrap();
     println!("Generating CLI info to {:?}", outdir);
 
@@ -322,7 +353,8 @@ fn print_man() -> Result<(), Error> {
     generate_to(Bash, &mut app, bin_name, &outdir).expect("Failed to generate Bash completions");
     generate_to(Fish, &mut app, bin_name, &outdir).expect("Failed to generate Fish completions");
     generate_to(Zsh, &mut app, bin_name, &outdir).expect("Failed to generate Zsh completions");
-    generate_to(PowerShell, &mut app, bin_name, &outdir).expect("Failed to generate PowerShell completions");
+    generate_to(PowerShell, &mut app, bin_name, &outdir)
+        .expect("Failed to generate PowerShell completions");
 
     // man page
     let man = clap_mangen::Man::new(app);
@@ -332,7 +364,10 @@ fn print_man() -> Result<(), Error> {
     std::fs::write(PathBuf::from(&outdir).join("cyme.1"), buffer)?;
 
     // example config
-    std::fs::write(PathBuf::from(&outdir).join("cyme_example_config.json"), serde_json::to_string_pretty(&Config::example()).unwrap())?;
+    std::fs::write(
+        PathBuf::from(&outdir).join("cyme_example_config.json"),
+        serde_json::to_string_pretty(&Config::example()).unwrap(),
+    )?;
 
     Ok(())
 }
@@ -390,11 +425,7 @@ fn main() {
         Some(config.colours)
     };
 
-    let icons = if args.ascii {
-        None
-    } else {
-        Some(config.icons)
-    };
+    let icons = if args.ascii { None } else { Some(config.icons) };
 
     let mut spusb = if let Some(file_path) = args.from_json {
         read_json_dump(&file_path.as_str()).unwrap_or_else(|e| {
@@ -406,7 +437,8 @@ fn main() {
     } else if cfg!(target_os = "macos") 
         && !args.force_libusb
         && args.device.is_none() // device path requires extra
-        && !((args.tree && args.lsusb) || args.verbose > 0 || args.more) {
+        && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
+    {
         system_profiler::get_spusb().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -457,7 +489,10 @@ fn main() {
             let (bus, number) = parse_devpath(&devpath.as_str()).unwrap_or_else(|e| {
                 eprintexit!(Error::new(
                     ErrorKind::Other,
-                    format!("Failed to parse devpath '{}', should end with 'BUS/DEVNO': Error({})", devpath, e)
+                    format!(
+                        "Failed to parse devpath '{}', should end with 'BUS/DEVNO': Error({})",
+                        devpath, e
+                    )
                 ));
             });
             f.bus = bus;
@@ -478,7 +513,8 @@ fn main() {
         f.serial = args.filter_serial;
         f.exclude_empty_hub = args.hide_hubs;
         // exclude root hubs unless dumping a list or json
-        f.no_exclude_root_hub = args.lsusb || args.json || !(args.tree || args.group_devices == display::Group::Bus);
+        f.no_exclude_root_hub =
+            args.lsusb || args.json || !(args.tree || args.group_devices == display::Group::Bus);
 
         Some(f)
     } else {
@@ -486,7 +522,9 @@ fn main() {
         // always include if lsusb compat
         if cfg!(target_os = "linux") {
             Some(system_profiler::USBFilter {
-                no_exclude_root_hub: args.lsusb || args.json || !(args.tree || args.group_devices == display::Group::Bus),
+                no_exclude_root_hub: args.lsusb
+                    || args.json
+                    || !(args.tree || args.group_devices == display::Group::Bus),
                 ..Default::default()
             })
         } else {
@@ -544,7 +582,10 @@ fn main() {
     } else {
         // check and report if was looking for args.device
         if args.device.is_some() && !spusb.buses.iter().any(|b| b.has_devices()) {
-            eprintexit!(std::io::Error::new(std::io::ErrorKind::Other, format!("Unable to find {:?}", args.device.unwrap())));
+            eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Unable to find {:?}", args.device.unwrap())
+            ));
         }
         display::print(&mut spusb, &settings);
     }
@@ -556,14 +597,19 @@ mod tests {
 
     #[test]
     fn test_output_config() {
-        let mut args = Args{ ..Default::default() };
+        let mut args = Args {
+            ..Default::default()
+        };
         args.blocks = Some(vec![display::DeviceBlocks::BusNumber]);
         println!("{}", serde_json::to_string_pretty(&args).unwrap());
     }
 
     #[test]
     fn test_parse_vidpid() {
-        assert_eq!(parse_vidpid("000A:0x000b").unwrap(), (Some(0x0A), Some(0x0b)));
+        assert_eq!(
+            parse_vidpid("000A:0x000b").unwrap(),
+            (Some(0x0A), Some(0x0b))
+        );
         assert_eq!(parse_vidpid("000A:1").unwrap(), (Some(0x0A), Some(1)));
         assert_eq!(parse_vidpid("000A:").unwrap(), (Some(0x0A), None));
         assert_eq!(parse_vidpid("0x000A").unwrap(), (Some(0x0A), None));
@@ -582,9 +628,18 @@ mod tests {
 
     #[test]
     fn test_parse_devpath() {
-        assert_eq!(parse_devpath("/dev/bus/usb/001/003").unwrap(), (Some(1), Some(3)));
-        assert_eq!(parse_devpath("/dev/bus/usb/004/003").unwrap(), (Some(4), Some(3)));
-        assert_eq!(parse_devpath("/dev/bus/usb/004/3").unwrap(), (Some(4), Some(3)));
+        assert_eq!(
+            parse_devpath("/dev/bus/usb/001/003").unwrap(),
+            (Some(1), Some(3))
+        );
+        assert_eq!(
+            parse_devpath("/dev/bus/usb/004/003").unwrap(),
+            (Some(4), Some(3))
+        );
+        assert_eq!(
+            parse_devpath("/dev/bus/usb/004/3").unwrap(),
+            (Some(4), Some(3))
+        );
         assert_eq!(parse_devpath("004/3").unwrap(), (Some(4), Some(3)));
         assert_eq!(parse_devpath("004/").is_err(), true);
         assert_eq!(parse_devpath("sas/ssas").is_err(), true);

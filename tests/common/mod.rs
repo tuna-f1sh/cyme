@@ -1,12 +1,12 @@
 //! Runs tests using actual binary, apapted from 'fd' method: https://github.com/sharkdp/fd/blob/master/tests/testenv/mod.rs
 #![allow(dead_code)]
+use serde_json::json;
+use std::env;
+use std::env::temp_dir;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::env;
 use std::path::PathBuf;
 use std::process;
-use std::env::temp_dir;
-use serde_json::json;
 // #[cfg(windows)]
 // use std::os::windows;
 
@@ -25,7 +25,7 @@ pub const LSUSB_TREE_OUTPUT_VERBOSE: &'static str = "./tests/data/lsusb_tree_ver
 /// Output of lsusb
 pub const LSUSB_OUTPUT: &'static str = "./tests/data/lsusb_list.txt";
 /// Output of lsusb --verbose
-pub const LSUSB_OUTPUT_VERBOSE: &'static str = "./tests/data/lsusb_verbose.txt"; 
+pub const LSUSB_OUTPUT_VERBOSE: &'static str = "./tests/data/lsusb_verbose.txt";
 
 pub fn read_dump(file_name: &str) -> BufReader<File> {
     let f = File::open(file_name).expect("Unable to open json dump file");
@@ -35,7 +35,8 @@ pub fn read_dump(file_name: &str) -> BufReader<File> {
 pub fn read_dump_to_string(file_name: &str) -> String {
     let mut ret = String::new();
     let mut br = read_dump(file_name);
-    br.read_to_string(&mut ret).expect(&format!("Failed to read {}", file_name));
+    br.read_to_string(&mut ret)
+        .expect(&format!("Failed to read {}", file_name));
     ret
 }
 
@@ -217,14 +218,26 @@ impl TestEnv {
     }
 
     /// Assert that calling *cyme* with the specified arguments produces the expected output.
-    pub fn assert_output(&self, dump_file: Option<&str>, args: &[&str], expected: &str, contains: bool) {
+    pub fn assert_output(
+        &self,
+        dump_file: Option<&str>,
+        args: &[&str],
+        expected: &str,
+        contains: bool,
+    ) {
         // Don't touch if doing contains
         let (expected, actual) = if contains {
             let output = self.assert_success_and_get_output(dump_file, args);
-            (expected.to_string(), String::from_utf8_lossy(&output.stdout).to_string())
+            (
+                expected.to_string(),
+                String::from_utf8_lossy(&output.stdout).to_string(),
+            )
         // Normalize both expected and actual output.
         } else {
-            (normalize_output(expected, self.strip_start, self.normalize_line), self.assert_success_and_get_normalized_output(dump_file, args))
+            (
+                normalize_output(expected, self.strip_start, self.normalize_line),
+                self.assert_success_and_get_normalized_output(dump_file, args),
+            )
         };
 
         // Compare actual output to expected output.
@@ -260,7 +273,12 @@ impl TestEnv {
 
     /// Assert that calling *cyme* with the specified arguments produces the expected error,
     /// and does not succeed.
-    pub fn assert_failure_with_error(&self, dump_file: Option<&str>,args: &[&str], expected: &str) {
+    pub fn assert_failure_with_error(
+        &self,
+        dump_file: Option<&str>,
+        args: &[&str],
+        expected: &str,
+    ) {
         let status = self.assert_error(dump_file, args, Some(expected));
         if status.success() {
             panic!("error '{}' did not occur.", expected);
