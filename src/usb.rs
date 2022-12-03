@@ -69,10 +69,15 @@ pub enum ClassCode {
     Billboard,
     USBTypeCBridge,
     I3CDevice,
+    /// Trace debugging equipment
     Diagnostic,
+    /// This base class is defined for devices that are Wireless controllers. Values not shown in the table below are reserved. These class codes are to be used in Interface Descriptors, with the exception of the Bluetooth class code which can also be used in a Device Descriptor
     WirelessController,
+    /// This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website
     Miscellaneous,
+    /// This base class is defined for devices that conform to several class specifications found on the USB-IF website
     ApplicationSpecificInterface,
+    /// This base class is defined for vendors to use as they please
     VendorSpecificClass,
 }
 
@@ -148,6 +153,7 @@ impl Into<u8> for ClassCode {
     }
 }
 
+// TODO return device based on base class and subclass, protocol
 impl ClassCode {
     /// How the ClassCode is used [`DescriptorUsage`]
     pub fn usage(&self) -> DescriptorUsage {

@@ -19,7 +19,7 @@ _cyme() {
 
     case "${cmd}" in
         cyme)
-            opts="-l -t -d -s -D -v -b -c -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --decimal --no-padding --no-colour --headings --json --force-libusb --debug --gen --help --version"
+            opts="-l -t -d -s -D -v -b -m -F -c -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --decimal --no-padding --no-colour --ascii --headings --json --from-json --force-libusb --debug --gen --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -70,7 +70,7 @@ _cyme() {
                     return 0
                     ;;
                 --config-blocks)
-                    COMPREPLY=($(compgen -W "name number num-interfaces attributes max-power" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "name number num-interfaces attributes icon-attributes max-power" -- "${cur}"))
                     return 0
                     ;;
                 --interface-blocks)
@@ -87,6 +87,10 @@ _cyme() {
                     ;;
                 --group-devices)
                     COMPREPLY=($(compgen -W "no-group bus" -- "${cur}"))
+                    return 0
+                    ;;
+                --from-json)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 *)

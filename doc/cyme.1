@@ -1,12 +1,12 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH cyme 1  "cyme 0.7.8" 
+.TH cyme 1  "cyme 0.8.5" 
 .SH NAME
-cyme \- List system USB buses and devices; a modern `lsusb` that attempts to maintain compatibility with, but also add new features
+cyme \- List system USB buses and devices; a modern and compatiable `lsusb`
 .SH SYNOPSIS
-\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-no\-colour\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-debug\fR]... [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
+\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-m\fR|\fB\-\-more\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-no\-colour\fR] [\fB\-\-ascii\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-from\-json\fR] [\fB\-F\fR|\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-debug\fR]... [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
 .SH DESCRIPTION
-List system USB buses and devices; a modern `lsusb` that attempts to maintain compatibility with, but also add new features
+List system USB buses and devices; a modern and compatiable `lsusb`
 .SH OPTIONS
 .TP
 \fB\-l\fR, \fB\-\-lsusb\fR=\fILSUSB\fR
@@ -131,6 +131,8 @@ num\-interfaces: Interfaces available for this configuruation
 .IP \(bu 2
 attributes: Attributes of configuration, bmAttributes
 .IP \(bu 2
+icon\-attributes: Icon representation of bmAttributes
+.IP \(bu 2
 max\-power: Maximum current consumption in mA
 .RE
 .TP
@@ -188,6 +190,9 @@ max\-packet\-size: Maximum packet size in bytes endpoint can send/recieve
 interval: Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints
 .RE
 .TP
+\fB\-m\fR, \fB\-\-more\fR=\fIMORE\fR
+Print more blocks by default at each verbosity
+.TP
 \fB\-\-sort\-devices\fR=\fISORT_DEVICES\fR
 Sort devices by value
 .br
@@ -234,14 +239,20 @@ Disable padding to align blocks
 \fB\-\-no\-colour\fR=\fINO_COLOUR\fR
 Disable coloured output, can also use NO_COLOR environment variable
 .TP
+\fB\-\-ascii\fR=\fIASCII\fR
+Disables icons and utf\-8 charactors
+.TP
 \fB\-\-headings\fR=\fIHEADINGS\fR
 Show block headings
 .TP
 \fB\-\-json\fR=\fIJSON\fR
-Output as json format after sorting, filters and tree settings are applied
+Output as json format after sorting, filters and tree settings are applied; without \-tree will be flattened dump of devices
 .TP
-\fB\-\-force\-libusb\fR=\fIFORCE_LIBUSB\fR
-Force libusb mode on macOS rather than using system_profiler output
+\fB\-\-from\-json\fR=\fIFROM_JSON\fR
+Read from json output rather than profiling system \- must use \-\-tree json dump
+.TP
+\fB\-F\fR, \fB\-\-force\-libusb\fR=\fIFORCE_LIBUSB\fR
+Force libusb profiler on macOS rather than using/combining system_profiler output
 .TP
 \fB\-c\fR, \fB\-\-debug\fR=\fIDEBUG\fR
 Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
@@ -252,6 +263,6 @@ Print help information (use `\-h` for a summary)
 \fB\-V\fR, \fB\-\-version\fR
 Print version information
 .SH VERSION
-v0.7.8
+v0.8.5
 .SH AUTHORS
 John Whittington <john@jbrengineering.co.uk>

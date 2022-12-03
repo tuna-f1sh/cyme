@@ -10,7 +10,6 @@ use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{ClassCode, Direction};
 
 /// Icon type enum is used as key in `HashMaps`
-/// TODO FromStr and ToStr serialize/deserialize so that can merge with user defined
 #[derive(Debug, Clone, Hash, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
 pub enum Icon {
     /// Vendor ID lookup
@@ -72,10 +71,11 @@ impl FromStr for Icon {
             }
         // enum contains value
         } else {
-            let (parse_ints, errors): (Vec<_>, Vec<_>) = value_split[1..].into_iter()
-                .map(|vs| vs.parse::<u16>())
+            let (parse_ints, errors): (Vec<Result<u32, _>>, Vec<_>) = value_split[1].split(":")
+                .map(|vs| u32::from_str_radix(vs.trim_start_matches("0x"), 16))
                 .partition(Result::is_ok);
-            let numbers: Vec<_> = parse_ints.into_iter().map(Result::unwrap).collect();
+            let numbers: Vec<u16> = parse_ints.into_iter().map(|v| v.unwrap() as u16).collect();
+            println!("{:?} {:?}", numbers, errors);
 
             if !errors.is_empty() {
                 return Err(io::Error::new(io::ErrorKind::Other, "Invalid value in enum string after #"));
@@ -86,11 +86,11 @@ impl FromStr for Icon {
                     Some(i) => Ok(Icon::Vid(*i)),
                     None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
                 },
-                "vid-pid" => match numbers.get(0..1) {
+                "vid-pid" => match numbers.get(0..2) {
                     Some(slice) => Ok(Icon::VidPid((slice[0], slice[1]))),
                     None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
                 },
-                "vid-pid-msb" => match numbers.get(0..1) {
+                "vid-pid-msb" => match numbers.get(0..2) {
                     Some(slice) => Ok(Icon::VidPidMsb((slice[0], slice[1] as u8))),
                     None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
                 },
@@ -98,7 +98,7 @@ impl FromStr for Icon {
                     Some(i) => Ok(Icon::Classifier(ClassCode::from(*i as u8))),
                     None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
                 },
-                "classifier-sub-protocol" => match numbers.get(0..2) {
+                "classifier-sub-protocol" => match numbers.get(0..3) {
                     Some(slice) => Ok(Icon::ClassifierSubProtocol((ClassCode::from(slice[0] as u8), slice[1] as u8, slice[2] as u8))),
                     None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
                 },
@@ -109,13 +109,25 @@ impl FromStr for Icon {
 }
 
 impl fmt::Display for Icon {
+    /// Output is a Enum kebab case with # separating base16 : separated values, _ if String value
+    ///
+    /// ```
+    /// use cyme::icon::*;
+    ///
+    /// let icon: Icon = Icon::VidPid((0x1d50, 0x6018));
+    /// assert_eq!(format!("{}", icon), "vid-pid#1d50:6018");
+    ///
+    /// let icon: Icon = Icon::UnknownVendor;
+    /// assert_eq!(format!("{}", icon), "unknown-vendor");
+    /// ```
+    ///
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Icon::Vid(v) => write!(f, "vid#{:04x}", v),
             Icon::VidPid((v, p)) => write!(f, "vid-pid#{:04x}:{:04x}", v, p),
             Icon::VidPidMsb((v, p)) => write!(f, "vid-pid-msb#{:04x}:{:02x}", v, p),
             Icon::Classifier(c) => write!(f, "classifier#{:02x}", c.to_owned() as u8),
-            Icon::ClassifierSubProtocol(c) => write!(f, "classifier-sub-protocol#{}:{}:{}", c.0.to_owned() as u8, c.1, c.2),
+            Icon::ClassifierSubProtocol(c) => write!(f, "classifier-sub-protocol#{:02x}:{:02x}:{:02x}", c.0.to_owned() as u8, c.1, c.2),
             Icon::Endpoint(Direction::In) => write!(f, "endpoint_in"),
             Icon::Endpoint(Direction::Out) => write!(f, "endpoint_out"),
             _ => {
@@ -369,11 +381,29 @@ pub fn get_ascii_tree_icon(i: &Icon) -> String {
     ASCII_TREE.get(i).unwrap().to_string()
 }
 
+/// Returns clone of lazy_static defaults
+pub fn defaults() -> HashMap<Icon, &'static str> {
+    DEFAULT_ICONS.clone()
+}
+
+/// Returns example list of icons with all [`Icon`] types
+pub fn example() -> HashMap<Icon, &'static str> {
+    HashMap::from([
+        (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
+        (Icon::Vid(0x05ac), "\u{f179}".into()), // apple 
+        (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}".into()), // black magic probe 
+        (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}".into()), // st-link 
+        (Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecificInterface, 0x01, 0x01)), "\u{f188}".into()), // DFU 
+        (Icon::Vid(0x2e8a), "\u{f315}".into()), // raspberry pi foundation 
+        (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}".into()), // serial 
+        (Icon::UndefinedClassifier, "\u{2636}".into()), //☶
+    ])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // #[ignore]
     #[test]
     fn test_serialize_theme() {
         let theme = IconTheme{
@@ -399,13 +429,53 @@ mod tests {
 
     #[test]
     fn test_serialize_defaults() {
-        let theme = IconTheme{
-            icons: Some(HashMap::from([
-                (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
-                // (Icon::Classifier(ClassCode::HID), "\u{f80b}".into()), // 
-            ])),
-            ..Default::default()
-        };
-        println!("{}", serde_json::to_string(&theme).unwrap());
+        serde_json::to_string(&defaults()).unwrap();
+    }
+
+    #[test]
+    fn test_serialize_example() {
+        println!("{}", serde_json::to_string_pretty(&example()).unwrap());
+    }
+
+    #[test]
+    fn test_deserialize_icon_tuples() {
+        let item: (Icon, &'static str) = (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}".into());
+        let item_ser = serde_json::to_string(&item).unwrap();
+        assert_eq!(item_ser, r#"["vid-pid#1d50:6018",""]"#);
+
+        let item: (Icon, &'static str) = (Icon::Endpoint(Direction::In), ">".into());
+        let item_ser = serde_json::to_string(&item).unwrap();
+        assert_eq!(item_ser, r#"["endpoint_in",">"]"#);
+
+        let item: (Icon, &'static str) = (Icon::ClassifierSubProtocol((ClassCode::HID, 0x01, 0x0a)), "K".into());
+        let item_ser = serde_json::to_string(&item).unwrap();
+        assert_eq!(item_ser, r#"["classifier-sub-protocol#03:01:0a","K"]"#);
+    }
+
+    #[test]
+    fn icon_from_str() {
+        let str = "vid#1d50";
+        let icon = Icon::from_str(str);
+        assert_eq!(icon.unwrap(), Icon::Vid(7504));
+
+        let str = "vid-pid#1d50:6018";
+        let icon = Icon::from_str(str);
+        assert_eq!(icon.unwrap(), Icon::VidPid((7504, 24600)));
+
+        let str = "classifier#03";
+        let icon = Icon::from_str(str);
+        assert_eq!(icon.unwrap(), Icon::Classifier(ClassCode::HID));
+
+        let str = "classifier-sub-protocol#03:01:0a";
+        let icon = Icon::from_str(str);
+        assert_eq!(icon.unwrap(), Icon::ClassifierSubProtocol((ClassCode::HID, 01, 10)));
+
+        let str = "endpoint_in";
+        let icon = Icon::from_str(str);
+        assert_eq!(icon.unwrap(), Icon::Endpoint(Direction::In));
+
+        let str = "unknown-vendor";
+        let icon = Icon::from_str(str);
+        assert_eq!(icon.unwrap(), Icon::UnknownVendor);
     }
 }

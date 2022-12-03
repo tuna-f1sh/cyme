@@ -15,6 +15,7 @@ use clap::CommandFactory;
 #[cfg(feature = "cli_generate")]
 use clap_complete::shells::*;
 #[cfg(feature = "cli_generate")]
+use cyme::icon::example;
 #[cfg(feature = "cli_generate")]
 use std::path::PathBuf;
 
@@ -327,7 +328,10 @@ fn print_man() -> Result<(), Error> {
     let mut buffer: Vec<u8> = Default::default();
     man.render(&mut buffer)?;
 
-    std::fs::write(PathBuf::from(outdir).join("cyme.1"), buffer)?;
+    std::fs::write(PathBuf::from(&outdir).join("cyme.1"), buffer)?;
+
+    // TODO example config
+    std::fs::write(PathBuf::from(&outdir).join("cyme_example_config.json"), serde_json::to_string_pretty(&example()).unwrap())?;
 
     Ok(())
 }

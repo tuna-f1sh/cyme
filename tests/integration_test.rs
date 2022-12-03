@@ -1,5 +1,6 @@
 mod common;
 
+#[ignore]
 #[test]
 fn test_json_round_trip() {
     let te = common::TestEnv::new();
