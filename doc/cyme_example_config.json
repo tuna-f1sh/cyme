@@ -1,26 +1,26 @@
 {
   "icons": {
     "icons": {
+      "undefined-classifier": "☶",
       "vid#05ac": "",
-      "vid-pid#1d50:6018": "",
-      "unknown-vendor": "",
       "vid-pid-msb#0483:37": "",
       "vid#2e8a": "",
-      "undefined-classifier": "☶",
+      "unknown-vendor": "",
+      "vid-pid#1d50:6018": "",
       "classifier#02": "",
       "classifier-sub-protocol#15:01:01": ""
     },
     "tree": {
-      "tree-configuration-terminiator": "•",
-      "endpoint_in": "→",
-      "tree-device-terminator": "○",
-      "tree-bus-start": "●",
-      "endpoint_out": "←",
       "tree-line": "│  ",
-      "tree-edge": "├──",
-      "tree-interface-terminiator": "◦",
       "tree-corner": "└──",
-      "tree-blank": "   "
+      "endpoint_in": "→",
+      "tree-configuration-terminiator": "•",
+      "endpoint_out": "←",
+      "tree-edge": "├──",
+      "tree-blank": "   ",
+      "tree-interface-terminiator": "◦",
+      "tree-bus-start": "●",
+      "tree-device-terminator": "○"
     }
   },
   "colours": {
@@ -48,5 +48,42 @@
     "tree_interface_terminator": "bright black",
     "tree_endpoint_in": "yellow",
     "tree_endpoint_out": "magenta"
-  }
+  },
+  "blocks": [
+    "bus-number",
+    "device-number",
+    "icon",
+    "vendor-id",
+    "product-id",
+    "name",
+    "serial",
+    "speed"
+  ],
+  "bus-blocks": [
+    "name",
+    "host-controller"
+  ],
+  "config-blocks": [
+    "number",
+    "name",
+    "icon-attributes",
+    "max-power"
+  ],
+  "interface-blocks": [
+    "port-path",
+    "icon",
+    "alt-setting",
+    "class-code",
+    "sub-class",
+    "protocol",
+    "name"
+  ],
+  "endpoint-blocks": [
+    "number",
+    "direction",
+    "transfer-type",
+    "sync-type",
+    "usage-type",
+    "max-packet-size"
+  ]
 }

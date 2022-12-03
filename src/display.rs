@@ -20,6 +20,7 @@ const ICON_HEADING: &'static str = "I";
 /// Info that can be printed about a [`USBDevice`]
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum DeviceBlocks {
     /// Number of bus device is attached
     BusNumber,
@@ -36,9 +37,9 @@ pub enum DeviceBlocks {
     /// Icon based on VID/PID
     Icon,
     /// Unique vendor identifier - purchased from USB IF
-    VendorID,
+    VendorId,
     /// Vendor unique product identifier
-    ProductID,
+    ProductId,
     /// The device name as reported in descriptor or using usb_ids if None
     Name,
     /// The device manufacturer as provided in descriptor or using usb_ids if None
@@ -74,6 +75,7 @@ pub enum DeviceBlocks {
 /// Info that can be printed about a [`USBBus`]
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum BusBlocks {
     /// System bus number identifier
     BusNumber,
@@ -84,11 +86,11 @@ pub enum BusBlocks {
     /// Host Controller on macOS, vendor put here when using libusb
     HostController,
     /// Understood to be vendor ID - it is when using libusb
-    PCIVendor,
+    PciVendor,
     /// Understood to be product ID - it is when using libusb
-    PCIDevice,
+    PciDevice,
     /// Revsision of hardware
-    PCIRevision,
+    PciRevision,
     /// syspath style port path to bus, applicable to Linux only
     PortPath,
 }
@@ -96,6 +98,7 @@ pub enum BusBlocks {
 /// Info that can be printed about a [`USBConfiguration`]
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ConfigurationBlocks {
     /// Name from string descriptor
     Name,
@@ -114,6 +117,7 @@ pub enum ConfigurationBlocks {
 /// Info that can be printed about a [`USBInterface`]
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum InterfaceBlocks {
     /// Name from string descriptor
     Name,
@@ -142,6 +146,7 @@ pub enum InterfaceBlocks {
 /// Info that can be printed about a [`USBEndpoint`]
 #[non_exhaustive]
 #[derive(Debug, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum EndpointBlocks {
     /// Endpoint number on interface
     Number,
@@ -226,8 +231,8 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 DeviceBlocks::TreePositions,
                 DeviceBlocks::PortPath,
                 DeviceBlocks::Icon,
-                DeviceBlocks::VendorID,
-                DeviceBlocks::ProductID,
+                DeviceBlocks::VendorId,
+                DeviceBlocks::ProductId,
                 DeviceBlocks::BcdDevice,
                 DeviceBlocks::BcdUsb,
                 DeviceBlocks::ClassCode,
@@ -244,8 +249,8 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 DeviceBlocks::BusNumber,
                 DeviceBlocks::DeviceNumber,
                 DeviceBlocks::Icon,
-                DeviceBlocks::VendorID,
-                DeviceBlocks::ProductID,
+                DeviceBlocks::VendorId,
+                DeviceBlocks::ProductId,
                 DeviceBlocks::Name,
                 DeviceBlocks::Serial,
                 DeviceBlocks::Speed,
@@ -454,11 +459,11 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 .icons
                 .as_ref()
                 .map_or(None, |i| Some(i.get_device_icon(d))),
-            DeviceBlocks::VendorID => Some(match d.vendor_id {
+            DeviceBlocks::VendorId => Some(match d.vendor_id {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
             }),
-            DeviceBlocks::ProductID => Some(match d.product_id {
+            DeviceBlocks::ProductId => Some(match d.product_id {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
             }),
@@ -532,8 +537,8 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::PortPath | DeviceBlocks::SysPath => {
                 ct.path.map_or(s.normal(), |c| s.color(c))
             }
-            DeviceBlocks::VendorID => ct.vid.map_or(s.normal(), |c| s.color(c)),
-            DeviceBlocks::ProductID => ct.pid.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::VendorId => ct.vid.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::ProductId => ct.pid.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::Name | DeviceBlocks::ProductName => {
                 ct.name.map_or(s.normal(), |c| s.color(c))
             }
@@ -567,8 +572,8 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::Driver => {
                 format!("{:^pad$}", "Driver", pad = pad.get(self).unwrap_or(&0))
             }
-            DeviceBlocks::VendorID => format!("{:^6}", "VID"),
-            DeviceBlocks::ProductID => format!("{:^6}", "PID"),
+            DeviceBlocks::VendorId => format!("{:^6}", "VID"),
+            DeviceBlocks::ProductId => format!("{:^6}", "PID"),
             DeviceBlocks::Name => format!("{:^pad$}", "Name", pad = pad.get(self).unwrap_or(&0)),
             DeviceBlocks::Manufacturer => {
                 format!(
@@ -616,9 +621,9 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
                 BusBlocks::PortPath,
                 BusBlocks::Name,
                 BusBlocks::HostController,
-                BusBlocks::PCIVendor,
-                BusBlocks::PCIDevice,
-                BusBlocks::PCIRevision,
+                BusBlocks::PciVendor,
+                BusBlocks::PciDevice,
+                BusBlocks::PciRevision,
             ]
         } else {
             vec![BusBlocks::Name, BusBlocks::HostController]
@@ -661,11 +666,11 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
     fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
         match self {
             BusBlocks::BusNumber => ct.location.map_or(s.normal(), |c| s.color(c)),
-            BusBlocks::PCIVendor => ct.vid.map_or(s.normal(), |c| s.color(c)),
-            BusBlocks::PCIDevice => ct.pid.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::PciVendor => ct.vid.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::PciDevice => ct.pid.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::Name => ct.name.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::HostController => ct.serial.map_or(s.normal(), |c| s.color(c)),
-            BusBlocks::PCIRevision => ct.number.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::PciRevision => ct.number.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::PortPath => ct.path.map_or(s.normal(), |c| s.color(c)),
             // _ => s.normal(),
@@ -684,15 +689,15 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
                 .icons
                 .as_ref()
                 .map_or(None, |i| Some(i.get_bus_icon(bus))),
-            BusBlocks::PCIVendor => Some(match bus.pci_vendor {
+            BusBlocks::PciVendor => Some(match bus.pci_vendor {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
             }),
-            BusBlocks::PCIDevice => Some(match bus.pci_device {
+            BusBlocks::PciDevice => Some(match bus.pci_device {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
             }),
-            BusBlocks::PCIRevision => Some(match bus.pci_revision {
+            BusBlocks::PciRevision => Some(match bus.pci_revision {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
             }),
@@ -719,9 +724,9 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         match self {
             BusBlocks::BusNumber => "Bus".into(),
             BusBlocks::PortPath => "PortPath".into(),
-            BusBlocks::PCIDevice => " PID ".into(),
-            BusBlocks::PCIVendor => " VID ".into(),
-            BusBlocks::PCIRevision => " Rev ".into(),
+            BusBlocks::PciDevice => " PID ".into(),
+            BusBlocks::PciVendor => " VID ".into(),
+            BusBlocks::PciRevision => " Rev ".into(),
             BusBlocks::Name => format!("{:^pad$}", "Name", pad = pad.get(self).unwrap_or(&0)),
             BusBlocks::HostController => {
                 format!(

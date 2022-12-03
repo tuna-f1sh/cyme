@@ -47,8 +47,8 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 - [x] Merge of macOS `system_profiler` output with libusb output to keep non-user Apple buses.
 - [x] Integration tests for lsusb output.
 - [x] User defined icon map and colour import.
+- [x] XDG_CONFIG_HOME default read config and merge with Args - non-Option merge would be nice.
 - [ ] Integration tests for internal bin operation.
-- [ ] XDG_CONFIG_HOME default read config and merge with Args.
 
 ## Feature Ideas
 
@@ -87,8 +87,18 @@ Will cover this more as it develops. Use `cyme --help` for basic usage or `man .
 
 For usage as a library, the crate is 100% documented so look at [docs.rs](https://docs.rs/cyme/latest/cyme/)
 
-## Custom Icons and Colours
+## Config
 
-A user configuration can be supplied with `--config`. See './doc/cyme_example_config.json' for an example of how icons can be defined and also the [docs](https://docs.rs/cyme/latest/cyme/icon/enum.Icon.html).
+`cyme` will check for a 'cyme.json' config file in:
+
+* Linux: "$XDG_CONFIG_HOME or $HOME/.config"
+* macOS: "$HOME/Library/Application Support"
+* Windows: "{FOLDERID_RoamingAppData}"
+
+One can also be supplied with `--config`. Copy or refer to './doc/cyme_example_config.json' for configurables. Supplied args will override these. Use `--debug` to see where it is looking or if it's not loading.
+
+### Custom Icons and Colours
+
+See './doc/cyme_example_config.json' for an example of how icons can be defined and also the [docs](https://docs.rs/cyme/latest/cyme/icon/enum.Icon.html).
 
 Icons are looked up in an order of User -> Default. For devices: `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> `get_default_vidpid_icon`, classes: `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> `get_default_classifier_icon`. User supplied colours override all internal; if a key is missing, it will be `None`.

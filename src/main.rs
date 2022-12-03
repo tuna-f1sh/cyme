@@ -414,7 +414,7 @@ fn main() {
         log::info!("Using user config {:?}", config);
         config
     } else {
-        Config::new()
+        Config::sys()
     };
 
     let colours = if args.no_colour {
@@ -565,11 +565,11 @@ fn main() {
         headings: args.headings,
         verbosity: args.verbose,
         more: args.more,
-        device_blocks: args.blocks,
-        bus_blocks: args.bus_blocks,
-        config_blocks: args.config_blocks,
-        interface_blocks: args.interface_blocks,
-        endpoint_blocks: args.endpoint_blocks,
+        device_blocks: args.blocks.map_or(config.blocks, Some),
+        bus_blocks: args.bus_blocks.map_or(config.bus_blocks, Some),
+        config_blocks: args.config_blocks.map_or(config.config_blocks, Some),
+        interface_blocks: args.interface_blocks.map_or(config.interface_blocks, Some),
+        endpoint_blocks: args.endpoint_blocks.map_or(config.endpoint_blocks, Some),
         icons,
         colours,
         ..Default::default()
@@ -595,8 +595,9 @@ fn main() {
 mod tests {
     use super::*;
 
+    #[ignore]
     #[test]
-    fn test_output_config() {
+    fn test_output_args() {
         let mut args = Args {
             ..Default::default()
         };
