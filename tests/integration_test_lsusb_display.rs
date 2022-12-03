@@ -77,6 +77,10 @@ Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
 Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub"#,
         true,
     );
+    te.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--vidpid", "dfgdfg"],
+    );
 }
 
 /// Tests lsusb -s bus:devno filter
@@ -105,6 +109,10 @@ Bus 002 Device 023: ID 1366:1050 SEGGER J-Link
 Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub"#,
         false,
     );
+    te.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--show", "d"],
+    );
 }
 
 /// Only tests contains first line...full verbose is not exactly the same but too difficult to match!
@@ -123,5 +131,13 @@ fn test_lsusb_device() {
         &["--lsusb", "--device", "/dev/bus/usb/002/001"],
         "Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub",
         true,
+    );
+    te.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--device", "/dev/blah/002/001"],
+    );
+    te.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--lsusb", "--device", "/dev/bus/usb/002"],
     );
 }

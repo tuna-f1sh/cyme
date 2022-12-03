@@ -1,8 +1,116 @@
+//! These test cyme CLI by reading from json but also output as json so that we can check without worrying about formating
+//!
+//! It is sligtly the dog wagging the tail but is as integration as it gets! Could improve by adding some tests for actaul format like --block, --padding args etc
 mod common;
 
-#[ignore]
 #[test]
-fn test_json_round_trip() {
+fn test_list() {
+    let te = common::TestEnv::new();
+
+    let mut comp_sp = common::sp_data_from_libusb_linux();
+    comp_sp.flatten();
+    let devices = comp_sp.flatten_devices();
+    let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+    // TODO not sure why assert_output_json doesn't work, might help to have module which shows diff
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json"],
+        &comp,
+        false,
+    );
+}
+
+#[test]
+fn test_list_filtering() {
+    let te = common::TestEnv::new();
+
+    let mut comp_sp = common::sp_data_from_libusb_linux();
+    let filter = cyme::system_profiler::USBFilter {
+        name: Some("Black Magic".into()),
+        no_exclude_root_hub: true,
+        ..Default::default()
+    };
+    comp_sp.flatten();
+    let mut devices = comp_sp.flatten_devices();
+    filter.retain_flattened_devices_ref(&mut devices);
+    let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--filter-name", "Black Magic"],
+        &comp,
+        false,
+    );
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--vidpid", "1d50"],
+        &comp,
+        false,
+    );
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--vidpid", "1d50:6018"],
+        &comp,
+        false,
+    );
+
+    te.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--vidpid", "1d50:unhappy"],
+    );
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--filter-serial", "97B6A11D"],
+        &comp,
+        false,
+    );
+
+    let mut comp_sp = common::sp_data_from_libusb_linux();
+    let mut filter = cyme::system_profiler::USBFilter {
+        bus: Some(2),
+        no_exclude_root_hub: true,
+        ..Default::default()
+    };
+    comp_sp.flatten();
+    let mut devices = comp_sp.flatten_devices();
+    filter.retain_flattened_devices_ref(&mut devices);
+    let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--show", "2:"],
+        &comp,
+        false,
+    );
+
+    te.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--show", "f"],
+    );
+
+    filter.number = Some(23);
+    filter.retain_flattened_devices_ref(&mut devices);
+    let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--show", "2:23"],
+        &comp,
+        false,
+    );
+
+    te.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--show", "blah"],
+    );
+}
+
+#[test]
+fn test_tree() {
     let te = common::TestEnv::new();
 
     let comp = common::read_dump_to_string(common::CYME_LIBUSB_LINUX_TREE_DUMP);
@@ -10,6 +118,27 @@ fn test_json_round_trip() {
     te.assert_output_json(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--tree"],
-        comp.as_str(),
+        &comp,
     );
 }
+
+#[test]
+fn test_tree_filtering() {
+    let te = common::TestEnv::new();
+
+    let mut comp_sp = common::sp_data_from_libusb_linux();
+    let filter = cyme::system_profiler::USBFilter {
+        name: Some("Black Magic".into()),
+        ..Default::default()
+    };
+    filter.retain_buses(&mut comp_sp.buses);
+    let comp = serde_json::to_string_pretty(&comp_sp).unwrap();
+
+    te.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--tree", "--vidpid", "1d50"],
+        &comp,
+        false,
+    );
+}
+

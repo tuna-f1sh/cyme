@@ -1064,7 +1064,7 @@ impl USBFilter {
                     .map_or(false, |s| s.contains(n.as_str()))
             }))
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
-        // && (!device.is_root_hub() || self.no_exclude_root_hub)
+        && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
     /// Recursively retain only `USBBus` in `buses` with `USBDevice` matching filter

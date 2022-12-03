@@ -222,8 +222,7 @@ fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>), Error> {
             .trim()
             .parse::<u8>()
             .map(Some)
-            .map_err(|e| Error::new(ErrorKind::Other, e))
-            .unwrap_or(None);
+            .map_err(|e| Error::new(ErrorKind::Other, e))?;
 
         Ok((None, device))
     }

@@ -2,7 +2,6 @@
 #![allow(dead_code)]
 use serde_json::json;
 use std::env;
-use std::env::temp_dir;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
@@ -16,8 +15,6 @@ pub const SYSTEM_PROFILER_DUMP_PATH: &'static str = "./tests/data/system_profile
 pub const CYME_SP_TREE_DUMP: &'static str = "./tests/data/cyme_sp_tree_dump.json";
 /// Dump using Linux with libusb so with [`USBDeviceExtra`]
 pub const CYME_LIBUSB_LINUX_TREE_DUMP: &'static str = "./tests/data/cyme_libusb_linux_tree.json";
-/// Dump using macOS with libusb so with [`USBDeviceExtra`]
-pub const CYME_LIBUSB_MACOS_TREE_DUMP: &'static str = "./tests/data/cyme_libusb_macos_tree.json"; // TODO
 /// Output of lsusb --tree
 pub const LSUSB_TREE_OUTPUT: &'static str = "./tests/data/lsusb_tree.txt";
 /// Output of lsusb --tree -vvv
@@ -58,8 +55,6 @@ pub fn sp_data_from_libusb_linux() -> cyme::system_profiler::SPUSBDataType {
 
 /// Environment for the integration tests.
 pub struct TestEnv {
-    /// Temporary working directory.
-    temp_dir: PathBuf,
     /// Path to the *cyme* executable.
     cyme_exe: PathBuf,
     /// Normalize each line by sorting the whitespace-separated words
@@ -151,11 +146,9 @@ fn trim_lines(s: &str) -> String {
 
 impl TestEnv {
     pub fn new() -> TestEnv {
-        let temp_dir = temp_dir();
         let cyme_exe = find_cyme_exe();
 
         TestEnv {
-            temp_dir,
             cyme_exe,
             normalize_line: false,
             strip_start: false,
@@ -164,7 +157,6 @@ impl TestEnv {
 
     pub fn normalize_line(self, normalize: bool, strip_start: bool) -> TestEnv {
         TestEnv {
-            temp_dir: self.temp_dir,
             cyme_exe: self.cyme_exe,
             normalize_line: normalize,
             strip_start,
@@ -186,7 +178,6 @@ impl TestEnv {
     ) -> process::Output {
         // Setup *cyme* command.
         let mut cmd = process::Command::new(&self.cyme_exe);
-        // cmd.current_dir(&self.temp_dir);
         if let Some(dump) = dump_file {
             cmd.arg("--from-json").arg(dump).args(args);
         } else {
@@ -258,9 +249,10 @@ impl TestEnv {
         let actual = String::from_utf8_lossy(&output.stdout).to_string();
 
         // Compare actual output to expected output.
-        if json!(actual) != json!(expected) {
-            panic!("{}", format_output_error(&args, &expected, &actual));
-        }
+        assert_json_diff::assert_json_include!(actual: json!(actual), expected: json!(expected));
+        // if json!(actual) != json!(expected) {
+        //     panic!("{}", format_output_error(&args, &expected, &actual));
+        // }
     }
 
     /// Similar to assert_output, but able to handle non-utf8 output
@@ -301,7 +293,6 @@ impl TestEnv {
     ) -> process::ExitStatus {
         // Setup *cyme* command.
         let mut cmd = process::Command::new(&self.cyme_exe);
-        // cmd.current_dir(&self.temp_dir);
         if let Some(dump) = dump_file {
             cmd.arg("--from-json").arg(dump).args(args);
         } else {

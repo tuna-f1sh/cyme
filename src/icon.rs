@@ -476,14 +476,14 @@ mod tests {
         };
         assert_eq!(
             serde_json::to_string(&theme).unwrap(),
-            "{\"icons\":{\"unknown-vendor\":\"\"},\"tree\":null}"
+            "{\"user\":{\"unknown-vendor\":\"\"},\"tree\":null}"
         );
     }
 
     #[test]
     fn test_deserialize_theme() {
         let theme: IconTheme =
-            serde_json::from_str("{\"icons\":{\"unknown-vendor\":\"\"},\"tree\":null}").unwrap();
+            serde_json::from_str("{\"user\":{\"unknown-vendor\":\"\"},\"tree\":null}").unwrap();
         let actual_theme = IconTheme {
             user: Some(HashMap::from([
                 (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 

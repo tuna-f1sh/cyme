@@ -48,7 +48,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 - [x] Integration tests for lsusb output.
 - [x] User defined icon map and colour import.
 - [x] XDG_CONFIG_HOME default read config and merge with Args - non-Option merge would be nice.
-- [ ] Integration tests for internal bin operation.
+- [x] Integration tests for internal bin operation.
 
 ## Feature Ideas
 
