@@ -5,6 +5,8 @@ use std::env;
 use std::io::{Error, ErrorKind};
 use clap::Parser;
 use colored::*;
+use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 #[cfg(feature = "cli_generate")]
 use clap_complete::generate_to;
@@ -22,7 +24,8 @@ use cyme::colour::ColourTheme;
 use cyme::system_profiler;
 use cyme::lsusb;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default, Serialize, Deserialize)]
+#[skip_serializing_none]
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Attempt to maintain compatibility with lsusb output
@@ -532,6 +535,13 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_output_config() {
+        let mut args = Args{ ..Default::default() };
+        args.blocks = Some(vec![display::DeviceBlocks::BusNumber]);
+        println!("{}", serde_json::to_string_pretty(&args).unwrap());
+    }
 
     #[test]
     fn test_parse_vidpid() {

@@ -1,16 +1,17 @@
 //! Icons and themeing of cyme output
-use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use std::collections::HashMap;
 use std::fmt;
+use std::io;
+use serde::{Deserialize, Serialize};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{ClassCode, Direction};
 
 /// Icon type enum is used as key in `HashMaps`
 /// TODO FromStr and ToStr serialize/deserialize so that can merge with user defined
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")] // this doesn't really worked, not does untagged...
-// #[serde(untagged)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
 pub enum Icon {
     /// Vendor ID lookup
     Vid(u16),
@@ -46,9 +47,82 @@ pub enum Icon {
     Endpoint(Direction),
 }
 
+impl FromStr for Icon {
+    type Err = io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value_split: Vec<&str> = s.split("#").collect();
+        let enum_name = value_split[0];
+
+        // no value in string, match kebab-case
+        if value_split.len() == 1 {
+            match enum_name {
+                "unknown-vendor" => Ok(Icon::UnknownVendor),
+                "undefined-classifier" => Ok(Icon::UndefinedClassifier),
+                "tree-edge" => Ok(Icon::TreeEdge),
+                "tree-line" => Ok(Icon::TreeLine),
+                "tree-corner" => Ok(Icon::TreeCorner),
+                "tree-bus-start" => Ok(Icon::TreeBusStart),
+                "tree-device-terminator" => Ok(Icon::TreeDeviceTerminator),
+                "tree-configuration-terminator" => Ok(Icon::TreeConfigurationTerminiator),
+                "tree-interface-terminator" => Ok(Icon::TreeInterfaceTerminiator),
+                "endpoint_in" => Ok(Icon::Endpoint(Direction::In)),
+                "endpoint_out" => Ok(Icon::Endpoint(Direction::Out)),
+                _ => Err(io::Error::new(io::ErrorKind::Other, "Invalid Icon enum name or valued enum without value"))
+            }
+        // enum contains value
+        } else {
+            let (parse_ints, errors): (Vec<_>, Vec<_>) = value_split[1..].into_iter()
+                .map(|vs| vs.parse::<u16>())
+                .partition(Result::is_ok);
+            let numbers: Vec<_> = parse_ints.into_iter().map(Result::unwrap).collect();
+
+            if !errors.is_empty() {
+                return Err(io::Error::new(io::ErrorKind::Other, "Invalid value in enum string after #"));
+            }
+
+            match value_split[0] {
+                "vid" => match numbers.get(0) {
+                    Some(i) => Ok(Icon::Vid(*i)),
+                    None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
+                },
+                "vid-pid" => match numbers.get(0..1) {
+                    Some(slice) => Ok(Icon::VidPid((slice[0], slice[1]))),
+                    None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
+                },
+                "vid-pid-msb" => match numbers.get(0..1) {
+                    Some(slice) => Ok(Icon::VidPidMsb((slice[0], slice[1] as u8))),
+                    None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
+                },
+                "classifier" => match numbers.get(0) {
+                    Some(i) => Ok(Icon::Classifier(ClassCode::from(*i as u8))),
+                    None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
+                },
+                "classifier-sub-protocol" => match numbers.get(0..2) {
+                    Some(slice) => Ok(Icon::ClassifierSubProtocol((ClassCode::from(slice[0] as u8), slice[1] as u8, slice[2] as u8))),
+                    None => Err(io::Error::new(io::ErrorKind::Other, "No value for enum after $"))
+                },
+                _ => Err(io::Error::new(io::ErrorKind::Other, "Invalid Icon enum value holder"))
+            }
+        }
+    }
+}
+
 impl fmt::Display for Icon {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        match self {
+            Icon::Vid(v) => write!(f, "vid#{:04x}", v),
+            Icon::VidPid((v, p)) => write!(f, "vid-pid#{:04x}:{:04x}", v, p),
+            Icon::VidPidMsb((v, p)) => write!(f, "vid-pid-msb#{:04x}:{:02x}", v, p),
+            Icon::Classifier(c) => write!(f, "classifier#{:02x}", c.to_owned() as u8),
+            Icon::ClassifierSubProtocol(c) => write!(f, "classifier-sub-protocol#{}:{}:{}", c.0.to_owned() as u8, c.1, c.2),
+            Icon::Endpoint(Direction::In) => write!(f, "endpoint_in"),
+            Icon::Endpoint(Direction::Out) => write!(f, "endpoint_out"),
+            _ => {
+                let dbg_str = format!("{:?}", self);
+                write!(f, "{}", heck::AsKebabCase(dbg_str))
+            }
+        }
     }
 }
 
@@ -299,6 +373,7 @@ pub fn get_ascii_tree_icon(i: &Icon) -> String {
 mod tests {
     use super::*;
 
+    // #[ignore]
     #[test]
     fn test_serialize_theme() {
         let theme = IconTheme{
@@ -322,15 +397,15 @@ mod tests {
         assert_eq!(theme, actual_theme);
     }
 
-    // #[test]
-    // fn test_serialize_defaults() {
-    //     let theme = IconTheme{
-    //         icons: Some(HashMap::from([
-    //             (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
-    //             // (Icon::Classifier(ClassCode::HID), "\u{f80b}".into()), // 
-    //         ])),
-    //         ..Default::default()
-    //     };
-    //     println!("{}", serde_json::to_string(&theme).unwrap());
-    // }
+    #[test]
+    fn test_serialize_defaults() {
+        let theme = IconTheme{
+            icons: Some(HashMap::from([
+                (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
+                // (Icon::Classifier(ClassCode::HID), "\u{f80b}".into()), // 
+            ])),
+            ..Default::default()
+        };
+        println!("{}", serde_json::to_string(&theme).unwrap());
+    }
 }

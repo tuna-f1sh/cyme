@@ -118,6 +118,36 @@ impl From<u8> for ClassCode {
     }
 }
 
+impl Into<u8> for ClassCode {
+    fn into(self) -> u8 {
+        match self {
+            ClassCode::UseInterfaceDescriptor => 0,
+            ClassCode::Audio => 1,
+            ClassCode::CDCCommunications => 2,
+            ClassCode::HID => 3,
+            ClassCode::Physical => 5,
+            ClassCode::Image => 6,
+            ClassCode::Printer => 7,
+            ClassCode::MassStorage => 8,
+            ClassCode::Hub => 9,
+            ClassCode::CDCData => 0x0a, 
+            ClassCode::SmartCart => 0x0b, 
+            ClassCode::ContentSecurity => 0x0d, 
+            ClassCode::Video => 0x0e, 
+            ClassCode::PersonalHealthcare => 0x0f, 
+            ClassCode::AudioVideo => 0x10, 
+            ClassCode::Billboard => 0x11, 
+            ClassCode::USBTypeCBridge => 0x12, 
+            ClassCode::I3CDevice => 0x3c, 
+            ClassCode::Diagnostic => 0xdc, 
+            ClassCode::WirelessController => 0xe0, 
+            ClassCode::Miscellaneous => 0xef, 
+            ClassCode::ApplicationSpecificInterface => 0xfe, 
+            ClassCode::VendorSpecificClass => 0xff, 
+        }
+    }
+}
+
 impl ClassCode {
     /// How the ClassCode is used [`DescriptorUsage`]
     pub fn usage(&self) -> DescriptorUsage {
