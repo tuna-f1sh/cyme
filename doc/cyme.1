@@ -1,10 +1,10 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH cyme 1  "cyme 0.8.5" 
+.TH cyme 1  "cyme 0.9.0" 
 .SH NAME
 cyme \- List system USB buses and devices; a modern and compatiable `lsusb`
 .SH SYNOPSIS
-\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-m\fR|\fB\-\-more\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-no\-colour\fR] [\fB\-\-ascii\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-from\-json\fR] [\fB\-F\fR|\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-debug\fR]... [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
+\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-m\fR|\fB\-\-more\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-no\-colour\fR] [\fB\-\-ascii\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-from\-json\fR] [\fB\-F\fR|\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-z\fR|\fB\-\-debug\fR]... [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
 .SH DESCRIPTION
 List system USB buses and devices; a modern and compatiable `lsusb`
 .SH OPTIONS
@@ -254,7 +254,10 @@ Read from json output rather than profiling system \- must use \-\-tree json dum
 \fB\-F\fR, \fB\-\-force\-libusb\fR=\fIFORCE_LIBUSB\fR
 Force libusb profiler on macOS rather than using/combining system_profiler output
 .TP
-\fB\-c\fR, \fB\-\-debug\fR=\fIDEBUG\fR
+\fB\-c\fR, \fB\-\-config\fR=\fICONFIG\fR
+Path to user config file to use for custom icons and colours
+.TP
+\fB\-z\fR, \fB\-\-debug\fR=\fIDEBUG\fR
 Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
 .TP
 \fB\-h\fR, \fB\-\-help\fR
@@ -263,6 +266,6 @@ Print help information (use `\-h` for a summary)
 \fB\-V\fR, \fB\-\-version\fR
 Print version information
 .SH VERSION
-v0.8.5
+v0.9.0
 .SH AUTHORS
 John Whittington <john@jbrengineering.co.uk>

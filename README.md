@@ -58,7 +58,7 @@ If wishing to use only macOS `system_profiler` and not obtain more verbose infor
 I also have a Homebrew tap, which will also install a man page and completions: 
 
 ```
-brew tap tuna-f1sh/cyme
+brew tap tuna-f1sh/taps
 brew install cyme
 ```
 

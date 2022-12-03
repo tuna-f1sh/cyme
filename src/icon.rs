@@ -75,7 +75,6 @@ impl FromStr for Icon {
                 .map(|vs| u32::from_str_radix(vs.trim_start_matches("0x"), 16))
                 .partition(Result::is_ok);
             let numbers: Vec<u16> = parse_ints.into_iter().map(|v| v.unwrap() as u16).collect();
-            println!("{:?} {:?}", numbers, errors);
 
             if !errors.is_empty() {
                 return Err(io::Error::new(io::ErrorKind::Other, "Invalid value in enum string after #"));
@@ -172,10 +171,10 @@ lazy_static! {
             (Icon::TreeDeviceTerminator, "\u{25CB}".into()), // "○"
             (Icon::TreeConfigurationTerminiator, "\u{2022}".into()), // "•"
             (Icon::TreeInterfaceTerminiator, "\u{25E6}".into()), // "◦"
-            // (Icon::Endpoint(Direction::In), "\u{2192}".into()), // →
-            // (Icon::Endpoint(Direction::Out), "\u{2190}".into()), // ←
-            (Icon::Endpoint(Direction::In), ">".into()), // →
-            (Icon::Endpoint(Direction::Out), "<".into()), // ←
+            (Icon::Endpoint(Direction::In), "\u{2192}".into()), // →
+            (Icon::Endpoint(Direction::Out), "\u{2190}".into()), // ←
+            // (Icon::Endpoint(Direction::In), ">".into()), // →
+            // (Icon::Endpoint(Direction::Out), "<".into()), // ←
         ])
     };
 
@@ -387,7 +386,7 @@ pub fn defaults() -> HashMap<Icon, &'static str> {
 }
 
 /// Returns example list of icons with all [`Icon`] types
-pub fn example() -> HashMap<Icon, &'static str> {
+pub fn example() -> HashMap<Icon, String> {
     HashMap::from([
         (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
         (Icon::Vid(0x05ac), "\u{f179}".into()), // apple 
@@ -398,6 +397,13 @@ pub fn example() -> HashMap<Icon, &'static str> {
         (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}".into()), // serial 
         (Icon::UndefinedClassifier, "\u{2636}".into()), //☶
     ])
+}
+
+/// Returns example theme with [`Icon`] types and default tree
+pub fn example_theme() -> IconTheme {
+    // TODO
+    let tree = DEFAULT_TREE.clone();
+    IconTheme { icons: Some(example()), tree: None }
 }
 
 #[cfg(test)]

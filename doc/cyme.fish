@@ -11,6 +11,7 @@ complete -c cyme -l endpoint-blocks -d 'Specify the blocks which will be display
 complete -c cyme -l sort-devices -d 'Sort devices by value' -r -f -a "{branch-position	Sort by position in parent branch,device-number	Sort by bus device number,no-sort	No sorting; whatever order it was parsed}"
 complete -c cyme -l group-devices -d 'Group devices by value when listing' -r -f -a "{no-group	No grouping,bus	Group into buses with bus info as heading - like a flat tree}"
 complete -c cyme -l from-json -d 'Read from json output rather than profiling system - must use --tree json dump' -r
+complete -c cyme -s c -l config -d 'Path to user config file to use for custom icons and colours' -r
 complete -c cyme -s l -l lsusb -d 'Attempt to maintain compatibility with lsusb output'
 complete -c cyme -s t -l tree -d 'Dump USB device hierarchy as a tree'
 complete -c cyme -s v -l verbose -d 'Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks'
@@ -25,7 +26,7 @@ complete -c cyme -l ascii -d 'Disables icons and utf-8 charactors'
 complete -c cyme -l headings -d 'Show block headings'
 complete -c cyme -l json -d 'Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices'
 complete -c cyme -s F -l force-libusb -d 'Force libusb profiler on macOS rather than using/combining system_profiler output'
-complete -c cyme -s c -l debug -d 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE'
+complete -c cyme -s z -l debug -d 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE'
 complete -c cyme -l gen -d 'Generate cli completions and man page'
 complete -c cyme -s h -l help -d 'Print help information (use `--help` for more detail)'
 complete -c cyme -s V -l version -d 'Print version information'

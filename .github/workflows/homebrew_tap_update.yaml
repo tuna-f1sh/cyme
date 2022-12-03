@@ -16,7 +16,7 @@ jobs:
         if: "!contains(github.ref, '-')" # skip prereleases
         with:
           formula-name: cyme
-          formula-path: cyme.rb
+          formula-path: Formula/cyme.rb
           homebrew-tap: tuna-f1sh/homebrew-cyme
           download-url: https://github.com/tuna-f1sh/cyme/releases/download/${{ steps.extract-version.outputs.tag-name }}/cyme-v${{ steps.extract-version.outputs.tag-name }}-x86_64-apple-darwin.tar.gz
           commit-message: |

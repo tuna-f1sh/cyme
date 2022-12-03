@@ -109,6 +109,8 @@ no-sort\:"No sorting; whatever order it was parsed"))' \
 '--group-devices=[Group devices by value when listing]:GROUP_DEVICES:((no-group\:"No grouping"
 bus\:"Group into buses with bus info as heading - like a flat tree"))' \
 '--from-json=[Read from json output rather than profiling system - must use --tree json dump]:FROM_JSON: ' \
+'-c+[Path to user config file to use for custom icons and colours]:CONFIG: ' \
+'--config=[Path to user config file to use for custom icons and colours]:CONFIG: ' \
 '-l[Attempt to maintain compatibility with lsusb output]' \
 '--lsusb[Attempt to maintain compatibility with lsusb output]' \
 '-t[Dump USB device hierarchy as a tree]' \
@@ -128,7 +130,7 @@ bus\:"Group into buses with bus info as heading - like a flat tree"))' \
 '--json[Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices]' \
 '-F[Force libusb profiler on macOS rather than using/combining system_profiler output]' \
 '--force-libusb[Force libusb profiler on macOS rather than using/combining system_profiler output]' \
-'*-c[Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE]' \
+'*-z[Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE]' \
 '*--debug[Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE]' \
 '--gen[Generate cli completions and man page]' \
 '-h[Print help information (use `--help` for more detail)]' \

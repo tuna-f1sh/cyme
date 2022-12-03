@@ -15,15 +15,12 @@ use clap::CommandFactory;
 #[cfg(feature = "cli_generate")]
 use clap_complete::shells::*;
 #[cfg(feature = "cli_generate")]
-use cyme::icon::example;
-#[cfg(feature = "cli_generate")]
 use std::path::PathBuf;
 
 use cyme::display;
-use cyme::icon::IconTheme;
-use cyme::colour::ColourTheme;
 use cyme::system_profiler;
 use cyme::lsusb;
+use cyme::config::Config;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -137,8 +134,12 @@ struct Args {
     #[arg(short='F', long, default_value_t = false)]
     force_libusb: bool,
 
+    /// Path to user config file to use for custom icons, colours and default settings
+    #[arg(short='c', long)]
+    config: Option<String>,
+
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
-    #[arg(short = 'c', long, action = clap::ArgAction::Count)] // short -d taken by lsusb compat vid:pid
+    #[arg(short = 'z', long, action = clap::ArgAction::Count)] // short -d taken by lsusb compat vid:pid
     debug: u8,
 
     /// Generate cli completions and man page
@@ -330,8 +331,8 @@ fn print_man() -> Result<(), Error> {
 
     std::fs::write(PathBuf::from(&outdir).join("cyme.1"), buffer)?;
 
-    // TODO example config
-    std::fs::write(PathBuf::from(&outdir).join("cyme_example_config.json"), serde_json::to_string_pretty(&example()).unwrap())?;
+    // example config
+    std::fs::write(PathBuf::from(&outdir).join("cyme_example_config.json"), serde_json::to_string_pretty(&Config::example()).unwrap())?;
 
     Ok(())
 }
@@ -368,18 +369,31 @@ fn main() {
         ));
     });
 
+    let config = if let Some(path) = args.config.as_ref() {
+        let config = Config::from_file(&path).unwrap_or_else(|e| {
+            eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to parse user conifg at {}: Error({})", path, e)
+            ));
+        });
+        log::info!("Using user config {:?}", config);
+        config
+    } else {
+        Config::new()
+    };
+
     let colours = if args.no_colour {
         // set env to be sure too
         env::set_var("NO_COLOR", "1");
         None
     } else {
-        Some(ColourTheme::new())
+        Some(config.colours)
     };
 
     let icons = if args.ascii {
         None
     } else {
-        Some(IconTheme::new())
+        Some(config.icons)
     };
 
     let mut spusb = if let Some(file_path) = args.from_json {
