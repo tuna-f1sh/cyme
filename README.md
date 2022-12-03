@@ -36,7 +36,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 ## Demo
 
-[![asciicast](https://asciinema.org/a/542306.svg)](https://asciinema.org/a/542306)
+[![asciicast](https://asciinema.org/a/542308.svg)](https://asciinema.org/a/542308)
 
 ## Feature Ideas
 
