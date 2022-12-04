@@ -12,7 +12,7 @@ o---/
 [![Crates.io](https://img.shields.io/crates/v/cyme?style=flat-square)](https://crates.io/crates/cyme)
 [![docs.rs](https://img.shields.io/docsrs/cyme?style=flat-square)](https://docs.rs/cyme/latest/cyme/)
 
-List system USB buses and devices; a modern `lsusb` that attempts to maintain compatibility with, but also add new features. Includes a macOS `system_profiler SPUSBDataType` parser module and libusb profiler for non-macOS systems/gathering more verbose information.
+List system USB buses and devices; a lib and modern `lsusb` that attempts to maintain compatibility with, but also add new features. Includes a macOS `system_profiler SPUSBDataType` parser module and libusb profiler for non-macOS systems/gathering more verbose information.
 
 The project started as a quick replacement for the barely working [lsusb script](https://github.com/jlhonora/lsusb) and is my _yearly_ Rust project to keep up to date! Like most fun projects, it quickly experienced feature creep as I developed it into a cross-platform replacement for `lsusb`. As a developer of embedded devices, I use a USB list tool on a frequent basis and developed this to cater what I believe at the short comings of `lsusb`; verbose dump is too _verbose_, tree doesn't contain useful data on the whole, it barely works on non-Linux platforms and modern terminals support features that make glancing through the data easier.
 
@@ -72,9 +72,11 @@ If one wishes to create a macOS version of lsusb or just use this instead, creat
 
 # Usage
 
-Will cover this more as it develops. Use `cyme --help` for basic usage or `man ./doc/cyme.1`.
+Will cover this more as it develops. Use `cyme --help` for basic usage or `man ./doc/cyme.1`. There are also autocompletions in './doc'.
 
-For usage as a library, the crate is 100% documented so look at [docs.rs](https://docs.rs/cyme/latest/cyme/)
+## Crate
+
+For usage as a library for profiling system USB devices, the crate is 100% documented so look at [docs.rs](https://docs.rs/cyme/latest/cyme/)
 
 ## Config
 
