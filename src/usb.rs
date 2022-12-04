@@ -28,6 +28,12 @@ impl fmt::Display for ConfigAttributes {
 
 impl ConfigAttributes {
     /// Converts a HashSet of [`ConfigAttributes`] into a ';' separated string
+    ///
+    /// ```
+    /// use cyme::usb::ConfigAttributes;
+    ///
+    /// assert_eq!(ConfigAttributes::attributes_to_string(&vec![ConfigAttributes::RemoteWakeup, ConfigAttributes::SelfPowered]), "RemoteWakeup;SelfPowered");
+    /// ```
     pub fn attributes_to_string(attributes: &Vec<ConfigAttributes>) -> String {
         let vec: Vec<String> = attributes.iter().map(|a| a.to_string()).collect();
         vec.join(";")
@@ -182,6 +188,11 @@ impl ClassCode {
     }
 
     /// lsusb is explicit for some in styling of tree
+    /// ```
+    /// # use cyme::usb::ClassCode;
+    ///
+    /// assert_eq!(ClassCode::HID.to_lsusb_string(), "Human Interface Device");
+    /// ```
     pub fn to_lsusb_string(&self) -> String {
         match self {
             ClassCode::HID => "Human Interface Device".into(),
@@ -193,7 +204,7 @@ impl ClassCode {
 
     /// Converts Pascal case enum to space separated on capitals
     /// ```
-    /// use cyme::usb::ClassCode;
+    /// # use cyme::usb::ClassCode;
     ///
     /// assert_eq!(ClassCode::UseInterfaceDescriptor.to_title_case(), "Use Interface Descriptor");
     /// assert_eq!(ClassCode::CDCData.to_title_case(), "CDC Data");
@@ -317,10 +328,18 @@ impl From<&Speed> for NumericalUnit<f32> {
 
 impl Speed {
     /// lsusb speed is always in Mb/s and shown just a M prefix
+    ///
+    /// ```
+    /// # use cyme::usb::Speed;
+    ///
+    /// assert_eq!(Speed::SuperSpeedPlus.to_lsusb_speed(), "10000M");
+    /// assert_eq!(Speed::FullSpeed.to_lsusb_speed(), "12M");
+    /// ```
     pub fn to_lsusb_speed(&self) -> String {
         let dv = NumericalUnit::<f32>::from(self);
         let prefix = dv.unit.chars().next().unwrap_or('M');
         match prefix {
+            // see you when we have Tb/s buses :P
             'G' => format!("{:.0}{}", dv.value * 1000.0, 'M'),
             _ => format!("{:.0}{}", dv.value, prefix),
         }
@@ -428,7 +447,27 @@ pub struct USBEndpoint {
 }
 
 impl USBEndpoint {
-    /// Decodes the max packet value into a multipler and number of bytes
+    /// Decodes the max packet value into a multipler and number of bytes like lsusb
+    ///
+    /// ```
+    /// # use cyme::usb::*;
+    ///
+    /// let mut ep = USBEndpoint {
+    ///     address: EndpointAddress {
+    ///         address: 0,
+    ///         number: 0,
+    ///         direction: Direction::In
+    ///     },
+    ///     transfer_type: TransferType::Control,
+    ///     sync_type: SyncType::None,
+    ///     usage_type: UsageType::Data,
+    ///     max_packet_size: 0xfff1,
+    ///     interval: 3,
+    /// };
+    /// assert_eq!(ep.max_packet_string(), "4x 2033");
+    /// ep.max_packet_size = 0x0064;
+    /// assert_eq!(ep.max_packet_string(), "1x 100");
+    /// ```
     pub fn max_packet_string(&self) -> String {
         format!(
             "{}x {}",
