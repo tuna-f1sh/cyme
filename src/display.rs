@@ -1282,7 +1282,7 @@ pub enum MaskSerial {
     Hide,
     /// Mask by randomising existing chars
     Scramble,
-    /// Hide by replacing length of random chars
+    /// Mask by replacing length with random chars
     Replace,
 }
 

@@ -12,7 +12,7 @@ complete -c cyme -l sort-devices -d 'Sort devices by value' -r -f -a "{branch-po
 complete -c cyme -l group-devices -d 'Group devices by value when listing' -r -f -a "{no-group	No grouping,bus	Group into buses with bus info as heading - like a flat tree}"
 complete -c cyme -l from-json -d 'Read from json output rather than profiling system - must use --tree json dump' -r
 complete -c cyme -s c -l config -d 'Path to user config file to use for custom icons, colours and default settings' -r
-complete -c cyme -l hide-serials -d 'Hide serial numbers' -r -f -a "{hide	Hide with \'*\' char,scramble	Hide by replacing random char}"
+complete -c cyme -l mask-serials -d 'Mask serial numbers with \'*\' or random chars' -r -f -a "{hide	Hide with \'*\' char,scramble	Mask by randomising existing chars,replace	Mask by replacing length with random chars}"
 complete -c cyme -s l -l lsusb -d 'Attempt to maintain compatibility with lsusb output'
 complete -c cyme -s t -l tree -d 'Dump USB device hierarchy as a tree'
 complete -c cyme -s v -l verbose -d 'Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks'

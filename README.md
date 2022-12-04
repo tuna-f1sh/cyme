@@ -36,13 +36,14 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 ## Demo
 
-[![asciicast](https://asciinema.org/a/542308.svg)](https://asciinema.org/a/542308)
+[![asciicast](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM.svg)](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM)
 
 ## Feature Ideas
 
 * Fully decode device class based base class on tables at [USB-IF](https://www.usb.org/defined-class-codes).
 * Support 'auto', 'always', 'never' or icon, colours, utf-8 etc.
 * Print format for width constrained devices? Can remove blocks with args but maybe there is a different format to consider.
+* More examples for lib usage.
 
 # Install
 

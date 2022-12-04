@@ -1,10 +1,10 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH cyme 1  "cyme 1.0.1" 
+.TH cyme 1  "cyme 1.0.2" 
 .SH NAME
 cyme \- List system USB buses and devices; a modern and compatible `lsusb`
 .SH SYNOPSIS
-\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-m\fR|\fB\-\-more\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-no\-colour\fR] [\fB\-\-ascii\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-from\-json\fR] [\fB\-F\fR|\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-z\fR|\fB\-\-debug\fR]... [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
+\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-m\fR|\fB\-\-more\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-no\-colour\fR] [\fB\-\-ascii\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-from\-json\fR] [\fB\-F\fR|\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-z\fR|\fB\-\-debug\fR]... [\fB\-\-mask\-serials\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
 .SH DESCRIPTION
 List system USB buses and devices; a modern and compatible `lsusb`
 .SH OPTIONS
@@ -260,12 +260,27 @@ Path to user config file to use for custom icons, colours and default settings
 \fB\-z\fR, \fB\-\-debug\fR=\fIDEBUG\fR
 Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
 .TP
+\fB\-\-mask\-serials\fR=\fIMASK_SERIALS\fR
+Mask serial numbers with \*(Aq*\*(Aq or random chars
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+hide: Hide with \*(Aq*\*(Aq char
+.IP \(bu 2
+scramble: Mask by randomising existing chars
+.IP \(bu 2
+replace: Mask by replacing length with random chars
+.RE
+.TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help information (use `\-h` for a summary)
 .TP
 \fB\-V\fR, \fB\-\-version\fR
 Print version information
 .SH VERSION
-v1.0.1
+v1.0.2
 .SH AUTHORS
 John Whittington <john@jbrengineering.co.uk>
