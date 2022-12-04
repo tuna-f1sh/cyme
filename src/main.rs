@@ -143,6 +143,10 @@ struct Args {
     // short -d taken by lsusb compat vid:pid
     debug: u8,
 
+    /// Mask serial numbers with '*' or random chars
+    #[arg(long, hide = true)]
+    mask_serials: Option<display::MaskSerial>,
+
     /// Generate cli completions and man page
     #[arg(long, hide = true, exclusive = true)]
     gen: bool,
@@ -545,7 +549,7 @@ fn main() {
         }
     };
 
-    let group_devies = if args.group_devices == display::Group::Bus && args.tree {
+    let group_devices = if args.group_devices == display::Group::Bus && args.tree {
         eprintln!("--group-devices with --tree is ignored; will print as tree");
         display::Group::NoGroup
     } else {
@@ -559,11 +563,12 @@ fn main() {
         hide_buses: args.hide_buses,
         sort_devices,
         sort_buses: args.sort_buses,
-        group_devices: group_devies,
+        group_devices,
         json: args.json,
         headings: args.headings,
         verbosity: args.verbose,
         more: args.more,
+        mask_serials: args.mask_serials.map_or(config.mask_serials, Some),
         device_blocks: args.blocks.map_or(config.blocks, Some),
         bus_blocks: args.bus_blocks.map_or(config.bus_blocks, Some),
         config_blocks: args.config_blocks.map_or(config.config_blocks, Some),

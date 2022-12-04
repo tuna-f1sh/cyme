@@ -1248,6 +1248,7 @@ impl Sort {
 
 /// Value to group [`USBDevice`]
 #[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Group {
     #[default]
     /// No grouping
@@ -1259,6 +1260,7 @@ pub enum Group {
 /// Charactor printing settings
 // TODO use this as printing: Vec<display::Printing> with default [display::Printing::Utf8, display::Printing::Icons]
 #[derive(Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Printing {
     /// Use utf-8 charactors
     Utf8,
@@ -1268,6 +1270,17 @@ pub enum Printing {
     Icons,
     /// Show no icons
     NoIcons,
+}
+
+/// Options for [`PrintSettings`] mask_serials
+#[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MaskSerial {
+    #[default]
+    /// Hide with '*' char
+    Hide,
+    /// Hide by replacing random char
+    Scramble,
 }
 
 /// Passed to printing functions allows default args
@@ -1295,6 +1308,8 @@ pub struct PrintSettings {
     pub more: bool,
     /// Print as json
     pub json: bool,
+    /// Scramble serial numbers, useful if sharing sensitive device dumps
+    pub mask_serials: Option<MaskSerial>,
     /// [`DeviceBlocks`] to use for printing
     pub device_blocks: Option<Vec<DeviceBlocks>>,
     /// [`BusBlocks`] to use for printing
@@ -2008,6 +2023,7 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
         println!();
     }
 }
+use rand::{distributions::Alphanumeric, Rng}; // 0.8
 
 /// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
 pub fn prepare(
@@ -2043,7 +2059,34 @@ pub fn prepare(
         sp_usb.buses.sort_by_key(|d| d.get_bus_number());
     }
 
+    // hide serials Recursively
+    if let Some(hide) = settings.mask_serials.as_ref() {
+        for bus in &mut sp_usb.buses {
+            bus.devices.as_mut().map_or((), |devices| {
+                for mut device in devices {
+                    hide_serial(&mut device, hide);
+                    device.devices.as_mut().map_or((), |dd| dd.iter_mut().for_each(|d| hide_serial(d, hide)));
+                }
+            });
+        }
+    }
+
     log::trace!("sp_usb data post filter and bus sort\n\r{:#}", sp_usb);
+}
+
+/// Hide the `device` serial if it has one using the [`HideSerial`] method
+pub fn hide_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial) {
+    if let Some(serial) = device.serial_num.as_mut() {
+        *serial = match hide {
+            MaskSerial::Hide => serial.chars().map(|_| '*').collect::<String>(),
+            MaskSerial::Scramble =>
+                rand::thread_rng()
+                    .sample_iter(&Alphanumeric)
+                    .take(serial.chars().count())
+                    .map(char::from)
+                    .collect(),
+        };
+    }
 }
 
 /// Main cyme bin print function

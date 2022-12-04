@@ -223,6 +223,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "log",
+ "rand",
  "rusb",
  "serde",
  "serde_json",

@@ -33,6 +33,8 @@ pub struct Config {
     pub interface_blocks: Option<Vec<display::InterfaceBlocks>>,
     /// Default [`EndpointBlocks`] to use for device endpoints
     pub endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
+    /// Wether to hide device serial numbers by default
+    pub mask_serials: Option<display::MaskSerial>,
 }
 
 impl Config {

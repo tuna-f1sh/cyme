@@ -40,6 +40,7 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--from-json', 'from-json', [CompletionResultType]::ParameterName, 'Read from json output rather than profiling system - must use --tree json dump')
             [CompletionResult]::new('-c', 'c', [CompletionResultType]::ParameterName, 'Path to user config file to use for custom icons, colours and default settings')
             [CompletionResult]::new('--config', 'config', [CompletionResultType]::ParameterName, 'Path to user config file to use for custom icons, colours and default settings')
+            [CompletionResult]::new('--hide-serials', 'hide-serials', [CompletionResultType]::ParameterName, 'Hide serial numbers')
             [CompletionResult]::new('-l', 'l', [CompletionResultType]::ParameterName, 'Attempt to maintain compatibility with lsusb output')
             [CompletionResult]::new('--lsusb', 'lsusb', [CompletionResultType]::ParameterName, 'Attempt to maintain compatibility with lsusb output')
             [CompletionResult]::new('-t', 't', [CompletionResultType]::ParameterName, 'Dump USB device hierarchy as a tree')

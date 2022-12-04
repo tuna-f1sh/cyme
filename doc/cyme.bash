@@ -19,7 +19,7 @@ _cyme() {
 
     case "${cmd}" in
         cyme)
-            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --decimal --no-padding --no-colour --ascii --headings --json --from-json --force-libusb --config --debug --gen --help --version"
+            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --decimal --no-padding --no-colour --ascii --headings --json --from-json --force-libusb --config --debug --hide-serials --gen --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -99,6 +99,10 @@ _cyme() {
                     ;;
                 -c)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --hide-serials)
+                    COMPREPLY=($(compgen -W "hide scramble" -- "${cur}"))
                     return 0
                     ;;
                 *)
