@@ -900,7 +900,7 @@ impl USBDevice {
                             self.get_branch_position(),
                             self.location_id.number,
                             interface.number,
-                            interface.class.to_title_case(),
+                            interface.class.to_lsusb_string(),
                             interface.driver.as_ref().unwrap_or(&String::new()),
                             speed
                         ),
@@ -930,7 +930,7 @@ impl USBDevice {
                     0,
                     self.class
                         .as_ref()
-                        .map_or(String::new(), |c| c.to_title_case()),
+                        .map_or(String::new(), |c| c.to_lsusb_string()),
                     driver,
                     speed
                 ),

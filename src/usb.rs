@@ -100,12 +100,7 @@ pub enum ClassCode {
 
 impl fmt::Display for ClassCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // lsusb is explicit for some
-        match self {
-            ClassCode::HID => write!(f, "Human Interface Device"),
-            ClassCode::CDCCommunications => write!(f, "Communications"),
-            _ => write!(f, "{:?}", self),
-        }
+        write!(f, "{:?}", self)
     }
 }
 
@@ -184,6 +179,16 @@ impl ClassCode {
             | ClassCode::VendorSpecificClass => DescriptorUsage::Both,
             _ => DescriptorUsage::Interface,
         }
+    }
+
+    /// lsusb is explicit for some in styling of tree
+    pub fn to_lsusb_string(&self) -> String {
+        match self {
+            ClassCode::HID => "Human Interface Device".into(),
+            ClassCode::CDCCommunications => "Communications".into(),
+            _ => self.to_title_case(),
+        }
+
     }
 
     /// Converts Pascal case enum to space separated on capitals
