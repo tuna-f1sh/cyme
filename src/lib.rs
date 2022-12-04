@@ -60,3 +60,8 @@ pub fn set_log_level(debug: u8) -> Result<(), Error> {
 
     Ok(())
 }
+
+// run any Rust code as doctest
+#[doc = include_str!("../README.md")]
+#[cfg(doctest)]
+pub struct ReadmeDoctests;

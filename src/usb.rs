@@ -48,30 +48,47 @@ pub enum DescriptorUsage {
 /// USB class code defines [ref](https://www.usb.org/defined-class-codes)
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-#[allow(missing_docs)]
 pub enum ClassCode {
     #[default]
+    /// Device class is unspecified, interface descriptors are used to determine needed drivers
     UseInterfaceDescriptor,
+    /// Speaker, microphone, sound card, MIDI
     Audio,
+    /// The modern serial interface; appears as a UART/RS232 port on most systems
     CDCCommunications,
+    /// Human Interface Device; game controllers, keyboards, mice etc. Also commonly used as a device data interface rather then creating something from scratch
     HID,
+    /// Force feedback joystick
     Physical,
+    /// Scanners, cameras
     Image,
+    /// Laser printer, inkjet printer, CNC machine
     Printer,
+    /// Mass storage devices (MSD): USB flash drive, memory card reader, digital audio player, digital camera, external drive
     MassStorage,
+    /// High speed USB hub
     Hub,
+    /// Used together with class 02h (Communications and CDC Control) above
     CDCData,
+    /// USB smart card reader
     SmartCart,
+    /// Fingerprint reader
     ContentSecurity,
+    /// Webcam
     Video,
+    /// Pulse monitor (watch)
     PersonalHealthcare,
+    /// Webcam, TV
     AudioVideo,
+    /// Describes USB-C alternate modes supported by device
     Billboard,
+    /// An interface to expose and configure the USB Type-C capabilities of Connectors on USB Hubs or Alternate Mode Adapters
     USBTypeCBridge,
+    /// An interface to expose and configure I3C function within a USB device to allow interaction between host software and the I3C device, to drive transaction on the I3C bus to/from target devices
     I3CDevice,
-    /// Trace debugging equipment
+    /// Trace and debugging equipment
     Diagnostic,
-    /// This base class is defined for devices that are Wireless controllers. Values not shown in the table below are reserved. These class codes are to be used in Interface Descriptors, with the exception of the Bluetooth class code which can also be used in a Device Descriptor
+    /// Wireless controllers: Bluetooth adaptors, Microsoft RNDIS
     WirelessController,
     /// This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website
     Miscellaneous,
