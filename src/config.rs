@@ -44,6 +44,7 @@ impl Config {
     }
 
     /// From system config if exists else default
+    #[cfg(not(debug_assertions))]
     pub fn sys() -> Config {
         if let Some(p) = Self::config_file_path() {
             let path = p.join(CONF_NAME);
@@ -61,6 +62,13 @@ impl Config {
                 }
             }
         }
+        Self::new()
+    }
+
+    /// Use default if running in debug since the integration tests use this
+    #[cfg(debug_assertions)]
+    pub fn sys() -> Config {
+        log::warn!("Running in debug, not checking for cyme system config");
         Self::new()
     }
 
