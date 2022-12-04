@@ -7,6 +7,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::HashMap;
+use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng};
 
 use crate::colour;
 use crate::icon;
@@ -1279,8 +1280,10 @@ pub enum MaskSerial {
     #[default]
     /// Hide with '*' char
     Hide,
-    /// Hide by replacing random char
+    /// Mask by randomising existing chars
     Scramble,
+    /// Hide by replacing length of random chars
+    Replace,
 }
 
 /// Passed to printing functions allows default args
@@ -2023,7 +2026,6 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
         println!();
     }
 }
-use rand::{distributions::Alphanumeric, Rng}; // 0.8
 
 /// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
 pub fn prepare(
@@ -2064,8 +2066,8 @@ pub fn prepare(
         for bus in &mut sp_usb.buses {
             bus.devices.as_mut().map_or((), |devices| {
                 for mut device in devices {
-                    hide_serial(&mut device, hide);
-                    device.devices.as_mut().map_or((), |dd| dd.iter_mut().for_each(|d| hide_serial(d, hide)));
+                    mask_serial(&mut device, hide);
+                    device.devices.as_mut().map_or((), |dd| dd.iter_mut().for_each(|d| mask_serial(d, hide)));
                 }
             });
         }
@@ -2074,17 +2076,19 @@ pub fn prepare(
     log::trace!("sp_usb data post filter and bus sort\n\r{:#}", sp_usb);
 }
 
-/// Hide the `device` serial if it has one using the [`HideSerial`] method
-pub fn hide_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial) {
+/// Mask the `device` serial if it has one using the [`MaskSerial`] method
+pub fn mask_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial) {
     if let Some(serial) = device.serial_num.as_mut() {
         *serial = match hide {
             MaskSerial::Hide => serial.chars().map(|_| '*').collect::<String>(),
             MaskSerial::Scramble =>
+                serial.chars().map(|_| serial.chars().choose(&mut rand::thread_rng()).unwrap_or('*')).collect::<String>(),
+            MaskSerial::Replace =>
                 rand::thread_rng()
-                    .sample_iter(&Alphanumeric)
+                    .sample_iter(Alphanumeric)
                     .take(serial.chars().count())
                     .map(char::from)
-                    .collect(),
+                    .collect::<String>().to_uppercase(),
         };
     }
 }

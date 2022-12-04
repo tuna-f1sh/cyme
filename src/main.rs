@@ -144,7 +144,7 @@ struct Args {
     debug: u8,
 
     /// Mask serial numbers with '*' or random chars
-    #[arg(long, hide = true)]
+    #[arg(long)]
     mask_serials: Option<display::MaskSerial>,
 
     /// Generate cli completions and man page
