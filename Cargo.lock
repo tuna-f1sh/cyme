@@ -210,7 +210,7 @@ dependencies = [
 
 [[package]]
 name = "cyme"
-version = "0.9.3"
+version = "1.0.0"
 dependencies = [
  "assert-json-diff",
  "clap",

@@ -3,7 +3,7 @@
 //! The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for a lot of the styling and content of the display module
 #[cfg(feature = "libusb")]
 pub mod profiler {
-    //! Uses rusb (upto date libusb fork) to get system USB information, most of which has parity with lsusb. Uses [`system_profiler`] types to hold data so that it is cross-compatiable with macOS system_profiler command.
+    //! Uses rusb (upto date libusb fork) to get system USB information, most of which has parity with lsusb. Uses [`system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
     //!
     //! lsusb uses udev for tree building, which libusb does not have access to and is Linux only. udev-rs is used on Linux to attempt to mirror the output of lsusb on Linux. On other platforms, certain information like driver used cannot be obtained.
     #[cfg(target_os = "linux")]

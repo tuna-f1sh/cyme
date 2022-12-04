@@ -1,7 +1,7 @@
 [package]
 name = "cyme"
 authors = ["John Whittington <john@jbrengineering.co.uk>"]
-description = "List system USB buses and devices; a modern and compatiable `lsusb`"
+description = "List system USB buses and devices; a modern and compatible `lsusb`"
 repository = "https://github.com/tuna-f1sh/cyme"
 readme = "README.md"
 license = "GPL-3.0-or-later"
