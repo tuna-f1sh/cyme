@@ -109,6 +109,219 @@
           "device_speed": "480.0 Mb/s",
           "devices": [
             {
+              "name": "Black Magic Probe  v1.8.2",
+              "vendor_id": 7504,
+              "product_id": 24600,
+              "location_id": {
+                "bus": 20,
+                "tree_positions": [
+                  3,
+                  3
+                ],
+                "number": 6
+              },
+              "serial_num": "********",
+              "manufacturer": "Black Magic Debug",
+              "bcd_device": "1.00",
+              "bcd_usb": "2.00",
+              "device_speed": "12.0 Mb/s",
+              "class": "miscellaneous",
+              "sub_class": 2,
+              "protocol": 1,
+              "extra": {
+                "max_packet_size": 32,
+                "vendor": "OpenMoko, Inc.",
+                "product_name": "Black Magic Debug Probe (Application)",
+                "string_indexes": [
+                  2,
+                  1,
+                  3
+                ],
+                "configurations": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "Black Magic GDB Server",
+                        "string_index": 4,
+                        "number": 0,
+                        "path": "20-3.3:1.0",
+                        "class": "c-d-c-communications",
+                        "sub_class": 2,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 130,
+                              "number": 2,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 16,
+                            "interval": 255
+                          }
+                        ]
+                      },
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 1,
+                        "path": "20-3.3:1.1",
+                        "class": "c-d-c-data",
+                        "sub_class": 0,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 1,
+                              "number": 1,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          },
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          }
+                        ]
+                      },
+                      {
+                        "name": "Black Magic UART Port",
+                        "string_index": 5,
+                        "number": 2,
+                        "path": "20-3.3:1.2",
+                        "class": "c-d-c-communications",
+                        "sub_class": 2,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 132,
+                              "number": 4,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 16,
+                            "interval": 255
+                          }
+                        ]
+                      },
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 3,
+                        "path": "20-3.3:1.3",
+                        "class": "c-d-c-data",
+                        "sub_class": 0,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 3,
+                              "number": 3,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 32,
+                            "interval": 1
+                          },
+                          {
+                            "address": {
+                              "address": 131,
+                              "number": 3,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 1
+                          }
+                        ]
+                      },
+                      {
+                        "name": "Black Magic DFU",
+                        "string_index": 6,
+                        "number": 4,
+                        "path": "20-3.3:1.4",
+                        "class": "application-specific-interface",
+                        "sub_class": 1,
+                        "protocol": 1,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": []
+                      },
+                      {
+                        "name": "Black Magic Trace Capture",
+                        "string_index": 7,
+                        "number": 5,
+                        "path": "20-3.3:1.5",
+                        "class": "vendor-specific-class",
+                        "sub_class": 255,
+                        "protocol": 255,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 133,
+                              "number": 5,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 64,
+                            "interval": 0
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [],
+                    "max_power": {
+                      "value": 100,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
+            },
+            {
               "name": "4-Port USB 2.0 Hub",
               "vendor_id": 3034,
               "product_id": 21521,
@@ -1455,7 +1668,7 @@
                       3,
                       1
                     ],
-                    "number": 15
+                    "number": 23
                   },
                   "serial_num": "************",
                   "manufacturer": "Specialized",
@@ -1524,6 +1737,91 @@
                         ],
                         "max_power": {
                           "value": 500,
+                          "unit": "mA",
+                          "description": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "J-Link",
+                  "vendor_id": 4966,
+                  "product_id": 257,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      2,
+                      3,
+                      3
+                    ],
+                    "number": 20
+                  },
+                  "serial_num": "************",
+                  "manufacturer": "SEGGER",
+                  "bcd_device": "1.00",
+                  "bcd_usb": "2.00",
+                  "device_speed": "480.0 Mb/s",
+                  "class": "use-interface-descriptor",
+                  "sub_class": 0,
+                  "protocol": 0,
+                  "extra": {
+                    "max_packet_size": 64,
+                    "vendor": "SEGGER",
+                    "product_name": "J-Link PLUS",
+                    "string_indexes": [
+                      2,
+                      1,
+                      3
+                    ],
+                    "configurations": [
+                      {
+                        "name": "Configuration",
+                        "string_index": 4,
+                        "number": 1,
+                        "interfaces": [
+                          {
+                            "name": "BULK interface",
+                            "string_index": 5,
+                            "number": 0,
+                            "path": "2-2.3.3:1.0",
+                            "class": "vendor-specific-class",
+                            "sub_class": 255,
+                            "protocol": 255,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 129,
+                                  "number": 1,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 1
+                              },
+                              {
+                                "address": {
+                                  "address": 1,
+                                  "number": 1,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 1
+                              }
+                            ]
+                          }
+                        ],
+                        "attributes": [],
+                        "max_power": {
+                          "value": 100,
                           "unit": "mA",
                           "description": null
                         }

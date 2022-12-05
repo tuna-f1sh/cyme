@@ -13,20 +13,22 @@ use std::convert::TryFrom;
 
 use crate::types::NumericalUnit;
 
-/// A three-part version consisting of major, minor, and sub minor components - copied from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
+/// The version value (for BCD and USB) is in binary coded decimal with a format of 0xJJMN where JJ is the major version number, M is the minor version number and N is the sub minor version number. e.g. USB 2.0 is reported as 0x0200, USB 1.1 as 0x0110 and USB 1.0 as 0x0100. The type is a mirror of the one from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
 ///
-/// This can be used to represent versions of the format `J.M.N`, where `J` is the major version,
-/// `M` is the minor version, and `N` is the sub minor version. A version is constructed by
-/// providing the fields in the same order to the tuple. For example:
 ///
 /// ```
-/// cyme::usb::Version(0, 2, 1);
+/// let version = cyme::usb::Version(2, 0, 1);
 /// ```
 ///
-/// represents the version 0.2.1.
+/// Represents the version 2.0.1, or in `String` representation it is base16 encoded:
 ///
-/// The intended use case of `Version` is to extract meaning from the version fields in USB
-/// descriptors, such as `bcdUSB` and `bcdDevice` in device descriptors.
+/// ```
+/// # let version = cyme::usb::Version(2, 0, 1);
+/// assert_eq!(version.to_string(), "2.01");
+/// let version = cyme::usb::Version(155, 15, 1);
+/// assert_eq!(version.to_string(), "9b.f1");
+/// ```
+///
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord)]
 pub struct Version(pub u8, pub u8, pub u8);
 
@@ -78,7 +80,7 @@ impl std::fmt::Display for Version {
     /// ```
     ///
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:x}.{:x}{:x}", self.major(), self.minor(), self.sub_minor())
+        write!(f, "{:x}.{:x}{:x}", self.major(), self.minor() & 0x0F, self.sub_minor() & 0x0F)
     }
 }
 

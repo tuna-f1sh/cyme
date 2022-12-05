@@ -613,10 +613,10 @@ pub struct USBDevice {
     /// The device manufacturer as provided in descriptor or using usb_ids if None
     pub manufacturer: Option<String>,
     #[serde(default, serialize_with = "version_serializer", deserialize_with = "deserialize_option_version_from_string")]
-    /// The device release version
+    /// The device release number set by the developer as a [`Version`]
     pub bcd_device: Option<Version>,
     #[serde(default, serialize_with = "version_serializer", deserialize_with = "deserialize_option_version_from_string")]
-    /// The supported USB version
+    /// The highest version of USB the device supports as a [`Version`]
     pub bcd_usb: Option<Version>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     /// macOS system_profiler only - actually bus current in mA not power!
