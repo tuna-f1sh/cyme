@@ -297,7 +297,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                         .heading(&Default::default())
                         .len(),
                     d.iter()
-                        .map(|d| d.location_id.tree_positions.len())
+                        .map(|d| d.location_id.tree_positions.len() * 2)
                         .max()
                         .unwrap_or(0),
                 ),
@@ -487,7 +487,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             }),
             DeviceBlocks::TreePositions => Some(format!(
                 "{:pad$}",
-                format!("{:}", d.location_id.tree_positions.iter().format("╌")),
+                format!("{:}", d.location_id.tree_positions.iter().format("-")),
                 pad = pad.get(self).unwrap_or(&0)
             )),
             DeviceBlocks::BusPower => Some(match d.bus_power {
@@ -503,11 +503,11 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 None => format!("{:>6}", "-"),
             }),
             DeviceBlocks::BcdDevice => Some(match d.bcd_device {
-                Some(v) => format!("{:>5.2}", v),
-                None => format!("{:>8}", "-"),
+                Some(v) => format!("{:5}", v.to_string()),
+                None => format!("{:>5}", "-"),
             }),
             DeviceBlocks::BcdUsb => Some(match d.bcd_usb {
-                Some(v) => format!("{:>5.2}", v),
+                Some(v) => format!("{:5}", v.to_string()),
                 None => format!("{:>5}", "-"),
             }),
             DeviceBlocks::ClassCode => Some(match d.class.as_ref() {
@@ -2027,6 +2027,27 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
     }
 }
 
+/// Mask the `device` serial if it has one using the [`MaskSerial`] method and recursively if `recursive`
+pub fn mask_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial, recursive: bool) {
+    if let Some(serial) = device.serial_num.as_mut() {
+        *serial = match hide {
+            MaskSerial::Hide => serial.chars().map(|_| '*').collect::<String>(),
+            MaskSerial::Scramble =>
+                serial.chars().map(|_| serial.chars().choose(&mut rand::thread_rng()).unwrap_or('*')).collect::<String>(),
+            MaskSerial::Replace =>
+                rand::thread_rng()
+                    .sample_iter(Alphanumeric)
+                    .take(serial.chars().count())
+                    .map(char::from)
+                    .collect::<String>().to_uppercase(),
+        };
+    }
+
+    if recursive {
+        device.devices.as_mut().map_or((), |dd| dd.iter_mut().for_each(|d| mask_serial(d, hide, recursive)));
+    }
+}
+
 /// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
 pub fn prepare(
     sp_usb: &mut system_profiler::SPUSBDataType,
@@ -2035,6 +2056,7 @@ pub fn prepare(
 ) {
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
     // but only do it if there is a filter, grouping by bus (which uses tree print without tree...) or json
+    // flattening now will also mean hubs will be removed when listing if `hide_hubs` because they will appear empty
     if !settings.tree && (filter.is_some() || settings.group_devices == Group::Bus || settings.json)
     {
         sp_usb.flatten();
@@ -2066,31 +2088,13 @@ pub fn prepare(
         for bus in &mut sp_usb.buses {
             bus.devices.as_mut().map_or((), |devices| {
                 for mut device in devices {
-                    mask_serial(&mut device, hide);
-                    device.devices.as_mut().map_or((), |dd| dd.iter_mut().for_each(|d| mask_serial(d, hide)));
+                    mask_serial(&mut device, hide, true);
                 }
             });
         }
     }
 
     log::trace!("sp_usb data post filter and bus sort\n\r{:#}", sp_usb);
-}
-
-/// Mask the `device` serial if it has one using the [`MaskSerial`] method
-pub fn mask_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial) {
-    if let Some(serial) = device.serial_num.as_mut() {
-        *serial = match hide {
-            MaskSerial::Hide => serial.chars().map(|_| '*').collect::<String>(),
-            MaskSerial::Scramble =>
-                serial.chars().map(|_| serial.chars().choose(&mut rand::thread_rng()).unwrap_or('*')).collect::<String>(),
-            MaskSerial::Replace =>
-                rand::thread_rng()
-                    .sample_iter(Alphanumeric)
-                    .take(serial.chars().count())
-                    .map(char::from)
-                    .collect::<String>().to_uppercase(),
-        };
-    }
 }
 
 /// Main cyme bin print function

@@ -94,11 +94,11 @@ struct Args {
     #[arg(long, value_enum, default_value_t = Default::default())]
     group_devices: display::Group,
 
-    /// Hide empty buses; those with no devices
+    /// Hide empty buses when printing tree; those with no devices
     #[arg(long, default_value_t = false)]
     hide_buses: bool,
 
-    /// Hide empty hubs; those with no devices
+    /// Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not
     #[arg(long, default_value_t = false)]
     hide_hubs: bool,
 

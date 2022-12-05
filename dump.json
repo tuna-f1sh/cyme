@@ -16,7 +16,7 @@
                   "location_id" : "0x14313000 / 5",
                   "manufacturer" : "Android",
                   "product_id" : "0x9091",
-                  "serial_num" : "*******************",
+                  "serial_num" : "KAROO20ALA102504086",
                   "vendor_id" : "0x05c6  (Qualcomm, Inc)"
                 }
               ],
@@ -53,7 +53,7 @@
           "location_id" : "0x14100000 / 4",
           "manufacturer" : "Apple Inc.",
           "product_id" : "0x1109",
-          "serial_num" : "************",
+          "serial_num" : "H0YDL1PA01TV",
           "sleep_current" : "2100",
           "vendor_id" : "apple_vendor_id"
         }
@@ -165,7 +165,7 @@
                 }
               ],
               "product_id" : "0x558c",
-              "serial_num" : "************************",
+              "serial_num" : "323030323247343032303739",
               "vendor_id" : "0x0781  (SanDisk Corporation)"
             },
             {
@@ -178,7 +178,7 @@
               "location_id" : "0x02310000 / 7",
               "manufacturer" : "Belkin",
               "product_id" : "0x8153",
-              "serial_num" : "************",
+              "serial_num" : "B2C1A1000000",
               "vendor_id" : "0x0bda  (Realtek Semiconductor Corp.)"
             },
             {
@@ -228,7 +228,7 @@
                   "location_id" : "0x02233000",
                   "manufacturer" : "SEGGER",
                   "product_id" : "0x0101",
-                  "serial_num" : "************",
+                  "serial_num" : "000851003529",
                   "vendor_id" : "0x1366"
                 },
                 {
@@ -241,7 +241,7 @@
                   "location_id" : "0x02231000 / 15",
                   "manufacturer" : "Specialized",
                   "product_id" : "0x520c",
-                  "serial_num" : "************",
+                  "serial_num" : "000000000000",
                   "vendor_id" : "0x1915  (Nordic Semiconductor ASA)"
                 },
                 {
@@ -253,7 +253,7 @@
                   "location_id" : "0x02235000 / 12",
                   "manufacturer" : "VIA Labs, Inc.         ",
                   "product_id" : "0x8817",
-                  "serial_num" : "****************",
+                  "serial_num" : "0000000000000001",
                   "vendor_id" : "0x2109  (VIA Labs, Inc.)"
                 }
               ],
@@ -303,7 +303,7 @@
               "extra_current_used" : "0",
               "location_id" : "0x02240000 / 3",
               "product_id" : "0x9a73",
-              "serial_num" : "************",
+              "serial_num" : "AA0A2871A7D0",
               "vendor_id" : "0x043e  (LG Electronics USA Inc.)"
             }
           ],
@@ -333,7 +333,7 @@
           "location_id" : "0x80700000",
           "manufacturer" : "Apple Inc.",
           "product_id" : "0x8102",
-          "serial_num" : "****************",
+          "serial_num" : "0000000000000000",
           "vendor_id" : "apple_vendor_id"
         },
         {
@@ -342,7 +342,7 @@
           "location_id" : "0x80600000",
           "manufacturer" : "Apple Inc.",
           "product_id" : "0x8302",
-          "serial_num" : "****************",
+          "serial_num" : "0000000000000000",
           "vendor_id" : "apple_vendor_id"
         },
         {
@@ -351,7 +351,7 @@
           "location_id" : "0x80500000",
           "manufacturer" : "Apple Inc.",
           "product_id" : "0x027c",
-          "serial_num" : "*********************",
+          "serial_num" : "FM7849500JTHYYMAL+WRZ",
           "vendor_id" : "apple_vendor_id"
         },
         {
@@ -360,7 +360,7 @@
           "location_id" : "0x80400000",
           "manufacturer" : "Apple",
           "product_id" : "0x8103",
-          "serial_num" : "************",
+          "serial_num" : "000000000000",
           "vendor_id" : "apple_vendor_id"
         },
         {
@@ -369,7 +369,7 @@
           "location_id" : "0x80300000",
           "manufacturer" : "Apple Inc.",
           "product_id" : "0x8262",
-          "serial_num" : "************",
+          "serial_num" : "000000000000",
           "vendor_id" : "apple_vendor_id"
         },
         {
@@ -378,7 +378,7 @@
           "location_id" : "0x80200000",
           "manufacturer" : "Apple Inc.",
           "product_id" : "0x8514",
-          "serial_num" : "*****************",
+          "serial_num" : "CC285031HWXJ3Y32P",
           "vendor_id" : "apple_vendor_id"
         },
         {
@@ -387,7 +387,7 @@
           "location_id" : "0x80100000",
           "manufacturer" : "Apple Inc.",
           "product_id" : "0x8233",
-          "serial_num" : "****************",
+          "serial_num" : "0000000000000000",
           "vendor_id" : "apple_vendor_id"
         }
       ],

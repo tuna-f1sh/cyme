@@ -102,24 +102,6 @@ pub mod profiler {
         })
     }
 
-    /// Convert libusb version to f32
-    ///
-    /// Would be nicer to impl fmt::Display and From<f32> but cannot outside of crate
-    fn version_to_float(version: &libusb::Version) -> Option<f32> {
-        if let Ok(v) = format!(
-            "{}.{}{}",
-            version.major(),
-            version.minor(),
-            version.sub_minor()
-        )
-        .parse::<f32>()
-        {
-            Some(v)
-        } else {
-            None
-        }
-    }
-
     /// Covert to our crate speed
     impl From<libusb::Speed> for usb::Speed {
         fn from(libusb: libusb::Speed) -> Self {
@@ -173,6 +155,12 @@ pub mod profiler {
                 libusb::SyncType::Adaptive => usb::SyncType::Adaptive,
                 libusb::SyncType::Synchronous => usb::SyncType::Synchronous,
             }
+        }
+    }
+
+    impl From<libusb::Version> for usb::Version {
+        fn from(libusb: libusb::Version) -> Self {
+            usb::Version(libusb.major(), libusb.minor(), libusb.sub_minor())
         }
     }
 
@@ -405,8 +393,8 @@ pub mod profiler {
                 tree_positions: device.port_numbers()?,
                 ..Default::default()
             },
-            bcd_device: version_to_float(&device_desc.device_version()),
-            bcd_usb: version_to_float(&device_desc.usb_version()),
+            bcd_device: Some(device_desc.device_version().into()),
+            bcd_usb: Some(device_desc.usb_version().into()),
             class: Some(usb::ClassCode::from(device_desc.class_code())),
             sub_class: Some(device_desc.sub_class_code()),
             protocol: Some(device_desc.protocol_code()),
@@ -711,7 +699,9 @@ pub mod display {
             .expect("Cannot print verbose without extra data");
 
         println!("Device Descriptor:");
-        println!("  bcdUSB              {:.2}", device.bcd_usb.unwrap_or(0.0));
+        println!("  bcdUSB              {}",
+            device.bcd_usb.as_ref().map_or(String::new(), |v| v.to_string())
+        );
         println!(
             "  bDeviceClass         {:3} {}",
             device.class.as_ref().map_or(0, |c| c.to_owned() as u8),
@@ -734,8 +724,8 @@ pub mod display {
             device_extra.product_name.as_ref().unwrap_or(&String::new())
         );
         println!(
-            "  bcdDevice           {:.2}",
-            device.bcd_device.unwrap_or(0.0)
+            "  bcdDevice           {}",
+            device.bcd_device.as_ref().map_or(String::new(), |v| v.to_string())
         );
         println!(
             "  iManufacturer        {:3} {}",

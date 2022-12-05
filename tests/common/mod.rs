@@ -12,7 +12,11 @@ use std::process;
 /// Dump from the `system_profiler` command on macOS
 pub const SYSTEM_PROFILER_DUMP_PATH: &'static str = "./tests/data/system_profiler_dump.json";
 /// Dump using macOS system_profiler so no [`USBDeviceExtra`]
-pub const CYME_SP_TREE_DUMP: &'static str = "./tests/data/cyme_sp_tree_dump.json";
+pub const CYME_SP_TREE_DUMP: &'static str = "./tests/data/cyme_sp_macos_tree.json";
+/// Dump using macOS system_profiler and libusb merge so with [`USBDeviceExtra`]
+pub const CYME_LIBUSB_MERGE_MACOS_TREE_DUMP: &'static str = "./tests/data/cyme_libusb_merge_macos_tree.json";
+/// Dump using macOS force libusb merge so with [`USBDeviceExtra`] but not Apple internal buses
+pub const CYME_LIBUSB_MACOS_TREE_DUMP: &'static str = "./tests/data/cyme_libusb_macos_tree.json";
 /// Dump using Linux with libusb so with [`USBDeviceExtra`]
 pub const CYME_LIBUSB_LINUX_TREE_DUMP: &'static str = "./tests/data/cyme_libusb_linux_tree.json";
 /// Output of lsusb --tree

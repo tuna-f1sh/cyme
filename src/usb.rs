@@ -8,8 +8,120 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::fmt;
 use std::str::FromStr;
+use std::io;
+use std::convert::TryFrom;
 
 use crate::types::NumericalUnit;
+
+/// A three-part version consisting of major, minor, and sub minor components - copied from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
+///
+/// This can be used to represent versions of the format `J.M.N`, where `J` is the major version,
+/// `M` is the minor version, and `N` is the sub minor version. A version is constructed by
+/// providing the fields in the same order to the tuple. For example:
+///
+/// ```
+/// cyme::usb::Version(0, 2, 1);
+/// ```
+///
+/// represents the version 0.2.1.
+///
+/// The intended use case of `Version` is to extract meaning from the version fields in USB
+/// descriptors, such as `bcdUSB` and `bcdDevice` in device descriptors.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord)]
+pub struct Version(pub u8, pub u8, pub u8);
+
+impl Version {
+    /// Extracts a version from a binary coded decimal (BCD) field. BCD fields exist in USB
+    /// descriptors as 16-bit integers encoding a version as `0xJJMN`, where `JJ` is the major
+    /// version, `M` is the minor version, and `N` is the sub minor version. For example, 2.0 is
+    /// encoded as `0x0200` and 1.1 is encoded as `0x0110`.
+    pub fn from_bcd(mut raw: u16) -> Self {
+        let sub_minor: u8 = (raw & 0x000F) as u8;
+        raw >>= 4;
+
+        let minor: u8 = (raw & 0x000F) as u8;
+        raw >>= 4;
+
+        let mut major: u8 = (raw & 0x000F) as u8;
+        raw >>= 4;
+
+        major += (10 * raw) as u8;
+
+        Version(major, minor, sub_minor)
+    }
+
+    /// Returns the major version.
+    pub fn major(self) -> u8 {
+        let Version(major, _, _) = self;
+        major
+    }
+
+    /// Returns the minor version.
+    pub fn minor(self) -> u8 {
+        let Version(_, minor, _) = self;
+        minor
+    }
+
+    /// Returns the sub minor version.
+    pub fn sub_minor(self) -> u8 {
+        let Version(_, _, sub_minor) = self;
+        sub_minor
+    }
+}
+
+impl std::fmt::Display for Version {
+    /// Output is a base16 encoding of Major.MinorSub
+    ///
+    /// ```
+    /// assert_eq!(cyme::usb::Version(155, 0, 0).to_string(), "9b.00");
+    /// assert_eq!(cyme::usb::Version(2, 0, 1).to_string(), "2.01");
+    /// ```
+    ///
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:x}.{:x}{:x}", self.major(), self.minor(), self.sub_minor())
+    }
+}
+
+impl FromStr for Version {
+    type Err = io::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (parse_ints, _): (Vec<Result<u8, _>>, Vec<_>) = s
+            .split(".")
+            .map(|vs| u8::from_str_radix(vs, 16))
+            .partition(Result::is_ok);
+        let numbers: Vec<u8> = parse_ints.into_iter().map(|v| v.unwrap()).collect();
+
+        match numbers.get(0..2) {
+            Some(slice) => Ok(Version(slice[0], (slice[1] & 0xF0) >> 4, slice[1] & 0x0F)),
+            None => Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("No two base16 encoded versions in {}", s),
+            )),
+        }
+    }
+}
+
+/// For legacy import where I thought the value was a f32...
+impl TryFrom<f32> for Version {
+    type Error = io::Error;
+
+    fn try_from(f: f32) -> Result<Self, Self::Error> {
+        let s = format!("{:2.2}", f);
+        let (parse_ints, _): (Vec<Result<u8, _>>, Vec<_>) = s
+                              .split(".")
+                              .map(|vs| vs.parse::<u8>())
+                              .partition(Result::is_ok);
+        let numbers: Vec<u8> = parse_ints.into_iter().map(|v| v.unwrap()).collect();
+
+        match numbers.get(0..2) {
+            Some(slice) => Ok(Version(slice[0], (slice[1] & 0xF0) >> 4, slice[1] & 0x0F)),
+            None => Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to parse float into MM.mP {}", f),
+            )),
+        }
+    }
+}
 
 /// Configuration attributes
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -660,5 +772,27 @@ pub fn get_dev_path(bus: u8, device_no: Option<u8>) -> String {
         format!("/dev/bus/usb/{:03}/{:03}", bus, devno)
     } else {
         format!("/dev/bus/usb/{:03}/001", bus)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_version_to_string() {
+        assert_eq!(Version(155, 0, 0).to_string(), "9b.00");
+        // leading not padded
+        assert_eq!(Version(10, 4, 15).to_string(), "a.4f");
+        assert_eq!(Version(2, 0, 1).to_string(), "2.01");
+    }
+
+    #[test]
+    fn test_version_from_f32() {
+        assert_eq!(Version::try_from(155.0).unwrap(), Version(155, 0, 0));
+        assert_eq!(Version::try_from(101.0).unwrap(), Version(101, 0, 0));
+        assert_eq!(Version::try_from(2.01).unwrap(), Version(2, 0, 1));
+        assert_eq!(Version::try_from(2.31).unwrap(), Version(2, 1, 15));
     }
 }

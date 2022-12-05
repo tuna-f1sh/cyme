@@ -1,0 +1,2154 @@
+{
+  "buses": [
+    {
+      "name": "Unknown",
+      "host_controller": "Unknown",
+      "usb_bus_number": 0,
+      "devices": [
+        {
+          "name": "4-Port USB 3.0 Hub",
+          "vendor_id": 3034,
+          "product_id": 1041,
+          "location_id": {
+            "bus": 0,
+            "tree_positions": [
+              1
+            ],
+            "number": 1
+          },
+          "serial_num": "",
+          "manufacturer": "Generic",
+          "bcd_device": "1.17",
+          "bcd_usb": "3.00",
+          "device_speed": "5.0 Gb/s",
+          "devices": [
+            {
+              "name": "4-Port USB 3.0 Hub",
+              "vendor_id": 3034,
+              "product_id": 1041,
+              "location_id": {
+                "bus": 0,
+                "tree_positions": [
+                  1,
+                  1
+                ],
+                "number": 2
+              },
+              "serial_num": "",
+              "manufacturer": "Generic",
+              "bcd_device": "1.17",
+              "bcd_usb": "3.00",
+              "device_speed": "5.0 Gb/s",
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 3,
+              "extra": {
+                "max_packet_size": 9,
+                "vendor": "Realtek Semiconductor Corp.",
+                "product_name": "Hub",
+                "string_indexes": [
+                  2,
+                  1,
+                  0
+                ],
+                "configurations": [
+                  {
+                    "name": "USB3.0 Hub",
+                    "string_index": 4,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "Interrupt In Interface",
+                        "string_index": 5,
+                        "number": 0,
+                        "path": "0-1.1:1.0",
+                        "class": "hub",
+                        "sub_class": 0,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Feedback",
+                            "max_packet_size": 2,
+                            "interval": 8
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [
+                      "RemoteWakeup",
+                      "SelfPowered"
+                    ],
+                    "max_power": {
+                      "value": 0,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 3,
+          "extra": {
+            "max_packet_size": 9,
+            "vendor": "Realtek Semiconductor Corp.",
+            "product_name": "Hub",
+            "string_indexes": [
+              2,
+              1,
+              0
+            ],
+            "configurations": [
+              {
+                "name": "USB3.0 Hub",
+                "string_index": 4,
+                "number": 1,
+                "interfaces": [
+                  {
+                    "name": "Interrupt In Interface",
+                    "string_index": 5,
+                    "number": 0,
+                    "path": "0-1:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 0,
+                    "alt_setting": 0,
+                    "driver": null,
+                    "syspath": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "number": 1,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Feedback",
+                        "max_packet_size": 2,
+                        "interval": 8
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  "RemoteWakeup",
+                  "SelfPowered"
+                ],
+                "max_power": {
+                  "value": 0,
+                  "unit": "mA",
+                  "description": null
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unknown",
+      "host_controller": "Unknown",
+      "usb_bus_number": 2,
+      "devices": [
+        {
+          "name": "USB3.1 Hub",
+          "vendor_id": 1086,
+          "product_id": 39520,
+          "location_id": {
+            "bus": 2,
+            "tree_positions": [
+              3
+            ],
+            "number": 2
+          },
+          "serial_num": "",
+          "manufacturer": "LG Electronics Inc.",
+          "bcd_device": "34.50",
+          "bcd_usb": "3.10",
+          "device_speed": "5.0 Gb/s",
+          "devices": [
+            {
+              "name": "Extreme SSD",
+              "vendor_id": 1921,
+              "product_id": 21900,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  3,
+                  2
+                ],
+                "number": 8
+              },
+              "serial_num": "************************",
+              "manufacturer": "SanDisk",
+              "bcd_device": "a.12",
+              "bcd_usb": "3.10",
+              "device_speed": "5.0 Gb/s",
+              "class": "use-interface-descriptor",
+              "sub_class": 0,
+              "protocol": 0,
+              "extra": {
+                "max_packet_size": 9,
+                "vendor": "SanDisk Corp.",
+                "product_name": "Extreme Portable SSD",
+                "string_indexes": [
+                  3,
+                  2,
+                  1
+                ],
+                "configurations": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "2-3.2:1.0",
+                        "class": "mass-storage",
+                        "sub_class": 6,
+                        "protocol": 80,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          },
+                          {
+                            "address": {
+                              "address": 2,
+                              "number": 2,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          }
+                        ]
+                      },
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "2-3.2:1.0",
+                        "class": "mass-storage",
+                        "sub_class": 6,
+                        "protocol": 98,
+                        "alt_setting": 1,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          },
+                          {
+                            "address": {
+                              "address": 2,
+                              "number": 2,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          },
+                          {
+                            "address": {
+                              "address": 131,
+                              "number": 3,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          },
+                          {
+                            "address": {
+                              "address": 4,
+                              "number": 4,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [],
+                    "max_power": {
+                      "value": 224,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "Belkin USB-C LAN",
+              "vendor_id": 3034,
+              "product_id": 33107,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  3,
+                  1
+                ],
+                "number": 7
+              },
+              "serial_num": "************",
+              "manufacturer": "Belkin",
+              "bcd_device": "1e.00",
+              "bcd_usb": "3.00",
+              "device_speed": "5.0 Gb/s",
+              "class": "use-interface-descriptor",
+              "sub_class": 0,
+              "protocol": 0,
+              "extra": {
+                "max_packet_size": 9,
+                "vendor": "Realtek Semiconductor Corp.",
+                "product_name": "RTL8153 Gigabit Ethernet Adapter",
+                "string_indexes": [
+                  2,
+                  1,
+                  6
+                ],
+                "configurations": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "2-3.1:1.0",
+                        "class": "vendor-specific-class",
+                        "sub_class": 255,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          },
+                          {
+                            "address": {
+                              "address": 2,
+                              "number": 2,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          },
+                          {
+                            "address": {
+                              "address": 131,
+                              "number": 3,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 2,
+                            "interval": 8
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [
+                      "RemoteWakeup"
+                    ],
+                    "max_power": {
+                      "value": 64,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  },
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 2,
+                    "interfaces": [
+                      {
+                        "name": "CDC Communications Control",
+                        "string_index": 5,
+                        "number": 0,
+                        "path": "2-3.1:2.0",
+                        "class": "c-d-c-communications",
+                        "sub_class": 6,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 131,
+                              "number": 3,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 16,
+                            "interval": 8
+                          }
+                        ]
+                      },
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 1,
+                        "path": "2-3.1:2.1",
+                        "class": "c-d-c-data",
+                        "sub_class": 0,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": []
+                      },
+                      {
+                        "name": "Ethernet Data",
+                        "string_index": 4,
+                        "number": 1,
+                        "path": "2-3.1:2.1",
+                        "class": "c-d-c-data",
+                        "sub_class": 0,
+                        "protocol": 0,
+                        "alt_setting": 1,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          },
+                          {
+                            "address": {
+                              "address": 2,
+                              "number": 2,
+                              "direction": "Out"
+                            },
+                            "transfer_type": "Bulk",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1024,
+                            "interval": 0
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [
+                      "RemoteWakeup"
+                    ],
+                    "max_power": {
+                      "value": 64,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "",
+              "vendor_id": 1086,
+              "product_id": 39537,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  3,
+                  4
+                ],
+                "number": 6
+              },
+              "serial_num": "",
+              "manufacturer": "LG Electronics USA, Inc.",
+              "bcd_device": "1.00",
+              "bcd_usb": "3.00",
+              "device_speed": "5.0 Gb/s",
+              "devices": [
+                {
+                  "name": "LG UltraFine Display Camera",
+                  "vendor_id": 1086,
+                  "product_id": 39528,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      3,
+                      4,
+                      3
+                    ],
+                    "number": 9
+                  },
+                  "serial_num": "",
+                  "manufacturer": "LG Electronlcs Inc.",
+                  "bcd_device": "2.23",
+                  "bcd_usb": "3.00",
+                  "device_speed": "5.0 Gb/s",
+                  "class": "miscellaneous",
+                  "sub_class": 2,
+                  "protocol": 1,
+                  "extra": {
+                    "max_packet_size": 9,
+                    "vendor": "LG Electronics USA, Inc.",
+                    "string_indexes": [
+                      2,
+                      1,
+                      0
+                    ],
+                    "configurations": [
+                      {
+                        "name": "USB-3.0",
+                        "string_index": 3,
+                        "number": 1,
+                        "interfaces": [
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 0,
+                            "path": "2-3.4.3:1.0",
+                            "class": "video",
+                            "sub_class": 1,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 130,
+                                  "number": 2,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 64,
+                                "interval": 1
+                              }
+                            ]
+                          },
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 1,
+                            "path": "2-3.4.3:1.1",
+                            "class": "video",
+                            "sub_class": 2,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": []
+                          },
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 1,
+                            "path": "2-3.4.3:1.1",
+                            "class": "video",
+                            "sub_class": 2,
+                            "protocol": 0,
+                            "alt_setting": 1,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 131,
+                                  "number": 3,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Isochronous",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 1024,
+                                "interval": 1
+                              }
+                            ]
+                          },
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 2,
+                            "path": "2-3.4.3:1.2",
+                            "class": "h-i-d",
+                            "sub_class": 0,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 5,
+                                  "number": 5,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 1024,
+                                "interval": 1
+                              },
+                              {
+                                "address": {
+                                  "address": 133,
+                                  "number": 5,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 1024,
+                                "interval": 1
+                              }
+                            ]
+                          }
+                        ],
+                        "attributes": [
+                          "RemoteWakeup"
+                        ],
+                        "max_power": {
+                          "value": 24,
+                          "unit": "mA",
+                          "description": null
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 3,
+              "extra": {
+                "max_packet_size": 9,
+                "vendor": "LG Electronics USA, Inc.",
+                "string_indexes": [
+                  0,
+                  0,
+                  0
+                ],
+                "configurations": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "2-3.4:1.0",
+                        "class": "hub",
+                        "sub_class": 0,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Feedback",
+                            "max_packet_size": 2,
+                            "interval": 8
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [
+                      "RemoteWakeup",
+                      "SelfPowered"
+                    ],
+                    "max_power": {
+                      "value": 0,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "USB3.0 Hub",
+              "vendor_id": 8457,
+              "product_id": 2071,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  3,
+                  3
+                ],
+                "number": 4
+              },
+              "serial_num": "",
+              "manufacturer": "VIA Labs, Inc.",
+              "bcd_device": "4.53",
+              "bcd_usb": "3.10",
+              "device_speed": "5.0 Gb/s",
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 3,
+              "extra": {
+                "max_packet_size": 9,
+                "vendor": "VIA Labs, Inc.",
+                "string_indexes": [
+                  2,
+                  1,
+                  0
+                ],
+                "configurations": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "2-3.3:1.0",
+                        "class": "hub",
+                        "sub_class": 0,
+                        "protocol": 0,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Feedback",
+                            "max_packet_size": 2,
+                            "interval": 8
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [
+                      "RemoteWakeup",
+                      "SelfPowered"
+                    ],
+                    "max_power": {
+                      "value": 0,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 3,
+          "extra": {
+            "max_packet_size": 9,
+            "vendor": "LG Electronics USA, Inc.",
+            "string_indexes": [
+              2,
+              1,
+              0
+            ],
+            "configurations": [
+              {
+                "name": "",
+                "string_index": 0,
+                "number": 1,
+                "interfaces": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "2-3:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 0,
+                    "alt_setting": 0,
+                    "driver": null,
+                    "syspath": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 131,
+                          "number": 3,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Feedback",
+                        "max_packet_size": 2,
+                        "interval": 8
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  "RemoteWakeup",
+                  "SelfPowered"
+                ],
+                "max_power": {
+                  "value": 0,
+                  "unit": "mA",
+                  "description": null
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "USB2.1 Hub",
+          "vendor_id": 1086,
+          "product_id": 39521,
+          "location_id": {
+            "bus": 2,
+            "tree_positions": [
+              2
+            ],
+            "number": 1
+          },
+          "serial_num": "",
+          "manufacturer": "LG Electronics Inc.",
+          "bcd_device": "34.50",
+          "bcd_usb": "2.10",
+          "device_speed": "480.0 Mb/s",
+          "devices": [
+            {
+              "name": "USB2.0 Hub",
+              "vendor_id": 8457,
+              "product_id": 10263,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  2,
+                  3
+                ],
+                "number": 5
+              },
+              "serial_num": "",
+              "manufacturer": "VIA Labs, Inc.",
+              "bcd_device": "4.53",
+              "bcd_usb": "2.10",
+              "device_speed": "480.0 Mb/s",
+              "devices": [
+                {
+                  "name": "Specialized TCU2",
+                  "vendor_id": 6421,
+                  "product_id": 21004,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      2,
+                      3,
+                      1
+                    ],
+                    "number": 15
+                  },
+                  "serial_num": "************",
+                  "manufacturer": "Specialized",
+                  "bcd_device": "1.00",
+                  "bcd_usb": "2.00",
+                  "device_speed": "12.0 Mb/s",
+                  "class": "use-interface-descriptor",
+                  "sub_class": 0,
+                  "protocol": 0,
+                  "extra": {
+                    "max_packet_size": 64,
+                    "vendor": "Nordic Semiconductor ASA",
+                    "string_indexes": [
+                      2,
+                      1,
+                      3
+                    ],
+                    "configurations": [
+                      {
+                        "name": "Default configuration",
+                        "string_index": 4,
+                        "number": 1,
+                        "interfaces": [
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 0,
+                            "path": "2-2.3.1:1.0",
+                            "class": "h-i-d",
+                            "sub_class": 0,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 129,
+                                  "number": 1,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 64,
+                                "interval": 10
+                              },
+                              {
+                                "address": {
+                                  "address": 1,
+                                  "number": 1,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 64,
+                                "interval": 10
+                              }
+                            ]
+                          }
+                        ],
+                        "attributes": [
+                          "RemoteWakeup",
+                          "SelfPowered"
+                        ],
+                        "max_power": {
+                          "value": 500,
+                          "unit": "mA",
+                          "description": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "USB Billboard Device",
+                  "vendor_id": 8457,
+                  "product_id": 34839,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      2,
+                      3,
+                      5
+                    ],
+                    "number": 12
+                  },
+                  "serial_num": "****************",
+                  "manufacturer": "VIA Labs, Inc.",
+                  "bcd_device": "0.01",
+                  "bcd_usb": "2.01",
+                  "device_speed": "480.0 Mb/s",
+                  "class": "application-specific-interface",
+                  "sub_class": 0,
+                  "protocol": 0,
+                  "extra": {
+                    "max_packet_size": 64,
+                    "vendor": "VIA Labs, Inc.",
+                    "string_indexes": [
+                      2,
+                      1,
+                      3
+                    ],
+                    "configurations": [
+                      {
+                        "name": "0000000000000001",
+                        "string_index": 3,
+                        "number": 1,
+                        "interfaces": [
+                          {
+                            "name": "0000000000000001",
+                            "string_index": 3,
+                            "number": 0,
+                            "path": "2-2.3.5:1.0",
+                            "class": "billboard",
+                            "sub_class": 0,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": []
+                          }
+                        ],
+                        "attributes": [
+                          "RemoteWakeup"
+                        ],
+                        "max_power": {
+                          "value": 100,
+                          "unit": "mA",
+                          "description": null
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 2,
+              "extra": {
+                "max_packet_size": 64,
+                "vendor": "VIA Labs, Inc.",
+                "string_indexes": [
+                  2,
+                  1,
+                  0
+                ],
+                "configurations": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "2-2.3:1.0",
+                        "class": "hub",
+                        "sub_class": 0,
+                        "protocol": 1,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1,
+                            "interval": 12
+                          }
+                        ]
+                      },
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "2-2.3:1.0",
+                        "class": "hub",
+                        "sub_class": 0,
+                        "protocol": 2,
+                        "alt_setting": 1,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1,
+                            "interval": 12
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [
+                      "RemoteWakeup",
+                      "SelfPowered"
+                    ],
+                    "max_power": {
+                      "value": 0,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "",
+              "vendor_id": 1086,
+              "product_id": 39539,
+              "location_id": {
+                "bus": 2,
+                "tree_positions": [
+                  2,
+                  4
+                ],
+                "number": 3
+              },
+              "serial_num": "************",
+              "manufacturer": "LG Electronics USA, Inc.",
+              "bcd_device": "1.00",
+              "bcd_usb": "2.10",
+              "device_speed": "480.0 Mb/s",
+              "devices": [
+                {
+                  "name": "LG UltraFine Display Controls",
+                  "vendor_id": 1086,
+                  "product_id": 39536,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      2,
+                      4,
+                      2
+                    ],
+                    "number": 11
+                  },
+                  "serial_num": "",
+                  "manufacturer": "LG Electronics Inc.",
+                  "bcd_device": "4.13",
+                  "bcd_usb": "2.00",
+                  "device_speed": "12.0 Mb/s",
+                  "class": "use-interface-descriptor",
+                  "sub_class": 0,
+                  "protocol": 0,
+                  "extra": {
+                    "max_packet_size": 64,
+                    "vendor": "LG Electronics USA, Inc.",
+                    "string_indexes": [
+                      2,
+                      1,
+                      0
+                    ],
+                    "configurations": [
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 1,
+                        "interfaces": [
+                          {
+                            "name": "HID I2C",
+                            "string_index": 5,
+                            "number": 0,
+                            "path": "2-2.4.2:1.0",
+                            "class": "h-i-d",
+                            "sub_class": 0,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 129,
+                                  "number": 1,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 64,
+                                "interval": 1
+                              },
+                              {
+                                "address": {
+                                  "address": 1,
+                                  "number": 1,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 64,
+                                "interval": 1
+                              }
+                            ]
+                          },
+                          {
+                            "name": "HID BRIGHTNESS",
+                            "string_index": 6,
+                            "number": 1,
+                            "path": "2-2.4.2:1.1",
+                            "class": "h-i-d",
+                            "sub_class": 0,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 130,
+                                  "number": 2,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 6,
+                                "interval": 9
+                              },
+                              {
+                                "address": {
+                                  "address": 2,
+                                  "number": 2,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 6,
+                                "interval": 9
+                              }
+                            ]
+                          },
+                          {
+                            "name": "HID ALS",
+                            "string_index": 7,
+                            "number": 2,
+                            "path": "2-2.4.2:1.2",
+                            "class": "h-i-d",
+                            "sub_class": 0,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 131,
+                                  "number": 3,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 6,
+                                "interval": 100
+                              },
+                              {
+                                "address": {
+                                  "address": 3,
+                                  "number": 3,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 6,
+                                "interval": 100
+                              }
+                            ]
+                          }
+                        ],
+                        "attributes": [
+                          "SelfPowered"
+                        ],
+                        "max_power": {
+                          "value": 0,
+                          "unit": "mA",
+                          "description": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "LG UltraFine Display Audio",
+                  "vendor_id": 1086,
+                  "product_id": 39526,
+                  "location_id": {
+                    "bus": 2,
+                    "tree_positions": [
+                      2,
+                      4,
+                      1
+                    ],
+                    "number": 10
+                  },
+                  "serial_num": "",
+                  "manufacturer": "LG Electronics Inc.",
+                  "bcd_device": "0.03",
+                  "bcd_usb": "2.00",
+                  "device_speed": "480.0 Mb/s",
+                  "class": "use-interface-descriptor",
+                  "sub_class": 0,
+                  "protocol": 0,
+                  "extra": {
+                    "max_packet_size": 64,
+                    "vendor": "LG Electronics USA, Inc.",
+                    "string_indexes": [
+                      1,
+                      3,
+                      0
+                    ],
+                    "configurations": [
+                      {
+                        "name": "LG UltraFine Display Audio",
+                        "string_index": 4,
+                        "number": 1,
+                        "interfaces": [
+                          {
+                            "name": "LG UltraFine Display Audio",
+                            "string_index": 6,
+                            "number": 0,
+                            "path": "2-2.4.1:1.0",
+                            "class": "audio",
+                            "sub_class": 1,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": []
+                          },
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 1,
+                            "path": "2-2.4.1:1.1",
+                            "class": "audio",
+                            "sub_class": 2,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": []
+                          },
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 1,
+                            "path": "2-2.4.1:1.1",
+                            "class": "audio",
+                            "sub_class": 2,
+                            "protocol": 0,
+                            "alt_setting": 1,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 132,
+                                  "number": 4,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Isochronous",
+                                "sync_type": "Asynchronous",
+                                "usage_type": "Data",
+                                "max_packet_size": 147,
+                                "interval": 4
+                              }
+                            ]
+                          },
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 2,
+                            "path": "2-2.4.1:1.2",
+                            "class": "audio",
+                            "sub_class": 2,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": []
+                          },
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 2,
+                            "path": "2-2.4.1:1.2",
+                            "class": "audio",
+                            "sub_class": 2,
+                            "protocol": 0,
+                            "alt_setting": 1,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 7,
+                                  "number": 7,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Isochronous",
+                                "sync_type": "Adaptive",
+                                "usage_type": "Data",
+                                "max_packet_size": 294,
+                                "interval": 4
+                              }
+                            ]
+                          }
+                        ],
+                        "attributes": [
+                          "SelfPowered"
+                        ],
+                        "max_power": {
+                          "value": 0,
+                          "unit": "mA",
+                          "description": null
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 2,
+              "extra": {
+                "max_packet_size": 64,
+                "vendor": "LG Electronics USA, Inc.",
+                "string_indexes": [
+                  0,
+                  0,
+                  1
+                ],
+                "configurations": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "2-2.4:1.0",
+                        "class": "hub",
+                        "sub_class": 0,
+                        "protocol": 1,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1,
+                            "interval": 12
+                          }
+                        ]
+                      },
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "2-2.4:1.0",
+                        "class": "hub",
+                        "sub_class": 0,
+                        "protocol": 2,
+                        "alt_setting": 1,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1,
+                            "interval": 12
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [
+                      "RemoteWakeup",
+                      "SelfPowered"
+                    ],
+                    "max_power": {
+                      "value": 0,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 2,
+          "extra": {
+            "max_packet_size": 64,
+            "vendor": "LG Electronics USA, Inc.",
+            "string_indexes": [
+              2,
+              1,
+              0
+            ],
+            "configurations": [
+              {
+                "name": "",
+                "string_index": 0,
+                "number": 1,
+                "interfaces": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "2-2:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 1,
+                    "alt_setting": 0,
+                    "driver": null,
+                    "syspath": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "number": 1,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 1,
+                        "interval": 12
+                      }
+                    ]
+                  },
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "2-2:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 2,
+                    "alt_setting": 1,
+                    "driver": null,
+                    "syspath": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "number": 1,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 1,
+                        "interval": 12
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  "RemoteWakeup",
+                  "SelfPowered"
+                ],
+                "max_power": {
+                  "value": 100,
+                  "unit": "mA",
+                  "description": null
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unknown",
+      "host_controller": "Unknown",
+      "usb_bus_number": 20,
+      "devices": [
+        {
+          "name": "AirPods Max",
+          "vendor_id": 1452,
+          "product_id": 4361,
+          "location_id": {
+            "bus": 20,
+            "tree_positions": [
+              1
+            ],
+            "number": 4
+          },
+          "serial_num": "************",
+          "manufacturer": "Apple Inc.",
+          "bcd_device": "65.00",
+          "bcd_usb": "2.01",
+          "device_speed": "12.0 Mb/s",
+          "class": "use-interface-descriptor",
+          "sub_class": 0,
+          "protocol": 0,
+          "extra": {
+            "max_packet_size": 64,
+            "vendor": "Apple, Inc.",
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
+            "configurations": [
+              {
+                "name": "",
+                "string_index": 0,
+                "number": 1,
+                "interfaces": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "20-1:1.0",
+                    "class": "h-i-d",
+                    "sub_class": 0,
+                    "protocol": 0,
+                    "alt_setting": 0,
+                    "driver": null,
+                    "syspath": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 130,
+                          "number": 2,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 64,
+                        "interval": 1
+                      },
+                      {
+                        "address": {
+                          "address": 2,
+                          "number": 2,
+                          "direction": "Out"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 16,
+                        "interval": 1
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  "SelfPowered"
+                ],
+                "max_power": {
+                  "value": 500,
+                  "unit": "mA",
+                  "description": null
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "4-Port USB 2.0 Hub",
+          "vendor_id": 3034,
+          "product_id": 21521,
+          "location_id": {
+            "bus": 20,
+            "tree_positions": [
+              3
+            ],
+            "number": 1
+          },
+          "serial_num": "",
+          "manufacturer": "Generic",
+          "bcd_device": "1.17",
+          "bcd_usb": "2.10",
+          "device_speed": "480.0 Mb/s",
+          "devices": [
+            {
+              "name": "4-Port USB 2.0 Hub",
+              "vendor_id": 3034,
+              "product_id": 21521,
+              "location_id": {
+                "bus": 20,
+                "tree_positions": [
+                  3,
+                  1
+                ],
+                "number": 2
+              },
+              "serial_num": "",
+              "manufacturer": "Generic",
+              "bcd_device": "1.17",
+              "bcd_usb": "2.10",
+              "device_speed": "480.0 Mb/s",
+              "devices": [
+                {
+                  "name": "Android",
+                  "vendor_id": 1478,
+                  "product_id": 37009,
+                  "location_id": {
+                    "bus": 20,
+                    "tree_positions": [
+                      3,
+                      1,
+                      3
+                    ],
+                    "number": 5
+                  },
+                  "serial_num": "*******************",
+                  "manufacturer": "Android",
+                  "bcd_device": "3.18",
+                  "bcd_usb": "2.00",
+                  "device_speed": "480.0 Mb/s",
+                  "class": "use-interface-descriptor",
+                  "sub_class": 0,
+                  "protocol": 0,
+                  "extra": {
+                    "max_packet_size": 64,
+                    "vendor": "Qualcomm, Inc.",
+                    "product_name": "Intex Aqua Fish & Jolla C Diagnostic Mode",
+                    "string_indexes": [
+                      2,
+                      1,
+                      3
+                    ],
+                    "configurations": [
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 1,
+                        "interfaces": [
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 0,
+                            "path": "20-3.1.3:1.0",
+                            "class": "vendor-specific-class",
+                            "sub_class": 255,
+                            "protocol": 255,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 129,
+                                  "number": 1,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 0
+                              },
+                              {
+                                "address": {
+                                  "address": 1,
+                                  "number": 1,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 0
+                              }
+                            ]
+                          },
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 1,
+                            "path": "20-3.1.3:1.1",
+                            "class": "vendor-specific-class",
+                            "sub_class": 0,
+                            "protocol": 0,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 131,
+                                  "number": 3,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 10,
+                                "interval": 9
+                              },
+                              {
+                                "address": {
+                                  "address": 130,
+                                  "number": 2,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 0
+                              },
+                              {
+                                "address": {
+                                  "address": 2,
+                                  "number": 2,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 0
+                              }
+                            ]
+                          },
+                          {
+                            "name": "",
+                            "string_index": 0,
+                            "number": 2,
+                            "path": "20-3.1.3:1.2",
+                            "class": "vendor-specific-class",
+                            "sub_class": 255,
+                            "protocol": 255,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 133,
+                                  "number": 5,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Interrupt",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 8,
+                                "interval": 9
+                              },
+                              {
+                                "address": {
+                                  "address": 132,
+                                  "number": 4,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 0
+                              },
+                              {
+                                "address": {
+                                  "address": 3,
+                                  "number": 3,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 0
+                              }
+                            ]
+                          },
+                          {
+                            "name": "ADB Interface",
+                            "string_index": 8,
+                            "number": 3,
+                            "path": "20-3.1.3:1.3",
+                            "class": "vendor-specific-class",
+                            "sub_class": 66,
+                            "protocol": 1,
+                            "alt_setting": 0,
+                            "driver": null,
+                            "syspath": null,
+                            "endpoints": [
+                              {
+                                "address": {
+                                  "address": 4,
+                                  "number": 4,
+                                  "direction": "Out"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 0
+                              },
+                              {
+                                "address": {
+                                  "address": 134,
+                                  "number": 6,
+                                  "direction": "In"
+                                },
+                                "transfer_type": "Bulk",
+                                "sync_type": "None",
+                                "usage_type": "Data",
+                                "max_packet_size": 512,
+                                "interval": 0
+                              }
+                            ]
+                          }
+                        ],
+                        "attributes": [],
+                        "max_power": {
+                          "value": 500,
+                          "unit": "mA",
+                          "description": null
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "class": "hub",
+              "sub_class": 0,
+              "protocol": 2,
+              "extra": {
+                "max_packet_size": 64,
+                "vendor": "Realtek Semiconductor Corp.",
+                "product_name": "RTS5411 Hub",
+                "string_indexes": [
+                  2,
+                  1,
+                  0
+                ],
+                "configurations": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 1,
+                    "interfaces": [
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "20-3.1:1.0",
+                        "class": "hub",
+                        "sub_class": 0,
+                        "protocol": 1,
+                        "alt_setting": 0,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1,
+                            "interval": 12
+                          }
+                        ]
+                      },
+                      {
+                        "name": "",
+                        "string_index": 0,
+                        "number": 0,
+                        "path": "20-3.1:1.0",
+                        "class": "hub",
+                        "sub_class": 0,
+                        "protocol": 2,
+                        "alt_setting": 1,
+                        "driver": null,
+                        "syspath": null,
+                        "endpoints": [
+                          {
+                            "address": {
+                              "address": 129,
+                              "number": 1,
+                              "direction": "In"
+                            },
+                            "transfer_type": "Interrupt",
+                            "sync_type": "None",
+                            "usage_type": "Data",
+                            "max_packet_size": 1,
+                            "interval": 12
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": [
+                      "RemoteWakeup",
+                      "SelfPowered"
+                    ],
+                    "max_power": {
+                      "value": 0,
+                      "unit": "mA",
+                      "description": null
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "class": "hub",
+          "sub_class": 0,
+          "protocol": 2,
+          "extra": {
+            "max_packet_size": 64,
+            "vendor": "Realtek Semiconductor Corp.",
+            "product_name": "RTS5411 Hub",
+            "string_indexes": [
+              2,
+              1,
+              0
+            ],
+            "configurations": [
+              {
+                "name": "",
+                "string_index": 0,
+                "number": 1,
+                "interfaces": [
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "20-3:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 1,
+                    "alt_setting": 0,
+                    "driver": null,
+                    "syspath": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "number": 1,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 1,
+                        "interval": 12
+                      }
+                    ]
+                  },
+                  {
+                    "name": "",
+                    "string_index": 0,
+                    "number": 0,
+                    "path": "20-3:1.0",
+                    "class": "hub",
+                    "sub_class": 0,
+                    "protocol": 2,
+                    "alt_setting": 1,
+                    "driver": null,
+                    "syspath": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "number": 1,
+                          "direction": "In"
+                        },
+                        "transfer_type": "Interrupt",
+                        "sync_type": "None",
+                        "usage_type": "Data",
+                        "max_packet_size": 1,
+                        "interval": 12
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  "RemoteWakeup",
+                  "SelfPowered"
+                ],
+                "max_power": {
+                  "value": 0,
+                  "unit": "mA",
+                  "description": null
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

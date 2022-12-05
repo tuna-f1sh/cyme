@@ -186,22 +186,22 @@ where
 {
     #[derive(Deserialize)]
     #[serde(untagged)]
-    enum NumericOrNull<'a> {
+    enum ColorOrNull<'a> {
         Str(&'a str),
         #[serde(deserialize_with = "deserialize_color")]
         FromStr(Color),
         Null,
     }
 
-    match NumericOrNull::deserialize(deserializer)? {
-        NumericOrNull::Str(s) => match s {
+    match ColorOrNull::deserialize(deserializer)? {
+        ColorOrNull::Str(s) => match s {
             "" => Ok(None),
             _ => Color::try_from(s)
                 .map(Some)
                 .map_err(serde::de::Error::custom),
         },
-        NumericOrNull::FromStr(i) => Ok(Some(i)),
-        NumericOrNull::Null => Ok(None),
+        ColorOrNull::FromStr(i) => Ok(Some(i)),
+        ColorOrNull::Null => Ok(None),
     }
 }
 

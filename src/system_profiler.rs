@@ -11,10 +11,7 @@ use std::process::Command;
 use std::str::FromStr;
 
 use crate::types::NumericalUnit;
-use crate::usb::get_interface_path;
-use crate::usb::get_parent_path;
-use crate::usb::get_trunk_path;
-use crate::usb::{get_dev_path, get_port_path, ClassCode, Speed, USBDeviceExtra};
+use crate::usb::*;
 
 /// Root JSON returned from system_profiler and used as holder for all static USB bus data
 #[derive(Debug, Serialize, Deserialize)]
@@ -615,12 +612,12 @@ pub struct USBDevice {
     pub serial_num: Option<String>,
     /// The device manufacturer as provided in descriptor or using usb_ids if None
     pub manufacturer: Option<String>,
-    #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    /// The device version
-    pub bcd_device: Option<f32>,
-    #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    #[serde(default, serialize_with = "version_serializer", deserialize_with = "deserialize_option_version_from_string")]
+    /// The device release version
+    pub bcd_device: Option<Version>,
+    #[serde(default, serialize_with = "version_serializer", deserialize_with = "deserialize_option_version_from_string")]
     /// The supported USB version
-    pub bcd_usb: Option<f32>,
+    pub bcd_usb: Option<Version>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     /// macOS system_profiler only - actually bus current in mA not power!
     pub bus_power: Option<u16>,
@@ -631,7 +628,7 @@ pub struct USBDevice {
     pub device_speed: Option<DeviceSpeed>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     /// macOS system_profiler only - actually bus current used in mA not power!
-    pub extra_current_used: Option<u8>,
+    pub extra_current_used: Option<u16>,
     /// Devices can be hub and have devices attached so need to walk each device's devices...
     #[serde(rename(deserialize = "_items"), alias = "devices")]
     pub devices: Option<Vec<USBDevice>>,
@@ -1106,7 +1103,7 @@ impl USBFilter {
 
     /// Retains only `&USBDevice` in `devices` which match filter
     ///
-    /// Does not check down tree so should be used to flattened devices only (`get_all_devices`)
+    /// Does not check down tree so should be used to flattened devices only (`get_all_devices`). Will remove hubs if `hide_hubs` since when flattened they will have no devices
     pub fn retain_flattened_devices_ref(&self, devices: &mut Vec<&USBDevice>) -> () {
         devices.retain(|d| self.is_match(&d))
     }
@@ -1177,6 +1174,66 @@ where
     }
 }
 
+fn deserialize_option_version_from_string<'de, D>(deserializer: D) -> Result<Option<Version>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum VersionOrNull {
+        #[serde(deserialize_with = "deserialize_version")]
+        From(Version),
+        Null,
+    }
+
+    match VersionOrNull::deserialize(deserializer)? {
+        VersionOrNull::From(i) => Ok(Some(i)),
+        VersionOrNull::Null => Ok(None),
+    }
+}
+
+fn deserialize_version<'de, D>(deserializer: D) -> Result<Version, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    struct VersionVisitor;
+    impl<'de> serde::de::Visitor<'de> for VersionVisitor {
+        type Value = Version;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("BCD version base16 encoding [MM.mP] where MM is Major, m is Minor and P is sub-minor")
+        }
+
+        fn visit_f32<E>(self, value: f32) -> Result<Version, E>
+        where
+            E: serde::de::Error,
+        {
+            Version::try_from(value)
+                .map_err(|_| E::invalid_value(serde::de::Unexpected::Float(value.into()), &self))
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Version, E>
+        where
+            E: serde::de::Error,
+        {
+            Version::from_str(value)
+                .map_err(|_| E::invalid_value(serde::de::Unexpected::Str(value), &self))
+        }
+    }
+
+    deserializer.deserialize_any(VersionVisitor)
+}
+
+fn version_serializer<'a, S>(version: &'a Option<Version>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::ser::Serializer,
+{
+    match version {
+        Some(v) => s.serialize_str(&v.to_string()),
+        None => s.serialize_none(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1200,7 +1257,7 @@ mod tests {
         let device: USBDevice = serde_json::from_str(device_json).unwrap();
 
         assert_eq!(device.name, "Arduino Zero");
-        assert_eq!(device.bcd_device, Some(1.00));
+        assert_eq!(device.bcd_device, Some(Version(1, 0, 0)));
         assert_eq!(device.bus_power, Some(500));
         assert_eq!(device.bus_power_used, Some(500));
         assert_eq!(
@@ -1254,6 +1311,6 @@ mod tests {
         let mut br = BufReader::new(f);
         br.read_to_string(&mut data).expect("Unable to read string");
 
-        serde_json::from_str::<SPUSBDataType>(&data).unwrap();
+        serde_json::from_str::<SPUSBDataType>(&data).expect("Failed to deserialize system_profiler_dump");
     }
 }
