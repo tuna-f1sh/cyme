@@ -4,8 +4,6 @@ use colored::*;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::env;
-use std::fs;
-use std::io::Read;
 use std::io::{Error, ErrorKind};
 
 #[cfg(feature = "cli_generate")]
@@ -270,17 +268,8 @@ fn get_libusb_spusb(_args: &Args) -> system_profiler::SPUSBDataType {
     ));
 }
 
-#[cfg(not(feature = "libusb"))]
-fn merge_libusb_spusb(_spdata: &mut system_profiler::SPUSBDataType, _args: &Args) -> () {
-    eprintexit!(Error::new(
-        ErrorKind::Other,
-        "libusb feature is required to do this, install with `cargo install --features libusb`"
-    ));
-}
-
 #[cfg(feature = "libusb")]
 fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
-    lsusb::profiler::set_log_level(args.debug);
     lsusb::profiler::get_spusb(
         args.verbose > 0
             || args.tree
@@ -290,17 +279,6 @@ fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
             || args.more,
     )
     .unwrap_or_else(|e| {
-        eprintexit!(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Failed to gather system USB data from libusb: Error({})", e)
-        ));
-    })
-}
-
-#[cfg(feature = "libusb")]
-fn merge_libusb_spusb(spdata: &mut system_profiler::SPUSBDataType, args: &Args) -> () {
-    lsusb::profiler::set_log_level(args.debug);
-    lsusb::profiler::fill_spusb(spdata, true).unwrap_or_else(|e| {
         eprintexit!(std::io::Error::new(
             std::io::ErrorKind::Other,
             format!("Failed to gather system USB data from libusb: Error({})", e)
@@ -376,21 +354,6 @@ fn print_man() -> Result<(), Error> {
     Ok(())
 }
 
-/// Reads a json dump with serde deserializer
-///
-/// Must be a full tree including buses
-fn read_json_dump(file_path: &str) -> Result<system_profiler::SPUSBDataType, Error> {
-    let mut file = fs::File::options().read(true).open(file_path)?;
-
-    let mut data = String::new();
-    file.read_to_string(&mut data)?;
-
-    let json_dump: system_profiler::SPUSBDataType =
-        serde_json::from_str(&data).map_err(|e| Error::new(ErrorKind::Other, e))?;
-
-    Ok(json_dump)
-}
-
 fn main() {
     let args = Args::parse();
 
@@ -407,6 +370,8 @@ fn main() {
             format!("Failed to configure logging: Error({})", e)
         ));
     });
+    #[cfg(feature = "libusb")]
+    lsusb::profiler::set_log_level(args.debug);
 
     let config = if let Some(path) = args.config.as_ref() {
         let config = Config::from_file(&path).unwrap_or_else(|e| {
@@ -432,7 +397,7 @@ fn main() {
     let icons = if args.ascii { None } else { Some(config.icons) };
 
     let mut spusb = if let Some(file_path) = args.from_json {
-        read_json_dump(&file_path.as_str()).unwrap_or_else(|e| {
+        system_profiler::read_json_dump(&file_path.as_str()).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to parse system_profiler dump: Error({})", e)
@@ -452,15 +417,10 @@ fn main() {
     } else {
         // if not forcing libusb, get system_profiler and the merge with libusb
         if cfg!(target_os = "macos") && !args.force_libusb {
-            let mut spdata = system_profiler::get_spusb().unwrap_or_else(|e| {
-                eprintexit!(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Failed to parse system_profiler output: Error({})", e)
-                ));
-            });
             log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
-            merge_libusb_spusb(&mut spdata, &args);
-            spdata
+            system_profiler::get_spusb_with_extra().unwrap_or_else(|e| {
+                eprintexit!(e);
+            })
         } else {
             get_libusb_spusb(&args)
         }

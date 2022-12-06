@@ -1,14 +1,17 @@
 //! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
 //!
 //! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
-use colored::*;
+use std::fmt;
+use std::io;
+use std::fs;
+#[cfg( not( all(any(doctest, test), not(feature = "usb_test")) ) ) ]
+use std::process::Command;
+use std::str::FromStr;
+use std::io::Read;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
-use std::fmt;
-use std::io;
-use std::process::Command;
-use std::str::FromStr;
+use colored::*;
 
 use crate::types::NumericalUnit;
 use crate::usb::*;
@@ -43,6 +46,36 @@ impl SPUSBDataType {
         }
 
         ret
+    }
+
+    /// Returns reference to [`USBBus`] `number` if it exists in data
+    pub fn get_bus(&self, number: u8) -> Option<&USBBus> {
+        self.buses.iter().find(|b| b.get_bus_number() == number)
+    }
+
+    /// Returns mutable reference to [`USBBus`] `number` if it exists in data
+    pub fn get_bus_mut(&mut self, number: u8) -> Option<&mut USBBus> {
+        self.buses.iter_mut().find(|b| b.get_bus_number() == number)
+    }
+
+    /// Search for reference to [`USBDevice`] at `port_path` in all buses
+    pub fn get_node(&self, port_path: &str) -> Option<&USBDevice> {
+        for bus in self.buses.iter() {
+            if let Some(node) = bus.get_node(port_path) {
+                return Some(node);
+            }
+        }
+        None
+    }
+
+    /// Search for mutable reference to [`USBDevice`] at `port_path` in all buses
+    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
+        for bus in self.buses.iter_mut() {
+            if let Some(node) = bus.get_node_mut(port_path) {
+                return Some(node);
+            }
+        }
+        None
     }
 }
 
@@ -1038,6 +1071,22 @@ pub struct USBFilter {
     pub no_exclude_root_hub: bool,
 }
 
+/// ```
+/// use cyme::system_profiler::*;
+///
+/// let filter = USBFilter {
+///     //name: Some(String::from("Black")),
+///     vid: Some(0x1d50),
+///     ..Default::default()
+/// };
+/// let mut spusb = get_spusb().unwrap();
+/// filter.retain_buses(&mut spusb.buses);
+/// let flattened = spusb.flatten_devices();
+// /// assert_eq!(flattened.len(), 1);
+/// let device = spusb.get_node(&"20-3.3");
+// /// assert_eq!(device.unwrap().name, "Black Magic Probe");
+/// ```
+///
 impl USBFilter {
     /// Creates a new filter with defaults
     pub fn new() -> Self {
@@ -1109,7 +1158,25 @@ impl USBFilter {
     }
 }
 
+/// Reads a json dump at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
+///
+/// Must be a full tree including buses
+pub fn read_json_dump(file_path: &str) -> Result<SPUSBDataType, io::Error> {
+    let mut file = fs::File::options().read(true).open(file_path)?;
+
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
+
+    let json_dump: SPUSBDataType =
+        serde_json::from_str(&data).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+    Ok(json_dump)
+}
+
 /// Runs the system_profiler command for SPUSBDataType and parses the json stdout into a [`SPUSBDataType`]
+///
+/// Ok result not contain [`USBDeviceExtra`] because system_profiler does not provide this. Use `get_spusb_with_extra` to combine with libusb output for [`USBDevice`]s with `extra`
+#[cfg( not( all(any(doctest, test), not(feature = "usb_test")) ) ) ]
 pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
     let output = if cfg!(target_os = "macos") {
         Command::new("system_profiler")
@@ -1124,6 +1191,39 @@ pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
 
     serde_json::from_str(String::from_utf8(output.stdout).unwrap().as_str())
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+}
+
+#[cfg( all(any(doctest, test), not(feature = "usb_test")) ) ]
+pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
+    read_json_dump(&"./tests/data/system_profiler_dump.json")
+}
+
+/// Runs `get_spusb` and then adds in data obtained from libusb. Requires 'libusb' feature.
+#[cfg(feature = "libusb")]
+pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
+    let mut spusb = get_spusb().map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("Failed to parse system_profiler output: Error({})", e)
+        )
+    })?;
+    crate::lsusb::profiler::fill_spusb(&mut spusb, true).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("Failed to gather system USB data from libusb: Error({})", e)
+        )
+    })?;
+
+    Ok(spusb)
+}
+
+/// Cannot run this function without libusb feature
+#[cfg(not(feature = "libusb"))]
+pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
+    Err(io::Error::new(
+        io::ErrorKind::Other,
+        "libusb feature is required to do this, install with `cargo install --features libusb`"
+    ))
 }
 
 /// Deserializes an option number from String (base10 or base16 encoding) or a number
@@ -1302,15 +1402,6 @@ mod tests {
 
     #[test]
     fn test_json_dump_read_not_panic() {
-        use std::fs::File;
-        use std::io::{BufReader, Read};
-
-        let mut data = String::new();
-        let f = File::open("./tests/data/system_profiler_dump.json")
-            .expect("Unable to open json dump file");
-        let mut br = BufReader::new(f);
-        br.read_to_string(&mut data).expect("Unable to read string");
-
-        serde_json::from_str::<SPUSBDataType>(&data).expect("Failed to deserialize system_profiler_dump");
+        read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
     }
 }

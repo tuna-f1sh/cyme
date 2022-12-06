@@ -1,4 +1,4 @@
-//! Utilities to get device information using udev - only supported on Linux
+//! Utilities to get device information using udev - only supported on Linux. Requires 'udev' feature.
 use std::error::Error;
 use std::path::Path;
 use udev as udevlib;

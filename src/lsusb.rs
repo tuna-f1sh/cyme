@@ -3,18 +3,19 @@
 //! The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for a lot of the styling and content of the display module
 #[cfg(feature = "libusb")]
 pub mod profiler {
-    //! Uses rusb (upto date libusb fork) to get system USB information, most of which has parity with lsusb. Uses [`system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
+    //! Uses rusb (upto date libusb fork) to get system USB information, most of which has parity with lsusb. Requires 'libusb' feature. Uses [`system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
     //!
     //! lsusb uses udev for tree building, which libusb does not have access to and is Linux only. udev-rs is used on Linux to attempt to mirror the output of lsusb on Linux. On other platforms, certain information like driver used cannot be obtained.
-    #[cfg(target_os = "linux")]
-    #[cfg(feature = "udev")]
-    use crate::udev;
-    use crate::{system_profiler, types::NumericalUnit, usb};
-    use itertools::Itertools;
-    use rusb as libusb;
     use std::collections::HashMap;
     use std::time::Duration;
+    use itertools::Itertools;
+    use rusb as libusb;
     use usb_ids::{self, FromId};
+
+    use crate::{system_profiler, types::NumericalUnit, usb};
+    #[cfg(all(target_os = "linux", feature = "udev"))]
+    use crate::udev;
+
     struct UsbDevice<T: libusb::UsbContext> {
         handle: libusb::DeviceHandle<T>,
         language: libusb::Language,
@@ -216,8 +217,7 @@ pub mod profiler {
                     endpoints: build_endpoints(&interface_desc)?,
                 };
 
-                #[cfg(target_os = "linux")]
-                #[cfg(feature = "udev")]
+                #[cfg(all(target_os = "linux", feature = "udev"))]
                 if _with_udev {
                     udev::get_udev_info(
                         &mut _interface.driver,
@@ -300,8 +300,7 @@ pub mod profiler {
             configurations: build_configurations(device, handle, device_desc, _with_udev)?,
         };
 
-        #[cfg(target_os = "linux")]
-        #[cfg(feature = "udev")]
+        #[cfg(all(target_os = "linux", feature = "udev"))]
         if _with_udev {
             udev::get_udev_info(
                 &mut _extra.driver,
@@ -317,7 +316,7 @@ pub mod profiler {
     /// Builds a `system_profiler::USBDevice` from a `libusb::Device` by using `device_descriptor()` and intrograting for configuration strings. Optionally with `with_extra` will gather full device information, including from udev if feature is present.
     ///
     /// Result is a tuple of the [`USBDevice`] and a `Option<String>` of a non-critical error during gather of `with_extra` data. Not very `Result` like but prevents separating the getting of extra data into another function, which would have to re-open the device
-    fn build_spdevice<T: libusb::UsbContext>(
+    pub fn build_spdevice<T: libusb::UsbContext>(
         device: &libusb::Device<T>,
         with_extra: bool,
     ) -> libusb::Result<(system_profiler::USBDevice, Option<String>)> {
@@ -434,11 +433,11 @@ pub mod profiler {
         Ok((sp_device, error_str))
     }
 
-    /// Get `SPUSBDataType` using `libusb` rather than `system_profiler`
+    /// Get [`SPUSBDataType`] using `libusb` rather than `system_profiler`
     ///
-    /// Runs through `libusb::DeviceList` creating a cache of `USBDevice`. Then sorts into parent groups, accending in depth to build the `SPUSBDataType` tree.
+    /// Runs through `libusb::DeviceList` creating a cache of [`USBDevice`]. Then sorts into parent groups, accending in depth to build the [`USBBus`] tree.
     ///
-    /// Building the `SPUSBDataType` depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
+    /// Building the [`SPUSBDataType`] depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
     pub fn get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataType> {
         let mut spusb = system_profiler::SPUSBDataType { buses: Vec::new() };
         // temporary store of devices created when iterating through DeviceList
@@ -550,9 +549,9 @@ pub mod profiler {
         Ok(spusb)
     }
 
-    /// Fills a passed mutable `spusb` reference to fill using `get_spusb`
+    /// Fills a passed mutable `spusb` reference to fill using `get_spusb`. Will replace existing [`USBDevice`]s found in the libusb build but leave others and the buses.
     ///
-    /// This is so that the main bin can switch between system_profiler and libusb without a variable not being set
+    /// The main use case for this is to merge with macOS `system_profiler` data, so that [`USBDeviceExtra`] can be obtained but internal buses kept. One could also use it to update a static .json dump.
     pub fn fill_spusb(
         spusb: &mut system_profiler::SPUSBDataType,
         with_extra: bool,
