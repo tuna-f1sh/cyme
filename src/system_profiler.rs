@@ -1207,7 +1207,7 @@ pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
             format!("Failed to parse system_profiler output: Error({})", e)
         )
     })?;
-    crate::lsusb::profiler::fill_spusb(&mut spusb, true).map_err(|e| {
+    crate::lsusb::profiler::fill_spusb(&mut spusb).map_err(|e| {
         io::Error::new(
             io::ErrorKind::Other,
             format!("Failed to gather system USB data from libusb: Error({})", e)

@@ -4,7 +4,7 @@ use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt;
 
-/// Colours [`Block`] fields based on loose typing of field type
+/// Colours [`crate::display::Block`] fields based on loose typing of field type
 ///
 /// Considered using HashMap with Colouring Enum like IconTheme but this seemed to suit better, it is less flexiable though...
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]

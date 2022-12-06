@@ -270,20 +270,26 @@ fn get_libusb_spusb(_args: &Args) -> system_profiler::SPUSBDataType {
 
 #[cfg(feature = "libusb")]
 fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
-    lsusb::profiler::get_spusb(
-        args.verbose > 0
+    if args.verbose > 0
             || args.tree
             || args.device.is_some()
             || args.lsusb
             || args.json
-            || args.more,
-    )
-    .unwrap_or_else(|e| {
-        eprintexit!(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Failed to gather system USB data from libusb: Error({})", e)
-        ));
-    })
+            || args.more {
+        lsusb::profiler::get_spusb_with_extra().unwrap_or_else(|e| {
+            eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to gather system USB data with extra from libusb: Error({})", e)
+            ));
+        })
+    } else {
+        lsusb::profiler::get_spusb().unwrap_or_else(|e| {
+            eprintexit!(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to gather system USB data from libusb: Error({})", e)
+            ));
+        })
+    }
 }
 
 fn print_lsusb(

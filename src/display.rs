@@ -1323,9 +1323,9 @@ pub struct PrintSettings {
     pub interface_blocks: Option<Vec<InterfaceBlocks>>,
     /// [`EndpointBlocks`] to use for printing
     pub endpoint_blocks: Option<Vec<EndpointBlocks>>,
-    /// [`IconTheme`] to apply - None to not print any icons
+    /// [`crate::icon::IconTheme`] to apply - None to not print any icons
     pub icons: Option<icon::IconTheme>,
-    /// [`ColourTheme`] to apply - None to not colour
+    /// [`crate::colour::ColourTheme`] to apply - None to not colour
     pub colours: Option<colour::ColourTheme>,
 }
 

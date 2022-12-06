@@ -17,21 +17,21 @@ const CONF_NAME: &'static str = "cyme.json";
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Config {
-    /// User supplied [`IconTheme`] - will merge with default
+    /// User supplied [`crate::icon::IconTheme`] - will merge with default
     #[serde(default)]
     pub icons: icon::IconTheme,
-    /// User supplied [`ColourTheme`] - overrides default
+    /// User supplied [`crate::colour::ColourTheme`] - overrides default
     #[serde(default)]
     pub colours: colour::ColourTheme,
-    /// Default [`DeviceBlocks`] to use for displaying devices
+    /// Default [`crate::display::DeviceBlocks`] to use for displaying devices
     pub blocks: Option<Vec<display::DeviceBlocks>>,
-    /// Default [`BusBlocks`] to use for displaying buses
+    /// Default [`crate::display::BusBlocks`] to use for displaying buses
     pub bus_blocks: Option<Vec<display::BusBlocks>>,
-    /// Default [`ConfigurationBlocks`] to use for device configurations
+    /// Default [`crate::display::ConfigurationBlocks`] to use for device configurations
     pub config_blocks: Option<Vec<display::ConfigurationBlocks>>,
-    /// Default [`InterfaceBlocks`] to use for device interfaces
+    /// Default [`crate::display::InterfaceBlocks`] to use for device interfaces
     pub interface_blocks: Option<Vec<display::InterfaceBlocks>>,
-    /// Default [`EndpointBlocks`] to use for device endpoints
+    /// Default [`crate::display::EndpointBlocks`] to use for device endpoints
     pub endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
     /// Wether to hide device serial numbers by default
     pub mask_serials: Option<display::MaskSerial>,
