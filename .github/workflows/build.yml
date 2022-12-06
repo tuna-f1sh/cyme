@@ -63,12 +63,13 @@ jobs:
           esac;
 
           # Setup paths
-          BIN_DIR="${{ env.INTERMEDIATES_DIR }}/release-bin/"
+          BIN_DIR="${{ env.INTERMEDIATES_DIR }}/release-bin"
           mkdir -p "${BIN_DIR}"
           BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
           BIN_PATH="${BIN_DIR}/${BIN_NAME}"
 
-          # Let subsequent steps know where to find the release bin
+          # Copy the release build binary to the result location
+          cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
           echo "BIN_PATH=${BIN_PATH}" >> "$GITHUB_OUTPUT"
           echo "BIN_NAME=${BIN_NAME}" >> "$GITHUB_OUTPUT"
 
