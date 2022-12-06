@@ -94,7 +94,8 @@ struct Args {
     #[arg(long, value_enum, default_value_t = Default::default())]
     group_devices: display::Group,
 
-    /// Hide empty buses when printing tree; those with no devices
+    /// Hide empty buses when printing tree; those with no devices. When listing will hide Linux root_hubs
+    // these are a bit confusing, could make value enum with hide_empty, hide...
     #[arg(long, default_value_t = false)]
     hide_buses: bool,
 

@@ -149,3 +149,19 @@ jobs:
           files: ${{ steps.package.outputs.PKG_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump Homebrew formula
+        uses: mislav/bump-homebrew-formula-action@v2
+        if: steps.is-release.outputs.IS_RELEASE && startsWith(matrix.job.os, 'macos')
+        with:
+          formula-name: cyme
+          formula-path: Formula/cyme.rb
+          homebrew-tap: tuna-f1sh/homebrew-taps
+          download-url: https://github.com/tuna-f1sh/cyme/releases/download/v${{ env.PROJECT_VERSION}}/${{ steps.package.outputs.PKG_NAME }}
+          commit-message: |
+            {{formulaName}} {{version}}
+
+            Created by https://github.com/mislav/bump-homebrew-formula-action
+        env:
+          COMMITTER_TOKEN: ${{ secrets.COMMITTER_TOKEN }}
+
