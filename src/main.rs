@@ -7,6 +7,8 @@ use std::env;
 use std::io::{Error, ErrorKind};
 
 #[cfg(feature = "cli_generate")]
+use std::fs;
+#[cfg(feature = "cli_generate")]
 use clap::CommandFactory;
 #[cfg(feature = "cli_generate")]
 use clap_complete::generate_to;

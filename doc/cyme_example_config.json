@@ -1,26 +1,26 @@
 {
   "icons": {
     "user": {
-      "unknown-vendor": "",
       "vid#2e8a": "",
-      "undefined-classifier": "☶",
+      "unknown-vendor": "",
+      "vid#05ac": "",
       "classifier#02": "",
-      "vid-pid#1d50:6018": "",
       "vid-pid-msb#0483:37": "",
+      "undefined-classifier": "☶",
       "classifier-sub-protocol#15:01:01": "",
-      "vid#05ac": ""
+      "vid-pid#1d50:6018": ""
     },
     "tree": {
-      "tree-interface-terminator": "◦",
-      "endpoint_in": "→",
-      "tree-bus-start": "●",
-      "tree-blank": "   ",
-      "tree-corner": "└──",
-      "tree-line": "│  ",
-      "tree-edge": "├──",
-      "tree-device-terminator": "○",
       "endpoint_out": "←",
-      "tree-configuration-terminator": "•"
+      "tree-edge": "├──",
+      "endpoint_in": "→",
+      "tree-corner": "└──",
+      "tree-configuration-terminator": "•",
+      "tree-interface-terminator": "◦",
+      "tree-blank": "   ",
+      "tree-bus-start": "●",
+      "tree-device-terminator": "○",
+      "tree-line": "│  "
     }
   },
   "colours": {

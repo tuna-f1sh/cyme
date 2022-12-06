@@ -1071,20 +1071,19 @@ pub struct USBFilter {
     pub no_exclude_root_hub: bool,
 }
 
-/// ```
+/// ```no_run
 /// use cyme::system_profiler::*;
 ///
 /// let filter = USBFilter {
-///     //name: Some(String::from("Black")),
-///     vid: Some(0x1d50),
+///     name: Some(String::from("Black")),
 ///     ..Default::default()
 /// };
 /// let mut spusb = get_spusb().unwrap();
 /// filter.retain_buses(&mut spusb.buses);
 /// let flattened = spusb.flatten_devices();
-// /// assert_eq!(flattened.len(), 1);
+/// assert_eq!(flattened.len(), 1);
 /// let device = spusb.get_node(&"20-3.3");
-// /// assert_eq!(device.unwrap().name, "Black Magic Probe");
+/// assert_eq!(device.unwrap().name, "Black Magic Probe");
 /// ```
 ///
 impl USBFilter {
