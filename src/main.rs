@@ -6,17 +6,6 @@ use serde_with::skip_serializing_none;
 use std::env;
 use std::io::{Error, ErrorKind};
 
-#[cfg(feature = "cli_generate")]
-use std::fs;
-#[cfg(feature = "cli_generate")]
-use clap::CommandFactory;
-#[cfg(feature = "cli_generate")]
-use clap_complete::generate_to;
-#[cfg(feature = "cli_generate")]
-use clap_complete::shells::*;
-#[cfg(feature = "cli_generate")]
-use std::path::PathBuf;
-
 use cyme::config::Config;
 use cyme::display;
 use cyme::lsusb;
@@ -330,6 +319,12 @@ fn print_lsusb(
 #[cfg(feature = "cli_generate")]
 #[cold]
 fn print_man() -> Result<(), Error> {
+    use std::fs;
+    use clap::CommandFactory;
+    use clap_complete::generate_to;
+    use clap_complete::shells::*;
+    use std::path::PathBuf;
+
     let outdir = std::env::var_os("BUILD_SCRIPT_DIR")
         .or_else(|| std::env::var_os("OUT_DIR"))
         .unwrap_or_else(|| "./doc".into());
