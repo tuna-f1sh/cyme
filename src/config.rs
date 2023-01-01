@@ -35,6 +35,29 @@ pub struct Config {
     pub endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
     /// Wether to hide device serial numbers by default
     pub mask_serials: Option<display::MaskSerial>,
+    // non-Options copied from Args
+    /// Attempt to maintain compatibility with lsusb output
+    pub lsusb: bool,
+    /// Dump USB device hierarchy as a tree
+    pub tree: bool,
+    /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
+    pub verbose: u8,
+    /// Print more blocks by default at each verbosity
+    pub more: bool,
+    /// Hide empty buses when printing tree; those with no devices. When listing will hide Linux root_hubs
+    pub hide_buses: bool,
+    /// Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not
+    pub hide_hubs: bool,
+    /// Show base16 values as base10 decimal instead
+    pub decimal: bool,
+    /// Disable padding to align blocks
+    pub no_padding: bool,
+    /// Disables icons and utf-8 charactors
+    pub ascii: bool,
+    /// Show block headings
+    pub headings: bool,
+    /// Force libusb profiler on macOS rather than using/combining system_profiler output
+    pub force_libusb: bool,
 }
 
 impl Config {

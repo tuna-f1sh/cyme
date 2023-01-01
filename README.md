@@ -25,13 +25,14 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 # Features
 
 * Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb. Output is identical for use with no args (list), almost matching for tree (driver port number not included) and near match for verbose.
-* Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial` and option to hide empty `--hide-buses`/`--hide-hubs`.
+* Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial`, `filter_class` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
 * Controllable block data like `lsd --blocks` for device, bus, configurations, interfaces and endpoints. Use `--more` to see more by default.
 * Modern terminal features with coloured output, utf-8 characters and icon look-up based device data. Can be turned off and customised.
 * Can be used as a library too with `system_profiler` parsing module, `lsusb` module using libusb and `display` module for printing amongst others.
 * `--json` output that honours filters and `--tree`.
 * `--headers` to show meta data only when asked and not take space otherwise.
+* `--mask_serials` to either '\*' or randomise serial string for sharing dumps with sensitive serial numbers.
 * Targets for Linux, macOS, perhaps Windows...
 
 ## Demo
@@ -87,7 +88,7 @@ For usage as a library for profiling system USB devices, the crate is 100% docum
 * macOS: "$HOME/Library/Application Support"
 * Windows: "{FOLDERID_RoamingAppData}"
 
-One can also be supplied with `--config`. Copy or refer to './doc/cyme_example_config.json' for configurables. Supplied args will override these. Use `--debug` to see where it is looking or if it's not loading.
+One can also be supplied with `--config`. Copy or refer to './doc/cyme_example_config.json' for configurables. Tthe file is essentially the default args; supplied args will override these. Use `--debug` to see where it is looking or if it's not loading.
 
 ### Custom Icons and Colours
 

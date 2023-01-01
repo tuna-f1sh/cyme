@@ -1204,7 +1204,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
 }
 
 /// Value to sort [`USBDevice`]
-#[derive(Default, Debug, ValueEnum, Clone, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Eq, Debug, ValueEnum, Clone, Serialize, Deserialize)]
 pub enum Sort {
     #[default]
     /// Sort by position in parent branch

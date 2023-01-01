@@ -19,7 +19,7 @@ _cyme() {
 
     case "${cmd}" in
         cyme)
-            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --decimal --no-padding --no-colour --ascii --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --help --version"
+            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --decimal --no-padding --no-colour --ascii --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -55,6 +55,10 @@ _cyme() {
                     ;;
                 --filter-serial)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --filter-class)
+                    COMPREPLY=($(compgen -W "use-interface-descriptor audio cdc-communications hid physical image printer mass-storage hub cdc-data smart-cart content-security video personal-healthcare audio-video billboard usb-type-c-bridge i3c-device diagnostic wireless-controller miscellaneous application-specific-interface vendor-specific-class" -- "${cur}"))
                     return 0
                     ;;
                 --blocks)

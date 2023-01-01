@@ -29,6 +29,7 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--device', 'device', [CompletionResultType]::ParameterName, 'Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path')
             [CompletionResult]::new('--filter-name', 'filter-name', [CompletionResultType]::ParameterName, 'Filter on string contained in name')
             [CompletionResult]::new('--filter-serial', 'filter-serial', [CompletionResultType]::ParameterName, 'Filter on string contained in serial')
+            [CompletionResult]::new('--filter-class', 'filter-class', [CompletionResultType]::ParameterName, 'Filter on USB class code')
             [CompletionResult]::new('-b', 'b', [CompletionResultType]::ParameterName, 'Specify the blocks which will be displayed for each device and in what order')
             [CompletionResult]::new('--blocks', 'blocks', [CompletionResultType]::ParameterName, 'Specify the blocks which will be displayed for each device and in what order')
             [CompletionResult]::new('--bus-blocks', 'bus-blocks', [CompletionResultType]::ParameterName, 'Specify the blocks which will be displayed for each bus and in what order')

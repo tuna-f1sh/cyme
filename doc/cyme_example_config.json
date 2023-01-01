@@ -1,26 +1,26 @@
 {
   "icons": {
     "user": {
-      "vid#2e8a": "",
       "classifier-sub-protocol#15:01:01": "",
-      "vid-pid-msb#0483:37": "",
+      "unknown-vendor": "",
+      "vid-pid#1d50:6018": "",
       "classifier#02": "",
       "undefined-classifier": "☶",
-      "vid-pid#1d50:6018": "",
-      "unknown-vendor": "",
+      "vid-pid-msb#0483:37": "",
+      "vid#2e8a": "",
       "vid#05ac": ""
     },
     "tree": {
-      "endpoint_in": "→",
-      "tree-line": "│  ",
+      "tree-corner": "└──",
+      "tree-configuration-terminator": "•",
+      "endpoint_out": "←",
+      "tree-device-terminator": "○",
       "tree-interface-terminator": "◦",
       "tree-edge": "├──",
-      "tree-device-terminator": "○",
-      "tree-corner": "└──",
-      "endpoint_out": "←",
-      "tree-bus-start": "●",
+      "endpoint_in": "→",
       "tree-blank": "   ",
-      "tree-configuration-terminator": "•"
+      "tree-line": "│  ",
+      "tree-bus-start": "●"
     }
   },
   "colours": {
@@ -86,5 +86,16 @@
     "usage-type",
     "max-packet-size"
   ],
-  "mask-serials": null
+  "mask-serials": null,
+  "lsusb": false,
+  "tree": false,
+  "verbose": 0,
+  "more": false,
+  "hide-buses": false,
+  "hide-hubs": false,
+  "decimal": false,
+  "no-padding": false,
+  "ascii": false,
+  "headings": false,
+  "force-libusb": false
 }

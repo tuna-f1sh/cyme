@@ -162,10 +162,10 @@ impl USBBus {
         }
     }
 
-    /// Whether the bus has any empty hubs
+    /// Whether the bus has just empty hubs
     pub fn has_empty_hubs(&self) -> bool {
         match &self.devices {
-            Some(d) => d.iter().any(|dd| dd.is_hub() && !dd.has_devices()),
+            Some(d) => d.iter().all(|dd| dd.is_hub() && !dd.has_devices()),
             None => false,
         }
     }
@@ -686,8 +686,19 @@ impl USBDevice {
     /// Does the device have child devices; `devices` is Some and > 0
     pub fn has_devices(&self) -> bool {
         match &self.devices {
-            Some(d) => d.is_empty(),
+            Some(d) => d.len() > 0,
             None => false,
+        }
+    }
+
+    /// Does the device have an interface with `class`
+    pub fn has_interface_class(&self, c: &ClassCode) -> bool {
+        if let Some(extra) = self.extra.as_ref() {
+            extra.configurations.iter().any(|conf| {
+                conf.interfaces.iter().any(|i| i.class == *c)
+            })
+        } else {
+            false
         }
     }
 
@@ -1152,8 +1163,10 @@ pub struct USBFilter {
     pub number: Option<u8>,
     /// Retain only devices with name.contains(name)
     pub name: Option<String>,
-    /// Retain only devices with serial.contains(serial)
+    /// retain only devices with serial.contains(serial)
     pub serial: Option<String>,
+    /// retain only device of ClassCode class
+    pub class: Option<ClassCode>,
     /// Exlcude empty hubs in the tree
     pub exclude_empty_hub: bool,
     /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`USBBus`]'s in the tree
@@ -1216,6 +1229,23 @@ pub struct USBFilter {
 /// assert_eq!(flattened.first().unwrap().name, "Black Magic Probe  v1.8.2");
 /// ```
 ///
+/// Filter devices with class
+///
+/// ```
+/// use cyme::system_profiler::*;
+///
+/// # let mut spusb = read_json_dump(&"./tests/data/cyme_libusb_merge_macos_tree.json").unwrap();
+/// let filter = USBFilter {
+///     class: Some(cyme::usb::ClassCode::CDCCommunications),
+///     ..Default::default()
+/// };
+/// let mut flattened = spusb.flatten_devices();
+/// filter.retain_flattened_devices_ref(&mut flattened);
+/// // black magic probe has CDCCommunications serial
+/// let device = spusb.get_node(&"20-3.3");
+/// assert_eq!(device.unwrap().name, "Black Magic Probe  v1.8.2");
+/// ```
+///
 impl USBFilter {
     /// Creates a new filter with defaults
     pub fn new() -> Self {
@@ -1237,6 +1267,12 @@ impl USBFilter {
                     .serial_num
                     .as_ref()
                     .map_or(false, |s| s.contains(n.as_str()))
+            }))
+            && (self.class.as_ref().map_or(true, |fc| {
+                device
+                    .class
+                    .as_ref()
+                    .map_or(false, |c| c == fc) || device.has_interface_class(fc)
             }))
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
         && (!device.is_root_hub() || self.no_exclude_root_hub)

@@ -10,6 +10,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::io;
 use std::convert::TryFrom;
+use clap::ValueEnum;
 
 use crate::types::NumericalUnit;
 
@@ -166,7 +167,7 @@ pub enum DescriptorUsage {
 }
 
 /// USB class code defines [ref](https://www.usb.org/defined-class-codes)
-#[derive(Debug, Default, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, ValueEnum, Default, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ClassCode {
     #[default]

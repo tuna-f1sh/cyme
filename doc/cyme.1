@@ -1,10 +1,10 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH cyme 1  "cyme 1.1.3" 
+.TH cyme 1  "cyme 1.2.0" 
 .SH NAME
 cyme \- List system USB buses and devices; a modern and compatible `lsusb`
 .SH SYNOPSIS
-\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-m\fR|\fB\-\-more\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-no\-colour\fR] [\fB\-\-ascii\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-from\-json\fR] [\fB\-F\fR|\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-z\fR|\fB\-\-debug\fR]... [\fB\-\-mask\-serials\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
+\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-\-filter\-class\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-m\fR|\fB\-\-more\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-no\-colour\fR] [\fB\-\-ascii\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-from\-json\fR] [\fB\-F\fR|\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-z\fR|\fB\-\-debug\fR]... [\fB\-\-mask\-serials\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
 .SH DESCRIPTION
 List system USB buses and devices; a modern and compatible `lsusb`
 .SH OPTIONS
@@ -29,6 +29,61 @@ Filter on string contained in name
 .TP
 \fB\-\-filter\-serial\fR=\fIFILTER_SERIAL\fR
 Filter on string contained in serial
+.TP
+\fB\-\-filter\-class\fR=\fIFILTER_CLASS\fR
+Filter on USB class code
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+use\-interface\-descriptor: Device class is unspecified, interface descriptors are used to determine needed drivers
+.IP \(bu 2
+audio: Speaker, microphone, sound card, MIDI
+.IP \(bu 2
+cdc\-communications: The modern serial interface; appears as a UART/RS232 port on most systems
+.IP \(bu 2
+hid: Human Interface Device; game controllers, keyboards, mice etc. Also commonly used as a device data interface rather then creating something from scratch
+.IP \(bu 2
+physical: Force feedback joystick
+.IP \(bu 2
+image: Scanners, cameras
+.IP \(bu 2
+printer: Laser printer, inkjet printer, CNC machine
+.IP \(bu 2
+mass\-storage: Mass storage devices (MSD): USB flash drive, memory card reader, digital audio player, digital camera, external drive
+.IP \(bu 2
+hub: High speed USB hub
+.IP \(bu 2
+cdc\-data: Used together with class 02h (Communications and CDC Control) above
+.IP \(bu 2
+smart\-cart: USB smart card reader
+.IP \(bu 2
+content\-security: Fingerprint reader
+.IP \(bu 2
+video: Webcam
+.IP \(bu 2
+personal\-healthcare: Pulse monitor (watch)
+.IP \(bu 2
+audio\-video: Webcam, TV
+.IP \(bu 2
+billboard: Describes USB\-C alternate modes supported by device
+.IP \(bu 2
+usb\-type\-c\-bridge: An interface to expose and configure the USB Type\-C capabilities of Connectors on USB Hubs or Alternate Mode Adapters
+.IP \(bu 2
+i3c\-device: An interface to expose and configure I3C function within a USB device to allow interaction between host software and the I3C device, to drive transaction on the I3C bus to/from target devices
+.IP \(bu 2
+diagnostic: Trace and debugging equipment
+.IP \(bu 2
+wireless\-controller: Wireless controllers: Bluetooth adaptors, Microsoft RNDIS
+.IP \(bu 2
+miscellaneous: This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB\-IF website
+.IP \(bu 2
+application\-specific\-interface: This base class is defined for devices that conform to several class specifications found on the USB\-IF website
+.IP \(bu 2
+vendor\-specific\-class: This base class is defined for vendors to use as they please
+.RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR=\fIVERBOSE\fR
 Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
@@ -281,6 +336,6 @@ Print help information (use `\-h` for a summary)
 \fB\-V\fR, \fB\-\-version\fR
 Print version information
 .SH VERSION
-v1.1.3
+v1.2.0
 .SH AUTHORS
 John Whittington <john@jbrengineering.co.uk>

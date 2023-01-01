@@ -10,6 +10,7 @@ use cyme::config::Config;
 use cyme::display;
 use cyme::lsusb;
 use cyme::system_profiler;
+use cyme::usb::ClassCode;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -42,6 +43,10 @@ struct Args {
     /// Filter on string contained in serial
     #[arg(long)]
     filter_serial: Option<String>,
+
+    /// Filter on USB class code
+    #[arg(long)]
+    filter_class: Option<ClassCode>,
 
     /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
@@ -159,6 +164,23 @@ macro_rules! wprintln {
         println!("{}", $error.to_string().bold().yellow());
         log::warn!($error)
     };
+}
+
+/// Merges non-Option Config with passed `Args`
+fn merge_config(c: &Config, a: &mut Args) {
+    a.lsusb |= c.lsusb;
+    a.tree |= c.tree;
+    a.more |= c.more;
+    a.hide_buses |= c.hide_buses;
+    a.hide_hubs |= c.hide_hubs;
+    a.decimal |= c.decimal;
+    a.no_padding |= c.no_padding;
+    a.ascii |= c.ascii;
+    a.headings |= c.headings;
+    a.force_libusb |= c.force_libusb;
+    if a.verbose == 0 {
+        a.verbose = c.verbose;
+    }
 }
 
 /// Parse the vidpid filter lsusb format: vid:Option<pid>
@@ -358,7 +380,7 @@ fn print_man() -> Result<(), Error> {
 }
 
 fn main() {
-    let args = Args::parse();
+    let mut args = Args::parse();
 
     #[cfg(feature = "cli_generate")]
     if args.gen {
@@ -389,6 +411,7 @@ fn main() {
         Config::sys()
     };
 
+    merge_config(&config, &mut args);
     let colours = if args.no_colour {
         // set env to be sure too
         env::set_var("NO_COLOR", "1");
@@ -409,6 +432,7 @@ fn main() {
     } else if cfg!(target_os = "macos") 
         && !args.force_libusb
         && args.device.is_none() // device path requires extra
+        && args.filter_class.is_none() // class filter requires extra
         && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
     {
         system_profiler::get_spusb().unwrap_or_else(|e| {
@@ -437,6 +461,7 @@ fn main() {
         || args.device.is_some()
         || args.filter_name.is_some()
         || args.filter_serial.is_some()
+        || args.filter_class.is_some()
     {
         let mut f = system_profiler::USBFilter::new();
 
@@ -478,6 +503,7 @@ fn main() {
         // no need to unwrap as these are Option
         f.name = args.filter_name;
         f.serial = args.filter_serial;
+        f.class = args.filter_class;
         f.exclude_empty_hub = args.hide_hubs;
         // exclude root hubs unless dumping a list or json
         f.no_exclude_root_hub =
