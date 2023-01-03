@@ -216,7 +216,9 @@ impl DeviceBlocks {
     pub fn default_device_tree_blocks() -> Vec<DeviceBlocks> {
         vec![
             DeviceBlocks::Icon,
-            DeviceBlocks::PortPath,
+            DeviceBlocks::DeviceNumber,
+            DeviceBlocks::VendorId,
+            DeviceBlocks::ProductId,
             DeviceBlocks::Name,
             DeviceBlocks::Serial,
         ]
@@ -565,10 +567,10 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::DeviceNumber => " # ".into(),
             DeviceBlocks::BranchPosition => "Prt".into(),
             DeviceBlocks::PortPath => {
-                format!("{:^pad$}", "PortPath", pad = pad.get(self).unwrap_or(&0))
+                format!("{:^pad$}", "PPath", pad = pad.get(self).unwrap_or(&0))
             }
             DeviceBlocks::SysPath => {
-                format!("{:^pad$}", "SysPath", pad = pad.get(self).unwrap_or(&0))
+                format!("{:^pad$}", "SPath", pad = pad.get(self).unwrap_or(&0))
             }
             DeviceBlocks::Driver => {
                 format!("{:^pad$}", "Driver", pad = pad.get(self).unwrap_or(&0))
