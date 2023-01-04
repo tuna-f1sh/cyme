@@ -124,3 +124,20 @@ impl Config {
         dirs::config_dir().map(|x| x.join(CONF_DIR))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_example_file() {
+        let path = PathBuf::from("./doc").join("cyme_example_config.json");
+        Config::from_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_deserialize_config_no_theme() {
+        let path = PathBuf::from("./tests/data").join("config_no_theme.json");
+        Config::from_file(path).unwrap();
+    }
+}

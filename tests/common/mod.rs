@@ -254,9 +254,16 @@ impl TestEnv {
 
         // Compare actual output to expected output.
         assert_json_diff::assert_json_include!(actual: json!(actual), expected: json!(expected));
-        // if json!(actual) != json!(expected) {
-        //     panic!("{}", format_output_error(&args, &expected, &actual));
-        // }
+    }
+
+    /// Parses output back to SPUSBDataType and checks device with `port_path` exists in it
+    pub fn assert_output_contains_port_path(&self, dump_file: Option<&str>, args: &[&str], port_path: &str) {
+        // Normalize both expected and actual output.
+        let output = self.assert_success_and_get_output(dump_file, args);
+        let actual = String::from_utf8_lossy(&output.stdout).to_string();
+        let spdata_out = serde_json::from_str::<cyme::system_profiler::SPUSBDataType>(&actual).unwrap();
+
+        assert_eq!(spdata_out.get_node(port_path).is_some(), true);
     }
 
     /// Similar to assert_output, but able to handle non-utf8 output

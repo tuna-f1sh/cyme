@@ -599,9 +599,9 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 format!("{:^pad$}", "TPos", pad = pad.get(self).unwrap_or(&0))
             }
             // will be 000 mA = 6
-            DeviceBlocks::BusPower => "BusPwr".into(),
-            DeviceBlocks::BusPowerUsed => "PwrUsd".into(),
-            DeviceBlocks::ExtraCurrentUsed => "PwrExr".into(),
+            DeviceBlocks::BusPower => "PBus".into(),
+            DeviceBlocks::BusPowerUsed => "PUsd".into(),
+            DeviceBlocks::ExtraCurrentUsed => "PExr".into(),
             // 00.00 = 5
             DeviceBlocks::BcdDevice => "Dev V".into(),
             DeviceBlocks::BcdUsb => "USB V".into(),
@@ -749,18 +749,18 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         if verbose {
             vec![
                 ConfigurationBlocks::Number,
-                ConfigurationBlocks::Name,
                 ConfigurationBlocks::IconAttributes,
                 ConfigurationBlocks::Attributes,
                 ConfigurationBlocks::NumInterfaces,
                 ConfigurationBlocks::MaxPower,
+                ConfigurationBlocks::Name,
             ]
         } else {
             vec![
                 ConfigurationBlocks::Number,
-                ConfigurationBlocks::Name,
                 ConfigurationBlocks::IconAttributes,
                 ConfigurationBlocks::MaxPower,
+                ConfigurationBlocks::Name,
             ]
         }
     }
@@ -841,7 +841,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         match self {
             ConfigurationBlocks::Number => " #".into(),
             ConfigurationBlocks::NumInterfaces => "I#".into(),
-            ConfigurationBlocks::MaxPower => "MaxPwr".into(),
+            ConfigurationBlocks::MaxPower => "PMax".into(),
             ConfigurationBlocks::Name => {
                 format!("{:^pad$}", "Name", pad = pad.get(self).unwrap_or(&0))
             }
