@@ -1,6 +1,22 @@
 //! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
 //!
 //! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
+//!
+//! Get [`SPUSBDataType`] from macOS system_profiler and print
+//! ```no_run
+//! use cyme::system_profiler;
+//!
+//! let spusb = system_profiler::get_spusb().unwrap();
+//! // print with alternative styling (#) is using utf-8 icons
+//! println!("{:#}", spusb);
+//! ```
+//!
+//! Get [`SPUSBDataType`] from macOS system_profiler and merge with extra data from libusb
+//! ```no_run
+//! use cyme::system_profiler;
+//!
+//! let spusb = system_profiler::get_spusb_with_extra().unwrap();
+//! ```
 use std::fmt;
 use std::io;
 use std::fs;

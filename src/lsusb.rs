@@ -6,6 +6,17 @@ pub mod profiler {
     //! Uses rusb (upto date libusb fork) to get system USB information, most of which has parity with lsusb. Requires 'libusb' feature. Uses [`crate::system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
     //!
     //! lsusb uses udev for tree building, which libusb does not have access to and is Linux only. udev-rs is used on Linux to attempt to mirror the output of lsusb on Linux. On other platforms, certain information like driver used cannot be obtained.
+    //!
+    //! Get [`system_profiler::SPUSBDataType`] struct of system USB buses and devices with extra data like configs, interfaces and endpoints
+    //! ```no_run
+    //! use cyme::lsusb::profiler;
+    //!
+    //! let spusb = profiler::get_spusb_with_extra().unwrap();
+    //! // print with alternative styling (#) is using utf-8 icons
+    //! println!("{:#}", spusb);
+    //! ```
+    //!
+    //! See [`system_profiler`] docs for what can be done with returned data, such as [`system_profiler::USBFilter`]
     use std::collections::HashMap;
     use std::time::Duration;
     use itertools::Itertools;
