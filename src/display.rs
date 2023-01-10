@@ -4,10 +4,10 @@
 use clap::ValueEnum;
 use colored::*;
 use itertools::Itertools;
+use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng};
 use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::HashMap;
-use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng};
 
 use crate::colour;
 use crate::icon;
@@ -959,8 +959,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::Driver => ct.driver.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::AltSetting | InterfaceBlocks::NumEndpoints => {
                 ct.number.map_or(s.normal(), |c| s.color(c))
-            }
-            // _ => s.normal(),
+            } // _ => s.normal(),
         }
     }
 
@@ -1199,8 +1198,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
             }
             EndpointBlocks::UsageType => {
                 format!("{:^pad$}", "UsageT", pad = pad.get(self).unwrap_or(&0))
-            }
-            // _ => "",
+            } // _ => "",
         }
     }
 }
@@ -2034,19 +2032,28 @@ pub fn mask_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial, r
     if let Some(serial) = device.serial_num.as_mut() {
         *serial = match hide {
             MaskSerial::Hide => serial.chars().map(|_| '*').collect::<String>(),
-            MaskSerial::Scramble =>
-                serial.chars().map(|_| serial.chars().choose(&mut rand::thread_rng()).unwrap_or('*')).collect::<String>(),
-            MaskSerial::Replace =>
-                rand::thread_rng()
-                    .sample_iter(Alphanumeric)
-                    .take(serial.chars().count())
-                    .map(char::from)
-                    .collect::<String>().to_uppercase(),
+            MaskSerial::Scramble => serial
+                .chars()
+                .map(|_| {
+                    serial
+                        .chars()
+                        .choose(&mut rand::thread_rng())
+                        .unwrap_or('*')
+                })
+                .collect::<String>(),
+            MaskSerial::Replace => rand::thread_rng()
+                .sample_iter(Alphanumeric)
+                .take(serial.chars().count())
+                .map(char::from)
+                .collect::<String>()
+                .to_uppercase(),
         };
     }
 
     if recursive {
-        device.devices.as_mut().map_or((), |dd| dd.iter_mut().for_each(|d| mask_serial(d, hide, recursive)));
+        device.devices.as_mut().map_or((), |dd| {
+            dd.iter_mut().for_each(|d| mask_serial(d, hide, recursive))
+        });
     }
 }
 

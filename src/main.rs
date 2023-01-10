@@ -14,7 +14,7 @@ use cyme::usb::ClassCode;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None, max_term_width=80)]
 struct Args {
     /// Attempt to maintain compatibility with lsusb output
     #[arg(short, long, default_value_t = false)]
@@ -284,15 +284,19 @@ fn get_libusb_spusb(_args: &Args) -> system_profiler::SPUSBDataType {
 #[cfg(feature = "libusb")]
 fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
     if args.verbose > 0
-            || args.tree
-            || args.device.is_some()
-            || args.lsusb
-            || args.json
-            || args.more {
+        || args.tree
+        || args.device.is_some()
+        || args.lsusb
+        || args.json
+        || args.more
+    {
         lsusb::profiler::get_spusb_with_extra().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Failed to gather system USB data with extra from libusb: Error({})", e)
+                format!(
+                    "Failed to gather system USB data with extra from libusb: Error({})",
+                    e
+                )
             ));
         })
     } else {
@@ -341,10 +345,10 @@ fn print_lsusb(
 #[cfg(feature = "cli_generate")]
 #[cold]
 fn print_man() -> Result<(), Error> {
-    use std::fs;
     use clap::CommandFactory;
     use clap_complete::generate_to;
     use clap_complete::shells::*;
+    use std::fs;
     use std::path::PathBuf;
 
     let outdir = std::env::var_os("BUILD_SCRIPT_DIR")

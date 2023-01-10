@@ -3,14 +3,14 @@
 //! Also refering to [beyondlogic](https://beyondlogic.org/usbnutshell/usb5.shtml)
 //!
 //! There are some repeated/copied Enum defines from rusb in order to control Serialize/Deserialize and add impl
+use clap::ValueEnum;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::fmt;
-use std::str::FromStr;
-use std::io;
 use std::convert::TryFrom;
-use clap::ValueEnum;
+use std::fmt;
+use std::io;
+use std::str::FromStr;
 
 use crate::types::NumericalUnit;
 
@@ -81,7 +81,13 @@ impl std::fmt::Display for Version {
     /// ```
     ///
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:x}.{:x}{:x}", self.major(), self.minor() & 0x0F, self.sub_minor() & 0x0F)
+        write!(
+            f,
+            "{:x}.{:x}{:x}",
+            self.major(),
+            self.minor() & 0x0F,
+            self.sub_minor() & 0x0F
+        )
     }
 }
 
@@ -111,9 +117,9 @@ impl TryFrom<f32> for Version {
     fn try_from(f: f32) -> Result<Self, Self::Error> {
         let s = format!("{:2.2}", f);
         let (parse_ints, _): (Vec<Result<u8, _>>, Vec<_>) = s
-                              .split(".")
-                              .map(|vs| vs.parse::<u8>())
-                              .partition(Result::is_ok);
+            .split(".")
+            .map(|vs| vs.parse::<u8>())
+            .partition(Result::is_ok);
         let numbers: Vec<u8> = parse_ints.into_iter().map(|v| v.unwrap()).collect();
 
         match numbers.get(0..2) {
@@ -314,7 +320,6 @@ impl ClassCode {
             ClassCode::CDCCommunications => "Communications".into(),
             _ => self.to_title_case(),
         }
-
     }
 
     /// Converts Pascal case enum to space separated on capitals
@@ -777,7 +782,6 @@ pub fn get_dev_path(bus: u8, device_no: Option<u8>) -> String {
         format!("/dev/bus/usb/{:03}/001", bus)
     }
 }
-
 
 #[cfg(test)]
 mod tests {

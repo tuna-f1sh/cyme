@@ -17,16 +17,16 @@
 //!
 //! let spusb = system_profiler::get_spusb_with_extra().unwrap();
 //! ```
-use std::fmt;
-use std::io;
-use std::fs;
-use std::process::Command;
-use std::str::FromStr;
-use std::io::Read;
+use colored::*;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
-use colored::*;
+use std::fmt;
+use std::fs;
+use std::io;
+use std::io::Read;
+use std::process::Command;
+use std::str::FromStr;
 
 use crate::types::NumericalUnit;
 use crate::usb::*;
@@ -666,10 +666,18 @@ pub struct USBDevice {
     pub serial_num: Option<String>,
     /// The device manufacturer as provided in descriptor or using usb_ids if None
     pub manufacturer: Option<String>,
-    #[serde(default, serialize_with = "version_serializer", deserialize_with = "deserialize_option_version_from_string")]
+    #[serde(
+        default,
+        serialize_with = "version_serializer",
+        deserialize_with = "deserialize_option_version_from_string"
+    )]
     /// The device release number set by the developer as a [`Version`]
     pub bcd_device: Option<Version>,
-    #[serde(default, serialize_with = "version_serializer", deserialize_with = "deserialize_option_version_from_string")]
+    #[serde(
+        default,
+        serialize_with = "version_serializer",
+        deserialize_with = "deserialize_option_version_from_string"
+    )]
     /// The highest version of USB the device supports as a [`Version`]
     pub bcd_usb: Option<Version>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
@@ -710,9 +718,10 @@ impl USBDevice {
     /// Does the device have an interface with `class`
     pub fn has_interface_class(&self, c: &ClassCode) -> bool {
         if let Some(extra) = self.extra.as_ref() {
-            extra.configurations.iter().any(|conf| {
-                conf.interfaces.iter().any(|i| i.class == *c)
-            })
+            extra
+                .configurations
+                .iter()
+                .any(|conf| conf.interfaces.iter().any(|i| i.class == *c))
         } else {
             false
         }
@@ -990,12 +999,12 @@ impl USBDevice {
 
     /// Generate a String from self like lsusb default list device
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{ 
-    ///     name: String::from("Test device"), 
-    ///     manufacturer: Some(String::from("Test Devices Inc.")), 
+    /// let d = cyme::system_profiler::USBDevice{
+    ///     name: String::from("Test device"),
+    ///     manufacturer: Some(String::from("Test Devices Inc.")),
     ///     vendor_id: Some(0x1234),
     ///     product_id: Some(0x4321),
-    ///     location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 4, tree_positions: vec![1, 2, 3] }, 
+    ///     location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 4, tree_positions: vec![1, 2, 3] },
     ///     ..Default::default()
     ///     };
     /// assert_eq!(d.to_lsusb_string(), "Bus 001 Device 004: ID 1234:4321 Test Devices Inc. Test device");
@@ -1285,13 +1294,10 @@ impl USBFilter {
                     .map_or(false, |s| s.contains(n.as_str()))
             }))
             && (self.class.as_ref().map_or(true, |fc| {
-                device
-                    .class
-                    .as_ref()
-                    .map_or(false, |c| c == fc) || device.has_interface_class(fc)
+                device.class.as_ref().map_or(false, |c| c == fc) || device.has_interface_class(fc)
             }))
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
-        && (!device.is_root_hub() || self.no_exclude_root_hub)
+            && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
     /// Recursively retain only `USBBus` in `buses` with `USBDevice` matching filter
@@ -1385,13 +1391,13 @@ pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
     let mut spusb = get_spusb().map_err(|e| {
         io::Error::new(
             io::ErrorKind::Other,
-            format!("Failed to parse system_profiler output: Error({})", e)
+            format!("Failed to parse system_profiler output: Error({})", e),
         )
     })?;
     crate::lsusb::profiler::fill_spusb(&mut spusb).map_err(|e| {
         io::Error::new(
             io::ErrorKind::Other,
-            format!("Failed to gather system USB data from libusb: Error({})", e)
+            format!("Failed to gather system USB data from libusb: Error({})", e),
         )
     })?;
 
@@ -1403,7 +1409,7 @@ pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
 pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
     Err(io::Error::new(
         io::ErrorKind::Other,
-        "libusb feature is required to do this, install with `cargo install --features libusb`"
+        "libusb feature is required to do this, install with `cargo install --features libusb`",
     ))
 }
 
@@ -1455,7 +1461,9 @@ where
     }
 }
 
-fn deserialize_option_version_from_string<'de, D>(deserializer: D) -> Result<Option<Version>, D::Error>
+fn deserialize_option_version_from_string<'de, D>(
+    deserializer: D,
+) -> Result<Option<Version>, D::Error>
 where
     D: Deserializer<'de>,
 {

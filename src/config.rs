@@ -5,9 +5,9 @@ use std::io;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
+use crate::colour;
 use crate::display;
 use crate::display::Block;
-use crate::colour;
 use crate::icon;
 
 const CONF_DIR: &'static str = "cyme";
@@ -73,17 +73,21 @@ impl Config {
             let path = p.join(CONF_NAME);
             log::info!("Looking for cyme system config {:?}", &path);
             return match Self::from_file(&path) {
-                Ok(c) => { 
+                Ok(c) => {
                     log::info!("Loaded cyme system config {:?}", c);
                     c
-                },
+                }
                 Err(e) => {
                     if e.kind() != io::ErrorKind::NotFound {
-                        log::warn!("Failed to read cyme system config {:?}: Error({})", &path, e);
+                        log::warn!(
+                            "Failed to read cyme system config {:?}: Error({})",
+                            &path,
+                            e
+                        );
                     }
                     Self::new()
                 }
-            }
+            };
         }
         Self::new()
     }

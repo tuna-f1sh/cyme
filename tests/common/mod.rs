@@ -14,7 +14,8 @@ pub const SYSTEM_PROFILER_DUMP_PATH: &'static str = "./tests/data/system_profile
 /// Dump using macOS system_profiler so no [`USBDeviceExtra`]
 pub const CYME_SP_TREE_DUMP: &'static str = "./tests/data/cyme_sp_macos_tree.json";
 /// Dump using macOS system_profiler and libusb merge so with [`USBDeviceExtra`]
-pub const CYME_LIBUSB_MERGE_MACOS_TREE_DUMP: &'static str = "./tests/data/cyme_libusb_merge_macos_tree.json";
+pub const CYME_LIBUSB_MERGE_MACOS_TREE_DUMP: &'static str =
+    "./tests/data/cyme_libusb_merge_macos_tree.json";
 /// Dump using macOS force libusb merge so with [`USBDeviceExtra`] but not Apple internal buses
 pub const CYME_LIBUSB_MACOS_TREE_DUMP: &'static str = "./tests/data/cyme_libusb_macos_tree.json";
 /// Dump using Linux with libusb so with [`USBDeviceExtra`]
@@ -257,11 +258,17 @@ impl TestEnv {
     }
 
     /// Parses output back to SPUSBDataType and checks device with `port_path` exists in it
-    pub fn assert_output_contains_port_path(&self, dump_file: Option<&str>, args: &[&str], port_path: &str) {
+    pub fn assert_output_contains_port_path(
+        &self,
+        dump_file: Option<&str>,
+        args: &[&str],
+        port_path: &str,
+    ) {
         // Normalize both expected and actual output.
         let output = self.assert_success_and_get_output(dump_file, args);
         let actual = String::from_utf8_lossy(&output.stdout).to_string();
-        let spdata_out = serde_json::from_str::<cyme::system_profiler::SPUSBDataType>(&actual).unwrap();
+        let spdata_out =
+            serde_json::from_str::<cyme::system_profiler::SPUSBDataType>(&actual).unwrap();
 
         assert_eq!(spdata_out.get_node(port_path).is_some(), true);
     }
