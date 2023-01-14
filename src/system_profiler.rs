@@ -647,7 +647,7 @@ impl FromStr for DeviceSpeed {
 
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
 ///
-/// Desgined to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb
+/// Desgined to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb. Fields should probably be non-pub with getters/setters but treat them as read-only.
 #[skip_serializing_none]
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct USBDevice {
@@ -660,7 +660,7 @@ pub struct USBDevice {
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     /// Vendor unique product identifier
     pub product_id: Option<u16>,
-    /// Device location information on bus
+    /// [`DeviceLocation`] information of position within bus
     pub location_id: DeviceLocation,
     /// Device serial number as reported by descriptor
     pub serial_num: Option<String>,

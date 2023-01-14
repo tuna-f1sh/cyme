@@ -289,6 +289,7 @@ fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
         || args.lsusb
         || args.json
         || args.more
+        || args.filter_class.is_none() // class filter requires extra
     {
         lsusb::profiler::get_spusb_with_extra().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
