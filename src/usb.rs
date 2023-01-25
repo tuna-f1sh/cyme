@@ -402,6 +402,7 @@ impl fmt::Display for Speed {
                 Speed::SuperSpeed => "super_speed",
                 Speed::HighSpeed | Speed::HighBandwidth => "high_speed",
                 Speed::FullSpeed => "full_speed",
+                Speed::LowSpeed => "low_speed",
                 Speed::Unknown => "unknown",
                 _ => todo!("Unsupported speed"),
             }
