@@ -15,13 +15,11 @@ const CONF_NAME: &'static str = "cyme.json";
 
 /// Allows user supplied icons to replace or add to `DEFAULT_ICONS` and `DEFAULT_TREE`
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields, default)]
 pub struct Config {
     /// User supplied [`crate::icon::IconTheme`] - will merge with default
-    #[serde(default)]
     pub icons: icon::IconTheme,
     /// User supplied [`crate::colour::ColourTheme`] - overrides default
-    #[serde(default)]
     pub colours: colour::ColourTheme,
     /// Default [`crate::display::DeviceBlocks`] to use for displaying devices
     pub blocks: Option<Vec<display::DeviceBlocks>>,
@@ -142,6 +140,12 @@ mod tests {
     #[test]
     fn test_deserialize_config_no_theme() {
         let path = PathBuf::from("./tests/data").join("config_no_theme.json");
+        Config::from_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_deserialize_config_missing_args() {
+        let path = PathBuf::from("./tests/data").join("config_missing_args.json");
         Config::from_file(path).unwrap();
     }
 }

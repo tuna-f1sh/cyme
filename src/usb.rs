@@ -404,7 +404,7 @@ impl fmt::Display for Speed {
                 Speed::FullSpeed => "full_speed",
                 Speed::LowSpeed => "low_speed",
                 Speed::Unknown => "unknown",
-                _ => todo!("Unsupported speed"),
+                // _ => todo!("Unsupported speed"),
             }
         )
     }
