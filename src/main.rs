@@ -413,7 +413,10 @@ fn main() {
         log::info!("Using user config {:?}", config);
         config
     } else {
-        Config::sys()
+        Config::sys().unwrap_or_else(|e| {
+            eprintln!("{}", format!("Failed to parse system conifg at {:?}, using default: Error({})", Config::config_file_path(), e).bold().red());
+            Config::new()
+        })
     };
 
     merge_config(&config, &mut args);

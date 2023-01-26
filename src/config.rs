@@ -66,14 +66,14 @@ impl Config {
 
     /// From system config if exists else default
     #[cfg(not(debug_assertions))]
-    pub fn sys() -> Config {
+    pub fn sys() -> Result<Config, io::Error> {
         if let Some(p) = Self::config_file_path() {
             let path = p.join(CONF_NAME);
             log::info!("Looking for cyme system config {:?}", &path);
             return match Self::from_file(&path) {
                 Ok(c) => {
                     log::info!("Loaded cyme system config {:?}", c);
-                    c
+                    Ok(c)
                 }
                 Err(e) => {
                     if e.kind() != io::ErrorKind::NotFound {
@@ -83,18 +83,18 @@ impl Config {
                             e
                         );
                     }
-                    Self::new()
+                    Err(e)
                 }
             };
         }
-        Self::new()
+        Ok(Self::new())
     }
 
     /// Use default if running in debug since the integration tests use this
     #[cfg(debug_assertions)]
-    pub fn sys() -> Config {
+    pub fn sys() -> Result<Config, io::Error> {
         log::warn!("Running in debug, not checking for cyme system config");
-        Self::new()
+        Ok(Self::new())
     }
 
     /// Get example [`Config`]
@@ -134,18 +134,18 @@ mod tests {
     #[test]
     fn test_deserialize_example_file() {
         let path = PathBuf::from("./doc").join("cyme_example_config.json");
-        Config::from_file(path).unwrap();
+        assert_eq!(Config::from_file(path).is_ok(), true);
     }
 
     #[test]
     fn test_deserialize_config_no_theme() {
         let path = PathBuf::from("./tests/data").join("config_no_theme.json");
-        Config::from_file(path).unwrap();
+        assert_eq!(Config::from_file(path).is_ok(), true);
     }
 
     #[test]
     fn test_deserialize_config_missing_args() {
         let path = PathBuf::from("./tests/data").join("config_missing_args.json");
-        Config::from_file(path).unwrap();
+        assert_eq!(Config::from_file(path).is_ok(), true);
     }
 }
