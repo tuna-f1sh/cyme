@@ -1376,8 +1376,15 @@ pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
         ));
     };
 
-    serde_json::from_str(String::from_utf8(output.stdout).unwrap().as_str())
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    if output.status.success() {
+        serde_json::from_str(String::from_utf8(output.stdout).unwrap().as_str())
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
+    } else {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!("system_profiler returned non-zero, use '--force-libusb' to bypass: stderr: {:?}, stdout: {:?}", output.stderr, output.stdout),
+        ));
+    }
 }
 
 // #[cfg( all(any(doctest, test), not(feature = "usb_test")) ) ]
