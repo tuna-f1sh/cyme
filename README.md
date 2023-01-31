@@ -84,15 +84,15 @@ For usage as a library for profiling system USB devices, the crate is 100% docum
 
 `cyme` will check for a 'cyme.json' config file in:
 
-* Linux: "$XDG_CONFIG_HOME or $HOME/.config"
+* Linux: "$XDG\_CONFIG\_HOME or $HOME/.config"
 * macOS: "$HOME/Library/Application Support"
-* Windows: "{FOLDERID_RoamingAppData}"
+* Windows: "{FOLDERID\_RoamingAppData}"
 
-One can also be supplied with `--config`. Copy or refer to './doc/cyme_example_config.json' for configurables. Tthe file is essentially the default args; supplied args will override these. Use `--debug` to see where it is looking or if it's not loading.
+One can also be supplied with `--config`. Copy or refer to './doc/cyme\_example\_config.json' for configurables. Tthe file is essentially the default args; supplied args will override these. Use `--debug` to see where it is looking or if it's not loading.
 
 ### Custom Icons and Colours
 
-See './doc/cyme_example_config.json' for an example of how icons can be defined and also the [docs](https://docs.rs/cyme/latest/cyme/icon/enum.Icon.html). The config can exclude the "user"/"colours" keys if one wishes not to define any new icons/colours.
+See './doc/cyme\_example\_config.json' for an example of how icons can be defined and also the [docs](https://docs.rs/cyme/latest/cyme/icon/enum.Icon.html). The config can exclude the "user"/"colours" keys if one wishes not to define any new icons/colours.
 
 Icons are looked up in an order of User -> Default. For devices: `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> `get_default_vidpid_icon`, classes: `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> `get_default_classifier_icon`. User supplied colours override all internal; if a key is missing, it will be `None`.
 
@@ -100,4 +100,5 @@ Icons are looked up in an order of User -> Default. For devices: `VidPid` -> `Vi
 
 * Version major BCD Device difference between libusb and macOS `system_profiler`: If the major version is large, libusb seems to read a different value to macOS. I don't think it's a parsing error but open to ideas.
 * libusb cannot read special non-user Apple buses; T2 chip for example. These will still be listed by `system_profiler`. The result is that when merging for verbose data, these will not print verbose information. Use `--force-libusb` to ignore them.
-* `sudo` is required to read Linux root_hub string descriptors - a stderr will be printed regarding this. The program works fine without these however.
+* `sudo` is required to read Linux root\_hub string descriptors - a stderr will be printed regarding this. The program works fine without these however.
+* Tested with macOS 13 ->. I'm not sure when the `-json` flag was added to `system_profiler`; whether it exists on all macOS versions.

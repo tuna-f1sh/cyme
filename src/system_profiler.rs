@@ -1380,9 +1380,10 @@ pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
         serde_json::from_str(String::from_utf8(output.stdout).unwrap().as_str())
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
     } else {
+        log::error!("system_profiler returned non-zero stderr: {:?}, stdout: {:?}", String::from_utf8(output.stderr).unwrap_or(String::from("Failed to parse stderr")), String::from_utf8(output.stdout).unwrap_or(String::from("Failed to parse stdout")));
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            format!("system_profiler returned non-zero, use '--force-libusb' to bypass: stderr: {:?}, stdout: {:?}", output.stderr, output.stdout),
+            "system_profiler returned non-zero, use '--force-libusb' to bypass"
         ));
     }
 }
@@ -1395,20 +1396,37 @@ pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
 /// Runs `get_spusb` and then adds in data obtained from libusb. Requires 'libusb' feature.
 #[cfg(feature = "libusb")]
 pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
-    let mut spusb = get_spusb().map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("Failed to parse system_profiler output: Error({})", e),
-        )
-    })?;
-    crate::lsusb::profiler::fill_spusb(&mut spusb).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("Failed to gather system USB data from libusb: Error({})", e),
-        )
-    })?;
+    get_spusb().and_then(|mut spusb| {
+        crate::lsusb::profiler::fill_spusb(&mut spusb).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to gather system USB data from libusb: Error({})", e),
+            )
+        })?;
+        Ok(spusb)
+    })
 
-    Ok(spusb)
+    // allow fallback if non-zero return
+    // match spusb {
+    //     Ok(spusb) => Ok(spusb),
+    //     Err(e) => {
+    //         if e.kind() == std::io::ErrorKind::Other {
+    //             eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb: Error({})", e.to_string());
+    //             crate::lsusb::profiler::get_spusb_with_extra().map_err(|e| {
+    //                 io::Error::new(
+    //                     io::ErrorKind::Other,
+    //                     format!("Failed to gather system USB data from libusb: Error({})", e),
+    //                 )
+    //             })
+    //         // parsing error abort
+    //         } else {
+    //             Err(io::Error::new(
+    //                 io::ErrorKind::InvalidData,
+    //                 format!("Failed to parse 'system_profiler -json SPUSBDataType': Error({})", e)
+    //             ))
+    //         }
+    //     }
+    // }
 }
 
 /// Cannot run this function without libusb feature

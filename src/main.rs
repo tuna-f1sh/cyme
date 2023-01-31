@@ -444,17 +444,30 @@ fn main() {
         && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
     {
         system_profiler::get_spusb().unwrap_or_else(|e| {
-            eprintexit!(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to parse system_profiler output: Error({})", e)
-            ));
+            // Other is for non-zero return, report but continue in this case
+            if e.kind() == std::io::ErrorKind::Other {
+                eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb: Error({})", e.to_string());
+                get_libusb_spusb(&args)
+            // parsing error abort
+            } else {
+                eprintexit!(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Failed to parse 'system_profiler -json SPUSBDataType': Error({})", e)
+                ));
+            }
         })
     } else {
         // if not forcing libusb, get system_profiler and the merge with libusb
         if cfg!(target_os = "macos") && !args.force_libusb {
             log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
             system_profiler::get_spusb_with_extra().unwrap_or_else(|e| {
-                eprintexit!(e);
+                // Other is for non-zero return, report but continue in this case
+                if e.kind() == std::io::ErrorKind::Other {
+                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb: Error({})", e.to_string());
+                    get_libusb_spusb(&args)
+                } else {
+                    eprintexit!(e);
+                }
             })
         } else {
             get_libusb_spusb(&args)
