@@ -76,18 +76,22 @@ impl Config {
                     Ok(c)
                 }
                 Err(e) => {
+                    // only return error it's not found as use default in that case
                     if e.kind() != io::ErrorKind::NotFound {
                         log::warn!(
                             "Failed to read cyme system config {:?}: Error({})",
                             &path,
                             e
                         );
+                        Err(e)
+                    } else {
+                        Ok(Self::new())
                     }
-                    Err(e)
                 }
             };
+        } else {
+            Ok(Self::new())
         }
-        Ok(Self::new())
     }
 
     /// Use default if running in debug since the integration tests use this

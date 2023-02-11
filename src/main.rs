@@ -407,14 +407,14 @@ fn main() {
         let config = Config::from_file(&path).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Failed to parse user conifg at {}: Error({})", path, e)
+                format!("Failed to parse user config at {}: Error({})", path, e)
             ));
         });
         log::info!("Using user config {:?}", config);
         config
     } else {
         Config::sys().unwrap_or_else(|e| {
-            eprintln!("{}", format!("Failed to parse system conifg at {:?}, using default: Error({})", Config::config_file_path(), e).bold().red());
+            eprintln!("{}", format!("Failed to parse system config at {:?}, using default: Error({})", Config::config_file_path(), e).bold().red());
             Config::new()
         })
     };
