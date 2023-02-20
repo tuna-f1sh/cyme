@@ -5,9 +5,9 @@ use std::io;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
+use crate::colour;
 use crate::display;
 use crate::display::Block;
-use crate::colour;
 use crate::icon;
 
 const CONF_DIR: &'static str = "cyme";
@@ -15,13 +15,11 @@ const CONF_NAME: &'static str = "cyme.json";
 
 /// Allows user supplied icons to replace or add to `DEFAULT_ICONS` and `DEFAULT_TREE`
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields, default)]
 pub struct Config {
     /// User supplied [`crate::icon::IconTheme`] - will merge with default
-    #[serde(default)]
     pub icons: icon::IconTheme,
     /// User supplied [`crate::colour::ColourTheme`] - overrides default
-    #[serde(default)]
     pub colours: colour::ColourTheme,
     /// Default [`crate::display::DeviceBlocks`] to use for displaying devices
     pub blocks: Option<Vec<display::DeviceBlocks>>,
@@ -68,31 +66,39 @@ impl Config {
 
     /// From system config if exists else default
     #[cfg(not(debug_assertions))]
-    pub fn sys() -> Config {
+    pub fn sys() -> Result<Config, io::Error> {
         if let Some(p) = Self::config_file_path() {
             let path = p.join(CONF_NAME);
             log::info!("Looking for cyme system config {:?}", &path);
             return match Self::from_file(&path) {
-                Ok(c) => { 
+                Ok(c) => {
                     log::info!("Loaded cyme system config {:?}", c);
-                    c
-                },
-                Err(e) => {
-                    if e.kind() != io::ErrorKind::NotFound {
-                        log::warn!("Failed to read cyme system config {:?}: Error({})", &path, e);
-                    }
-                    Self::new()
+                    Ok(c)
                 }
-            }
+                Err(e) => {
+                    // only return error it's not found as use default in that case
+                    if e.kind() != io::ErrorKind::NotFound {
+                        log::warn!(
+                            "Failed to read cyme system config {:?}: Error({})",
+                            &path,
+                            e
+                        );
+                        Err(e)
+                    } else {
+                        Ok(Self::new())
+                    }
+                }
+            };
+        } else {
+            Ok(Self::new())
         }
-        Self::new()
     }
 
     /// Use default if running in debug since the integration tests use this
     #[cfg(debug_assertions)]
-    pub fn sys() -> Config {
+    pub fn sys() -> Result<Config, io::Error> {
         log::warn!("Running in debug, not checking for cyme system config");
-        Self::new()
+        Ok(Self::new())
     }
 
     /// Get example [`Config`]
@@ -122,5 +128,28 @@ impl Config {
     /// return None if error like PermissionDenied
     pub fn config_file_path() -> Option<PathBuf> {
         dirs::config_dir().map(|x| x.join(CONF_DIR))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_example_file() {
+        let path = PathBuf::from("./doc").join("cyme_example_config.json");
+        assert_eq!(Config::from_file(path).is_ok(), true);
+    }
+
+    #[test]
+    fn test_deserialize_config_no_theme() {
+        let path = PathBuf::from("./tests/data").join("config_no_theme.json");
+        assert_eq!(Config::from_file(path).is_ok(), true);
+    }
+
+    #[test]
+    fn test_deserialize_config_missing_args() {
+        let path = PathBuf::from("./tests/data").join("config_missing_args.json");
+        assert_eq!(Config::from_file(path).is_ok(), true);
     }
 }

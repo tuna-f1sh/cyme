@@ -14,7 +14,7 @@ use cyme::usb::ClassCode;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None, max_term_width=80)]
 struct Args {
     /// Attempt to maintain compatibility with lsusb output
     #[arg(short, long, default_value_t = false)]
@@ -284,15 +284,20 @@ fn get_libusb_spusb(_args: &Args) -> system_profiler::SPUSBDataType {
 #[cfg(feature = "libusb")]
 fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
     if args.verbose > 0
-            || args.tree
-            || args.device.is_some()
-            || args.lsusb
-            || args.json
-            || args.more {
+        || args.tree
+        || args.device.is_some()
+        || args.lsusb
+        || args.json
+        || args.more
+        || args.filter_class.is_none() // class filter requires extra
+    {
         lsusb::profiler::get_spusb_with_extra().unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Failed to gather system USB data with extra from libusb: Error({})", e)
+                format!(
+                    "Failed to gather system USB data with extra from libusb: Error({})",
+                    e
+                )
             ));
         })
     } else {
@@ -341,10 +346,10 @@ fn print_lsusb(
 #[cfg(feature = "cli_generate")]
 #[cold]
 fn print_man() -> Result<(), Error> {
-    use std::fs;
     use clap::CommandFactory;
     use clap_complete::generate_to;
     use clap_complete::shells::*;
+    use std::fs;
     use std::path::PathBuf;
 
     let outdir = std::env::var_os("BUILD_SCRIPT_DIR")
@@ -402,13 +407,16 @@ fn main() {
         let config = Config::from_file(&path).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Failed to parse user conifg at {}: Error({})", path, e)
+                format!("Failed to parse user config at {}: Error({})", path, e)
             ));
         });
         log::info!("Using user config {:?}", config);
         config
     } else {
-        Config::sys()
+        Config::sys().unwrap_or_else(|e| {
+            eprintln!("{}", format!("Failed to parse system config at {:?}, using default: Error({})", Config::config_file_path(), e).bold().red());
+            Config::new()
+        })
     };
 
     merge_config(&config, &mut args);
@@ -436,17 +444,30 @@ fn main() {
         && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
     {
         system_profiler::get_spusb().unwrap_or_else(|e| {
-            eprintexit!(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to parse system_profiler output: Error({})", e)
-            ));
+            // Other is for non-zero return, report but continue in this case
+            if e.kind() == std::io::ErrorKind::Other {
+                eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb: Error({})", e.to_string());
+                get_libusb_spusb(&args)
+            // parsing error abort
+            } else {
+                eprintexit!(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Failed to parse 'system_profiler -json SPUSBDataType': Error({})", e)
+                ));
+            }
         })
     } else {
         // if not forcing libusb, get system_profiler and the merge with libusb
         if cfg!(target_os = "macos") && !args.force_libusb {
             log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
             system_profiler::get_spusb_with_extra().unwrap_or_else(|e| {
-                eprintexit!(e);
+                // Other is for non-zero return, report but continue in this case
+                if e.kind() == std::io::ErrorKind::Other {
+                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb: Error({})", e.to_string());
+                    get_libusb_spusb(&args)
+                } else {
+                    eprintexit!(e);
+                }
             })
         } else {
             get_libusb_spusb(&args)

@@ -6,15 +6,26 @@ pub mod profiler {
     //! Uses rusb (upto date libusb fork) to get system USB information, most of which has parity with lsusb. Requires 'libusb' feature. Uses [`crate::system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
     //!
     //! lsusb uses udev for tree building, which libusb does not have access to and is Linux only. udev-rs is used on Linux to attempt to mirror the output of lsusb on Linux. On other platforms, certain information like driver used cannot be obtained.
-    use std::collections::HashMap;
-    use std::time::Duration;
+    //!
+    //! Get [`system_profiler::SPUSBDataType`] struct of system USB buses and devices with extra data like configs, interfaces and endpoints
+    //! ```no_run
+    //! use cyme::lsusb::profiler;
+    //!
+    //! let spusb = profiler::get_spusb_with_extra().unwrap();
+    //! // print with alternative styling (#) is using utf-8 icons
+    //! println!("{:#}", spusb);
+    //! ```
+    //!
+    //! See [`system_profiler`] docs for what can be done with returned data, such as [`system_profiler::USBFilter`]
     use itertools::Itertools;
     use rusb as libusb;
+    use std::collections::HashMap;
+    use std::time::Duration;
     use usb_ids::{self, FromId};
 
-    use crate::{system_profiler, types::NumericalUnit, usb};
     #[cfg(all(target_os = "linux", feature = "udev"))]
     use crate::udev;
+    use crate::{system_profiler, types::NumericalUnit, usb};
 
     struct UsbDevice<T: libusb::UsbContext> {
         handle: libusb::DeviceHandle<T>,
@@ -563,9 +574,7 @@ pub mod profiler {
     /// Fills a passed mutable `spusb` reference to fill using `get_spusb`. Will replace existing [`system_profiler::USBDevice`]s found in the libusb build but leave others and the buses.
     ///
     /// The main use case for this is to merge with macOS `system_profiler` data, so that [`usb::USBDeviceExtra`] can be obtained but internal buses kept. One could also use it to update a static .json dump.
-    pub fn fill_spusb(
-        spusb: &mut system_profiler::SPUSBDataType,
-    ) -> Result<(), libusb::Error> {
+    pub fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType) -> Result<(), libusb::Error> {
         let libusb_spusb = get_spusb_with_extra()?;
 
         // merge if passed has any buses
@@ -708,8 +717,12 @@ pub mod display {
             .expect("Cannot print verbose without extra data");
 
         println!("Device Descriptor:");
-        println!("  bcdUSB              {}",
-            device.bcd_usb.as_ref().map_or(String::new(), |v| v.to_string())
+        println!(
+            "  bcdUSB              {}",
+            device
+                .bcd_usb
+                .as_ref()
+                .map_or(String::new(), |v| v.to_string())
         );
         println!(
             "  bDeviceClass         {:3} {}",
@@ -734,7 +747,10 @@ pub mod display {
         );
         println!(
             "  bcdDevice           {}",
-            device.bcd_device.as_ref().map_or(String::new(), |v| v.to_string())
+            device
+                .bcd_device
+                .as_ref()
+                .map_or(String::new(), |v| v.to_string())
         );
         println!(
             "  iManufacturer        {:3} {}",

@@ -1,0 +1,51 @@
+{
+  "blocks": [
+    "bus-number",
+    "device-number",
+    "icon",
+    "vendor-id",
+    "product-id",
+    "name",
+    "serial",
+    "speed"
+  ],
+  "bus-blocks": [
+    "name",
+    "host-controller"
+  ],
+  "config-blocks": [
+    "number",
+    "name",
+    "icon-attributes",
+    "max-power"
+  ],
+  "interface-blocks": [
+    "port-path",
+    "icon",
+    "alt-setting",
+    "class-code",
+    "sub-class",
+    "protocol",
+    "name"
+  ],
+  "endpoint-blocks": [
+    "number",
+    "direction",
+    "transfer-type",
+    "sync-type",
+    "usage-type",
+    "max-packet-size"
+  ],
+  "mask-serials": null,
+  "lsusb": false,
+  "tree": false,
+  "verbose": 0,
+  "more": false,
+  "hide-buses": false,
+  "hide-hubs": false,
+  "decimal": false,
+  "no-padding": false,
+  "ascii": false,
+  "headings": false,
+  "force-libusb": false
+}

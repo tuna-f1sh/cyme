@@ -4,10 +4,10 @@
 use clap::ValueEnum;
 use colored::*;
 use itertools::Itertools;
+use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng};
 use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::HashMap;
-use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng};
 
 use crate::colour;
 use crate::icon;
@@ -216,7 +216,9 @@ impl DeviceBlocks {
     pub fn default_device_tree_blocks() -> Vec<DeviceBlocks> {
         vec![
             DeviceBlocks::Icon,
-            DeviceBlocks::PortPath,
+            DeviceBlocks::DeviceNumber,
+            DeviceBlocks::VendorId,
+            DeviceBlocks::ProductId,
             DeviceBlocks::Name,
             DeviceBlocks::Serial,
         ]
@@ -565,10 +567,10 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::DeviceNumber => " # ".into(),
             DeviceBlocks::BranchPosition => "Prt".into(),
             DeviceBlocks::PortPath => {
-                format!("{:^pad$}", "PortPath", pad = pad.get(self).unwrap_or(&0))
+                format!("{:^pad$}", "PPath", pad = pad.get(self).unwrap_or(&0))
             }
             DeviceBlocks::SysPath => {
-                format!("{:^pad$}", "SysPath", pad = pad.get(self).unwrap_or(&0))
+                format!("{:^pad$}", "SPath", pad = pad.get(self).unwrap_or(&0))
             }
             DeviceBlocks::Driver => {
                 format!("{:^pad$}", "Driver", pad = pad.get(self).unwrap_or(&0))
@@ -597,9 +599,9 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 format!("{:^pad$}", "TPos", pad = pad.get(self).unwrap_or(&0))
             }
             // will be 000 mA = 6
-            DeviceBlocks::BusPower => "BusPwr".into(),
-            DeviceBlocks::BusPowerUsed => "PwrUsd".into(),
-            DeviceBlocks::ExtraCurrentUsed => "PwrExr".into(),
+            DeviceBlocks::BusPower => "PBus".into(),
+            DeviceBlocks::BusPowerUsed => "PUsd".into(),
+            DeviceBlocks::ExtraCurrentUsed => "PExr".into(),
             // 00.00 = 5
             DeviceBlocks::BcdDevice => "Dev V".into(),
             DeviceBlocks::BcdUsb => "USB V".into(),
@@ -747,18 +749,18 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         if verbose {
             vec![
                 ConfigurationBlocks::Number,
-                ConfigurationBlocks::Name,
                 ConfigurationBlocks::IconAttributes,
                 ConfigurationBlocks::Attributes,
                 ConfigurationBlocks::NumInterfaces,
                 ConfigurationBlocks::MaxPower,
+                ConfigurationBlocks::Name,
             ]
         } else {
             vec![
                 ConfigurationBlocks::Number,
-                ConfigurationBlocks::Name,
                 ConfigurationBlocks::IconAttributes,
                 ConfigurationBlocks::MaxPower,
+                ConfigurationBlocks::Name,
             ]
         }
     }
@@ -839,7 +841,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         match self {
             ConfigurationBlocks::Number => " #".into(),
             ConfigurationBlocks::NumInterfaces => "I#".into(),
-            ConfigurationBlocks::MaxPower => "MaxPwr".into(),
+            ConfigurationBlocks::MaxPower => "PMax".into(),
             ConfigurationBlocks::Name => {
                 format!("{:^pad$}", "Name", pad = pad.get(self).unwrap_or(&0))
             }
@@ -957,8 +959,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::Driver => ct.driver.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::AltSetting | InterfaceBlocks::NumEndpoints => {
                 ct.number.map_or(s.normal(), |c| s.color(c))
-            }
-            // _ => s.normal(),
+            } // _ => s.normal(),
         }
     }
 
@@ -1197,8 +1198,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
             }
             EndpointBlocks::UsageType => {
                 format!("{:^pad$}", "UsageT", pad = pad.get(self).unwrap_or(&0))
-            }
-            // _ => "",
+            } // _ => "",
         }
     }
 }
@@ -2032,19 +2032,28 @@ pub fn mask_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial, r
     if let Some(serial) = device.serial_num.as_mut() {
         *serial = match hide {
             MaskSerial::Hide => serial.chars().map(|_| '*').collect::<String>(),
-            MaskSerial::Scramble =>
-                serial.chars().map(|_| serial.chars().choose(&mut rand::thread_rng()).unwrap_or('*')).collect::<String>(),
-            MaskSerial::Replace =>
-                rand::thread_rng()
-                    .sample_iter(Alphanumeric)
-                    .take(serial.chars().count())
-                    .map(char::from)
-                    .collect::<String>().to_uppercase(),
+            MaskSerial::Scramble => serial
+                .chars()
+                .map(|_| {
+                    serial
+                        .chars()
+                        .choose(&mut rand::thread_rng())
+                        .unwrap_or('*')
+                })
+                .collect::<String>(),
+            MaskSerial::Replace => rand::thread_rng()
+                .sample_iter(Alphanumeric)
+                .take(serial.chars().count())
+                .map(char::from)
+                .collect::<String>()
+                .to_uppercase(),
         };
     }
 
     if recursive {
-        device.devices.as_mut().map_or((), |dd| dd.iter_mut().for_each(|d| mask_serial(d, hide, recursive)));
+        device.devices.as_mut().map_or((), |dd| {
+            dd.iter_mut().for_each(|d| mask_serial(d, hide, recursive))
+        });
     }
 }
 

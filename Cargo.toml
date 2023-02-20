@@ -5,14 +5,14 @@ description = "List system USB buses and devices; a modern and compatible `lsusb
 repository = "https://github.com/tuna-f1sh/cyme"
 readme = "README.md"
 license = "GPL-3.0-or-later"
-version = "1.2.0"
+version = "1.2.8"
 edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
 categories = ["command-line-utilities"]
 exclude = [".github"]
 
 [dependencies]
-clap = { version = "4.0.22", features = ["derive"] }
+clap = { version = "4.0.22", features = ["derive", "wrap_help"] }
 colored = "2.0.0"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
