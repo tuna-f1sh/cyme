@@ -19,7 +19,7 @@ jobs:
           formula-path: Formula/cyme.rb
           homebrew-tap: tuna-f1sh/homebrew-taps
           tag-name: ${{ github.event.inputs.tag-name }}
-          download-url: https://github.com/tuna-f1sh/cyme/releases/download/${{ github.event.inputs.tag-name }}/cyme-${{ github.event.inputs.tag-name }}-x86_64-apple-darwin.tar.gz
+          download-url: https://github.com/tuna-f1sh/cyme/releases/download/${{ github.event.inputs.tag-name }}/cyme-${{ github.event.inputs.tag-name }}-universal-apple-darwin.tar.gz
           commit-message: |
             {{formulaName}} {{version}}
 
