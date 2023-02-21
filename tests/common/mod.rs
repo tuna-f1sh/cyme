@@ -186,7 +186,7 @@ impl TestEnv {
         if let Some(dump) = dump_file {
             cmd.arg("--from-json").arg(dump).args(args);
         } else {
-            cmd.arg("--json ").args(args);
+            cmd.arg("--json").args(args);
         }
 
         // Run *cyme*.

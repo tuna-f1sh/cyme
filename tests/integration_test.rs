@@ -4,6 +4,17 @@
 mod common;
 
 #[test]
+fn test_run() {
+    let te = common::TestEnv::new();
+
+    // just run and check it doesn't exit with error without --from-json arg
+    te.assert_success_and_get_output(
+        None,
+        &["--tree"],
+    );
+}
+
+#[test]
 fn test_list() {
     let te = common::TestEnv::new();
 
