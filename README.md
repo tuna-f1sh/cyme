@@ -50,18 +50,25 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Install
 
-For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases). The pre-compiled binaries and default features require [libusb](https://libusb.info) to be installed; `brew install libusb`, `sudo apt install libusb-1.0-0-dev`.
+## Requirements
+
+* Linux and pre-compiled targets require [libusb 1.0.0](https://libusb.info): `brew install libusb`, `sudo apt install libusb-1.0-0-dev` or one's package manager of choice.
+* Linux pre-compiled and `--features udev` requires 'libudev-dev': `sudo apt install libudev-dev` or one's package manager of choice.
+
+For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases).
 
 From crates.io with a Rust tool-chain installed: `cargo install cyme`. To do it from within a local clone: `cargo install --path .`.
 
 If wishing to use only macOS `system_profiler` and not obtain more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
 
-I also have a Homebrew tap, which will also install a man page and completions: 
+I also have a Homebrew tap, which will also install a man page, completions and the 'libusb' dependency: 
 
 ```bash
 brew tap tuna-f1sh/taps
 brew install cyme
 ```
+
+More package managers to come, please feel free to create a PR if you want to help out here.
 
 ## Linux udev
 
