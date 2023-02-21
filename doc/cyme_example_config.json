@@ -1,26 +1,26 @@
 {
   "icons": {
     "user": {
-      "vid#05ac": "",
-      "classifier-sub-protocol#15:01:01": "",
+      "vid-pid#1d50:6018": "",
       "unknown-vendor": "",
-      "vid#2e8a": "",
-      "classifier#02": "",
-      "vid-pid-msb#0483:37": "",
       "undefined-classifier": "☶",
-      "vid-pid#1d50:6018": ""
+      "classifier#02": "",
+      "classifier-sub-protocol#15:01:01": "",
+      "vid-pid-msb#0483:37": "",
+      "vid#05ac": "",
+      "vid#2e8a": ""
     },
     "tree": {
-      "tree-bus-start": "●",
-      "endpoint_out": "←",
-      "tree-configuration-terminator": "•",
-      "tree-edge": "├──",
-      "tree-blank": "   ",
-      "tree-device-terminator": "○",
-      "tree-corner": "└──",
       "tree-interface-terminator": "◦",
+      "tree-configuration-terminator": "•",
+      "endpoint_out": "←",
+      "tree-bus-start": "●",
+      "endpoint_in": "→",
+      "tree-corner": "└──",
+      "tree-edge": "├──",
       "tree-line": "│  ",
-      "endpoint_in": "→"
+      "tree-blank": "   ",
+      "tree-device-terminator": "○"
     }
   },
   "colours": {
@@ -65,9 +65,9 @@
   ],
   "config-blocks": [
     "number",
-    "name",
     "icon-attributes",
-    "max-power"
+    "max-power",
+    "name"
   ],
   "interface-blocks": [
     "port-path",

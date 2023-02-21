@@ -39,17 +39,18 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 [![asciicast](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM.svg)](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM)
 
-## Feature Ideas/TODO
+## Future Development/Enhancements
 
+* Detect terminal width and adjust output accordingly? Truncate long strings. Can remove blocks with args but maybe there is a different format to consider.
+* Packages for Linux distros.
 * lib Error type rather than std::io::Error.
 * Fully decode device class based base class on tables at [USB-IF](https://www.usb.org/defined-class-codes).
 * Support 'auto', 'always', 'never' or icon, colours, utf-8 etc.
-* Print format for width constrained devices? Can remove blocks with args but maybe there is a different format to consider.
 * More examples for lib usage.
 
 # Install
 
-For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases). The pre-compiled binaries and default features require 'libusb' to be installed; `brew install libusb`, `sudo apt install libusb-1.0-0-dev`.
+For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases). The pre-compiled binaries and default features require [libusb](https://libusb.info) to be installed; `brew install libusb`, `sudo apt install libusb-1.0-0-dev`.
 
 From crates.io with a Rust tool-chain installed: `cargo install cyme`. To do it from within a local clone: `cargo install --path .`.
 

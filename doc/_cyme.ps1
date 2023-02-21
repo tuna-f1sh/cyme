@@ -64,10 +64,10 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('-z', 'z', [CompletionResultType]::ParameterName, 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE')
             [CompletionResult]::new('--debug', 'debug', [CompletionResultType]::ParameterName, 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE')
             [CompletionResult]::new('--gen', 'gen', [CompletionResultType]::ParameterName, 'Generate cli completions and man page')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information (use `--help` for more detail)')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information (use `--help` for more detail)')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Print version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Print version information')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
     })

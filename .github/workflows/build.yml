@@ -14,19 +14,19 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          # - { os: ubuntu-latest, target: arm-unknown-linux-gnueabihf , use-cross: true }
-          # - { os: ubuntu-latest, target: arm-unknown-linux-musleabihf, use-cross: true }
-          # - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu   , use-cross: true }
-          # - { os: ubuntu-latest, target: i686-unknown-linux-gnu      , use-cross: true }
-          # - { os: ubuntu-latest, target: i686-unknown-linux-musl     , use-cross: true }
+          # - { os: ubuntu-latest, target: arm-unknown-linux-gnueabihf, use-cross: true }
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, use-cross: true }
+          # - { os: ubuntu-latest, target: i686-unknown-linux-gnu, use-cross: true }
+          # - { os: ubuntu-latest, target: i686-pc-windows-gnu, use-cross: true }
+          - { os: ubuntu-latest, target: x86_64-pc-windows-gnu, use-cross: true }
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: false }
-          # - { os: ubuntu-20.04, target: x86_64-unknown-linux-musl   , use-cross: true }
           - { os: macos-latest, target: universal-apple-darwin, use-cross: false }
-          # - { os: macos-latest, target: x86_64-apple-darwin }
-          # - { os: macos-latest, target: aarch64-apple-darwin }
-          # - { os: windows-2019, target: i686-pc-windows-msvc        }
-          # - { os: windows-2019, target: x86_64-pc-windows-gnu       }
-          # - { os: windows-2019, target: x86_64-pc-windows-msvc      }
+          # Targets are built as part of universal
+          # - { os: macos-latest, target: x86_64-apple-darwin, use-cross: false }
+          # - { os: macos-latest, target: aarch64-apple-darwin, use-cross: false }
+          # Windows host targets don't build
+          # - { os: windows-latest, target: i686-pc-windows-gnu, use-cross: false }
+          # - { os: windows-latest, target: x86_64-pc-windows-gnu, use-cross: false }
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -39,9 +39,8 @@ jobs:
           case ${{ matrix.job.target }} in
             *-linux-*) 
               sudo apt-get -y update;
-              sudo apt-get -y install libudev-dev 
-              sudo apt-get -y install libusb-1.0-0-dev
-              rustup target add ${{ matrix.job.target }}
+              sudo apt-get -y install libudev-dev;
+              sudo apt-get -y install libusb-1.0-0-dev;
               ;;
             universal-apple-*)
               brew install libusb
@@ -49,28 +48,49 @@ jobs:
               rustup target add aarch64-apple-darwin
               ;;
             *)
-              rustup target add ${{ matrix.job.target }}
+              ;;
           esac
-
-      - name: Test
-        id: test
-        run: cargo test --locked
 
       - name: Set cargo cmd
         shell: bash
         run: echo "CARGO_CMD=cargo" >> "$GITHUB_ENV"
 
+      - name: Rustup add target
+        if: matrix.job.use-cross == false && !startsWith(matrix.job.target, 'universal-apple')
+        shell: bash
+        run: rustup target add ${{ matrix.job.target }}
+
       - name: Set cargo cmd to cross
         shell: bash
-        if: ${{ matrix.job.use-cross == true }}
+        if: matrix.job.use-cross == true
         run: echo "CARGO_CMD=cross" >> "$GITHUB_ENV"
 
       - name: Install cross
-        if: ${{ matrix.job.use-cross == true }}
+        shell: bash
+        if: matrix.job.use-cross == true
         run: cargo install cross
+
+      - name: Test
+        id: test
+        shell: bash
+        # don't run tests on Windows because libusb needs install TODO
+        if: matrix.job.use-cross == false && !startsWith(matrix.job.os, 'windows')
+        run: cargo test
+        # run: |
+        #   case ${{ matrix.job.target }} in
+        #     # apple only test on platform arch
+        #     *-apple-*) 
+        #       cargo test
+        #       ;;
+        #     # else test on target arch
+        #     *) 
+        #       ${{ env.CARGO_CMD }} test --target=${{ matrix.job.target }}
+        #       ;;
+        #   esac
 
       - name: Build release
         id: build
+        shell: bash
         run: |
           case ${{ matrix.job.target }} in
             universal-apple-*) 
@@ -110,6 +130,13 @@ jobs:
           echo "BIN_PATH=${BIN_PATH}" >> "$GITHUB_OUTPUT"
           echo "BIN_NAME=${BIN_NAME}" >> "$GITHUB_OUTPUT"
 
+      - name: Generate bin outputs
+        id: generate
+        shell: bash
+        if: matrix.job.use-cross == false
+        run: |
+          "${{ steps.prepare.outputs.BIN_PATH }}" --gen
+
       - name: Create tarball
         id: package
         shell: bash
@@ -125,9 +152,6 @@ jobs:
           ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
           mkdir -p "${ARCHIVE_DIR}"
 
-          # generate cli data
-          "${{ steps.prepare.outputs.BIN_PATH }}" --gen
-
           # Binary
           cp "${{ steps.prepare.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
           # README and LICENSE
@@ -141,8 +165,8 @@ jobs:
           # base compressed package
           pushd "${PKG_STAGING}/" >/dev/null
           case ${{ matrix.job.target }} in
-          *-pc-windows-*) 7z -y a "${PKG_NAME}" "${PKG_BASENAME}"/* | tail -2 ;;
-          *) tar czf "${PKG_NAME}" "${PKG_BASENAME}"/* ;;
+            *-pc-windows-*) 7z -y a "${PKG_NAME}" "${PKG_BASENAME}"/* | tail -2 ;;
+            *) tar czf "${PKG_NAME}" "${PKG_BASENAME}"/* ;;
           esac;
           popd >/dev/null
           # Let subsequent steps know where to find the compressed package

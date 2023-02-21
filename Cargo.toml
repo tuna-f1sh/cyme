@@ -38,6 +38,16 @@ udev = { version = "^0.7.0", optional = true }
 rusb = { version = "0.9.1" }
 usb-ids = "0.2"
 
+[target.arm-unknown-linux-gnueabihf.dependencies]
+udev = { version = "^0.7.0", optional = true }
+rusb = { version = "0.9.1" }
+usb-ids = "0.2"
+
+[target.aarch64-unknown-linux-gnu.dependencies]
+udev = { version = "^0.7.0", optional = true }
+rusb = { version = "0.9.1" }
+usb-ids = "0.2"
+
 [features]
 libusb = ["dep:rusb", "dep:usb-ids"]
 udev = ["dep:udev"]
@@ -54,3 +64,15 @@ lto = true
 strip = true
 panic = "abort"
 codegen-units = 1 # quicker binary, slower build
+
+[package.metadata.cross.target.arm-unknown-linux-gnueabihf]
+pre-build = ["dpkg --add-architecture armhf && apt-get update && apt-get install --assume-yes libusb-1.0-0-dev:armhf libudev-dev:armhf"]
+
+[package.metadata.cross.target.aarch64-unknown-linux-gnu]
+pre-build = ["dpkg --add-architecture arm64 && apt-get update && apt-get install --assume-yes libusb-1.0-0-dev:arm64 libudev-dev:arm64"]
+
+[package.metadata.cross.target.i686-unknown-linux-gnu]
+pre-build = ["dpkg --add-architecture i386 && apt-get update && apt-get install --assume-yes libusb-1.0-0-dev:i386 libudev-dev:i386"]
+
+[package.metadata.cross.target.x86_64-unknown-linux-gnu]
+pre-build = ["apt-get update && apt-get install --assume-yes libusb-1.0-0-dev libudev-dev"]
