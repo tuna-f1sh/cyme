@@ -15,6 +15,18 @@ fn test_run() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
+fn test_run_force_libusb() {
+    let te = common::TestEnv::new();
+
+    // just run and check it doesn't exit with error without --from-json arg
+    te.assert_success_and_get_output(
+        None,
+        &["--force-libusb"],
+    );
+}
+
+#[test]
 fn test_list() {
     let te = common::TestEnv::new();
 
