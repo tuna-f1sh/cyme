@@ -22,6 +22,7 @@ jobs:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: false }
           # - { os: ubuntu-20.04, target: x86_64-unknown-linux-musl   , use-cross: true }
           - { os: macos-latest, target: universal-apple-darwin, use-cross: false }
+          # - { os: macos-latest, target: x86_64-apple-darwin }
           # - { os: macos-latest, target: aarch64-apple-darwin }
           # - { os: windows-2019, target: i686-pc-windows-msvc        }
           # - { os: windows-2019, target: x86_64-pc-windows-gnu       }
@@ -39,9 +40,11 @@ jobs:
             *-linux-*) 
               sudo apt-get -y update;
               sudo apt-get -y install libudev-dev 
+              sudo apt-get -y install libusb-1.0-0-dev
               rustup target add ${{ matrix.job.target }}
               ;;
-            *-apple-*)
+            universal-apple-*)
+              brew install libusb
               rustup target add x86_64-apple-darwin
               rustup target add aarch64-apple-darwin
               ;;
@@ -71,7 +74,11 @@ jobs:
         run: |
           case ${{ matrix.job.target }} in
             universal-apple-*) 
-              ./universal-apple-build.sh
+              cargo build --locked --release --all-features --target=aarch64-apple-darwin
+              cargo build --locked --release --all-features --target=x86_64-apple-darwin
+              mkdir -p target/universal-apple-darwin/release
+              # merge into universal
+              lipo -create -output target/universal-apple-darwin/release/cyme target/aarch64-apple-darwin/release/cyme target/x86_64-apple-darwin/release/cyme
               ;;
             *) 
               ${{ env.CARGO_CMD }} build --locked --release --all-features --target=${{ matrix.job.target }}
@@ -164,7 +171,7 @@ jobs:
 
       - name: Bump Homebrew formula
         uses: mislav/bump-homebrew-formula-action@v2
-        if: steps.is-release.outputs.IS_RELEASE && startsWith(matrix.job.os, 'macos')
+        if: steps.is-release.outputs.IS_RELEASE && startsWith(matrix.job.target, 'universal-apple')
         with:
           formula-name: cyme
           formula-path: Formula/cyme.rb

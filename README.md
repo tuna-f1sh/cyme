@@ -49,7 +49,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Install
 
-For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases).
+For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases). The pre-compiled binaries and default features require 'libusb' to be installed; `brew install libusb`, `sudo apt install libusb-1.0-0-dev`.
 
 From crates.io with a Rust tool-chain installed: `cargo install cyme`. To do it from within a local clone: `cargo install --path .`.
 
