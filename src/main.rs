@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::env;
 use std::io::{Error, ErrorKind};
+use terminal_size::terminal_size;
 
 use cyme::config::Config;
 use cyme::display;
@@ -101,7 +102,7 @@ struct Args {
     #[arg(long, default_value_t = false)]
     decimal: bool,
 
-    /// Disable padding to align blocks
+    /// Disable padding to align blocks - will cause --headings to become maligned
     #[arg(long, default_value_t = false)]
     no_padding: bool,
 
@@ -587,6 +588,9 @@ fn main() {
         endpoint_blocks: args.endpoint_blocks.map_or(config.endpoint_blocks, Some),
         icons,
         colours,
+        max_variable_string_len: config.max_variable_string_len,
+        auto_width: !config.no_auto_width,
+        terminal_size: terminal_size(),
         ..Default::default()
     };
 

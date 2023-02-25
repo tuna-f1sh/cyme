@@ -1,26 +1,26 @@
 {
   "icons": {
     "user": {
-      "vid-pid#1d50:6018": "",
-      "unknown-vendor": "",
-      "undefined-classifier": "☶",
       "classifier#02": "",
-      "classifier-sub-protocol#15:01:01": "",
-      "vid-pid-msb#0483:37": "",
       "vid#05ac": "",
+      "vid-pid#1d50:6018": "",
+      "undefined-classifier": "☶",
+      "classifier-sub-protocol#15:01:01": "",
+      "unknown-vendor": "",
+      "vid-pid-msb#0483:37": "",
       "vid#2e8a": ""
     },
     "tree": {
-      "tree-interface-terminator": "◦",
-      "tree-configuration-terminator": "•",
-      "endpoint_out": "←",
-      "tree-bus-start": "●",
-      "endpoint_in": "→",
-      "tree-corner": "└──",
-      "tree-edge": "├──",
       "tree-line": "│  ",
+      "endpoint_out": "←",
       "tree-blank": "   ",
-      "tree-device-terminator": "○"
+      "tree-configuration-terminator": "•",
+      "endpoint_in": "→",
+      "tree-device-terminator": "○",
+      "tree-edge": "├──",
+      "tree-bus-start": "●",
+      "tree-interface-terminator": "◦",
+      "tree-corner": "└──"
     }
   },
   "colours": {
@@ -87,6 +87,8 @@
     "max-packet-size"
   ],
   "mask-serials": null,
+  "max-variable-string-len": null,
+  "no-auto-width": false,
   "lsusb": false,
   "tree": false,
   "verbose": 0,

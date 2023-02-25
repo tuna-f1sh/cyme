@@ -36,6 +36,8 @@
     "usage-type",
     "max-packet-size"
   ],
+  "max-variable-string-len": null,
+  "no-auto-width": false,
   "mask-serials": null,
   "lsusb": false,
   "tree": false,

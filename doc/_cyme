@@ -149,7 +149,7 @@ replace\:"Mask by replacing length with random chars"))' \
 '--hide-buses[Hide empty buses when printing tree; those with no devices. When listing will hide Linux root_hubs]' \
 '--hide-hubs[Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not]' \
 '--decimal[Show base16 values as base10 decimal instead]' \
-'--no-padding[Disable padding to align blocks]' \
+'--no-padding[Disable padding to align blocks - will cause --headings to become maligned]' \
 '--no-colour[Disable coloured output, can also use NO_COLOR environment variable]' \
 '--ascii[Disables icons and utf-8 charactors]' \
 '--headings[Show block headings]' \

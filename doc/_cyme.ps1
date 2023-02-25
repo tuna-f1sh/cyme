@@ -54,7 +54,7 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--hide-buses', 'hide-buses', [CompletionResultType]::ParameterName, 'Hide empty buses when printing tree; those with no devices. When listing will hide Linux root_hubs')
             [CompletionResult]::new('--hide-hubs', 'hide-hubs', [CompletionResultType]::ParameterName, 'Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not')
             [CompletionResult]::new('--decimal', 'decimal', [CompletionResultType]::ParameterName, 'Show base16 values as base10 decimal instead')
-            [CompletionResult]::new('--no-padding', 'no-padding', [CompletionResultType]::ParameterName, 'Disable padding to align blocks')
+            [CompletionResult]::new('--no-padding', 'no-padding', [CompletionResultType]::ParameterName, 'Disable padding to align blocks - will cause --headings to become maligned')
             [CompletionResult]::new('--no-colour', 'no-colour', [CompletionResultType]::ParameterName, 'Disable coloured output, can also use NO_COLOR environment variable')
             [CompletionResult]::new('--ascii', 'ascii', [CompletionResultType]::ParameterName, 'Disables icons and utf-8 charactors')
             [CompletionResult]::new('--headings', 'headings', [CompletionResultType]::ParameterName, 'Show block headings')

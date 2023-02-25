@@ -33,6 +33,10 @@ pub struct Config {
     pub endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
     /// Wether to hide device serial numbers by default
     pub mask_serials: Option<display::MaskSerial>,
+    /// Max variable string length to display before truncating - descriptors and classes for example
+    pub max_variable_string_len: Option<usize>,
+    /// Disable auto generation of max_variable_string_len based on terminal width
+    pub no_auto_width: bool,
     // non-Options copied from Args
     /// Attempt to maintain compatibility with lsusb output
     pub lsusb: bool,

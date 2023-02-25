@@ -33,6 +33,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 * `--json` output that honours filters and `--tree`.
 * `--headers` to show meta data only when asked and not take space otherwise.
 * `--mask_serials` to either '\*' or randomise serial string for sharing dumps with sensitive serial numbers.
+* Auto-scaling to terminal width. Variable length strings such as descriptors will be truncated with a '...' to indicate this. Can be disabled with config option 'no-auto-width' and a fixed max defined with 'max-variable-string-len'.
 * Targets for Linux, macOS, perhaps Windows...
 
 ## Demo
@@ -41,10 +42,9 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 ## Future Development/Enhancements
 
-* Detect terminal width and adjust output accordingly? Truncate long strings. Can remove blocks with args but maybe there is a different format to consider.
 * Packages for Linux distros.
 * lib Error type rather than std::io::Error.
-* Fully decode device class based base class on tables at [USB-IF](https://www.usb.org/defined-class-codes).
+* Fully decode device class based base class and tables at [USB-IF](https://www.usb.org/defined-class-codes).
 * Support 'auto', 'always', 'never' or icon, colours, utf-8 etc.
 * More examples for lib usage.
 
@@ -106,7 +106,7 @@ Icons are looked up in an order of User -> Default. For devices: `VidPid` -> `Vi
 
 # Known Issues
 
+* `sudo` is required to read Linux root\_hub string descriptors - a stderr will be printed regarding this. The program works fine without these however.
 * Version major BCD Device difference between libusb and macOS `system_profiler`: If the major version is large, libusb seems to read a different value to macOS. I don't think it's a parsing error but open to ideas.
 * libusb cannot read special non-user Apple buses; T2 chip for example. These will still be listed by `system_profiler`. The result is that when merging for verbose data, these will not print verbose information. Use `--force-libusb` to ignore them.
-* `sudo` is required to read Linux root\_hub string descriptors - a stderr will be printed regarding this. The program works fine without these however.
 * Tested with macOS 13 ->. I'm not sure when the `-json` flag was added to `system_profiler`; whether it exists on all macOS versions.
