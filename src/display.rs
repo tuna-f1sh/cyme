@@ -734,8 +734,6 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
                 .map(|d| d.attributes_string().len())
                 .max()
                 .unwrap_or(0),
-            // two possible icons
-            ConfigurationBlocks::IconAttributes => 2,
             _ => self.block_length().len()
         }
     }
@@ -781,7 +779,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             ConfigurationBlocks::IconAttributes => Some(format!(
                 "{:pad$}",
                 attributes_to_icons(&config.attributes, settings),
-                pad = pad.get(self).unwrap_or(&3)
+                pad = pad.get(self).unwrap_or(&0)
             )),
             // _ => None,
         }
@@ -807,6 +805,8 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             ConfigurationBlocks::Number => BlockLength::Fixed(2),
             ConfigurationBlocks::NumInterfaces => BlockLength::Fixed(2),
             ConfigurationBlocks::MaxPower => BlockLength::Fixed(6),
+            // two possible icons and a space between
+            ConfigurationBlocks::IconAttributes => BlockLength::Fixed(3),
             _ => BlockLength::Variable(self.heading().len()),
         }
     }

@@ -626,7 +626,7 @@ impl fmt::Display for DeviceSpeed {
                 if f.alternate() {
                     write!(f, "{}", v)
                 } else {
-                    write!(f, "{:3} {:3}", "-", "-")
+                    write!(f, "{:5} {:4}", "-", "-")
                 }
             }
         }

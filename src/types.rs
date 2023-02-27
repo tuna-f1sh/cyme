@@ -34,20 +34,36 @@ pub struct NumericalUnit<T> {
 
 impl fmt::Display for NumericalUnit<u32> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:} {:}", self.value, self.unit)
+        if let Some(width) = f.width() {
+            let actual_width = width - self.unit.len() - 1;
+            write!(f, "{:actual_width$} {:}", self.value, self.unit)
+        } else {
+            write!(f, "{:} {:}", self.value, self.unit)
+        }
     }
 }
 
 impl fmt::Display for NumericalUnit<f32> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // If we received a precision, we use it.
-        write!(
-            f,
-            "{1:.*} {2}",
-            f.precision().unwrap_or(2),
-            self.value,
-            self.unit
-        )
+        if let Some(width) = f.width() {
+            let actual_width = width - self.unit.len() - 1;
+            write!(
+                f,
+                "{1:actual_width$.*} {2}",
+                f.precision().unwrap_or(2),
+                self.value,
+                self.unit
+            )
+        } else {
+            write!(
+                f,
+                "{1:.*} {2}",
+                f.precision().unwrap_or(2),
+                self.value,
+                self.unit
+            )
+        }
     }
 }
 
