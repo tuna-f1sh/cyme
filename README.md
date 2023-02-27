@@ -106,7 +106,7 @@ Icons are looked up in an order of User -> Default. For devices: `VidPid` -> `Vi
 
 # Known Issues
 
-* `sudo` is required to read Linux root\_hub string descriptors - a stderr will be printed regarding this. The program works fine without these however.
+* `sudo` is required to open and read Linux root\_hub string descriptors. The program works fine without these however, as will use 'usb-ids' like lsusb. What will be missing are 'name', 'manufacturer' and 'serial' descriptors for example. Use debugging `-z` to see what devices are missing this data. The env CYME_PRINT_NON_CRITICAL_PROFILER_STDERR can be used or 'print-non-critical-profiler-stderr' config key to print these to stderr. `--lsusb --verbose` will print a message to stderr always to match the 'lsusb' behaviour.
 * Version major BCD Device difference between libusb and macOS `system_profiler`: If the major version is large, libusb seems to read a different value to macOS. I don't think it's a parsing error but open to ideas.
 * libusb cannot read special non-user Apple buses; T2 chip for example. These will still be listed by `system_profiler`. The result is that when merging for verbose data, these will not print verbose information. Use `--force-libusb` to ignore them.
 * Tested with macOS 13 ->. I'm not sure when the `-json` flag was added to `system_profiler`; whether it exists on all macOS versions.

@@ -283,7 +283,7 @@ fn get_libusb_spusb(_args: &Args) -> system_profiler::SPUSBDataType {
 }
 
 #[cfg(feature = "libusb")]
-fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
+fn get_libusb_spusb(args: &Args, print_stderr: bool) -> system_profiler::SPUSBDataType {
     if args.verbose > 0
         || args.tree
         || args.device.is_some()
@@ -292,7 +292,7 @@ fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
         || args.more
         || args.filter_class.is_none() // class filter requires extra
     {
-        lsusb::profiler::get_spusb_with_extra().unwrap_or_else(|e| {
+        lsusb::profiler::get_spusb_with_extra(print_stderr).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!(
@@ -302,7 +302,7 @@ fn get_libusb_spusb(args: &Args) -> system_profiler::SPUSBDataType {
             ));
         })
     } else {
-        lsusb::profiler::get_spusb().unwrap_or_else(|e| {
+        lsusb::profiler::get_spusb(print_stderr).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to gather system USB data from libusb: Error({})", e)
@@ -420,6 +420,9 @@ fn main() {
         })
     };
 
+    // add any config ENV override
+    std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR").map_or(config.print_non_critical_profiler_stderr, |_| true);
+
     merge_config(&config, &mut args);
     let colours = if args.no_colour {
         // set env to be sure too
@@ -448,7 +451,7 @@ fn main() {
             // Other is for non-zero return, report but continue in this case
             if e.kind() == std::io::ErrorKind::Other {
                 eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb: Error({})", e.to_string());
-                get_libusb_spusb(&args)
+                get_libusb_spusb(&args, config.print_non_critical_profiler_stderr)
             // parsing error abort
             } else {
                 eprintexit!(std::io::Error::new(
@@ -465,13 +468,13 @@ fn main() {
                 // Other is for non-zero return, report but continue in this case
                 if e.kind() == std::io::ErrorKind::Other {
                     eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb: Error({})", e.to_string());
-                    get_libusb_spusb(&args)
+                    get_libusb_spusb(&args, config.print_non_critical_profiler_stderr)
                 } else {
                     eprintexit!(e);
                 }
             })
         } else {
-            get_libusb_spusb(&args)
+            get_libusb_spusb(&args, config.print_non_critical_profiler_stderr)
         }
     };
 

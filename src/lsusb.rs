@@ -11,7 +11,7 @@ pub mod profiler {
     //! ```no_run
     //! use cyme::lsusb::profiler;
     //!
-    //! let spusb = profiler::get_spusb_with_extra().unwrap();
+    //! let spusb = profiler::get_spusb_with_extra(true).unwrap();
     //! // print with alternative styling (#) is using utf-8 icons
     //! println!("{:#}", spusb);
     //! ```
@@ -326,11 +326,11 @@ pub mod profiler {
 
     /// Builds a [`system_profiler::USBDevice`] from a [`libusb::Device`] by using `device_descriptor()` and intrograting for configuration strings. Optionally with `with_extra` will gather full device information, including from udev if feature is present.
     ///
-    /// Result is a tuple of the [`system_profiler::USBDevice`] and a `Option<String>` of a non-critical error during gather of `with_extra` data. Not very `Result` like but prevents separating the getting of extra data into another function, which would have to re-open the device
+    /// [`system_profiler::USBDevice.profiler_error`] `Option<String>` will contain any non-critical error during gather of `with_extra` data - normally due to permissions preventing open of device descriptors.
     pub fn build_spdevice<T: libusb::UsbContext>(
         device: &libusb::Device<T>,
         with_extra: bool,
-    ) -> libusb::Result<(system_profiler::USBDevice, Option<String>)> {
+    ) -> libusb::Result<system_profiler::USBDevice> {
         let timeout = Duration::from_secs(1);
         let speed = match usb::Speed::from(device.speed()) {
             usb::Speed::Unknown => None,
@@ -441,10 +441,11 @@ pub mod profiler {
             error_str = extra_error_str;
         }
 
-        Ok((sp_device, error_str))
+        sp_device.profiler_error = error_str;
+        Ok(sp_device)
     }
 
-    fn _get_spusb(with_extra: bool) -> libusb::Result<system_profiler::SPUSBDataType> {
+    fn _get_spusb(with_extra: bool, print_stderr: bool) -> libusb::Result<system_profiler::SPUSBDataType> {
         let mut spusb = system_profiler::SPUSBDataType { buses: Vec::new() };
         // temporary store of devices created when iterating through DeviceList
         let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
@@ -456,11 +457,17 @@ pub mod profiler {
         // run through devices building USBDevice types
         for device in libusb::DeviceList::new()?.iter() {
             match build_spdevice(&device, with_extra) {
-                Ok((sp_device, error_str)) => {
+                Ok(sp_device) => {
                     cache.push(sp_device.to_owned());
 
                     // print any non-critical error during extra capture
-                    error_str.map_or((), |e| eprintln!("{}", e));
+                    sp_device.profiler_error.as_ref().map_or((), |e| {
+                        if print_stderr {
+                            eprintln!("{}", e);
+                        } else {
+                            log::warn!("Non-critical error during profile: {}", e);
+                        }
+                    });
 
                     // save it if it's a root_hub for assigning to bus data
                     if !cfg!(target_os = "macos") {
@@ -560,22 +567,22 @@ pub mod profiler {
     /// Runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. Then sorts into parent groups, accending in depth to build the [`system_profiler::USBBus`] tree.
     ///
     /// Building the [`system_profiler::SPUSBDataType`] depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
-    pub fn get_spusb() -> Result<system_profiler::SPUSBDataType, libusb::Error> {
-        _get_spusb(false)
+    pub fn get_spusb(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, libusb::Error> {
+        _get_spusb(false, print_stderr)
     }
 
     /// Get [`system_profiler::SPUSBDataType`] using `libusb` including [`usb::USBDeviceExtra`] - the main function to use for most use cases unless one does not want verbose data.
     ///
     /// Like `get_spusb`, runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. On Linux and with the 'udev' feature enabled, the syspath and driver will attempt to be obtained.
-    pub fn get_spusb_with_extra() -> Result<system_profiler::SPUSBDataType, libusb::Error> {
-        _get_spusb(true)
+    pub fn get_spusb_with_extra(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, libusb::Error> {
+        _get_spusb(true, print_stderr)
     }
 
     /// Fills a passed mutable `spusb` reference to fill using `get_spusb`. Will replace existing [`system_profiler::USBDevice`]s found in the libusb build but leave others and the buses.
     ///
     /// The main use case for this is to merge with macOS `system_profiler` data, so that [`usb::USBDeviceExtra`] can be obtained but internal buses kept. One could also use it to update a static .json dump.
     pub fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType) -> Result<(), libusb::Error> {
-        let libusb_spusb = get_spusb_with_extra()?;
+        let libusb_spusb = get_spusb_with_extra(false)?;
 
         // merge if passed has any buses
         if !spusb.buses.is_empty() {
@@ -691,6 +698,10 @@ pub mod display {
                     Some(device_extra) => {
                         println!(""); // new lines separate in verbose lsusb
                         println!("{}", device.to_lsusb_string());
+                        // print error regarding open if non-critcal during probe like lsusb --verbose
+                        if device.profiler_error.is_some() {
+                            eprintln!("Couldn't open device, some information will be missing");
+                        }
                         print_device(&device);
 
                         for config in &device_extra.configurations {

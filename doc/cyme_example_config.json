@@ -1,26 +1,26 @@
 {
   "icons": {
     "user": {
-      "classifier#02": "",
-      "vid#05ac": "",
-      "vid-pid#1d50:6018": "",
-      "undefined-classifier": "☶",
-      "classifier-sub-protocol#15:01:01": "",
       "unknown-vendor": "",
+      "vid#05ac": "",
+      "undefined-classifier": "☶",
+      "vid#2e8a": "",
+      "classifier-sub-protocol#15:01:01": "",
       "vid-pid-msb#0483:37": "",
-      "vid#2e8a": ""
+      "vid-pid#1d50:6018": "",
+      "classifier#02": ""
     },
     "tree": {
-      "tree-line": "│  ",
       "endpoint_out": "←",
+      "endpoint_in": "→",
+      "tree-line": "│  ",
       "tree-blank": "   ",
       "tree-configuration-terminator": "•",
-      "endpoint_in": "→",
+      "tree-bus-start": "●",
       "tree-device-terminator": "○",
       "tree-edge": "├──",
-      "tree-bus-start": "●",
-      "tree-interface-terminator": "◦",
-      "tree-corner": "└──"
+      "tree-corner": "└──",
+      "tree-interface-terminator": "◦"
     }
   },
   "colours": {
@@ -99,5 +99,6 @@
   "no-padding": false,
   "ascii": false,
   "headings": false,
-  "force-libusb": false
+  "force-libusb": false,
+  "print-non-critical-profiler-stderr": false
 }

@@ -704,6 +704,9 @@ pub struct USBDevice {
     /// Extra data obtained by libusb/udev exploration
     #[serde(default)]
     pub extra: Option<USBDeviceExtra>,
+    /// Internal to store any non-critical errors captured whilst profiling, unable to open for example
+    #[serde(skip)]
+    pub profiler_error: Option<String>
 }
 
 impl USBDevice {
@@ -1405,28 +1408,6 @@ pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
         })?;
         Ok(spusb)
     })
-
-    // allow fallback if non-zero return
-    // match spusb {
-    //     Ok(spusb) => Ok(spusb),
-    //     Err(e) => {
-    //         if e.kind() == std::io::ErrorKind::Other {
-    //             eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb: Error({})", e.to_string());
-    //             crate::lsusb::profiler::get_spusb_with_extra().map_err(|e| {
-    //                 io::Error::new(
-    //                     io::ErrorKind::Other,
-    //                     format!("Failed to gather system USB data from libusb: Error({})", e),
-    //                 )
-    //             })
-    //         // parsing error abort
-    //         } else {
-    //             Err(io::Error::new(
-    //                 io::ErrorKind::InvalidData,
-    //                 format!("Failed to parse 'system_profiler -json SPUSBDataType': Error({})", e)
-    //             ))
-    //         }
-    //     }
-    // }
 }
 
 /// Cannot run this function without libusb feature

@@ -60,6 +60,8 @@ pub struct Config {
     pub headings: bool,
     /// Force libusb profiler on macOS rather than using/combining system_profiler output
     pub force_libusb: bool,
+    /// Print non-critical errors (normally due to permissions) during USB profiler to stderr
+    pub print_non_critical_profiler_stderr: bool,
 }
 
 impl Config {
