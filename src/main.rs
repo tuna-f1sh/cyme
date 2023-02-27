@@ -290,7 +290,8 @@ fn get_libusb_spusb(args: &Args, print_stderr: bool) -> system_profiler::SPUSBDa
         || args.lsusb
         || args.json
         || args.more
-        || args.filter_class.is_none() // class filter requires extra
+        || args.filter_class.is_none()
+    // class filter requires extra
     {
         lsusb::profiler::get_spusb_with_extra(print_stderr).unwrap_or_else(|e| {
             eprintexit!(std::io::Error::new(
@@ -415,13 +416,23 @@ fn main() {
         config
     } else {
         Config::sys().unwrap_or_else(|e| {
-            eprintln!("{}", format!("Failed to parse system config at {:?}, using default: Error({})", Config::config_file_path(), e).bold().red());
+            eprintln!(
+                "{}",
+                format!(
+                    "Failed to parse system config at {:?}, using default: Error({})",
+                    Config::config_file_path(),
+                    e
+                )
+                .bold()
+                .red()
+            );
             Config::new()
         })
     };
 
     // add any config ENV override
-    std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR").map_or(config.print_non_critical_profiler_stderr, |_| true);
+    std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR")
+        .map_or(config.print_non_critical_profiler_stderr, |_| true);
 
     merge_config(&config, &mut args);
     let colours = if args.no_colour {

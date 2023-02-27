@@ -706,7 +706,7 @@ pub struct USBDevice {
     pub extra: Option<USBDeviceExtra>,
     /// Internal to store any non-critical errors captured whilst profiling, unable to open for example
     #[serde(skip)]
-    pub profiler_error: Option<String>
+    pub profiler_error: Option<String>,
 }
 
 impl USBDevice {
@@ -1383,10 +1383,14 @@ pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
         serde_json::from_str(String::from_utf8(output.stdout).unwrap().as_str())
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
     } else {
-        log::error!("system_profiler returned non-zero stderr: {:?}, stdout: {:?}", String::from_utf8(output.stderr).unwrap_or(String::from("Failed to parse stderr")), String::from_utf8(output.stdout).unwrap_or(String::from("Failed to parse stdout")));
+        log::error!(
+            "system_profiler returned non-zero stderr: {:?}, stdout: {:?}",
+            String::from_utf8(output.stderr).unwrap_or(String::from("Failed to parse stderr")),
+            String::from_utf8(output.stdout).unwrap_or(String::from("Failed to parse stdout"))
+        );
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            "system_profiler returned non-zero, use '--force-libusb' to bypass"
+            "system_profiler returned non-zero, use '--force-libusb' to bypass",
         ));
     }
 }

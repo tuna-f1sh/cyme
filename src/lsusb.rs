@@ -445,7 +445,10 @@ pub mod profiler {
         Ok(sp_device)
     }
 
-    fn _get_spusb(with_extra: bool, print_stderr: bool) -> libusb::Result<system_profiler::SPUSBDataType> {
+    fn _get_spusb(
+        with_extra: bool,
+        print_stderr: bool,
+    ) -> libusb::Result<system_profiler::SPUSBDataType> {
         let mut spusb = system_profiler::SPUSBDataType { buses: Vec::new() };
         // temporary store of devices created when iterating through DeviceList
         let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
@@ -574,7 +577,9 @@ pub mod profiler {
     /// Get [`system_profiler::SPUSBDataType`] using `libusb` including [`usb::USBDeviceExtra`] - the main function to use for most use cases unless one does not want verbose data.
     ///
     /// Like `get_spusb`, runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. On Linux and with the 'udev' feature enabled, the syspath and driver will attempt to be obtained.
-    pub fn get_spusb_with_extra(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, libusb::Error> {
+    pub fn get_spusb_with_extra(
+        print_stderr: bool,
+    ) -> Result<system_profiler::SPUSBDataType, libusb::Error> {
         _get_spusb(true, print_stderr)
     }
 

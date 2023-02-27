@@ -8,10 +8,7 @@ fn test_run() {
     let te = common::TestEnv::new();
 
     // just run and check it doesn't exit with error without --from-json arg
-    te.assert_success_and_get_output(
-        None,
-        &[],
-    );
+    te.assert_success_and_get_output(None, &[]);
 }
 
 #[test]
@@ -20,10 +17,7 @@ fn test_run_force_libusb() {
     let te = common::TestEnv::new();
 
     // just run and check it doesn't exit with error without --from-json arg
-    te.assert_success_and_get_output(
-        None,
-        &["--force-libusb"],
-    );
+    te.assert_success_and_get_output(None, &["--force-libusb"]);
 }
 
 #[test]
