@@ -23,6 +23,7 @@ const MAX_VERBOSITY: u8 = 4;
 const ICON_HEADING: &'static str = "I";
 const DEFAULT_AUTO_WIDTH: u16 = 80; // default terminal width to scale if None returned for size
 const MIN_VARIABLE_STRING_LEN: usize = 5; // minimum variable string length to scale to
+const LIST_INSET_SPACES: u8 = 2; // number of spaces for non-tree inset
 
 /// Info that can be printed about a [`USBDevice`]
 #[non_exhaustive]
@@ -208,6 +209,9 @@ impl BlockLength {
 
 /// Intended to be `impl` by a xxxBlocks `enum`
 pub trait Block<B: Eq + Hash, T> {
+    /// The inset when printing non-tree as a list
+    const INSET: u8 = 0;
+
     /// List of default blocks to use for printing T with optional `verbose` for maximum verbosity
     fn default_blocks(verbose: bool) -> Vec<Self>
     where
@@ -707,6 +711,8 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
 }
 
 impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
+    const INSET: u8 = 1;
+
     fn default_blocks(verbose: bool) -> Vec<ConfigurationBlocks> {
         if verbose {
             vec![
@@ -813,6 +819,8 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
 }
 
 impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
+    const INSET: u8 = 2;
+
     fn default_blocks(verbose: bool) -> Vec<InterfaceBlocks> {
         if verbose {
             vec![
@@ -964,6 +972,8 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
 }
 
 impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
+    const INSET: u8 = 3;
+
     fn default_blocks(verbose: bool) -> Vec<EndpointBlocks> {
         if verbose {
             vec![
@@ -1571,11 +1581,7 @@ pub fn print_endpoints(
 
     let max_variable_string_len: Option<usize> = if settings.auto_width {
         let mut variable_lens = pad.clone();
-        let offset = if settings.tree {
-            tree.depth * 3 + 1
-        } else {
-            6
-        };
+        let offset = if settings.tree { tree.depth * 3 + 1 } else { (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize };
         variable_lens.retain(|k, _| k.value_is_variable_length());
         auto_max_string_len(&blocks, offset, &variable_lens.into_values().collect(), &settings).or(settings.max_variable_string_len)
     } else {
@@ -1658,7 +1664,7 @@ pub fn print_endpoints(
                 "{:spaces$}{}",
                 "",
                 render_value(endpoint, &blocks, &pad, settings, max_variable_string_len).join(" "),
-                spaces = 6
+                spaces = (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
             );
         }
     }
@@ -1680,11 +1686,7 @@ pub fn print_interfaces(
 
     let max_variable_string_len: Option<usize> = if settings.auto_width {
         let mut variable_lens = pad.clone();
-        let offset = if settings.tree {
-            tree.depth * 3 + 1
-        } else {
-            4
-        };
+        let offset = if settings.tree { tree.depth * 3 + 1 } else { (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize };
         variable_lens.retain(|k, _| k.value_is_variable_length());
         auto_max_string_len(&blocks.0, offset, &variable_lens.into_values().collect(), &settings).or(settings.max_variable_string_len)
     } else {
@@ -1762,8 +1764,15 @@ pub fn print_interfaces(
             println!(
                 "{:spaces$}{}",
                 "",
-                render_value(interface, &blocks.0, &pad, settings, max_variable_string_len).join(" "),
-                spaces = 4
+                render_value(
+                    interface,
+                    &blocks.0,
+                    &pad,
+                    settings,
+                    max_variable_string_len
+                )
+                .join(" "),
+                spaces = (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
             );
         }
 
@@ -1799,11 +1808,7 @@ pub fn print_configurations(
 
     let max_variable_string_len: Option<usize> = if settings.auto_width {
         let mut variable_lens = pad.clone();
-        let offset = if settings.tree {
-            tree.depth * 3 + 1
-        } else {
-            2
-        };
+        let offset = if settings.tree { tree.depth * 3 + 1 } else { (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize };
         variable_lens.retain(|k, _| k.value_is_variable_length());
         auto_max_string_len(&blocks.0, offset, &variable_lens.into_values().collect(), &settings).or(settings.max_variable_string_len)
     } else {
@@ -1882,7 +1887,7 @@ pub fn print_configurations(
                 "{:spaces$}{}",
                 "",
                 render_value(config, blocks.0, &pad, settings, max_variable_string_len).join(" "),
-                spaces = 2
+                spaces = (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
             );
         }
 

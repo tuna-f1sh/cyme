@@ -47,70 +47,60 @@ pub mod profiler {
     fn get_product_string<T: libusb::UsbContext>(
         device_desc: &libusb::DeviceDescriptor,
         handle: &mut Option<UsbDevice<T>>,
-    ) -> String {
-        handle.as_mut().map_or(String::new(), |h| {
-            h.handle
-                .read_product_string(h.language, device_desc, h.timeout)
-                .unwrap_or(String::new())
-                .trim()
-                .trim_end_matches('\0')
-                .to_string()
+    ) -> Option<String> {
+        handle.as_mut().map_or(None, |h| {
+            match h.handle.read_product_string(h.language, device_desc, h.timeout) {
+                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
+                Err(_) => None
+            }
         })
     }
 
     fn get_manufacturer_string<T: libusb::UsbContext>(
         device_desc: &libusb::DeviceDescriptor,
         handle: &mut Option<UsbDevice<T>>,
-    ) -> String {
-        handle.as_mut().map_or(String::new(), |h| {
-            h.handle
-                .read_manufacturer_string(h.language, device_desc, h.timeout)
-                .unwrap_or(String::new())
-                .trim()
-                .trim_end_matches('\0')
-                .to_string()
+    ) -> Option<String> {
+        handle.as_mut().map_or(None, |h| {
+            match h.handle.read_manufacturer_string(h.language, device_desc, h.timeout) {
+                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
+                Err(_) => None
+            }
         })
     }
 
     fn get_serial_string<T: libusb::UsbContext>(
         device_desc: &libusb::DeviceDescriptor,
         handle: &mut Option<UsbDevice<T>>,
-    ) -> String {
-        handle.as_mut().map_or(String::new(), |h| {
-            h.handle
-                .read_serial_number_string(h.language, device_desc, h.timeout)
-                .unwrap_or(String::new())
-                .trim()
-                .trim_end_matches('\0')
-                .to_string()
+    ) -> Option<String> {
+        handle.as_mut().map_or(None, |h| {
+            match h.handle.read_serial_number_string(h.language, device_desc, h.timeout) {
+                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
+                Err(_) => None
+            }
         })
     }
 
     fn get_configuration_string<T: libusb::UsbContext>(
         config_desc: &libusb::ConfigDescriptor,
         handle: &mut Option<UsbDevice<T>>,
-    ) -> String {
-        handle.as_mut().map_or(String::new(), |h| {
-            h.handle
-                .read_configuration_string(h.language, config_desc, h.timeout)
-                .unwrap_or(String::new())
-                .trim()
-                .trim_end_matches('\0')
-                .to_string()
+    ) -> Option<String> {
+        handle.as_mut().map_or(None, |h| {
+            match h.handle.read_configuration_string(h.language, config_desc, h.timeout) {
+                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
+                Err(_) => None
+            }
         })
     }
 
     fn get_interface_string<T: libusb::UsbContext>(
         interface_desc: &libusb::InterfaceDescriptor,
         handle: &mut Option<UsbDevice<T>>,
-    ) -> String {
-        handle.as_mut().map_or(String::new(), |h| {
-            h.handle
-                .read_interface_string(h.language, interface_desc, h.timeout)
-                .unwrap_or(String::new())
-                .trim()
-                .trim_end_matches('\0')
-                .to_string()
+    ) -> Option<String> {
+        handle.as_mut().map_or(None, |h| {
+            match h.handle.read_interface_string(h.language, interface_desc, h.timeout) {
+                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
+                Err(_) => None
+            }
         })
     }
 
@@ -210,7 +200,7 @@ pub mod profiler {
         for interface in config_desc.interfaces() {
             for interface_desc in interface.descriptors() {
                 let mut _interface = usb::USBInterface {
-                    name: get_interface_string(&interface_desc, handle),
+                    name: get_interface_string(&interface_desc, handle).unwrap_or(String::new()),
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
                     path: usb::get_interface_path(
@@ -269,7 +259,7 @@ pub mod profiler {
             }
 
             ret.push(usb::USBConfiguration {
-                name: get_configuration_string(&config_desc, handle),
+                name: get_configuration_string(&config_desc, handle).unwrap_or(String::new()),
                 string_index: config_desc.description_string_index().unwrap_or(0),
                 number: config_desc.number(),
                 attributes,
@@ -374,26 +364,27 @@ pub mod profiler {
         };
 
         // lookup manufacturer and device name from Linux list if empty
-        let mut manufacturer = get_manufacturer_string(&device_desc, &mut usb_device);
-        let mut name = get_product_string(&device_desc, &mut usb_device);
-        if manufacturer.is_empty() {
+        let manufacturer = get_manufacturer_string(&device_desc, &mut usb_device).or(
             match usb_ids::Vendor::from_id(device_desc.vendor_id()) {
-                Some(vendor) => manufacturer = vendor.name().to_owned(),
-                None => (),
-            };
-        }
+                Some(vendor) => Some(vendor.name().to_owned()),
+                None => None,
+            }
+        );
 
-        if name.is_empty() {
-            match usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()) {
-                Some(product) => name = product.name().to_owned(),
-                None => (),
-            };
-        }
+        let name = match get_product_string(&device_desc, &mut usb_device) {
+            Some(n) => n,
+            None => {
+                match usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()) {
+                    Some(product) => product.name().to_owned(),
+                    None => String::new(),
+                }
+            }
+        };
 
         let mut sp_device = system_profiler::USBDevice {
             name,
-            manufacturer: Some(manufacturer),
-            serial_num: Some(get_serial_string(&device_desc, &mut usb_device)),
+            manufacturer,
+            serial_num: get_serial_string(&device_desc, &mut usb_device),
             vendor_id: Some(device_desc.vendor_id()),
             product_id: Some(device_desc.product_id()),
             device_speed: speed,
