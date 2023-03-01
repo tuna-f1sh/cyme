@@ -61,12 +61,16 @@ From crates.io with a Rust tool-chain installed: `cargo install cyme`. To do it 
 
 If wishing to use only macOS `system_profiler` and not obtain more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
 
-I also have a Homebrew tap, which will also install a man page, completions and the 'libusb' dependency: 
+### Package Managers
+
+* Homebrew tap, which will also install a man page, completions and the 'libusb' dependency: 
 
 ```bash
 brew tap tuna-f1sh/taps
 brew install cyme
 ```
+
+* [Arch AUR 'cyme-bin'](https://aur.archlinux.org/packages/cyme-bin)
 
 More package managers to come, please feel free to create a PR if you want to help out here.
 
