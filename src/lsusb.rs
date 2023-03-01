@@ -49,9 +49,12 @@ pub mod profiler {
         handle: &mut Option<UsbDevice<T>>,
     ) -> Option<String> {
         handle.as_mut().map_or(None, |h| {
-            match h.handle.read_product_string(h.language, device_desc, h.timeout) {
+            match h
+                .handle
+                .read_product_string(h.language, device_desc, h.timeout)
+            {
                 Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None
+                Err(_) => None,
             }
         })
     }
@@ -61,9 +64,12 @@ pub mod profiler {
         handle: &mut Option<UsbDevice<T>>,
     ) -> Option<String> {
         handle.as_mut().map_or(None, |h| {
-            match h.handle.read_manufacturer_string(h.language, device_desc, h.timeout) {
+            match h
+                .handle
+                .read_manufacturer_string(h.language, device_desc, h.timeout)
+            {
                 Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None
+                Err(_) => None,
             }
         })
     }
@@ -73,9 +79,12 @@ pub mod profiler {
         handle: &mut Option<UsbDevice<T>>,
     ) -> Option<String> {
         handle.as_mut().map_or(None, |h| {
-            match h.handle.read_serial_number_string(h.language, device_desc, h.timeout) {
+            match h
+                .handle
+                .read_serial_number_string(h.language, device_desc, h.timeout)
+            {
                 Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None
+                Err(_) => None,
             }
         })
     }
@@ -85,9 +94,12 @@ pub mod profiler {
         handle: &mut Option<UsbDevice<T>>,
     ) -> Option<String> {
         handle.as_mut().map_or(None, |h| {
-            match h.handle.read_configuration_string(h.language, config_desc, h.timeout) {
+            match h
+                .handle
+                .read_configuration_string(h.language, config_desc, h.timeout)
+            {
                 Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None
+                Err(_) => None,
             }
         })
     }
@@ -97,9 +109,12 @@ pub mod profiler {
         handle: &mut Option<UsbDevice<T>>,
     ) -> Option<String> {
         handle.as_mut().map_or(None, |h| {
-            match h.handle.read_interface_string(h.language, interface_desc, h.timeout) {
+            match h
+                .handle
+                .read_interface_string(h.language, interface_desc, h.timeout)
+            {
                 Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None
+                Err(_) => None,
             }
         })
     }
@@ -368,13 +383,16 @@ pub mod profiler {
             match usb_ids::Vendor::from_id(device_desc.vendor_id()) {
                 Some(vendor) => Some(vendor.name().to_owned()),
                 None => None,
-            }
+            },
         );
 
         let name = match get_product_string(&device_desc, &mut usb_device) {
             Some(n) => n,
             None => {
-                match usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id()) {
+                match usb_ids::Device::from_vid_pid(
+                    device_desc.vendor_id(),
+                    device_desc.product_id(),
+                ) {
                     Some(product) => product.name().to_owned(),
                     None => String::new(),
                 }
@@ -436,7 +454,10 @@ pub mod profiler {
         Ok(sp_device)
     }
 
-    fn _get_spusb(with_extra: bool, print_stderr: bool) -> libusb::Result<system_profiler::SPUSBDataType> {
+    fn _get_spusb(
+        with_extra: bool,
+        print_stderr: bool,
+    ) -> libusb::Result<system_profiler::SPUSBDataType> {
         let mut spusb = system_profiler::SPUSBDataType { buses: Vec::new() };
         // temporary store of devices created when iterating through DeviceList
         let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
@@ -565,7 +586,9 @@ pub mod profiler {
     /// Get [`system_profiler::SPUSBDataType`] using `libusb` including [`usb::USBDeviceExtra`] - the main function to use for most use cases unless one does not want verbose data.
     ///
     /// Like `get_spusb`, runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. On Linux and with the 'udev' feature enabled, the syspath and driver will attempt to be obtained.
-    pub fn get_spusb_with_extra(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, libusb::Error> {
+    pub fn get_spusb_with_extra(
+        print_stderr: bool,
+    ) -> Result<system_profiler::SPUSBDataType, libusb::Error> {
         _get_spusb(true, print_stderr)
     }
 
