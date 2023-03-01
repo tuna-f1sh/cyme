@@ -28,7 +28,7 @@ clap_complete = { version = "4.0.6", optional = true }
 clap_mangen = { version = "0.2.5", optional = true }
 dirs = "4.0.0"
 rand = "0.8.5"
-terminal_size = "*"
+terminal_size = "0.2.5"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 
