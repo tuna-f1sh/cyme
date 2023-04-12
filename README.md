@@ -96,9 +96,9 @@ For usage as a library for profiling system USB devices, the crate is 100% docum
 
 `cyme` will check for a 'cyme.json' config file in:
 
-* Linux: "$XDG\_CONFIG\_HOME or $HOME/.config"
-* macOS: "$HOME/Library/Application Support"
-* Windows: "{FOLDERID\_RoamingAppData}"
+* Linux: "$XDG\_CONFIG\_HOME/cyme or $HOME/.config/cyme"
+* macOS: "$HOME/Library/Application Support/cyme"
+* Windows: "{FOLDERID\_RoamingAppData}/cyme"
 
 One can also be supplied with `--config`. Copy or refer to './doc/cyme\_example\_config.json' for configurables. Tthe file is essentially the default args; supplied args will override these. Use `--debug` to see where it is looking or if it's not loading.
 
