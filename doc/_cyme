@@ -172,4 +172,8 @@ _cyme_commands() {
     _describe -t commands 'cyme commands' commands "$@"
 }
 
-_cyme "$@"
+if [ "$funcstack[1]" = "_cyme" ]; then
+    _cyme "$@"
+else
+    compdef _cyme cyme
+fi

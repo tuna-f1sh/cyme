@@ -9,10 +9,10 @@ cyme \- List system USB buses and devices; a modern cross\-platform `lsusb`
 List system USB buses and devices; a modern cross\-platform `lsusb`
 .SH OPTIONS
 .TP
-\fB\-l\fR, \fB\-\-lsusb\fR=\fILSUSB\fR
+\fB\-l\fR, \fB\-\-lsusb\fR
 Attempt to maintain compatibility with lsusb output
 .TP
-\fB\-t\fR, \fB\-\-tree\fR=\fITREE\fR
+\fB\-t\fR, \fB\-\-tree\fR
 Dump USB device hierarchy as a tree
 .TP
 \fB\-d\fR, \fB\-\-vidpid\fR=\fIVIDPID\fR
@@ -85,7 +85,7 @@ application\-specific\-interface: This base class is defined for devices that co
 vendor\-specific\-class: This base class is defined for vendors to use as they please
 .RE
 .TP
-\fB\-v\fR, \fB\-\-verbose\fR=\fIVERBOSE\fR
+\fB\-v\fR, \fB\-\-verbose\fR
 Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
 .TP
 \fB\-b\fR, \fB\-\-blocks\fR=\fIBLOCKS\fR
@@ -245,7 +245,7 @@ max\-packet\-size: Maximum packet size in bytes endpoint can send/recieve
 interval: Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints
 .RE
 .TP
-\fB\-m\fR, \fB\-\-more\fR=\fIMORE\fR
+\fB\-m\fR, \fB\-\-more\fR
 Print more blocks by default at each verbosity
 .TP
 \fB\-\-sort\-devices\fR=\fISORT_DEVICES\fR
@@ -263,7 +263,7 @@ device\-number: Sort by bus device number
 no\-sort: No sorting; whatever order it was parsed
 .RE
 .TP
-\fB\-\-sort\-buses\fR=\fISORT_BUSES\fR
+\fB\-\-sort\-buses\fR
 Sort devices by bus number
 .TP
 \fB\-\-group\-devices\fR=\fIGROUP_DEVICES\fR [default: no\-group]
@@ -279,40 +279,40 @@ no\-group: No grouping
 bus: Group into buses with bus info as heading \- like a flat tree
 .RE
 .TP
-\fB\-\-hide\-buses\fR=\fIHIDE_BUSES\fR
+\fB\-\-hide\-buses\fR
 Hide empty buses when printing tree; those with no devices. When listing will hide Linux root_hubs
 .TP
-\fB\-\-hide\-hubs\fR=\fIHIDE_HUBS\fR
+\fB\-\-hide\-hubs\fR
 Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not
 .TP
-\fB\-\-decimal\fR=\fIDECIMAL\fR
+\fB\-\-decimal\fR
 Show base16 values as base10 decimal instead
 .TP
-\fB\-\-no\-padding\fR=\fINO_PADDING\fR
+\fB\-\-no\-padding\fR
 Disable padding to align blocks \- will cause \-\-headings to become maligned
 .TP
-\fB\-\-no\-colour\fR=\fINO_COLOUR\fR
+\fB\-\-no\-colour\fR
 Disable coloured output, can also use NO_COLOR environment variable
 .TP
-\fB\-\-ascii\fR=\fIASCII\fR
+\fB\-\-ascii\fR
 Disables icons and utf\-8 charactors
 .TP
-\fB\-\-headings\fR=\fIHEADINGS\fR
+\fB\-\-headings\fR
 Show block headings
 .TP
-\fB\-\-json\fR=\fIJSON\fR
+\fB\-\-json\fR
 Output as json format after sorting, filters and tree settings are applied; without \-tree will be flattened dump of devices
 .TP
 \fB\-\-from\-json\fR=\fIFROM_JSON\fR
 Read from json output rather than profiling system \- must use \-\-tree json dump
 .TP
-\fB\-F\fR, \fB\-\-force\-libusb\fR=\fIFORCE_LIBUSB\fR
+\fB\-F\fR, \fB\-\-force\-libusb\fR
 Force libusb profiler on macOS rather than using/combining system_profiler output
 .TP
 \fB\-c\fR, \fB\-\-config\fR=\fICONFIG\fR
 Path to user config file to use for custom icons, colours and default settings
 .TP
-\fB\-z\fR, \fB\-\-debug\fR=\fIDEBUG\fR
+\fB\-z\fR, \fB\-\-debug\fR
 Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
 .TP
 \fB\-\-mask\-serials\fR=\fIMASK_SERIALS\fR

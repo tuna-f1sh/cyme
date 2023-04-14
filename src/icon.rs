@@ -9,6 +9,12 @@ use std::str::FromStr;
 use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{ClassCode, Direction};
 
+/// Serialize alphabetically for HashMaps so they don't change each generation
+fn sort_alphabetically<T: Serialize, S: serde::Serializer>(value: &T, serializer: S) -> Result<S::Ok, S::Error> {
+    let value = serde_json::to_value(value).map_err(serde::ser::Error::custom)?;
+    value.serialize(serializer)
+}
+
 /// Icon type enum is used as key in `HashMaps`
 #[derive(Debug, Clone, Hash, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
 pub enum Icon {
@@ -180,8 +186,10 @@ impl fmt::Display for Icon {
 #[serde(default)]
 pub struct IconTheme {
     /// Will merge with `DEFAULT_ICONS` for user supplied
+    #[serde(serialize_with = "sort_alphabetically")]
     pub user: Option<HashMap<Icon, String>>,
     /// Will merge with `DEFAULT_TREE` for user supplied tree drawing
+    #[serde(serialize_with = "sort_alphabetically")]
     pub tree: Option<HashMap<Icon, String>>,
 }
 
