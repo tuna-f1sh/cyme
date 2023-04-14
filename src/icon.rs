@@ -250,8 +250,9 @@ lazy_static! {
             (Icon::Vid(0x18d1), "\u{f1a0}".into()), // google 
             (Icon::Vid(0x1D6B), "\u{f17c}".into()), // linux foundation 
             (Icon::Vid(0x1d50), "\u{e771}".into()), // open source VID 
-            (Icon::Vid(0x1915), "\u{f5a2}".into()), // specialized 
-            (Icon::Vid(0x0483), "\u{f5a2}".into()), // specialized 
+            (Icon::VidPid((0x1915, 0x520c)), "\u{f5a2}".into()), // specialized 
+            (Icon::VidPid((0x1915, 0x520d)), "\u{f5a2}".into()), // specialized 
+            (Icon::VidPid((0x0483, 0x572B)), "\u{f5a2}".into()), // specialized 
             (Icon::Vid(0x046d), "\u{f87c}".into()), // logitech 
             (Icon::Vid(0x091e), "\u{e2a6}".into()), // garmin 
             (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}".into()), // black magic probe 
