@@ -1,10 +1,10 @@
 //! Config for cyme binary
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
+use crate::error::{Result, Error, ErrorKind};
 use crate::colour;
 use crate::display;
 use crate::display::Block;
@@ -72,23 +72,20 @@ impl Config {
 
     /// From system config if exists else default
     #[cfg(not(debug_assertions))]
-    pub fn sys() -> Result<Config, io::Error> {
+    pub fn sys() -> Result<Config> {
         if let Some(p) = Self::config_file_path() {
             let path = p.join(CONF_NAME);
-            log::info!("Looking for cyme system config {:?}", &path);
+            log::info!("Looking for system config {:?}", &path);
             return match Self::from_file(&path) {
                 Ok(c) => {
-                    log::info!("Loaded cyme system config {:?}", c);
+                    log::info!("Loaded system config {:?}", c);
                     Ok(c)
                 }
                 Err(e) => {
-                    // only return error it's not found as use default in that case
-                    if e.kind() != io::ErrorKind::NotFound {
-                        log::warn!(
-                            "Failed to read cyme system config {:?}: Error({})",
-                            &path,
-                            e
-                        );
+                    // if parsing error, print issue but use default
+                    // IO error (unable to read) will raise as error
+                    if e.kind() == ErrorKind::Parsing {
+                        log::warn!("{}", e);
                         Err(e)
                     } else {
                         Ok(Self::new())
@@ -102,8 +99,8 @@ impl Config {
 
     /// Use default if running in debug since the integration tests use this
     #[cfg(debug_assertions)]
-    pub fn sys() -> Result<Config, io::Error> {
-        log::warn!("Running in debug, not checking for cyme system config");
+    pub fn sys() -> Result<Config> {
+        log::warn!("Running in debug, not checking for system config");
         Ok(Self::new())
     }
 
@@ -121,13 +118,13 @@ impl Config {
     }
 
     /// Attempt to read from .json format confg at `file_path`
-    pub fn from_file<P: AsRef<Path>>(file_path: P) -> Result<Config, io::Error> {
-        let f = File::open(file_path)?;
+    pub fn from_file<P: AsRef<Path>>(file_path: P) -> Result<Config> {
+        let f = File::open(&file_path)?;
         let mut br = BufReader::new(f);
         let mut data = String::new();
 
         br.read_to_string(&mut data)?;
-        serde_json::from_str::<Config>(&data).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+        serde_json::from_str::<Config>(&data).map_err(|e| Error::new(ErrorKind::Parsing, &format!("Failed to parse config at {:?}; Error({})", file_path.as_ref(), e.to_string())))
     }
 
     /// This provides the path for a configuration file, specific to OS

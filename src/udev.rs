@@ -1,7 +1,8 @@
 //! Utilities to get device information using udev - only supported on Linux. Requires 'udev' feature.
-use std::error::Error;
 use std::path::Path;
 use udev as udevlib;
+
+use crate::error::{Error, ErrorKind};
 
 /// Get and assign `driver_ref` the driver and `syspath_ref` the syspath for device at the `port_path`
 ///
@@ -22,9 +23,10 @@ pub fn get_udev_info(
     driver_ref: &mut Option<String>,
     syspath_ref: &mut Option<String>,
     port_path: &String,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(&Path::new(&path))?;
+    let device = udevlib::Device::from_syspath(&Path::new(&path))
+        .map_err(|e| Error::new(ErrorKind::Udev, &format!("Failed to get udev info for device at {}: Error({})", path, e.to_string())))?;
     log::debug!("Got device driver {:?}", device.driver());
     *driver_ref = device
         .driver()

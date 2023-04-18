@@ -23,13 +23,13 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
 use std::fmt;
 use std::fs;
-use std::io;
 use std::io::Read;
 use std::process::Command;
 use std::str::FromStr;
 
 use crate::types::NumericalUnit;
 use crate::usb::*;
+use crate::error::{Error, ErrorKind};
 
 /// Root JSON returned from system_profiler and used as holder for all static USB bus data
 #[derive(Debug, Serialize, Deserialize)]
@@ -439,7 +439,7 @@ pub struct DeviceLocation {
 }
 
 impl FromStr for DeviceLocation {
-    type Err = io::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let location_split: Vec<&str> = s.split("/").collect();
@@ -459,8 +459,7 @@ impl FromStr for DeviceLocation {
             .collect();
         // bus no is msb
         let bus = (u32::from_str_radix(&reg, 16)
-            .map_err(|v| io::Error::new(io::ErrorKind::Other, v))
-            .unwrap()
+            .map_err(|v| Error::new(ErrorKind::Parsing, &v.to_string()))?
             >> 24) as u8;
         // port is after / but not always present
         let number = match location_split.last().unwrap().trim().parse::<u8>() {
@@ -489,7 +488,7 @@ impl DeviceLocation {
     /// Port path of parent
     ///
     /// A wrapper for [`get_parent_path`]
-    pub fn parent_path(&self) -> Result<String, String> {
+    pub fn parent_path(&self) -> Result<String, Error> {
         get_parent_path(self.bus, &self.tree_positions)
     }
 
@@ -634,7 +633,7 @@ impl fmt::Display for DeviceSpeed {
 }
 
 impl FromStr for DeviceSpeed {
-    type Err = io::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // try to match speed enum else provide string description provided in system_profiler dump
@@ -927,7 +926,7 @@ impl USBDevice {
     /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.parent_path().is_err(), true);
     /// ```
-    pub fn parent_path(&self) -> Result<String, String> {
+    pub fn parent_path(&self) -> Result<String, Error> {
         self.location_id.parent_path()
     }
 
@@ -1351,14 +1350,14 @@ impl USBFilter {
 /// Reads a json dump at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
 ///
 /// Must be a full tree including buses
-pub fn read_json_dump(file_path: &str) -> Result<SPUSBDataType, io::Error> {
+pub fn read_json_dump(file_path: &str) -> Result<SPUSBDataType, Error> {
     let mut file = fs::File::options().read(true).open(file_path)?;
 
     let mut data = String::new();
     file.read_to_string(&mut data)?;
 
     let json_dump: SPUSBDataType =
-        serde_json::from_str(&data).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        serde_json::from_str(&data).map_err(|e| Error::new(ErrorKind::Parsing, &format!("Failed to parse dump at {:?}; Error({})", file_path, e.to_string())))?;
 
     Ok(json_dump)
 }
@@ -1366,59 +1365,48 @@ pub fn read_json_dump(file_path: &str) -> Result<SPUSBDataType, io::Error> {
 /// Runs the system_profiler command for SPUSBDataType and parses the json stdout into a [`SPUSBDataType`]
 ///
 /// Ok result not contain [`USBDeviceExtra`] because system_profiler does not provide this. Use `get_spusb_with_extra` to combine with libusb output for [`USBDevice`]s with `extra`
-// #[cfg( any(not(any(doctest, test)), feature = "usb_test")) ]
-pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
+pub fn get_spusb() -> Result<SPUSBDataType, Error> {
     let output = if cfg!(target_os = "macos") {
         Command::new("system_profiler")
             .args(["-json", "SPUSBDataType"])
             .output()?
     } else {
-        return Err(io::Error::new(
-            io::ErrorKind::Unsupported,
+        return Err(Error::new(
+            ErrorKind::Unsupported,
             "system_profiler is only supported on macOS",
         ));
     };
 
     if output.status.success() {
-        serde_json::from_str(String::from_utf8(output.stdout).unwrap().as_str())
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
+        serde_json::from_str(String::from_utf8(output.stdout)?.as_str())
+            .map_err(|e| Error::new(ErrorKind::Parsing, &format!("Failed to parse 'system_profiler -json SPUSBDataType'; Error({})", e)))
     } else {
         log::error!(
             "system_profiler returned non-zero stderr: {:?}, stdout: {:?}",
-            String::from_utf8(output.stderr).unwrap_or(String::from("Failed to parse stderr")),
-            String::from_utf8(output.stdout).unwrap_or(String::from("Failed to parse stdout"))
+            String::from_utf8(output.stderr)?,
+            String::from_utf8(output.stdout)?
         );
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(Error::new(
+            ErrorKind::SystemProfiler,
             "system_profiler returned non-zero, use '--force-libusb' to bypass",
         ));
     }
 }
 
-// #[cfg( all(any(doctest, test), not(feature = "usb_test")) ) ]
-// pub fn get_spusb() -> Result<SPUSBDataType, io::Error> {
-//     read_json_dump(&"./tests/data/system_profiler_dump.json")
-// }
-
 /// Runs `get_spusb` and then adds in data obtained from libusb. Requires 'libusb' feature.
 #[cfg(feature = "libusb")]
-pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
+pub fn get_spusb_with_extra() -> Result<SPUSBDataType, Error> {
     get_spusb().and_then(|mut spusb| {
-        crate::lsusb::profiler::fill_spusb(&mut spusb).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("Failed to gather system USB data from libusb: Error({})", e),
-            )
-        })?;
+        crate::lsusb::profiler::fill_spusb(&mut spusb)?;
         Ok(spusb)
     })
 }
 
 /// Cannot run this function without libusb feature
 #[cfg(not(feature = "libusb"))]
-pub fn get_spusb_with_extra() -> Result<SPUSBDataType, io::Error> {
-    Err(io::Error::new(
-        io::ErrorKind::Other,
+pub fn get_spusb_with_extra() -> Result<SPUSBDataType, Error> {
+    Err(Error::new(
+        ErrorKind::Unsupported,
         "libusb feature is required to do this, install with `cargo install --features libusb`",
     ))
 }

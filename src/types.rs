@@ -1,10 +1,11 @@
 //! Types used in crate non-specific to a module
 use std::fmt;
-use std::io;
 use std::str::FromStr;
 
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+
+use crate::error::{self, Error, ErrorKind};
 
 /// A numerical `value` converted from a String, which includes a `unit` and `description`
 ///
@@ -68,22 +69,22 @@ impl fmt::Display for NumericalUnit<f32> {
 }
 
 impl FromStr for NumericalUnit<u32> {
-    type Err = io::Error;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> error::Result<Self> {
         let value_split: Vec<&str> = s.trim().split(' ').collect();
         if value_split.len() >= 2 {
             Ok(NumericalUnit {
                 value: value_split[0]
                     .trim()
                     .parse::<u32>()
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?,
+                    .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))?,
                 unit: value_split[1].trim().to_string(),
                 description: None,
             })
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
+            Err(Error::new(
+                ErrorKind::Decoding,
                 "string split does not contain [u32] [unit]",
             ))
         }
@@ -91,22 +92,22 @@ impl FromStr for NumericalUnit<u32> {
 }
 
 impl FromStr for NumericalUnit<f32> {
-    type Err = io::Error;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> error::Result<Self> {
         let value_split: Vec<&str> = s.trim().split(' ').collect();
         if value_split.len() >= 2 {
             Ok(NumericalUnit {
                 value: value_split[0]
                     .trim()
                     .parse::<f32>()
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?,
+                    .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))?,
                 unit: value_split[1].trim().to_string(),
                 description: None,
             })
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
+            Err(Error::new(
+                ErrorKind::Decoding,
                 "string split does not contain [f32] [unit]",
             ))
         }

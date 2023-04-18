@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::convert::TryFrom;
 use std::fmt;
-use std::io;
 use std::str::FromStr;
 
 use crate::types::NumericalUnit;
+use crate::error::{self, Error, ErrorKind};
 
 /// The version value (for BCD and USB) is in binary coded decimal with a format of 0xJJMN where JJ is the major version number, M is the minor version number and N is the sub minor version number. e.g. USB 2.0 is reported as 0x0200, USB 1.1 as 0x0110 and USB 1.0 as 0x0100. The type is a mirror of the one from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
 ///
@@ -92,8 +92,8 @@ impl std::fmt::Display for Version {
 }
 
 impl FromStr for Version {
-    type Err = io::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    type Err = Error;
+    fn from_str(s: &str) -> error::Result<Self> {
         let (parse_ints, _): (Vec<Result<u8, _>>, Vec<_>) = s
             .split(".")
             .map(|vs| u8::from_str_radix(vs, 16))
@@ -102,9 +102,9 @@ impl FromStr for Version {
 
         match numbers.get(0..2) {
             Some(slice) => Ok(Version(slice[0], (slice[1] & 0xF0) >> 4, slice[1] & 0x0F)),
-            None => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("No two base16 encoded versions in {}", s),
+            None => Err(Error::new(
+                ErrorKind::Decoding,
+                &format!("No two base16 encoded versions in {}", s),
             )),
         }
     }
@@ -112,9 +112,9 @@ impl FromStr for Version {
 
 /// For legacy import where I thought the value was a f32...
 impl TryFrom<f32> for Version {
-    type Error = io::Error;
+    type Error = Error;
 
-    fn try_from(f: f32) -> Result<Self, Self::Error> {
+    fn try_from(f: f32) -> error::Result<Self> {
         let s = format!("{:2.2}", f);
         let (parse_ints, _): (Vec<Result<u8, _>>, Vec<_>) = s
             .split(".")
@@ -124,9 +124,9 @@ impl TryFrom<f32> for Version {
 
         match numbers.get(0..2) {
             Some(slice) => Ok(Version(slice[0], (slice[1] & 0xF0) >> 4, slice[1] & 0x0F)),
-            None => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("Failed to parse float into MM.mP {}", f),
+            None => Err(Error::new(
+                ErrorKind::Decoding,
+                &format!("Failed to parse float into MM.mP {}", f),
             )),
         }
     }
@@ -364,9 +364,9 @@ pub enum Speed {
 }
 
 impl FromStr for Speed {
-    type Err = ();
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> error::Result<Self> {
         Ok(match s {
             "10.0 Gb/s" | "super_speed_plus" => Speed::SuperSpeedPlus,
             "5.0 Gb/s" | "super_speed" => Speed::SuperSpeed,
@@ -724,9 +724,9 @@ pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
 ///
 /// assert_eq!(get_parent_path(1, &vec![1, 3, 4, 5]).unwrap(), String::from("1-1.3.4"));
 /// ```
-pub fn get_parent_path(bus: u8, ports: &Vec<u8>) -> Result<String, String> {
+pub fn get_parent_path(bus: u8, ports: &Vec<u8>) -> error::Result<String> {
     if ports.len() == 0 {
-        Err("Cannot get parent path for root device".to_string())
+        Err(Error::new(ErrorKind::InvalidArg, "Cannot get parent path for root device"))
     } else {
         Ok(get_port_path(bus, &ports[..ports.len() - 1].to_vec()))
     }

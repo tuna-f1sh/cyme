@@ -22,10 +22,20 @@ pub mod profiler {
     use std::collections::HashMap;
     use std::time::Duration;
     use usb_ids::{self, FromId};
+    use crate::error::{self, Error, ErrorKind};
 
     #[cfg(all(target_os = "linux", feature = "udev"))]
     use crate::udev;
     use crate::{system_profiler, types::NumericalUnit, usb};
+
+    impl From<libusb::Error> for Error {
+        fn from(error: libusb::Error) -> Self {
+            Error {
+                kind: ErrorKind::LibUSB,
+                message: format!("Failed to gather system USB data from libusb: Error({})", &error.to_string()),
+            }
+        }
+    }
 
     struct UsbDevice<T: libusb::UsbContext> {
         handle: libusb::DeviceHandle<T>,
@@ -183,7 +193,7 @@ pub mod profiler {
 
     fn build_endpoints(
         interface_desc: &libusb::InterfaceDescriptor,
-    ) -> libusb::Result<Vec<usb::USBEndpoint>> {
+    ) -> Vec<usb::USBEndpoint> {
         let mut ret: Vec<usb::USBEndpoint> = Vec::new();
 
         for endpoint_desc in interface_desc.endpoint_descriptors() {
@@ -201,7 +211,7 @@ pub mod profiler {
             });
         }
 
-        Ok(ret)
+        ret
     }
 
     fn build_interfaces<T: libusb::UsbContext>(
@@ -209,7 +219,7 @@ pub mod profiler {
         handle: &mut Option<UsbDevice<T>>,
         config_desc: &libusb::ConfigDescriptor,
         _with_udev: bool,
-    ) -> libusb::Result<Vec<usb::USBInterface>> {
+    ) -> error::Result<Vec<usb::USBInterface>> {
         let mut ret: Vec<usb::USBInterface> = Vec::new();
 
         for interface in config_desc.interfaces() {
@@ -230,7 +240,7 @@ pub mod profiler {
                     alt_setting: interface_desc.setting_number(),
                     driver: None,
                     syspath: None,
-                    endpoints: build_endpoints(&interface_desc)?,
+                    endpoints: build_endpoints(&interface_desc),
                 };
 
                 #[cfg(all(target_os = "linux", feature = "udev"))]
@@ -239,8 +249,7 @@ pub mod profiler {
                         &mut _interface.driver,
                         &mut _interface.syspath,
                         &_interface.path,
-                    )
-                    .or(Err(libusb::Error::Other))?;
+                    )?;
                 }
 
                 ret.push(_interface);
@@ -255,7 +264,7 @@ pub mod profiler {
         handle: &mut Option<UsbDevice<T>>,
         device_desc: &libusb::DeviceDescriptor,
         with_udev: bool,
-    ) -> libusb::Result<Vec<usb::USBConfiguration>> {
+    ) -> error::Result<Vec<usb::USBConfiguration>> {
         let mut ret: Vec<usb::USBConfiguration> = Vec::new();
 
         for n in 0..device_desc.num_configurations() {
@@ -296,7 +305,7 @@ pub mod profiler {
         device_desc: &libusb::DeviceDescriptor,
         _sp_device: &system_profiler::USBDevice,
         _with_udev: bool,
-    ) -> libusb::Result<usb::USBDeviceExtra> {
+    ) -> error::Result<usb::USBDeviceExtra> {
         let mut _extra = usb::USBDeviceExtra {
             max_packet_size: device_desc.max_packet_size(),
             string_indexes: (
@@ -322,8 +331,7 @@ pub mod profiler {
                 &mut _extra.driver,
                 &mut _extra.syspath,
                 &_sp_device.port_path(),
-            )
-            .or(Err(libusb::Error::Other))?;
+            )?;
         }
 
         Ok(_extra)
@@ -335,7 +343,7 @@ pub mod profiler {
     pub fn build_spdevice<T: libusb::UsbContext>(
         device: &libusb::Device<T>,
         with_extra: bool,
-    ) -> libusb::Result<system_profiler::USBDevice> {
+    ) -> error::Result<system_profiler::USBDevice> {
         let timeout = Duration::from_secs(1);
         let speed = match usb::Speed::from(device.speed()) {
             usb::Speed::Unknown => None,
@@ -428,7 +436,7 @@ pub mod profiler {
                 }
                 Err(e) => {
                     // try again without udev if we have that feature but return message so device still added
-                    if cfg!(feature = "udev") && e == libusb::Error::Other {
+                    if cfg!(feature = "udev") && e.kind() == ErrorKind::Udev {
                         sp_device.extra = Some(build_spdevice_extra(
                             device,
                             &mut usb_device,
@@ -457,7 +465,7 @@ pub mod profiler {
     fn _get_spusb(
         with_extra: bool,
         print_stderr: bool,
-    ) -> libusb::Result<system_profiler::SPUSBDataType> {
+    ) -> Result<system_profiler::SPUSBDataType, Error> {
         let mut spusb = system_profiler::SPUSBDataType { buses: Vec::new() };
         // temporary store of devices created when iterating through DeviceList
         let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
@@ -579,7 +587,7 @@ pub mod profiler {
     /// Runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. Then sorts into parent groups, accending in depth to build the [`system_profiler::USBBus`] tree.
     ///
     /// Building the [`system_profiler::SPUSBDataType`] depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
-    pub fn get_spusb(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, libusb::Error> {
+    pub fn get_spusb(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, Error> {
         _get_spusb(false, print_stderr)
     }
 
@@ -588,14 +596,14 @@ pub mod profiler {
     /// Like `get_spusb`, runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. On Linux and with the 'udev' feature enabled, the syspath and driver will attempt to be obtained.
     pub fn get_spusb_with_extra(
         print_stderr: bool,
-    ) -> Result<system_profiler::SPUSBDataType, libusb::Error> {
+    ) -> Result<system_profiler::SPUSBDataType, Error> {
         _get_spusb(true, print_stderr)
     }
 
     /// Fills a passed mutable `spusb` reference to fill using `get_spusb`. Will replace existing [`system_profiler::USBDevice`]s found in the libusb build but leave others and the buses.
     ///
     /// The main use case for this is to merge with macOS `system_profiler` data, so that [`usb::USBDeviceExtra`] can be obtained but internal buses kept. One could also use it to update a static .json dump.
-    pub fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType) -> Result<(), libusb::Error> {
+    pub fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType) -> Result<(), Error> {
         let libusb_spusb = get_spusb_with_extra(false)?;
 
         // merge if passed has any buses
@@ -620,6 +628,7 @@ pub mod display {
     //! Printing functions for lsusb style output of USB data
     use crate::display::PrintSettings;
     use crate::{system_profiler, usb};
+    use crate::error::{Error, ErrorKind};
 
     const TREE_LSUSB_BUS: &'static str = "/:  ";
     const TREE_LSUSB_DEVICE: &'static str = "|__ ";
@@ -681,12 +690,12 @@ pub mod display {
     pub fn dump_one_device(
         devices: &Vec<&system_profiler::USBDevice>,
         dev_path: &String,
-    ) -> Result<(), String> {
+    ) -> Result<(), Error> {
         for device in devices {
             if &device.dev_path() == dev_path {
                 // error if extra is none because we need it for vebose
                 if device.extra.is_none() {
-                    return Err(String::from(format!("Unable to open {}", dev_path)));
+                    return Err(Error::new(ErrorKind::Opening, &format!("Unable to open {}", dev_path)));
                 } else {
                     print(&vec![device], true);
                     return Ok(());
@@ -694,7 +703,7 @@ pub mod display {
             }
         }
 
-        Err(String::from(format!("Unable to find {}", dev_path)))
+        Err(Error::new(ErrorKind::NotFound, &format!("Unable to find {}", dev_path)))
     }
 
     /// Print USB devices in lsusb style flat dump

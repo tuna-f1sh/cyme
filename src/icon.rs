@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::collections::HashMap;
 use std::fmt;
-use std::io;
 use std::str::FromStr;
 
 use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{ClassCode, Direction};
+use crate::error::{Error, ErrorKind};
 
 /// Serialize alphabetically for HashMaps so they don't change each generation
 fn sort_alphabetically<T: Serialize, S: serde::Serializer>(value: &T, serializer: S) -> Result<S::Ok, S::Error> {
@@ -53,7 +53,7 @@ pub enum Icon {
 }
 
 impl FromStr for Icon {
-    type Err = io::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let value_split: Vec<&str> = s.split("#").collect();
@@ -74,8 +74,8 @@ impl FromStr for Icon {
                 "tree-interface-terminator" => Ok(Icon::TreeInterfaceTerminator),
                 "endpoint_in" => Ok(Icon::Endpoint(Direction::In)),
                 "endpoint_out" => Ok(Icon::Endpoint(Direction::Out)),
-                _ => Err(io::Error::new(
-                    io::ErrorKind::Other,
+                _ => Err(Error::new(
+                    ErrorKind::Parsing,
                     "Invalid Icon enum name or valued enum without value",
                 )),
             }
@@ -88,8 +88,8 @@ impl FromStr for Icon {
             let numbers: Vec<u16> = parse_ints.into_iter().map(|v| v.unwrap() as u16).collect();
 
             if !errors.is_empty() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(Error::new(
+                    ErrorKind::Parsing,
                     "Invalid value in enum string after #",
                 ));
             }
@@ -97,29 +97,29 @@ impl FromStr for Icon {
             match value_split[0] {
                 "vid" => match numbers.get(0) {
                     Some(i) => Ok(Icon::Vid(*i)),
-                    None => Err(io::Error::new(
-                        io::ErrorKind::Other,
+                    None => Err(Error::new(
+                        ErrorKind::Parsing,
                         "No value for enum after $",
                     )),
                 },
                 "vid-pid" => match numbers.get(0..2) {
                     Some(slice) => Ok(Icon::VidPid((slice[0], slice[1]))),
-                    None => Err(io::Error::new(
-                        io::ErrorKind::Other,
+                    None => Err(Error::new(
+                        ErrorKind::Parsing,
                         "No value for enum after $",
                     )),
                 },
                 "vid-pid-msb" => match numbers.get(0..2) {
                     Some(slice) => Ok(Icon::VidPidMsb((slice[0], slice[1] as u8))),
-                    None => Err(io::Error::new(
-                        io::ErrorKind::Other,
+                    None => Err(Error::new(
+                        ErrorKind::Parsing,
                         "No value for enum after $",
                     )),
                 },
                 "classifier" => match numbers.get(0) {
                     Some(i) => Ok(Icon::Classifier(ClassCode::from(*i as u8))),
-                    None => Err(io::Error::new(
-                        io::ErrorKind::Other,
+                    None => Err(Error::new(
+                        ErrorKind::Parsing,
                         "No value for enum after $",
                     )),
                 },
@@ -129,13 +129,13 @@ impl FromStr for Icon {
                         slice[1] as u8,
                         slice[2] as u8,
                     ))),
-                    None => Err(io::Error::new(
-                        io::ErrorKind::Other,
+                    None => Err(Error::new(
+                        ErrorKind::Parsing,
                         "No value for enum after $",
                     )),
                 },
-                _ => Err(io::Error::new(
-                    io::ErrorKind::Other,
+                _ => Err(Error::new(
+                    ErrorKind::Parsing,
                     "Invalid Icon enum value holder",
                 )),
             }
