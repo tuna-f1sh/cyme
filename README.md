@@ -106,6 +106,19 @@ See './doc/cyme\_example\_config.json' for an example of how icons can be define
 
 Icons are looked up in an order of User -> Default. For devices: `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> `get_default_vidpid_icon`, classes: `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> `get_default_classifier_icon`. User supplied colours override all internal; if a key is missing, it will be `None`.
 
+#### Icons not Showing/Boxes with Question Marks
+
+Copied from [lsd](https://github.com/lsd-rs/lsd#icons-not-showing-up): For `cyme` to be able to display icons, the font has to include special font glyphs. This might not be the case for most fonts that you download. Thankfully, you can patch most fonts using [NerdFont](https://www.nerdfonts.com/) and add these icons. Or you can just download an already patched version of your favourite font from [NerdFont font download page](https://www.nerdfonts.com/font-downloads).
+Here is a guide on how to setup fonts on [macOS](https://github.com/Peltoche/lsd/issues/199#issuecomment-494218334) and [Android](https://github.com/Peltoche/lsd/issues/423).
+
+To check if the font you are using is setup correctly, try running the following snippet in a shell and see if that [prints a folder icon](https://github.com/Peltoche/lsd/issues/510#issuecomment-860000306). If it prints a box, or question mark or something else, then you might have some issues in how you setup the font or how your terminal emulator renders the font.
+
+```sh
+echo $'\uf115'
+```
+
+If one does not want icons, provide a config file with custom blocks not including the any 'icon\*' blocks - see the example config - or use the `--ascii` flag.
+
 # Known Issues
 
 * `sudo` is required to open and read Linux root\_hub string descriptors. The program works fine without these however, as will use 'usb-ids' like lsusb. What will be missing are 'name', 'manufacturer' and 'serial' descriptors for example. Use debugging `-z` to see what devices are missing this data. The env CYME_PRINT_NON_CRITICAL_PROFILER_STDERR can be used or 'print-non-critical-profiler-stderr' config key to print these to stderr. `--lsusb --verbose` will print a message to stderr always to match the 'lsusb' behaviour.
