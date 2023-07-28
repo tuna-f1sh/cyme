@@ -4,14 +4,14 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
-use crate::error::{Result, Error, ErrorKind};
 use crate::colour;
 use crate::display;
 use crate::display::Block;
+use crate::error::{Error, ErrorKind, Result};
 use crate::icon;
 
-const CONF_DIR: &'static str = "cyme";
-const CONF_NAME: &'static str = "cyme.json";
+const CONF_DIR: &str = "cyme";
+const CONF_NAME: &str = "cyme.json";
 
 /// Allows user supplied icons to replace or add to `DEFAULT_ICONS` and `DEFAULT_TREE`
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -124,7 +124,16 @@ impl Config {
         let mut data = String::new();
 
         br.read_to_string(&mut data)?;
-        serde_json::from_str::<Config>(&data).map_err(|e| Error::new(ErrorKind::Parsing, &format!("Failed to parse config at {:?}; Error({})", file_path.as_ref(), e.to_string())))
+        serde_json::from_str::<Config>(&data).map_err(|e| {
+            Error::new(
+                ErrorKind::Parsing,
+                &format!(
+                    "Failed to parse config at {:?}; Error({})",
+                    file_path.as_ref(),
+                    e
+                ),
+            )
+        })
     }
 
     /// This provides the path for a configuration file, specific to OS
@@ -141,18 +150,18 @@ mod tests {
     #[test]
     fn test_deserialize_example_file() {
         let path = PathBuf::from("./doc").join("cyme_example_config.json");
-        assert_eq!(Config::from_file(path).is_ok(), true);
+        assert!(Config::from_file(path).is_ok());
     }
 
     #[test]
     fn test_deserialize_config_no_theme() {
         let path = PathBuf::from("./tests/data").join("config_no_theme.json");
-        assert_eq!(Config::from_file(path).is_ok(), true);
+        assert!(Config::from_file(path).is_ok());
     }
 
     #[test]
     fn test_deserialize_config_missing_args() {
         let path = PathBuf::from("./tests/data").join("config_missing_args.json");
-        assert_eq!(Config::from_file(path).is_ok(), true);
+        assert!(Config::from_file(path).is_ok());
     }
 }

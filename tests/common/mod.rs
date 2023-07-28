@@ -10,24 +10,24 @@ use std::process;
 // use std::os::windows;
 
 /// Dump from the `system_profiler` command on macOS
-pub const SYSTEM_PROFILER_DUMP_PATH: &'static str = "./tests/data/system_profiler_dump.json";
+pub const SYSTEM_PROFILER_DUMP_PATH: &str = "./tests/data/system_profiler_dump.json";
 /// Dump using macOS system_profiler so no [`USBDeviceExtra`]
-pub const CYME_SP_TREE_DUMP: &'static str = "./tests/data/cyme_sp_macos_tree.json";
+pub const CYME_SP_TREE_DUMP: &str = "./tests/data/cyme_sp_macos_tree.json";
 /// Dump using macOS system_profiler and libusb merge so with [`USBDeviceExtra`]
-pub const CYME_LIBUSB_MERGE_MACOS_TREE_DUMP: &'static str =
+pub const CYME_LIBUSB_MERGE_MACOS_TREE_DUMP: &str =
     "./tests/data/cyme_libusb_merge_macos_tree.json";
 /// Dump using macOS force libusb merge so with [`USBDeviceExtra`] but not Apple internal buses
-pub const CYME_LIBUSB_MACOS_TREE_DUMP: &'static str = "./tests/data/cyme_libusb_macos_tree.json";
+pub const CYME_LIBUSB_MACOS_TREE_DUMP: &str = "./tests/data/cyme_libusb_macos_tree.json";
 /// Dump using Linux with libusb so with [`USBDeviceExtra`]
-pub const CYME_LIBUSB_LINUX_TREE_DUMP: &'static str = "./tests/data/cyme_libusb_linux_tree.json";
+pub const CYME_LIBUSB_LINUX_TREE_DUMP: &str = "./tests/data/cyme_libusb_linux_tree.json";
 /// Output of lsusb --tree
-pub const LSUSB_TREE_OUTPUT: &'static str = "./tests/data/lsusb_tree.txt";
+pub const LSUSB_TREE_OUTPUT: &str = "./tests/data/lsusb_tree.txt";
 /// Output of lsusb --tree -vvv
-pub const LSUSB_TREE_OUTPUT_VERBOSE: &'static str = "./tests/data/lsusb_tree_verbose.txt";
+pub const LSUSB_TREE_OUTPUT_VERBOSE: &str = "./tests/data/lsusb_tree_verbose.txt";
 /// Output of lsusb
-pub const LSUSB_OUTPUT: &'static str = "./tests/data/lsusb_list.txt";
+pub const LSUSB_OUTPUT: &str = "./tests/data/lsusb_list.txt";
 /// Output of lsusb --verbose
-pub const LSUSB_OUTPUT_VERBOSE: &'static str = "./tests/data/lsusb_verbose.txt";
+pub const LSUSB_OUTPUT_VERBOSE: &str = "./tests/data/lsusb_verbose.txt";
 
 pub fn read_dump(file_name: &str) -> BufReader<File> {
     let f = File::open(file_name).expect("Unable to open json dump file");
@@ -38,7 +38,7 @@ pub fn read_dump_to_string(file_name: &str) -> String {
     let mut ret = String::new();
     let mut br = read_dump(file_name);
     br.read_to_string(&mut ret)
-        .expect(&format!("Failed to read {}", file_name));
+        .unwrap_or_else(|_| panic!("Failed to read {}", file_name));
     ret
 }
 
@@ -239,12 +239,10 @@ impl TestEnv {
         // Compare actual output to expected output.
         if contains {
             if !actual.contains(&expected) {
-                panic!("{}", format_output_error(&args, &expected, &actual));
+                panic!("{}", format_output_error(args, &expected, &actual));
             }
-        } else {
-            if expected != actual {
-                panic!("{}", format_output_error(&args, &expected, &actual));
-            }
+        } else if expected != actual {
+            panic!("{}", format_output_error(args, &expected, &actual));
         }
     }
 
@@ -270,7 +268,7 @@ impl TestEnv {
         let spdata_out =
             serde_json::from_str::<cyme::system_profiler::SPUSBDataType>(&actual).unwrap();
 
-        assert_eq!(spdata_out.get_node(port_path).is_some(), true);
+        assert!(spdata_out.get_node(port_path).is_some());
     }
 
     /// Similar to assert_output, but able to handle non-utf8 output

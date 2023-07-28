@@ -25,8 +25,16 @@ pub fn get_udev_info(
     port_path: &String,
 ) -> Result<(), Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(&Path::new(&path))
-        .map_err(|e| Error::new(ErrorKind::Udev, &format!("Failed to get udev info for device at {}: Error({})", path, e.to_string())))?;
+    let device = udevlib::Device::from_syspath(&Path::new(&path)).map_err(|e| {
+        Error::new(
+            ErrorKind::Udev,
+            &format!(
+                "Failed to get udev info for device at {}: Error({})",
+                path,
+                e.to_string()
+            ),
+        )
+    })?;
     log::debug!("Got device driver {:?}", device.driver());
     *driver_ref = device
         .driver()

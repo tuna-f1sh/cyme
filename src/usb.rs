@@ -11,8 +11,8 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
-use crate::types::NumericalUnit;
 use crate::error::{self, Error, ErrorKind};
+use crate::types::NumericalUnit;
 
 /// The version value (for BCD and USB) is in binary coded decimal with a format of 0xJJMN where JJ is the major version number, M is the minor version number and N is the sub minor version number. e.g. USB 2.0 is reported as 0x0200, USB 1.1 as 0x0110 and USB 1.0 as 0x0100. The type is a mirror of the one from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
 ///
@@ -95,7 +95,7 @@ impl FromStr for Version {
     type Err = Error;
     fn from_str(s: &str) -> error::Result<Self> {
         let (parse_ints, _): (Vec<Result<u8, _>>, Vec<_>) = s
-            .split(".")
+            .split('.')
             .map(|vs| u8::from_str_radix(vs, 16))
             .partition(Result::is_ok);
         let numbers: Vec<u8> = parse_ints.into_iter().map(|v| v.unwrap()).collect();
@@ -117,7 +117,7 @@ impl TryFrom<f32> for Version {
     fn try_from(f: f32) -> error::Result<Self> {
         let s = format!("{:2.2}", f);
         let (parse_ints, _): (Vec<Result<u8, _>>, Vec<_>) = s
-            .split(".")
+            .split('.')
             .map(|vs| vs.parse::<u8>())
             .partition(Result::is_ok);
         let numbers: Vec<u8> = parse_ints.into_iter().map(|v| v.unwrap()).collect();
@@ -262,9 +262,9 @@ impl From<u8> for ClassCode {
     }
 }
 
-impl Into<u8> for ClassCode {
-    fn into(self) -> u8 {
-        match self {
+impl From<ClassCode> for u8 {
+    fn from(val: ClassCode) -> Self {
+        match val {
             ClassCode::UseInterfaceDescriptor => 0,
             ClassCode::Audio => 1,
             ClassCode::CDCCommunications => 2,
@@ -331,7 +331,7 @@ impl ClassCode {
     /// ```
     pub fn to_title_case(&self) -> String {
         let title = heck::AsTitleCase(self.to_string()).to_string();
-        let split: Vec<&str> = title.split(" ").collect();
+        let split: Vec<&str> = title.split(' ').collect();
         let first = split.first().unwrap_or(&"");
 
         // keep capitalised abbreviations
@@ -344,7 +344,7 @@ impl ClassCode {
 
 impl From<ClassCode> for DescriptorUsage {
     fn from(c: ClassCode) -> DescriptorUsage {
-        return c.usage();
+        c.usage()
     }
 }
 
@@ -714,7 +714,7 @@ pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
     if ports.len() <= 1 {
         get_trunk_path(bus, ports)
     } else {
-        format!("{:}-{}", bus, ports.into_iter().format("."))
+        format!("{:}-{}", bus, ports.iter().format("."))
     }
 }
 
@@ -725,8 +725,11 @@ pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
 /// assert_eq!(get_parent_path(1, &vec![1, 3, 4, 5]).unwrap(), String::from("1-1.3.4"));
 /// ```
 pub fn get_parent_path(bus: u8, ports: &Vec<u8>) -> error::Result<String> {
-    if ports.len() == 0 {
-        Err(Error::new(ErrorKind::InvalidArg, "Cannot get parent path for root device"))
+    if ports.is_empty() {
+        Err(Error::new(
+            ErrorKind::InvalidArg,
+            "Cannot get parent path for root device",
+        ))
     } else {
         Ok(get_port_path(bus, &ports[..ports.len() - 1].to_vec()))
     }
@@ -741,7 +744,7 @@ pub fn get_parent_path(bus: u8, ports: &Vec<u8>) -> error::Result<String> {
 /// assert_eq!(get_trunk_path(1, &vec![]), String::from("1-0"));
 /// ```
 pub fn get_trunk_path(bus: u8, ports: &Vec<u8>) -> String {
-    if ports.len() == 0 {
+    if ports.is_empty() {
         // special case for root_hub
         format!("{:}-{}", bus, 0)
     } else {

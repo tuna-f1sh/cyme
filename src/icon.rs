@@ -5,12 +5,15 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
+use crate::error::{Error, ErrorKind};
 use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{ClassCode, Direction};
-use crate::error::{Error, ErrorKind};
 
 /// Serialize alphabetically for HashMaps so they don't change each generation
-fn sort_alphabetically<T: Serialize, S: serde::Serializer>(value: &T, serializer: S) -> Result<S::Ok, S::Error> {
+fn sort_alphabetically<T: Serialize, S: serde::Serializer>(
+    value: &T,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
     let value = serde_json::to_value(value).map_err(serde::ser::Error::custom)?;
     value.serialize(serializer)
 }
@@ -56,7 +59,7 @@ impl FromStr for Icon {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let value_split: Vec<&str> = s.split("#").collect();
+        let value_split: Vec<&str> = s.split('#').collect();
         let enum_name = value_split[0];
 
         // no value in string, match kebab-case
@@ -82,7 +85,7 @@ impl FromStr for Icon {
         // enum contains value
         } else {
             let (parse_ints, errors): (Vec<Result<u32, _>>, Vec<_>) = value_split[1]
-                .split(":")
+                .split(':')
                 .map(|vs| u32::from_str_radix(vs.trim_start_matches("0x"), 16))
                 .partition(Result::is_ok);
             let numbers: Vec<u16> = parse_ints.into_iter().map(|v| v.unwrap() as u16).collect();
@@ -95,33 +98,21 @@ impl FromStr for Icon {
             }
 
             match value_split[0] {
-                "vid" => match numbers.get(0) {
+                "vid" => match numbers.first() {
                     Some(i) => Ok(Icon::Vid(*i)),
-                    None => Err(Error::new(
-                        ErrorKind::Parsing,
-                        "No value for enum after $",
-                    )),
+                    None => Err(Error::new(ErrorKind::Parsing, "No value for enum after $")),
                 },
                 "vid-pid" => match numbers.get(0..2) {
                     Some(slice) => Ok(Icon::VidPid((slice[0], slice[1]))),
-                    None => Err(Error::new(
-                        ErrorKind::Parsing,
-                        "No value for enum after $",
-                    )),
+                    None => Err(Error::new(ErrorKind::Parsing, "No value for enum after $")),
                 },
                 "vid-pid-msb" => match numbers.get(0..2) {
                     Some(slice) => Ok(Icon::VidPidMsb((slice[0], slice[1] as u8))),
-                    None => Err(Error::new(
-                        ErrorKind::Parsing,
-                        "No value for enum after $",
-                    )),
+                    None => Err(Error::new(ErrorKind::Parsing, "No value for enum after $")),
                 },
-                "classifier" => match numbers.get(0) {
+                "classifier" => match numbers.first() {
                     Some(i) => Ok(Icon::Classifier(ClassCode::from(*i as u8))),
-                    None => Err(Error::new(
-                        ErrorKind::Parsing,
-                        "No value for enum after $",
-                    )),
+                    None => Err(Error::new(ErrorKind::Parsing, "No value for enum after $")),
                 },
                 "classifier-sub-protocol" => match numbers.get(0..3) {
                     Some(slice) => Ok(Icon::ClassifierSubProtocol((
@@ -129,10 +120,7 @@ impl FromStr for Icon {
                         slice[1] as u8,
                         slice[2] as u8,
                     ))),
-                    None => Err(Error::new(
-                        ErrorKind::Parsing,
-                        "No value for enum after $",
-                    )),
+                    None => Err(Error::new(ErrorKind::Parsing, "No value for enum after $")),
                 },
                 _ => Err(Error::new(
                     ErrorKind::Parsing,
@@ -207,16 +195,16 @@ lazy_static! {
     /// Default icons to draw tree can be overridden by user icons with IconTheme `tree`
     static ref DEFAULT_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
-            (Icon::TreeEdge, "\u{251c}\u{2500}\u{2500}".into()), // "├──"
-            (Icon::TreeLine, "\u{2502}  ".into()), // "│  "
-            (Icon::TreeCorner, "\u{2514}\u{2500}\u{2500}".into()), // "└──"
-            (Icon::TreeBlank, "   ".into()), // should be same char width as above
-            (Icon::TreeBusStart, "\u{25CF}".into()), // "●"
-            (Icon::TreeDeviceTerminator, "\u{25CB}".into()), // "○"
-            (Icon::TreeConfigurationTerminator, "\u{2022}".into()), // "•"
-            (Icon::TreeInterfaceTerminator, "\u{25E6}".into()), // "◦"
-            (Icon::Endpoint(Direction::In), "\u{2192}".into()), // →
-            (Icon::Endpoint(Direction::Out), "\u{2190}".into()), // ←
+            (Icon::TreeEdge, "\u{251c}\u{2500}\u{2500}"), // "├──"
+            (Icon::TreeLine, "\u{2502}  "), // "│  "
+            (Icon::TreeCorner, "\u{2514}\u{2500}\u{2500}"), // "└──"
+            (Icon::TreeBlank, "   "), // should be same char width as above
+            (Icon::TreeBusStart, "\u{25CF}"), // "●"
+            (Icon::TreeDeviceTerminator, "\u{25CB}"), // "○"
+            (Icon::TreeConfigurationTerminator, "\u{2022}"), // "•"
+            (Icon::TreeInterfaceTerminator, "\u{25E6}"), // "◦"
+            (Icon::Endpoint(Direction::In), "\u{2192}"), // →
+            (Icon::Endpoint(Direction::Out), "\u{2190}"), // ←
             // (Icon::Endpoint(Direction::In), ">".into()), // →
             // (Icon::Endpoint(Direction::Out), "<".into()), // ←
         ])
@@ -225,16 +213,16 @@ lazy_static! {
     /// Ascii chars used by lsusb compatible mode or no utf-8
     static ref ASCII_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
-            (Icon::TreeEdge, "|__".into()), // same as corner
-            (Icon::TreeLine, "|  ".into()), // no outside line but inset so starts under parent device
-            (Icon::TreeCorner, "|__".into()),
-            (Icon::TreeBlank, "   ".into()), // inset like line
-            (Icon::TreeBusStart, "/: ".into()),
-            (Icon::TreeDeviceTerminator, "O".into()), // null
-            (Icon::TreeConfigurationTerminator, "o".into()), // null
-            (Icon::TreeInterfaceTerminator, ".".into()), // null
-            (Icon::Endpoint(Direction::In), ">".into()), //
-            (Icon::Endpoint(Direction::Out), "<".into()), //
+            (Icon::TreeEdge, "|__"), // same as corner
+            (Icon::TreeLine, "|  "), // no outside line but inset so starts under parent device
+            (Icon::TreeCorner, "|__"),
+            (Icon::TreeBlank, "   "), // inset like line
+            (Icon::TreeBusStart, "/: "),
+            (Icon::TreeDeviceTerminator, "O"), // null
+            (Icon::TreeConfigurationTerminator, "o"), // null
+            (Icon::TreeInterfaceTerminator, "."), // null
+            (Icon::Endpoint(Direction::In), ">"), //
+            (Icon::Endpoint(Direction::Out), "<"), //
         ])
     };
 
@@ -243,58 +231,58 @@ lazy_static! {
     /// Should probably keep fairly short but I've added things I use like debuggers, mcus as examples
     pub static ref DEFAULT_ICONS: HashMap<Icon, &'static str> = {
         HashMap::from([
-            (Icon::UnknownVendor, "\u{f287}".into()), // usb plug default 
-            (Icon::Vid(0x05ac), "\u{f179}".into()), // apple 
-            (Icon::Vid(0x8086), "\u{f179}".into()), // apple bus 
-            (Icon::Vid(0x045e), "\u{f871}".into()), // microsoft 
-            (Icon::Vid(0x18d1), "\u{f1a0}".into()), // google 
-            (Icon::Vid(0x1D6B), "\u{f17c}".into()), // linux foundation 
-            (Icon::Vid(0x1d50), "\u{e771}".into()), // open source VID 
-            (Icon::VidPid((0x1915, 0x520c)), "\u{f5a2}".into()), // specialized 
-            (Icon::VidPid((0x1915, 0x520d)), "\u{f5a2}".into()), // specialized 
-            (Icon::VidPid((0x0483, 0x572B)), "\u{f5a2}".into()), // specialized 
-            (Icon::Vid(0x046d), "\u{f87c}".into()), // logitech 
-            (Icon::Vid(0x091e), "\u{e2a6}".into()), // garmin 
-            (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}".into()), // black magic probe 
-            (Icon::Vid(0x1366), "\u{f188}".into()), // segger 
-            (Icon::Vid(0xf1a0), "\u{f188}".into()), // arm 
-            (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}".into()), // st-link 
-            (Icon::VidPid((0x0483, 0xdf11)), "\u{f019}".into()), // STM DFU 
-            (Icon::VidPid((0x1d50, 0x6017)), "\u{f188}".into()), // black magic probe DFU 
-            (Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecificInterface, 0x01, 0x01)), "\u{f188}".into()), // DFU 
-            (Icon::ClassifierSubProtocol((ClassCode::WirelessController, 0x01, 0x01)), "\u{f188}".into()), // bluetooth DFU 
-            (Icon::Vid(0x2341), "\u{f2db}".into()), // arduino 
-            (Icon::Vid(0x239A), "\u{f2db}".into()), // adafruit 
-            (Icon::Vid(0x2e8a), "\u{f315}".into()), // raspberry pi foundation 
-            (Icon::Vid(0x0483), "\u{f2db}".into()), // stm 
-            (Icon::Vid(0x1915), "\u{f2db}".into()), // nordic 
-            (Icon::Vid(0x1fc9), "\u{f2db}".into()), // nxp 
-            (Icon::Vid(0x1050), "\u{f805}".into()), // yubikey 
-            (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}".into()), // android dev 
-            (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}".into()), // android 
-            (Icon::VidPid((0x1d50, 0x606f)), "\u{f5e6}".into()), // candlelight_fw gs_can 
-            (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f878}".into()), // lg monitor 
-            (Icon::VidPid((0x0781, 0xf7c9)), "\u{f878}".into()), // sandisk external disk 
-            (Icon::Classifier(ClassCode::Audio), "\u{f001}".into()), // 
-            (Icon::Classifier(ClassCode::Image), "\u{f03e}".into()), // 
-            (Icon::Classifier(ClassCode::Video), "\u{f03d}".into()), // 
-            (Icon::Classifier(ClassCode::Printer), "\u{fc05}".into()), // ﰅ
+            (Icon::UnknownVendor, "\u{f287}"), // usb plug default 
+            (Icon::Vid(0x05ac), "\u{f179}"), // apple 
+            (Icon::Vid(0x8086), "\u{f179}"), // apple bus 
+            (Icon::Vid(0x045e), "\u{f871}"), // microsoft 
+            (Icon::Vid(0x18d1), "\u{f1a0}"), // google 
+            (Icon::Vid(0x1D6B), "\u{f17c}"), // linux foundation 
+            (Icon::Vid(0x1d50), "\u{e771}"), // open source VID 
+            (Icon::VidPid((0x1915, 0x520c)), "\u{f5a2}"), // specialized 
+            (Icon::VidPid((0x1915, 0x520d)), "\u{f5a2}"), // specialized 
+            (Icon::VidPid((0x0483, 0x572B)), "\u{f5a2}"), // specialized 
+            (Icon::Vid(0x046d), "\u{f87c}"), // logitech 
+            (Icon::Vid(0x091e), "\u{e2a6}"), // garmin 
+            (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}"), // black magic probe 
+            (Icon::Vid(0x1366), "\u{f188}"), // segger 
+            (Icon::Vid(0xf1a0), "\u{f188}"), // arm 
+            (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}"), // st-link 
+            (Icon::VidPid((0x0483, 0xdf11)), "\u{f019}"), // STM DFU 
+            (Icon::VidPid((0x1d50, 0x6017)), "\u{f188}"), // black magic probe DFU 
+            (Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecificInterface, 0x01, 0x01)), "\u{f188}"), // DFU 
+            (Icon::ClassifierSubProtocol((ClassCode::WirelessController, 0x01, 0x01)), "\u{f188}"), // bluetooth DFU 
+            (Icon::Vid(0x2341), "\u{f2db}"), // arduino 
+            (Icon::Vid(0x239A), "\u{f2db}"), // adafruit 
+            (Icon::Vid(0x2e8a), "\u{f315}"), // raspberry pi foundation 
+            (Icon::Vid(0x0483), "\u{f2db}"), // stm 
+            (Icon::Vid(0x1915), "\u{f2db}"), // nordic 
+            (Icon::Vid(0x1fc9), "\u{f2db}"), // nxp 
+            (Icon::Vid(0x1050), "\u{f805}"), // yubikey 
+            (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"), // android dev 
+            (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
+            (Icon::VidPid((0x1d50, 0x606f)), "\u{f5e6}"), // candlelight_fw gs_can 
+            (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f878}"), // lg monitor 
+            (Icon::VidPid((0x0781, 0xf7c9)), "\u{f878}"), // sandisk external disk 
+            (Icon::Classifier(ClassCode::Audio), "\u{f001}"), // 
+            (Icon::Classifier(ClassCode::Image), "\u{f03e}"), // 
+            (Icon::Classifier(ClassCode::Video), "\u{f03d}"), // 
+            (Icon::Classifier(ClassCode::Printer), "\u{fc05}"), // ﰅ
             // (Icon::Classifier(ClassCode::MassStorage), "\u{fc05}".into()),
-            (Icon::Classifier(ClassCode::Hub), "\u{f126}".into()), // 
-            (Icon::Classifier(ClassCode::ContentSecurity), "\u{f805}".into()), // 
-            (Icon::Classifier(ClassCode::SmartCart), "\u{f805}".into()), // 
-            (Icon::Classifier(ClassCode::PersonalHealthcare), "\u{fbeb}".into()), // ﯭ
-            (Icon::Classifier(ClassCode::Physical), "\u{f5cd}".into()), // 
-            (Icon::Classifier(ClassCode::AudioVideo), "\u{fd3f}".into()), // ﴿
-            (Icon::Classifier(ClassCode::Billboard), "\u{f05a}".into()), // 
-            (Icon::Classifier(ClassCode::I3CDevice), "\u{f493}".into()), // 
-            (Icon::Classifier(ClassCode::Diagnostic), "\u{f489}".into()), // 
-            (Icon::Classifier(ClassCode::WirelessController), "\u{f1eb}".into()), // 
-            (Icon::Classifier(ClassCode::Miscellaneous), "\u{f074}".into()), // 
-            (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}".into()), // serial 
-            (Icon::Classifier(ClassCode::CDCData), "\u{e795}".into()), // serial 
-            (Icon::Classifier(ClassCode::HID), "\u{f80b}".into()), // 
-            (Icon::UndefinedClassifier, "\u{2636}".into()), //☶
+            (Icon::Classifier(ClassCode::Hub), "\u{f126}"), // 
+            (Icon::Classifier(ClassCode::ContentSecurity), "\u{f805}"), // 
+            (Icon::Classifier(ClassCode::SmartCart), "\u{f805}"), // 
+            (Icon::Classifier(ClassCode::PersonalHealthcare), "\u{fbeb}"), // ﯭ
+            (Icon::Classifier(ClassCode::Physical), "\u{f5cd}"), // 
+            (Icon::Classifier(ClassCode::AudioVideo), "\u{fd3f}"), // ﴿
+            (Icon::Classifier(ClassCode::Billboard), "\u{f05a}"), // 
+            (Icon::Classifier(ClassCode::I3CDevice), "\u{f493}"), // 
+            (Icon::Classifier(ClassCode::Diagnostic), "\u{f489}"), // 
+            (Icon::Classifier(ClassCode::WirelessController), "\u{f1eb}"), // 
+            (Icon::Classifier(ClassCode::Miscellaneous), "\u{f074}"), // 
+            (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}"), // serial 
+            (Icon::Classifier(ClassCode::CDCData), "\u{e795}"), // serial 
+            (Icon::Classifier(ClassCode::HID), "\u{f80b}"), // 
+            (Icon::UndefinedClassifier, "\u{2636}"), //☶
         ])
     };
 }
@@ -313,9 +301,8 @@ impl IconTheme {
                 .get(icon)
                 .unwrap_or(&DEFAULT_TREE.get(icon).unwrap().to_string())
                 .to_string()
-                .to_owned()
         } else {
-            get_default_tree_icon(&icon)
+            get_default_tree_icon(icon)
         }
     }
 
@@ -517,17 +504,17 @@ mod tests {
 
     #[test]
     fn test_deserialize_icon_tuples() {
-        let item: (Icon, &'static str) = (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}".into());
+        let item: (Icon, &'static str) = (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}");
         let item_ser = serde_json::to_string(&item).unwrap();
         assert_eq!(item_ser, r#"["vid-pid#1d50:6018",""]"#);
 
-        let item: (Icon, &'static str) = (Icon::Endpoint(Direction::In), ">".into());
+        let item: (Icon, &'static str) = (Icon::Endpoint(Direction::In), ">");
         let item_ser = serde_json::to_string(&item).unwrap();
         assert_eq!(item_ser, r#"["endpoint_in",">"]"#);
 
         let item: (Icon, &'static str) = (
             Icon::ClassifierSubProtocol((ClassCode::HID, 0x01, 0x0a)),
-            "K".into(),
+            "K",
         );
         let item_ser = serde_json::to_string(&item).unwrap();
         assert_eq!(item_ser, r#"["classifier-sub-protocol#03:01:0a","K"]"#);

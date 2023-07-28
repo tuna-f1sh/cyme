@@ -291,7 +291,7 @@ fn color_to_string(color: Color) -> String {
 }
 
 /// Have to make this because external crate does not impl Display
-fn color_serializer<'a, S>(color: &'a Option<Color>, s: S) -> Result<S::Ok, S::Error>
+fn color_serializer<S>(color: &Option<Color>, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::ser::Serializer,
 {

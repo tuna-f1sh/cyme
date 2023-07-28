@@ -149,7 +149,7 @@ impl<'de> Deserialize<'de> for NumericalUnit<u32> {
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
                 let description = seq
                     .next_element()
-                    .map_or(None, |s| Some(s))
+                    .ok()
                     .ok_or_else(|| de::Error::invalid_length(2, &self))?;
                 Ok(NumericalUnit::<u32> {
                     value,
@@ -183,7 +183,7 @@ impl<'de> Deserialize<'de> for NumericalUnit<u32> {
                             if description.is_some() {
                                 return Err(de::Error::duplicate_field("description"));
                             }
-                            description = map.next_value().map_or(None, |v| Some(v));
+                            description = map.next_value().ok();
                         }
                     }
                 }
@@ -200,14 +200,14 @@ impl<'de> Deserialize<'de> for NumericalUnit<u32> {
             where
                 E: de::Error,
             {
-                Ok(NumericalUnit::from_str(value.as_str()).map_err(E::custom)?)
+                NumericalUnit::from_str(value.as_str()).map_err(E::custom)
             }
 
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
             where
                 E: de::Error,
             {
-                Ok(NumericalUnit::from_str(value).map_err(E::custom)?)
+                NumericalUnit::from_str(value).map_err(E::custom)
             }
         }
 
@@ -251,7 +251,7 @@ impl<'de> Deserialize<'de> for NumericalUnit<f32> {
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
                 let description = seq
                     .next_element()
-                    .map_or(None, |s| Some(s))
+                    .ok()
                     .ok_or_else(|| de::Error::invalid_length(2, &self))?;
                 Ok(NumericalUnit::<f32> {
                     value,
@@ -285,7 +285,7 @@ impl<'de> Deserialize<'de> for NumericalUnit<f32> {
                             if description.is_some() {
                                 return Err(de::Error::duplicate_field("description"));
                             }
-                            description = map.next_value().map_or(None, |v| Some(v));
+                            description = map.next_value().ok();
                         }
                     }
                 }
@@ -302,14 +302,14 @@ impl<'de> Deserialize<'de> for NumericalUnit<f32> {
             where
                 E: de::Error,
             {
-                Ok(NumericalUnit::from_str(value.as_str()).map_err(E::custom)?)
+                NumericalUnit::from_str(value.as_str()).map_err(E::custom)
             }
 
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
             where
                 E: de::Error,
             {
-                Ok(NumericalUnit::from_str(value).map_err(E::custom)?)
+                NumericalUnit::from_str(value).map_err(E::custom)
             }
         }
 

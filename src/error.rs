@@ -46,7 +46,10 @@ pub struct Error {
 impl Error {
     /// New error helper
     pub fn new(kind: ErrorKind, message: &str) -> Error {
-        Error { kind, message: message.to_string() }
+        Error {
+            kind,
+            message: message.to_string(),
+        }
     }
 
     /// The [`ErrorKind`]
@@ -65,7 +68,7 @@ impl error::Error for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if f.alternate() {
-            return write!(f, "{}", self.message);
+            write!(f, "{}", self.message)
         } else {
             write!(f, "{:?} Error: {}", self.kind, self.message)
         }
@@ -99,8 +102,8 @@ impl From<std::string::FromUtf8Error> for Error {
     }
 }
 
-impl Into<io::Error> for Error {
-    fn into(self) -> io::Error {
-        io::Error::new(io::ErrorKind::Other, self.message)
+impl From<Error> for io::Error {
+    fn from(val: Error) -> Self {
+        io::Error::new(io::ErrorKind::Other, val.message)
     }
 }

@@ -27,9 +27,9 @@ use std::io::Read;
 use std::process::Command;
 use std::str::FromStr;
 
+use crate::error::{Error, ErrorKind};
 use crate::types::NumericalUnit;
 use crate::usb::*;
-use crate::error::{Error, ErrorKind};
 
 /// Root JSON returned from system_profiler and used as holder for all static USB bus data
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,7 +43,7 @@ impl SPUSBDataType {
     /// Flattens entire data store by cloning the `buses`, flattening them and pushing into a new `Vec` and then assigning it to `buses`
     ///
     /// Requires clone of buses so not in place - maybe a more efficient method?
-    pub fn flatten(&mut self) -> () {
+    pub fn flatten(&mut self) {
         let mut new_buses: Vec<USBBus> = Vec::new();
         for mut bus in self.buses.clone() {
             bus.flatten();
@@ -54,7 +54,7 @@ impl SPUSBDataType {
     }
 
     /// Returns a flattened Vec of references to all `USBDevice`s in each of the `buses`
-    pub fn flatten_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
+    pub fn flatten_devices(&self) -> Vec<&USBDevice> {
         let mut ret = Vec::new();
         for bus in &self.buses {
             ret.append(&mut bus.flattened_devices());
@@ -146,7 +146,7 @@ impl USBBus {
     /// Unlike the `flattened_devices` which returns references that may still contain a `Vec` of `USBDevice`, this function makes those `None` too since it is doing a hard copy.
     ///
     /// Not very pretty or efficient, probably a better way...
-    pub fn flatten(&mut self) -> () {
+    pub fn flatten(&mut self) {
         self.devices = Some(
             self.flattened_devices()
                 .iter()
@@ -162,9 +162,9 @@ impl USBBus {
     /// Returns a flattened `Vec` of references to all `USBDevice`s on the bus
     ///
     /// Note that whilst `Vec` of references is flat, the `USBDevice`s still contain a `devices` `Vec` where the references point; recursive functions on the returned `Vec` will produce wierd results
-    pub fn flattened_devices<'a>(&'a self) -> Vec<&'a USBDevice> {
+    pub fn flattened_devices(&self) -> Vec<&USBDevice> {
         if let Some(devices) = &self.devices {
-            get_all_devices(&devices)
+            get_all_devices(devices)
         } else {
             Vec::new()
         }
@@ -173,7 +173,7 @@ impl USBBus {
     /// Whether the bus has [`USBDevice`]s
     pub fn has_devices(&self) -> bool {
         match &self.devices {
-            Some(d) => d.len() > 0,
+            Some(d) => !d.is_empty(),
             None => false,
         }
     }
@@ -191,7 +191,7 @@ impl USBBus {
         self.usb_bus_number.unwrap_or(
             self.devices
                 .as_ref()
-                .map_or(None, |d| d.first().map(|dd| dd.location_id.bus))
+                .and_then(|d| d.first().map(|dd| dd.location_id.bus))
                 .unwrap_or(0),
         )
     }
@@ -207,7 +207,7 @@ impl USBBus {
     }
 
     /// Remove the root_hub if existing in bus
-    pub fn remove_root_hub_device(&mut self) -> () {
+    pub fn remove_root_hub_device(&mut self) {
         self.devices
             .as_mut()
             .map_or((), |devs| devs.retain(|d| !d.is_root_hub()));
@@ -338,11 +338,11 @@ pub fn get_all_devices(devices: &Vec<USBDevice>) -> Vec<&USBDevice> {
         ret.push(device);
         // and run recursively for the device if it has some
         if let Some(d) = &device.devices {
-            ret.append(&mut get_all_devices(&d))
+            ret.append(&mut get_all_devices(d))
         }
     }
 
-    return ret;
+    ret
 }
 
 /// Recursively writeln! of all [`USBDevice`] references
@@ -379,12 +379,10 @@ impl fmt::Display for USBBus {
         // use plus formatter to add tree
         let tree: &str = if !f.sign_plus() {
             ""
+        } else if f.alternate() {
+            "\u{25CF} "
         } else {
-            if f.alternate() {
-                "\u{25CF} "
-            } else {
-                "/: "
-            }
+            "/: "
         };
 
         // write the bus details - alternative for coloured and apple info style
@@ -401,17 +399,15 @@ impl fmt::Display for USBBus {
                 format!("0x{:04x}", self.pci_device.unwrap_or(0xffff)).yellow(),
                 self.pci_revision.unwrap_or(0xffff),
             )?;
+        } else if f.sign_plus() {
+            let interface_strs: Vec<String> = self
+                .to_lsusb_tree_string()
+                .iter()
+                .map(|s| format!("{}{}", tree, s.0))
+                .collect();
+            writeln!(f, "{}", interface_strs.join("\n\r"))?
         } else {
-            if f.sign_plus() {
-                let interface_strs: Vec<String> = self
-                    .to_lsusb_tree_string()
-                    .iter()
-                    .map(|s| format!("{}{}", tree, s.0))
-                    .collect();
-                writeln!(f, "{}", interface_strs.join("\n\r"))?
-            } else {
-                writeln!(f, "{}", self.to_lsusb_string())?
-            }
+            writeln!(f, "{}", self.to_lsusb_string())?
         }
 
         // followed by devices if there are some
@@ -442,7 +438,7 @@ impl FromStr for DeviceLocation {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let location_split: Vec<&str> = s.split("/").collect();
+        let location_split: Vec<&str> = s.split('/').collect();
         let reg = location_split
             .first()
             .unwrap()
@@ -453,12 +449,12 @@ impl FromStr for DeviceLocation {
         let tree_positions: Vec<u8> = reg
             .get(2..)
             .unwrap_or("0")
-            .trim_end_matches("0")
+            .trim_end_matches('0')
             .chars()
             .map(|v| v.to_digit(10).unwrap_or(0) as u8)
             .collect();
         // bus no is msb
-        let bus = (u32::from_str_radix(&reg, 16)
+        let bus = (u32::from_str_radix(reg, 16)
             .map_err(|v| Error::new(ErrorKind::Parsing, &v.to_string()))?
             >> 24) as u8;
         // port is after / but not always present
@@ -712,7 +708,7 @@ impl USBDevice {
     /// Does the device have child devices; `devices` is Some and > 0
     pub fn has_devices(&self) -> bool {
         match &self.devices {
-            Some(d) => d.len() > 0,
+            Some(d) => !d.is_empty(),
             None => false,
         }
     }
@@ -744,9 +740,9 @@ impl USBDevice {
     /// ```
     pub fn get_root_hub(&self) -> Option<&USBDevice> {
         if self.is_root_hub() {
-            return Some(self);
+            Some(self)
         } else {
-            return None;
+            None
         }
     }
 
@@ -972,7 +968,7 @@ impl USBDevice {
     /// assert_eq!(d.is_root_hub(), false);
     /// ```
     pub fn is_root_hub(&self) -> bool {
-        self.location_id.tree_positions.len() == 0
+        self.location_id.tree_positions.is_empty()
     }
 
     /// From lsusb.c: Attempt to get friendly vendor and product names from the udev hwdb. If either or both are not present, instead populate those from the device's own string descriptors
@@ -1127,12 +1123,10 @@ impl fmt::Display for USBDevice {
         // tree chars to prepend if plus formatted
         let tree: &str = if !f.sign_plus() {
             ""
+        } else if f.alternate() {
+            "\u{2514}\u{2500}\u{2500} "
         } else {
-            if f.alternate() {
-                "\u{2514}\u{2500}\u{2500} "
-            } else {
-                "|__ "
-            }
+            "|__ "
         };
 
         // alternate for coloured, slightly different format to lsusb
@@ -1303,7 +1297,7 @@ impl USBFilter {
     }
 
     /// Recursively retain only `USBBus` in `buses` with `USBDevice` matching filter
-    pub fn retain_buses(&self, buses: &mut Vec<USBBus>) -> () {
+    pub fn retain_buses(&self, buses: &mut Vec<USBBus>) {
         buses.retain(|b| {
             b.usb_bus_number == self.bus || self.bus.is_none() || b.usb_bus_number.is_none()
         });
@@ -1316,7 +1310,7 @@ impl USBFilter {
     /// Recursively retain only `USBDevice` in `devices` matching filter
     ///
     /// Note that non-matching parents will still be retained if they have a matching `USBDevice` within their branches
-    pub fn retain_devices(&self, devices: &mut Vec<USBDevice>) -> () {
+    pub fn retain_devices(&self, devices: &mut Vec<USBDevice>) {
         devices.retain(|d| self.exists_in_tree(d));
 
         for d in devices {
@@ -1342,8 +1336,8 @@ impl USBFilter {
     /// Retains only `&USBDevice` in `devices` which match filter
     ///
     /// Does not check down tree so should be used to flattened devices only (`get_all_devices`). Will remove hubs if `hide_hubs` since when flattened they will have no devices
-    pub fn retain_flattened_devices_ref(&self, devices: &mut Vec<&USBDevice>) -> () {
-        devices.retain(|d| self.is_match(&d))
+    pub fn retain_flattened_devices_ref(&self, devices: &mut Vec<&USBDevice>) {
+        devices.retain(|d| self.is_match(d))
     }
 }
 
@@ -1356,8 +1350,12 @@ pub fn read_json_dump(file_path: &str) -> Result<SPUSBDataType, Error> {
     let mut data = String::new();
     file.read_to_string(&mut data)?;
 
-    let json_dump: SPUSBDataType =
-        serde_json::from_str(&data).map_err(|e| Error::new(ErrorKind::Parsing, &format!("Failed to parse dump at {:?}; Error({})", file_path, e.to_string())))?;
+    let json_dump: SPUSBDataType = serde_json::from_str(&data).map_err(|e| {
+        Error::new(
+            ErrorKind::Parsing,
+            &format!("Failed to parse dump at {:?}; Error({})", file_path, e),
+        )
+    })?;
 
     Ok(json_dump)
 }
@@ -1378,18 +1376,25 @@ pub fn get_spusb() -> Result<SPUSBDataType, Error> {
     };
 
     if output.status.success() {
-        serde_json::from_str(String::from_utf8(output.stdout)?.as_str())
-            .map_err(|e| Error::new(ErrorKind::Parsing, &format!("Failed to parse 'system_profiler -json SPUSBDataType'; Error({})", e)))
+        serde_json::from_str(String::from_utf8(output.stdout)?.as_str()).map_err(|e| {
+            Error::new(
+                ErrorKind::Parsing,
+                &format!(
+                    "Failed to parse 'system_profiler -json SPUSBDataType'; Error({})",
+                    e
+                ),
+            )
+        })
     } else {
         log::error!(
             "system_profiler returned non-zero stderr: {:?}, stdout: {:?}",
             String::from_utf8(output.stderr)?,
             String::from_utf8(output.stdout)?
         );
-        return Err(Error::new(
+        Err(Error::new(
             ErrorKind::SystemProfiler,
             "system_profiler returned non-zero, use '--force-libusb' to bypass",
-        ));
+        ))
     }
 }
 
@@ -1437,7 +1442,7 @@ where
                     s = "0x05ac";
                 }
                 // the vendor_id can be appended with manufacturer name for some reason...split with space to get just base16 encoding
-                let vendor_vec: Vec<&str> = s.split(" ").collect();
+                let vendor_vec: Vec<&str> = s.split(' ').collect();
 
                 if s.contains("0x") {
                     let removed_0x = vendor_vec[0].trim_start_matches("0x");
@@ -1511,7 +1516,7 @@ where
     deserializer.deserialize_any(VersionVisitor)
 }
 
-fn version_serializer<'a, S>(version: &'a Option<Version>, s: S) -> Result<S::Ok, S::Error>
+fn version_serializer<S>(version: &Option<Version>, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::ser::Serializer,
 {
@@ -1588,6 +1593,6 @@ mod tests {
 
     #[test]
     fn test_json_dump_read_not_panic() {
-        read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
+        read_json_dump("./tests/data/system_profiler_dump.json").unwrap();
     }
 }

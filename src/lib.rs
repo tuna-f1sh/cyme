@@ -6,10 +6,10 @@ use simple_logger::SimpleLogger;
 
 #[macro_use]
 extern crate lazy_static;
-pub mod error;
 pub mod colour;
 pub mod config;
 pub mod display;
+pub mod error;
 pub mod icon;
 pub mod lsusb;
 pub mod system_profiler;
@@ -36,7 +36,14 @@ pub fn set_log_level(debug: u8) -> crate::error::Result<()> {
         3 | _ => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Trace.to_level_filter()),
-    }.init().map_err(|e| crate::error::Error::new(crate::error::ErrorKind::Other("simple_logger"), &format!("Failed to set log level: {}", e.to_string())))?;
+    }
+    .init()
+    .map_err(|e| {
+        crate::error::Error::new(
+            crate::error::ErrorKind::Other("simple_logger"),
+            &format!("Failed to set log level: {}", e),
+        )
+    })?;
 
     Ok(())
 }
