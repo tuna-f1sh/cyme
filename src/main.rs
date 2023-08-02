@@ -106,8 +106,12 @@ struct Args {
     #[arg(long, default_value_t = false)]
     no_padding: bool,
 
+    /// Output coloring mode
+    #[arg(long, value_enum, default_value_t = display::ColorWhen::Always, aliases = &["colour"])]
+    color: display::ColorWhen,
+
     /// Disable coloured output, can also use NO_COLOR environment variable
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, hide = true)]
     no_colour: bool,
 
     /// Disables icons and utf-8 charactors
@@ -424,15 +428,29 @@ fn cyme() -> Result<()> {
         .map_or(config.print_non_critical_profiler_stderr, |_| true);
 
     merge_config(&config, &mut args);
-    let colours = if args.no_colour {
-        // set env to be sure too
-        env::set_var("NO_COLOR", "1");
-        None
-    } else {
-        Some(config.colours)
-    };
 
-    let icons = if args.ascii { None } else { Some(config.icons) };
+    if args.no_colour {
+        args.color = display::ColorWhen::Never;
+    }
+
+    // set the output colouring
+    let colours = match args.color {
+        display::ColorWhen::Auto => {
+            // colored crate manages coloring
+            Some(config.colours)
+        },
+        display::ColorWhen::Always => {
+            env::set_var("NO_COLOR", "0");
+            colored::control::set_override(true);
+            Some(config.colours)
+        },
+        display::ColorWhen::Never => {
+            // set env to be sure too
+            env::set_var("NO_COLOR", "1");
+            colored::control::set_override(false);
+            None
+        },
+    };
 
     let mut spusb = if let Some(file_path) = args.from_json {
         system_profiler::read_json_dump(file_path.as_str())?

@@ -25,6 +25,24 @@ const DEFAULT_AUTO_WIDTH: u16 = 80; // default terminal width to scale if None r
 const MIN_VARIABLE_STRING_LEN: usize = 5; // minimum variable string length to scale to
 const LIST_INSET_SPACES: u8 = 2; // number of spaces for non-tree inset
 
+/// Colouring control for the output
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, ValueEnum, Default)]
+pub enum ColorWhen {
+    /// Show colours if the output goes to an interactive console (default)
+    #[default]
+    Auto,
+    /// Always apply colouring to the output
+    Always,
+    /// Never apply colouring to the output
+    Never,
+}
+
+impl std::fmt::Display for ColorWhen {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Info that can be printed about a [`USBDevice`]
 #[non_exhaustive]
 #[derive(
@@ -1234,17 +1252,24 @@ pub enum Group {
 
 /// Charactor printing settings
 // TODO use this as printing: Vec<display::Printing> with default [display::Printing::Utf8, display::Printing::Icons]
-#[derive(Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize,)]
 #[serde(rename_all = "kebab-case")]
 pub enum Printing {
-    /// Use utf-8 charactors
+    /// Use glyphs such as NerdFont extended UTF-8 charactors for the output
+    #[default]
+    Glyphs,
+    /// Use standard UTF-8 charactors for the output - no fancy glyphs
     Utf8,
-    /// Use ascii charactors
+    /// Use only ASCII charactors for the output
     Ascii,
-    /// Show icons
-    Icons,
     /// Show no icons
     NoIcons,
+}
+
+impl std::fmt::Display for Printing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 /// Options for [`PrintSettings`] mask_serials
