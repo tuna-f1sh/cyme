@@ -8,6 +8,10 @@ use std::str::FromStr;
 use crate::error::{Error, ErrorKind};
 use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{ClassCode, Direction};
+use crate::display::Encoding;
+
+/// If only standard UTF-8 characters are used, this is the default icon for a device
+// const UTF8_DEFAULT_DEVICE_ICON: &str = "\u{2023}"; // ‣
 
 /// Serialize alphabetically for HashMaps so they don't change each generation
 fn sort_alphabetically<T: Serialize, S: serde::Serializer>(
@@ -167,16 +171,16 @@ impl fmt::Display for Icon {
     }
 }
 
-/// Allows user supplied icons to replace or add to `DEFAULT_ICONS` and `DEFAULT_TREE`
+/// Allows user supplied icons to replace or add to [`DEFAULT_ICONS`] and [`DEFAULT_UTF8_TREE`]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[serde(default)]
 pub struct IconTheme {
-    /// Will merge with `DEFAULT_ICONS` for user supplied
+    /// Will merge with [`DEFAULT_ICONS`] for user supplied
     #[serde(serialize_with = "sort_alphabetically")]
     pub user: Option<HashMap<Icon, String>>,
-    /// Will merge with `DEFAULT_TREE` for user supplied tree drawing
+    /// Will merge with [`DEFAULT_UTF8_TREE`] for user supplied tree drawing
     #[serde(serialize_with = "sort_alphabetically")]
     pub tree: Option<HashMap<Icon, String>>,
 }
@@ -193,7 +197,7 @@ impl Default for IconTheme {
 
 lazy_static! {
     /// Default icons to draw tree can be overridden by user icons with IconTheme `tree`
-    static ref DEFAULT_TREE: HashMap<Icon, &'static str> = {
+    static ref DEFAULT_UTF8_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::TreeEdge, "\u{251c}\u{2500}\u{2500}"), // "├──"
             (Icon::TreeLine, "\u{2502}  "), // "│  "
@@ -211,7 +215,7 @@ lazy_static! {
     };
 
     /// Ascii chars used by lsusb compatible mode or no utf-8
-    static ref ASCII_TREE: HashMap<Icon, &'static str> = {
+    static ref DEFAULT_ASCII_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::TreeEdge, "|__"), // same as corner
             (Icon::TreeLine, "|  "), // no outside line but inset so starts under parent device
@@ -293,20 +297,20 @@ impl IconTheme {
         Default::default()
     }
 
-    /// Get tree building icon checks `Self` for user `tree` and tries to find `icon` there, otherwise uses `DEFAULT_TREE`
-    pub fn get_tree_icon(&self, icon: &Icon) -> String {
-        // unwrap on DEFAULT_TREE is ok here since should panic if missing from static list
+    /// Get tree building icon checks `Self` for user `tree` and tries to find `icon` there, otherwise uses [`DEFAULT_UTF8_TREE`]
+    pub fn get_tree_icon(&self, icon: &Icon, encoding: &Encoding) -> String {
+        // unwrap on DEFAULT_UTF8_TREE is ok here since should panic if missing from static list
         if let Some(user_tree) = self.tree.as_ref() {
             user_tree
                 .get(icon)
-                .unwrap_or(&DEFAULT_TREE.get(icon).unwrap().to_string())
+                .unwrap_or(&DEFAULT_UTF8_TREE.get(icon).unwrap().to_string())
                 .to_string()
         } else {
-            get_default_tree_icon(icon)
+            get_default_tree_icon(icon, &encoding)
         }
     }
 
-    /// Drill through `DEFAULT_ICONS` first looking for `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> ""
+    /// Drill through [`DEFAULT_ICONS`] first looking for `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> ""
     pub fn get_default_vidpid_icon(vid: u16, pid: u16) -> String {
         // try vid pid first
         DEFAULT_ICONS
@@ -413,14 +417,17 @@ impl IconTheme {
     }
 }
 
-/// Gets tree icon from `DEFAULT_TREE` as `String` with `unwrap` because should panic if missing from there
-pub fn get_default_tree_icon(i: &Icon) -> String {
-    DEFAULT_TREE.get(i).unwrap().to_string()
+/// Gets tree icon from [`DEFAULT_UTF8_TREE`] or [`DEFAULT_ASCII_TREE`] (depanding on [`Encoding`]) as `String` with `unwrap` because should panic if missing from there
+pub fn get_default_tree_icon(i: &Icon, encoding: &Encoding) -> String {
+    match encoding {
+        Encoding::Utf8|Encoding::Glyphs => DEFAULT_UTF8_TREE.get(i).unwrap().to_string(),
+        Encoding::Ascii => DEFAULT_ASCII_TREE.get(i).unwrap().to_string(),
+    }
 }
 
-/// Gets tree icon from `LSUSB_TREE` as `String` with `unwrap` because should panic if missing from there
+/// Gets tree icon from [`DEFAULT_ASCII_TREE`] as `String` with `unwrap` because should panic if missing from there
 pub fn get_ascii_tree_icon(i: &Icon) -> String {
-    ASCII_TREE.get(i).unwrap().to_string()
+    DEFAULT_ASCII_TREE.get(i).unwrap().to_string()
 }
 
 /// Returns clone of lazy_static defaults
@@ -450,7 +457,7 @@ pub fn example() -> HashMap<Icon, String> {
 
 /// Returns example theme with [`Icon`] types and default tree
 pub fn example_theme() -> IconTheme {
-    let tree_strings: HashMap<Icon, String> = DEFAULT_TREE
+    let tree_strings: HashMap<Icon, String> = DEFAULT_UTF8_TREE
         .iter()
         .map(|(k, v)| (k.to_owned(), v.to_string()))
         .collect();
@@ -458,6 +465,7 @@ pub fn example_theme() -> IconTheme {
     IconTheme {
         user: Some(example()),
         tree: Some(tree_strings),
+        ..Default::default()
     }
 }
 

@@ -111,12 +111,20 @@ struct Args {
     color: display::ColorWhen,
 
     /// Disable coloured output, can also use NO_COLOR environment variable
-    #[arg(long, default_value_t = false, hide = true)]
-    no_colour: bool,
+    #[arg(long, default_value_t = false, hide = true, aliases = &["no_colour"])]
+    no_color: bool,
+
+    /// Output charactor encoding
+    #[arg(long, value_enum, default_value_t = display::Encoding::Glyphs)]
+    encoding: display::Encoding,
 
     /// Disables icons and utf-8 charactors
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, hide = true)]
     ascii: bool,
+
+    /// Disables all Block icons by not using any IconTheme. Providing custom XxxxBlocks is a nicer way to do this, since this option will just print "" in place if a icon
+    #[arg(long, default_value_t = false, hide = true)]
+    no_icons: bool,
 
     /// Show block headings
     #[arg(long, default_value_t = false)]
@@ -187,6 +195,7 @@ fn merge_config(c: &Config, a: &mut Args) {
     a.ascii |= c.ascii;
     a.headings |= c.headings;
     a.force_libusb |= c.force_libusb;
+    a.no_icons |= c.no_icons;
     if a.verbose == 0 {
         a.verbose = c.verbose;
     }
@@ -429,7 +438,8 @@ fn cyme() -> Result<()> {
 
     merge_config(&config, &mut args);
 
-    if args.no_colour {
+    // legacy arg, hidden but still suport with new format
+    if args.no_color {
         args.color = display::ColorWhen::Never;
     }
 
@@ -450,6 +460,19 @@ fn cyme() -> Result<()> {
             colored::control::set_override(false);
             None
         },
+    };
+
+    // legacy arg, hidden but still suport with new format
+    if args.ascii {
+        args.encoding = display::Encoding::Ascii;
+    }
+
+    let icons = if args.no_icons {
+        // None will print "" in place of a icon. For the tree, the display crate falls back to the static defaults for the encoding
+        None
+    } else {
+        // Default icons and any user supplied
+        Some(config.icons)
     };
 
     let mut spusb = if let Some(file_path) = args.from_json {
@@ -594,6 +617,7 @@ fn cyme() -> Result<()> {
         headings: args.headings,
         verbosity: args.verbose,
         more: args.more,
+        encoding: args.encoding,
         mask_serials: args.mask_serials.map_or(config.mask_serials, Some),
         device_blocks: args.blocks.map_or(config.blocks, Some),
         bus_blocks: args.bus_blocks.map_or(config.bus_blocks, Some),

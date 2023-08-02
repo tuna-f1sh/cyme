@@ -54,8 +54,14 @@ pub struct Config {
     pub decimal: bool,
     /// Disable padding to align blocks
     pub no_padding: bool,
+    // /// Output coloring mode
+    // pub color: display::ColorWhen,
     /// Disables icons and utf-8 charactors
     pub ascii: bool,
+    // /// Output charactor encoding
+    // pub encoding: display::Encoding,
+    /// Disables all [`Display::Block`] icons
+    pub no_icons: bool,
     /// Show block headings
     pub headings: bool,
     /// Force libusb profiler on macOS rather than using/combining system_profiler output

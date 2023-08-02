@@ -27,6 +27,7 @@ const LIST_INSET_SPACES: u8 = 2; // number of spaces for non-tree inset
 
 /// Colouring control for the output
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, ValueEnum, Default)]
+#[serde(rename_all = "kebab-case")]
 pub enum ColorWhen {
     /// Show colours if the output goes to an interactive console (default)
     #[default]
@@ -40,6 +41,68 @@ pub enum ColorWhen {
 impl std::fmt::Display for ColorWhen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+/// Charactor encoding control for the output
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, ValueEnum, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum Encoding {
+    /// Use glyphs such as NerdFont extended UTF-8 charactors for the output
+    #[default]
+    Glyphs,
+    /// Use only standard UTF-8 charactors for the output - no fancy glyphs
+    Utf8,
+    /// Use only ASCII charactors for the output - no icons
+    Ascii,
+}
+
+impl std::fmt::Display for Encoding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Encoding {
+    /// Returns if the icon (single char) is valid for the encoding for not
+    ///
+    /// ```
+    /// use cyme::display::Encoding;
+    ///
+    /// let enc = Encoding::Ascii;
+    /// assert!(enc.icon_is_valid("I"));
+    /// assert!(!enc.icon_is_valid("\u{2000}"));
+    ///
+    /// let enc = Encoding::Utf8;
+    /// assert!(enc.icon_is_valid("I"));
+    /// assert!(enc.icon_is_valid("\u{2000}"));
+    /// assert!(!enc.icon_is_valid("\u{e001}"));
+    ///
+    /// let enc = Encoding::Glyphs;
+    /// assert!(enc.icon_is_valid("I"));
+    /// assert!(enc.icon_is_valid("\u{2000}"));
+    /// assert!(enc.icon_is_valid("\u{f287}"));
+    /// ```
+    pub fn icon_is_valid(&self, s: &str) -> bool {
+        match self {
+            Encoding::Ascii if !s.is_ascii() => false,
+            // TODO check inside standard range
+            Encoding::Utf8 => {
+                // let byte_slice: [u8; 2] = s.as_bytes().into();
+                // sum < 0xe000
+                true
+            },
+            _ => true
+        }
+    }
+}
+
+/// Checks if icon is valid for encoding, returns empty String if not
+fn icon_or_empty(s: String, encoding: &Encoding) -> String {
+    if encoding.icon_is_valid(&s) {
+        s
+    } else {
+        String::new()
     }
 }
 
@@ -262,26 +325,26 @@ pub trait Block<B: Eq + Hash, T> {
         Self: Sized;
 
     /// Returns the length of block value given device data - like block_length but actual device field length rather than fixed/heading
-    fn len(&self, d: &Vec<&T>) -> usize;
+    fn len(&self, d: &Vec<&T>, settings: &PrintSettings) -> usize;
 
     /// Returns length type and usize contained, [`BlockLength::Variable`] will be heading usize without actual device data
-    fn block_length(&self) -> BlockLength;
+    fn block_length(&self, settings: &PrintSettings) -> BlockLength;
 
     /// Creates a HashMap of B keys to usize of longest value for that key in the `d` Vec or heading if > this; values can then be padded to match this
-    fn generate_padding(d: &Vec<&T>) -> HashMap<B, usize>;
+    fn generate_padding(d: &Vec<&T>, settings: &PrintSettings) -> HashMap<B, usize>;
 
     /// Colour the block String
     fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString;
 
     /// Creates the heading for the block value, for use with the heading flag
-    fn heading(&self) -> &str;
+    fn heading(&self, settings: &PrintSettings) -> &str;
 
     /// Pads the heading with provided padding block HashMap
-    fn heading_padded(&self, pad: &HashMap<B, usize>) -> String;
+    fn heading_padded(&self, settings: &PrintSettings, pad: &HashMap<B, usize>) -> String;
 
     /// Returns whether the value intended for the block is a variable length type (string descriptor)
-    fn value_is_variable_length(&self) -> bool {
-        match self.block_length() {
+    fn value_is_variable_length(&self, settings: &PrintSettings) -> bool {
+        match self.block_length(settings) {
             BlockLength::Fixed(_) => false,
             BlockLength::Variable(_) => true,
         }
@@ -364,7 +427,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBDevice>) -> usize {
+    fn len(&self, d: &Vec<&USBDevice>, settings: &PrintSettings) -> usize {
         match self {
             DeviceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             DeviceBlocks::Serial => d
@@ -429,13 +492,13 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 })
                 .max()
                 .unwrap_or(0),
-            _ => self.block_length().len(),
+            _ => self.block_length(settings).len(),
         }
     }
 
-    fn generate_padding(d: &Vec<&system_profiler::USBDevice>) -> HashMap<Self, usize> {
+    fn generate_padding(d: &Vec<&system_profiler::USBDevice>, settings: &PrintSettings) -> HashMap<Self, usize> {
         DeviceBlocks::iter()
-            .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
+            .map(|b| (b, cmp::max(b.heading(settings).len(), b.len(d, settings))))
             .collect()
     }
 
@@ -502,7 +565,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 ),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            DeviceBlocks::Icon => settings.icons.as_ref().map(|i| i.get_device_icon(d)),
+            DeviceBlocks::Icon => settings.icons.as_ref().map(|i| icon_or_empty(i.get_device_icon(d), &settings.encoding)),
             DeviceBlocks::VendorId => Some(match d.vendor_id {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
@@ -602,7 +665,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn heading(&self) -> &str {
+    fn heading(&self, settings: &PrintSettings) -> &str {
         match self {
             DeviceBlocks::BusNumber => "Bus",
             DeviceBlocks::DeviceNumber => "#",
@@ -629,25 +692,30 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::ClassCode => "Class",
             DeviceBlocks::SubClass => "SubC",
             DeviceBlocks::Protocol => "Pcol",
-            DeviceBlocks::Icon => ICON_HEADING,
+            DeviceBlocks::Icon => {
+                match settings.icons {
+                    Some(_) => ICON_HEADING,
+                    None => "",
+                }
+            }
             // _ => "",
         }
     }
 
-    fn heading_padded(&self, pad: &HashMap<Self, usize>) -> String {
+    fn heading_padded(&self, settings: &PrintSettings, pad: &HashMap<Self, usize>) -> String {
         format!(
             "{:^pad$}",
-            self.heading(),
+            self.heading(settings),
             pad = pad.get(self).unwrap_or(&0)
         )
     }
 
-    fn block_length(&self) -> BlockLength {
+    fn block_length(&self, settings: &PrintSettings) -> BlockLength {
         match self {
             DeviceBlocks::BusNumber | DeviceBlocks::DeviceNumber | DeviceBlocks::BranchPosition => {
                 BlockLength::Fixed(3)
             }
-            DeviceBlocks::Icon => BlockLength::Fixed(1),
+            // DeviceBlocks::Icon => BlockLength::Fixed(1),
             DeviceBlocks::VendorId | DeviceBlocks::ProductId => BlockLength::Fixed(6),
             DeviceBlocks::Speed => BlockLength::Fixed(10),
             DeviceBlocks::BusPower
@@ -655,7 +723,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             | DeviceBlocks::ExtraCurrentUsed => BlockLength::Fixed(6),
             DeviceBlocks::BcdDevice | DeviceBlocks::BcdUsb => BlockLength::Fixed(5),
             DeviceBlocks::SubClass | DeviceBlocks::Protocol => BlockLength::Fixed(4),
-            _ => BlockLength::Variable(self.heading().len()),
+            _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
 }
@@ -677,20 +745,20 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBBus>) -> usize {
+    fn len(&self, d: &Vec<&USBBus>, settings: &PrintSettings) -> usize {
         match self {
             BusBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             BusBlocks::HostController => {
                 d.iter().map(|d| d.host_controller.len()).max().unwrap_or(0)
             }
             BusBlocks::PortPath => d.iter().map(|d| d.path().len()).max().unwrap_or(0),
-            _ => self.block_length().len(),
+            _ => self.block_length(settings).len(),
         }
     }
 
-    fn generate_padding(d: &Vec<&system_profiler::USBBus>) -> HashMap<Self, usize> {
+    fn generate_padding(d: &Vec<&system_profiler::USBBus>, settings: &PrintSettings) -> HashMap<Self, usize> {
         BusBlocks::iter()
-            .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
+            .map(|b| (b, cmp::max(b.heading(settings).len(), b.len(d, settings))))
             .collect()
     }
 
@@ -716,7 +784,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
     ) -> Option<String> {
         match self {
             BusBlocks::BusNumber => Some(format!("{:3}", bus.get_bus_number())),
-            BusBlocks::Icon => settings.icons.as_ref().map(|i| i.get_bus_icon(bus)),
+            BusBlocks::Icon => settings.icons.as_ref().map(|i| icon_or_empty(i.get_bus_icon(bus), &settings.encoding)),
             BusBlocks::PciVendor => Some(match bus.pci_vendor {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
@@ -748,7 +816,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         }
     }
 
-    fn heading(&self) -> &str {
+    fn heading(&self, settings: &PrintSettings) -> &str {
         match self {
             BusBlocks::BusNumber => "Bus",
             BusBlocks::PortPath => "PPath",
@@ -757,27 +825,32 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::PciRevision => "Revisn",
             BusBlocks::Name => "Name",
             BusBlocks::HostController => "HostController",
-            BusBlocks::Icon => ICON_HEADING,
+            BusBlocks::Icon => {
+                match settings.icons {
+                    Some(_) => ICON_HEADING,
+                    None => "",
+                }
+            }
             // _ => "",
         }
     }
 
-    fn heading_padded(&self, pad: &HashMap<Self, usize>) -> String {
+    fn heading_padded(&self, settings: &PrintSettings, pad: &HashMap<Self, usize>) -> String {
         format!(
             "{:^pad$}",
-            self.heading(),
+            self.heading(settings),
             pad = pad.get(self).unwrap_or(&0)
         )
     }
 
-    fn block_length(&self) -> BlockLength {
+    fn block_length(&self, settings: &PrintSettings) -> BlockLength {
         match self {
             BusBlocks::BusNumber => BlockLength::Fixed(3),
             BusBlocks::PciDevice | BusBlocks::PciVendor | BusBlocks::PciRevision => {
                 BlockLength::Fixed(6)
             }
-            BusBlocks::Icon => BlockLength::Fixed(1),
-            _ => BlockLength::Variable(self.heading().len()),
+            // BusBlocks::Icon => BlockLength::Fixed(1),
+            _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
 }
@@ -805,7 +878,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBConfiguration>) -> usize {
+    fn len(&self, d: &Vec<&USBConfiguration>, settings: &PrintSettings) -> usize {
         match self {
             ConfigurationBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             ConfigurationBlocks::Attributes => d
@@ -813,13 +886,13 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
                 .map(|d| d.attributes_string().len())
                 .max()
                 .unwrap_or(0),
-            _ => self.block_length().len(),
+            _ => self.block_length(settings).len(),
         }
     }
 
-    fn generate_padding(d: &Vec<&USBConfiguration>) -> HashMap<Self, usize> {
+    fn generate_padding(d: &Vec<&USBConfiguration>, settings: &PrintSettings) -> HashMap<Self, usize> {
         ConfigurationBlocks::iter()
-            .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
+            .map(|b| (b, cmp::max(b.heading(settings).len(), b.len(d, settings))))
             .collect()
     }
 
@@ -864,33 +937,38 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         }
     }
 
-    fn heading(&self) -> &str {
+    fn heading(&self, settings: &PrintSettings) -> &str {
         match self {
             ConfigurationBlocks::Number => "#",
             ConfigurationBlocks::NumInterfaces => "I#",
             ConfigurationBlocks::MaxPower => "PMax",
             ConfigurationBlocks::Name => "Name",
             ConfigurationBlocks::Attributes => "Attributes",
-            ConfigurationBlocks::IconAttributes => ICON_HEADING,
+            ConfigurationBlocks::IconAttributes => {
+                match settings.icons {
+                    Some(_) => ICON_HEADING,
+                    None => "",
+                }
+            }
         }
     }
 
-    fn heading_padded(&self, pad: &HashMap<Self, usize>) -> String {
+    fn heading_padded(&self, settings: &PrintSettings, pad: &HashMap<Self, usize>) -> String {
         format!(
             "{:^pad$}",
-            self.heading(),
+            self.heading(settings),
             pad = pad.get(self).unwrap_or(&0)
         )
     }
 
-    fn block_length(&self) -> BlockLength {
+    fn block_length(&self, settings: &PrintSettings) -> BlockLength {
         match self {
             ConfigurationBlocks::Number => BlockLength::Fixed(2),
             ConfigurationBlocks::NumInterfaces => BlockLength::Fixed(2),
             ConfigurationBlocks::MaxPower => BlockLength::Fixed(6),
             // two possible icons and a space between
-            ConfigurationBlocks::IconAttributes => BlockLength::Fixed(3),
-            _ => BlockLength::Variable(self.heading().len()),
+            // ConfigurationBlocks::IconAttributes => BlockLength::Fixed(3),
+            _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
 }
@@ -924,7 +1002,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBInterface>) -> usize {
+    fn len(&self, d: &Vec<&USBInterface>, settings: &PrintSettings) -> usize {
         match self {
             InterfaceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             InterfaceBlocks::ClassCode => d
@@ -943,13 +1021,13 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 .map(|d| d.driver.as_ref().unwrap_or(&String::new()).len())
                 .max()
                 .unwrap_or(0),
-            _ => self.block_length().len(),
+            _ => self.block_length(settings).len(),
         }
     }
 
-    fn generate_padding(d: &Vec<&USBInterface>) -> HashMap<Self, usize> {
+    fn generate_padding(d: &Vec<&USBInterface>, settings: &PrintSettings) -> HashMap<Self, usize> {
         InterfaceBlocks::iter()
-            .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
+            .map(|b| (b, cmp::max(b.heading(settings).len(), b.len(d, settings))))
             .collect()
     }
 
@@ -1009,13 +1087,13 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 Some(Self::format_base_u8(interface.alt_setting, settings))
             }
             InterfaceBlocks::Icon => settings.icons.as_ref().map(|i| {
-                i.get_classifier_icon(&interface.class, interface.sub_class, interface.protocol)
+                icon_or_empty(i.get_classifier_icon(&interface.class, interface.sub_class, interface.protocol), &settings.encoding)
             }),
             // _ => None,
         }
     }
 
-    fn heading(&self) -> &str {
+    fn heading(&self, settings: &PrintSettings) -> &str {
         match self {
             InterfaceBlocks::Number => "#",
             InterfaceBlocks::Name => "Name",
@@ -1027,20 +1105,25 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::SubClass => "SubC",
             InterfaceBlocks::Protocol => "Pcol",
             InterfaceBlocks::AltSetting => "Alt#",
-            InterfaceBlocks::Icon => ICON_HEADING,
+            InterfaceBlocks::Icon => {
+                match settings.icons {
+                    Some(_) => ICON_HEADING,
+                    None => "",
+                }
+            }
             // _ => "",
         }
     }
 
-    fn heading_padded(&self, pad: &HashMap<Self, usize>) -> String {
+    fn heading_padded(&self, settings: &PrintSettings, pad: &HashMap<Self, usize>) -> String {
         format!(
             "{:^pad$}",
-            self.heading(),
+            self.heading(settings),
             pad = pad.get(self).unwrap_or(&0)
         )
     }
 
-    fn block_length(&self) -> BlockLength {
+    fn block_length(&self, settings: &PrintSettings) -> BlockLength {
         match self {
             InterfaceBlocks::Number => BlockLength::Fixed(2),
             InterfaceBlocks::NumEndpoints => BlockLength::Fixed(2),
@@ -1048,7 +1131,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::SubClass | InterfaceBlocks::Protocol | InterfaceBlocks::AltSetting => {
                 BlockLength::Fixed(4)
             }
-            _ => BlockLength::Variable(self.heading().len()),
+            _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
 }
@@ -1079,7 +1162,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBEndpoint>) -> usize {
+    fn len(&self, d: &Vec<&USBEndpoint>, settings: &PrintSettings) -> usize {
         match self {
             EndpointBlocks::TransferType => d
                 .iter()
@@ -1106,13 +1189,13 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
                 .map(|d| d.max_packet_string().len())
                 .max()
                 .unwrap_or(0),
-            _ => self.block_length().len(),
+            _ => self.block_length(settings).len(),
         }
     }
 
-    fn generate_padding(d: &Vec<&USBEndpoint>) -> HashMap<Self, usize> {
+    fn generate_padding(d: &Vec<&USBEndpoint>, settings: &PrintSettings) -> HashMap<Self, usize> {
         EndpointBlocks::iter()
-            .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
+            .map(|b| (b, cmp::max(b.heading(settings).len(), b.len(d, settings))))
             .collect()
     }
 
@@ -1166,7 +1249,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
         }
     }
 
-    fn heading(&self) -> &str {
+    fn heading(&self, _settings: &PrintSettings) -> &str {
         match self {
             EndpointBlocks::Number => "#",
             EndpointBlocks::Interval => "Iv",
@@ -1178,19 +1261,19 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
         }
     }
 
-    fn heading_padded(&self, pad: &HashMap<Self, usize>) -> String {
+    fn heading_padded(&self, settings: &PrintSettings, pad: &HashMap<Self, usize>) -> String {
         format!(
             "{:^pad$}",
-            self.heading(),
+            self.heading(settings),
             pad = pad.get(self).unwrap_or(&0)
         )
     }
 
-    fn block_length(&self) -> BlockLength {
+    fn block_length(&self, settings: &PrintSettings) -> BlockLength {
         match self {
             EndpointBlocks::Number => BlockLength::Fixed(2),
             EndpointBlocks::Interval => BlockLength::Fixed(2),
-            _ => BlockLength::Variable(self.heading().len()),
+            _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
 }
@@ -1250,28 +1333,6 @@ pub enum Group {
     Bus,
 }
 
-/// Charactor printing settings
-// TODO use this as printing: Vec<display::Printing> with default [display::Printing::Utf8, display::Printing::Icons]
-#[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize,)]
-#[serde(rename_all = "kebab-case")]
-pub enum Printing {
-    /// Use glyphs such as NerdFont extended UTF-8 charactors for the output
-    #[default]
-    Glyphs,
-    /// Use standard UTF-8 charactors for the output - no fancy glyphs
-    Utf8,
-    /// Use only ASCII charactors for the output
-    Ascii,
-    /// Show no icons
-    NoIcons,
-}
-
-impl std::fmt::Display for Printing {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
 /// Options for [`PrintSettings`] mask_serials
 #[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -1310,6 +1371,8 @@ pub struct PrintSettings {
     pub more: bool,
     /// Print as json
     pub json: bool,
+    /// Charactor encoding to use
+    pub encoding: Encoding,
     /// Scramble serial numbers, useful if sharing sensitive device dumps
     pub mask_serials: Option<MaskSerial>,
     /// [`DeviceBlocks`] to use for printing
@@ -1384,7 +1447,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
     // total fixed includes length of blocks to account for spaces between fields, plus tree offset
     let total_fixed: usize = blocks
         .iter()
-        .filter_map(|b| b.block_length().fixed_len())
+        .filter_map(|b| b.block_length(settings).fixed_len())
         .sum::<usize>()
         + blocks.len()
         + offset;
@@ -1465,7 +1528,7 @@ pub fn render_value<B: Eq + Hash, T>(
     for b in blocks {
         if let Some(mut string) = b.format_value(d, pad, settings) {
             // truncate if max_string_length present and before colour applied as this will _add_ chars
-            if b.value_is_variable_length() {
+            if b.value_is_variable_length(settings) {
                 if let Some(ml) = max_string_length {
                     truncate_string(&mut string, ml)
                 }
@@ -1484,13 +1547,14 @@ pub fn render_value<B: Eq + Hash, T>(
 pub fn render_heading<B: Eq + Hash, T>(
     blocks: &Vec<impl Block<B, T>>,
     pad: &HashMap<B, usize>,
+    settings: &PrintSettings,
     max_string_length: Option<usize>,
 ) -> Vec<String> {
     let mut ret = Vec::new();
 
     for b in blocks {
-        let mut string = b.heading_padded(pad);
-        if b.value_is_variable_length() {
+        let mut string = b.heading_padded(settings, pad);
+        if b.value_is_variable_length(settings) {
             if let Some(ml) = max_string_length {
                 truncate_string(&mut string, ml)
             }
@@ -1525,8 +1589,8 @@ fn generate_tree_data(
                 settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| i
-                        .get_tree_icon(&edge_icon))
+                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| i
+                        .get_tree_icon(&edge_icon, &settings.encoding))
             )
         } else {
             pass_tree.prefix.to_string()
@@ -1552,7 +1616,7 @@ pub fn print_flattened_devices(
             settings.verbosity >= MAX_VERBOSITY || settings.more,
         ));
     let mut pad = if !settings.no_padding {
-        DeviceBlocks::generate_padding(devices)
+        DeviceBlocks::generate_padding(devices, settings)
     } else {
         HashMap::new()
     };
@@ -1563,7 +1627,7 @@ pub fn print_flattened_devices(
 
     let max_variable_string_len: Option<usize> = if settings.auto_width {
         let mut variable_lens = pad.clone();
-        variable_lens.retain(|k, _| k.value_is_variable_length());
+        variable_lens.retain(|k, _| k.value_is_variable_length(settings));
         auto_max_string_len(&db, 0, &variable_lens.into_values().collect(), settings)
             .or(settings.max_variable_string_len)
     } else {
@@ -1573,14 +1637,14 @@ pub fn print_flattened_devices(
     // if there is a max variable length, adjust padding to this if current > it
     max_variable_string_len.as_ref().map(|ml| {
         for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
+            if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
     });
 
     if settings.headings {
-        let heading = render_heading(&db, &pad, max_variable_string_len).join(" ");
+        let heading = render_heading(&db, &pad, settings, max_variable_string_len).join(" ");
         println!("{}", heading.bold().underline());
     }
 
@@ -1647,7 +1711,7 @@ pub fn print_bus_grouped(
         ),
     );
     let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
-        BusBlocks::generate_padding(&bus_devices.iter().map(|bd| bd.0).collect())
+        BusBlocks::generate_padding(&bus_devices.iter().map(|bd| bd.0).collect(), settings)
     } else {
         HashMap::new()
     };
@@ -1655,7 +1719,7 @@ pub fn print_bus_grouped(
 
     let max_variable_string_len: Option<usize> = if settings.auto_width {
         let mut variable_lens = pad.clone();
-        variable_lens.retain(|k, _| k.value_is_variable_length());
+        variable_lens.retain(|k, _| k.value_is_variable_length(settings));
         auto_max_string_len(&bb, 0, &variable_lens.into_values().collect(), settings)
             .or(settings.max_variable_string_len)
     } else {
@@ -1665,7 +1729,7 @@ pub fn print_bus_grouped(
     // if there is a max variable length, adjust padding to this if current > it
     max_variable_string_len.as_ref().map(|ml| {
         for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
+            if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
@@ -1673,7 +1737,7 @@ pub fn print_bus_grouped(
 
     for (bus, devices) in bus_devices {
         if settings.headings {
-            let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
+            let heading = render_heading(&bb, &pad, settings, max_variable_string_len).join(" ");
             println!("{}", heading.bold().underline());
         }
         println!(
@@ -1707,7 +1771,7 @@ pub fn print_endpoints(
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        EndpointBlocks::generate_padding(&endpoints.iter().collect())
+        EndpointBlocks::generate_padding(&endpoints.iter().collect(), settings)
     } else {
         HashMap::new()
     };
@@ -1720,7 +1784,7 @@ pub fn print_endpoints(
         } else {
             (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
         };
-        variable_lens.retain(|k, _| k.value_is_variable_length());
+        variable_lens.retain(|k, _| k.value_is_variable_length(settings));
         auto_max_string_len(
             blocks,
             offset,
@@ -1737,7 +1801,7 @@ pub fn print_endpoints(
     // if there is a max variable length, adjust padding to this if current > it and is variable
     max_variable_string_len.as_ref().map(|ml| {
         for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
+            if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
@@ -1755,8 +1819,8 @@ pub fn print_endpoints(
                 let edge = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| {
-                        i.get_tree_icon(&edge_icon)
+                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| {
+                        i.get_tree_icon(&edge_icon, &settings.encoding)
                     });
                 format!("{}{}", tree.prefix, edge)
             // zero depth
@@ -1765,8 +1829,8 @@ pub fn print_endpoints(
             };
 
             let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_ascii_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction)),
-                |i| i.get_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction)),
+                icon::get_default_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction), &settings.encoding),
+                |i| i.get_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction), &settings.encoding),
             );
 
             // colour tree
@@ -1788,7 +1852,7 @@ pub fn print_endpoints(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks, &pad, settings, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
@@ -1800,7 +1864,7 @@ pub fn print_endpoints(
             );
         } else {
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks, &pad, settings, max_variable_string_len).join(" ");
                 println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 6);
             }
 
@@ -1822,7 +1886,7 @@ pub fn print_interfaces(
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        InterfaceBlocks::generate_padding(&interfaces.iter().collect())
+        InterfaceBlocks::generate_padding(&interfaces.iter().collect(), settings)
     } else {
         HashMap::new()
     };
@@ -1835,7 +1899,7 @@ pub fn print_interfaces(
         } else {
             (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
         };
-        variable_lens.retain(|k, _| k.value_is_variable_length());
+        variable_lens.retain(|k, _| k.value_is_variable_length(settings));
         auto_max_string_len(
             blocks.0,
             offset,
@@ -1850,7 +1914,7 @@ pub fn print_interfaces(
     // if there is a max variable length, adjust padding to this if current > it
     max_variable_string_len.as_ref().map(|ml| {
         for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
+            if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
@@ -1870,8 +1934,8 @@ pub fn print_interfaces(
                 let edge = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| {
-                        i.get_tree_icon(&edge_icon)
+                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| {
+                        i.get_tree_icon(&edge_icon, &settings.encoding)
                     });
                 format!("{}{}", tree.prefix, edge)
             // zero depth
@@ -1880,8 +1944,8 @@ pub fn print_interfaces(
             };
 
             let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_ascii_tree_icon(&icon::Icon::TreeInterfaceTerminator),
-                |i| i.get_tree_icon(&icon::Icon::TreeInterfaceTerminator),
+                icon::get_default_tree_icon(&icon::Icon::TreeInterfaceTerminator, &settings.encoding),
+                |i| i.get_tree_icon(&icon::Icon::TreeInterfaceTerminator, &settings.encoding),
             );
 
             // colour tree
@@ -1898,7 +1962,7 @@ pub fn print_interfaces(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
@@ -1912,7 +1976,7 @@ pub fn print_interfaces(
             );
         } else {
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
                 println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 4);
             }
 
@@ -1949,7 +2013,7 @@ pub fn print_configurations(
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        ConfigurationBlocks::generate_padding(&configs.iter().collect())
+        ConfigurationBlocks::generate_padding(&configs.iter().collect(), settings)
     } else {
         HashMap::new()
     };
@@ -1962,7 +2026,7 @@ pub fn print_configurations(
         } else {
             (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
         };
-        variable_lens.retain(|k, _| k.value_is_variable_length());
+        variable_lens.retain(|k, _| k.value_is_variable_length(settings));
         auto_max_string_len(
             blocks.0,
             offset,
@@ -1977,7 +2041,7 @@ pub fn print_configurations(
     // if there is a max variable length, adjust padding to this if current > it
     max_variable_string_len.as_ref().map(|ml| {
         for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
+            if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
@@ -1997,8 +2061,8 @@ pub fn print_configurations(
                 let edge = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| {
-                        i.get_tree_icon(&edge_icon)
+                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| {
+                        i.get_tree_icon(&edge_icon, &settings.encoding)
                     });
                 format!("{}{}", tree.prefix, edge)
             // zero depth
@@ -2007,8 +2071,8 @@ pub fn print_configurations(
             };
 
             let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_ascii_tree_icon(&icon::Icon::TreeConfigurationTerminator),
-                |i| i.get_tree_icon(&icon::Icon::TreeConfigurationTerminator),
+                icon::get_default_tree_icon(&icon::Icon::TreeConfigurationTerminator, &settings.encoding),
+                |i| i.get_tree_icon(&icon::Icon::TreeConfigurationTerminator, &settings.encoding),
             );
 
             // colour tree
@@ -2025,7 +2089,7 @@ pub fn print_configurations(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
@@ -2038,7 +2102,7 @@ pub fn print_configurations(
             );
         } else {
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
                 println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 2);
             }
 
@@ -2072,7 +2136,7 @@ pub fn print_devices(
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        DeviceBlocks::generate_padding(&devices.iter().collect())
+        DeviceBlocks::generate_padding(&devices.iter().collect(), settings)
     } else {
         HashMap::new()
     };
@@ -2081,7 +2145,7 @@ pub fn print_devices(
     let max_variable_string_len: Option<usize> = if settings.auto_width {
         let mut variable_lens = pad.clone();
         let offset = if settings.tree { tree.depth * 3 + 1 } else { 0 };
-        variable_lens.retain(|k, _| k.value_is_variable_length());
+        variable_lens.retain(|k, _| k.value_is_variable_length(settings));
         auto_max_string_len(db, offset, &variable_lens.into_values().collect(), settings)
             .or(settings.max_variable_string_len)
     } else {
@@ -2091,7 +2155,7 @@ pub fn print_devices(
     // if there is a max variable length, adjust padding to this if current > it
     max_variable_string_len.as_ref().map(|ml| {
         for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
+            if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
@@ -2114,8 +2178,8 @@ pub fn print_devices(
                 let edge = settings
                     .icons
                     .as_ref()
-                    .map_or(icon::get_ascii_tree_icon(&edge_icon), |i| {
-                        i.get_tree_icon(&edge_icon)
+                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| {
+                        i.get_tree_icon(&edge_icon, &settings.encoding)
                     });
                 format!("{}{}", tree.prefix, edge)
             // zero depth
@@ -2124,8 +2188,8 @@ pub fn print_devices(
             };
 
             let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_ascii_tree_icon(&icon::Icon::TreeDeviceTerminator),
-                |i| i.get_tree_icon(&icon::Icon::TreeDeviceTerminator),
+                icon::get_default_tree_icon(&icon::Icon::TreeDeviceTerminator, &settings.encoding),
+                |i| i.get_tree_icon(&icon::Icon::TreeDeviceTerminator, &settings.encoding),
             );
 
             // colour tree
@@ -2142,14 +2206,14 @@ pub fn print_devices(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(db, &pad, settings, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
             // render and print tree if doing it
             print!("{}{} ", prefix, terminator);
         } else if settings.headings && i == 0 {
-            let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
+            let heading = render_heading(db, &pad, settings, max_variable_string_len).join(" ");
             println!("{}", heading.bold().underline());
         }
 
@@ -2239,7 +2303,7 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
     };
 
     let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
-        BusBlocks::generate_padding(&sp_usb.buses.iter().collect())
+        BusBlocks::generate_padding(&sp_usb.buses.iter().collect(), settings)
     } else {
         HashMap::new()
     };
@@ -2247,7 +2311,7 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
 
     let max_variable_string_len: Option<usize> = if settings.auto_width {
         let mut variable_lens = pad.clone();
-        variable_lens.retain(|k, _| k.value_is_variable_length());
+        variable_lens.retain(|k, _| k.value_is_variable_length(settings));
         auto_max_string_len(
             &bb,
             base_tree.depth * 3,
@@ -2262,7 +2326,7 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
     // if there is a max variable length, adjust padding to this if current > it
     max_variable_string_len.as_ref().map(|ml| {
         for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
+            if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
@@ -2281,8 +2345,8 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
             let mut start = settings
                 .icons
                 .as_ref()
-                .map_or(icon::get_ascii_tree_icon(&icon::Icon::TreeBusStart), |i| {
-                    i.get_tree_icon(&icon::Icon::TreeBusStart)
+                .map_or(icon::get_default_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding), |i| {
+                    i.get_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding)
                 });
 
             // colour tree
@@ -2298,14 +2362,14 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
             }
 
             if settings.headings {
-                let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(&bb, &pad, settings, max_variable_string_len).join(" ");
                 // 2 spaces for bus start icon and space to info
                 println!("{:>spaces$}{}", "", heading.bold().underline(), spaces = 2);
             }
 
             print!("{}{} ", prefix, start);
         } else if settings.headings {
-            let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
+            let heading = render_heading(&bb, &pad, settings, max_variable_string_len).join(" ");
             // 2 spaces for bus start icon and space to info
             println!("{}", heading.bold().underline());
         }
