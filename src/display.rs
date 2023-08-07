@@ -48,10 +48,10 @@ impl std::fmt::Display for ColorWhen {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, ValueEnum, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum Encoding {
-    /// Use glyphs such as NerdFont extended UTF-8 charactors for the output
+    /// Use glyphs such as NerdFont private use area UTF-8 charactors for the output
     #[default]
     Glyphs,
-    /// Use only standard UTF-8 charactors for the output - no fancy glyphs
+    /// Use only standard UTF-8 charactors for the output - no private use area glyphs
     Utf8,
     /// Use only ASCII charactors for the output - no icons
     Ascii,
@@ -64,42 +64,72 @@ impl std::fmt::Display for Encoding {
 }
 
 impl Encoding {
-    /// Returns if the icon (single char) is valid for the encoding for not
+    /// Returns if a char is valid for the encoding for not
     ///
     /// ```
     /// use cyme::display::Encoding;
     ///
     /// let enc = Encoding::Ascii;
-    /// assert!(enc.icon_is_valid("I"));
-    /// assert!(!enc.icon_is_valid("\u{2000}"));
+    /// assert!(enc.char_is_valid('I'));
+    /// assert!(!enc.char_is_valid('\u{2000}'));
+    /// assert!(!enc.char_is_valid('●'));
     ///
     /// let enc = Encoding::Utf8;
-    /// assert!(enc.icon_is_valid("I"));
-    /// assert!(enc.icon_is_valid("\u{2000}"));
-    /// assert!(!enc.icon_is_valid("\u{e001}"));
+    /// assert!(enc.char_is_valid('I'));
+    /// assert!(enc.char_is_valid('\u{2000}'));
+    /// assert!(enc.char_is_valid('●'));
+    /// assert!(!enc.char_is_valid('\u{e001}'));
+    /// assert!(!enc.char_is_valid(''));
     ///
     /// let enc = Encoding::Glyphs;
-    /// assert!(enc.icon_is_valid("I"));
-    /// assert!(enc.icon_is_valid("\u{2000}"));
-    /// assert!(enc.icon_is_valid("\u{f287}"));
+    /// assert!(enc.char_is_valid('I'));
+    /// assert!(enc.char_is_valid('\u{2000}'));
+    /// assert!(enc.char_is_valid('\u{f287}'));
+    /// assert!(enc.char_is_valid('\u{e001}'));
+    /// assert!(enc.char_is_valid(''));
     /// ```
-    pub fn icon_is_valid(&self, s: &str) -> bool {
+    pub fn char_is_valid(&self, c: char) -> bool {
         match self {
-            Encoding::Ascii if !s.is_ascii() => false,
-            // TODO check inside standard range
-            Encoding::Utf8 => {
-                // let byte_slice: [u8; 2] = s.as_bytes().into();
-                // sum < 0xe000
-                true
+            Encoding::Ascii if !c.is_ascii() => false,
+            // not inside private use area
+            Encoding::Utf8 => match c {
+                '\u{E000}'..='\u{F8FF}' |
+                '\u{F0000}'..='\u{FFFFD}' |
+                '\u{100000}'..='\u{10FFFD}' => false,
+                _ => true,
             },
             _ => true
         }
+    }
+
+    /// Returns if a str is valid for the encoding for not
+    ///
+    /// ```
+    /// use cyme::display::Encoding;
+    ///
+    /// let enc = Encoding::Ascii;
+    /// assert!(enc.str_is_valid("hello world"));
+    /// assert!(!enc.str_is_valid("├──")); // utf-8 tree
+    /// assert!(!enc.str_is_valid("chip "));
+    ///
+    /// let enc = Encoding::Utf8;
+    /// assert!(enc.str_is_valid("hello world"));
+    /// assert!(enc.str_is_valid("├──")); // utf-8 tree
+    /// assert!(!enc.str_is_valid("chip "));
+    ///
+    /// let enc = Encoding::Glyphs;
+    /// assert!(enc.str_is_valid("hello world"));
+    /// assert!(enc.str_is_valid("├──")); // utf-8 tree
+    /// assert!(enc.str_is_valid("chip "));
+    /// ```
+    pub fn str_is_valid(&self, s: &str) -> bool {
+        s.chars().all(|c| self.char_is_valid(c))
     }
 }
 
 /// Checks if icon is valid for encoding, returns empty String if not
 fn icon_or_empty(s: String, encoding: &Encoding) -> String {
-    if encoding.icon_is_valid(&s) {
+    if encoding.str_is_valid(&s) {
         s
     } else {
         String::new()
@@ -628,7 +658,6 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 Some(v) => Self::format_base_u8(*v, settings),
                 None => format!("{:>4}", "-"),
             }),
-            // _ => None,
         }
     }
 
@@ -698,7 +727,6 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                     None => "",
                 }
             }
-            // _ => "",
         }
     }
 
@@ -715,7 +743,6 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::BusNumber | DeviceBlocks::DeviceNumber | DeviceBlocks::BranchPosition => {
                 BlockLength::Fixed(3)
             }
-            // DeviceBlocks::Icon => BlockLength::Fixed(1),
             DeviceBlocks::VendorId | DeviceBlocks::ProductId => BlockLength::Fixed(6),
             DeviceBlocks::Speed => BlockLength::Fixed(10),
             DeviceBlocks::BusPower
@@ -772,7 +799,6 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::PciRevision => ct.number.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::PortPath => ct.path.map_or(s.normal(), |c| s.color(c)),
-            // _ => s.normal(),
         }
     }
 
@@ -831,7 +857,6 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
                     None => "",
                 }
             }
-            // _ => "",
         }
     }
 
@@ -849,7 +874,6 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::PciDevice | BusBlocks::PciVendor | BusBlocks::PciRevision => {
                 BlockLength::Fixed(6)
             }
-            // BusBlocks::Icon => BlockLength::Fixed(1),
             _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
@@ -904,7 +928,6 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             ConfigurationBlocks::Name => ct.name.map_or(s.normal(), |c| s.color(c)),
             ConfigurationBlocks::Attributes => ct.attributes.map_or(s.normal(), |c| s.color(c)),
             ConfigurationBlocks::IconAttributes => ct.icon.map_or(s.normal(), |c| s.color(c)),
-            // _ => s.normal(),
         }
     }
 
@@ -933,7 +956,6 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
                 attributes_to_icons(&config.attributes, settings),
                 pad = pad.get(self).unwrap_or(&0)
             )),
-            // _ => None,
         }
     }
 
@@ -966,7 +988,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             ConfigurationBlocks::Number => BlockLength::Fixed(2),
             ConfigurationBlocks::NumInterfaces => BlockLength::Fixed(2),
             ConfigurationBlocks::MaxPower => BlockLength::Fixed(6),
-            // two possible icons and a space between
+            // two possible icons and a space between - variable length in case if icons not valid for encoding
             // ConfigurationBlocks::IconAttributes => BlockLength::Fixed(3),
             _ => BlockLength::Variable(self.heading(settings).len()),
         }
@@ -1045,7 +1067,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::Driver => ct.driver.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::AltSetting | InterfaceBlocks::NumEndpoints => {
                 ct.number.map_or(s.normal(), |c| s.color(c))
-            } // _ => s.normal(),
+            }
         }
     }
 
@@ -1089,7 +1111,6 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::Icon => settings.icons.as_ref().map(|i| {
                 icon_or_empty(i.get_classifier_icon(&interface.class, interface.sub_class, interface.protocol), &settings.encoding)
             }),
-            // _ => None,
         }
     }
 
@@ -1111,7 +1132,6 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                     None => "",
                 }
             }
-            // _ => "",
         }
     }
 
@@ -1127,7 +1147,6 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
         match self {
             InterfaceBlocks::Number => BlockLength::Fixed(2),
             InterfaceBlocks::NumEndpoints => BlockLength::Fixed(2),
-            InterfaceBlocks::Icon => BlockLength::Fixed(1),
             InterfaceBlocks::SubClass | InterfaceBlocks::Protocol | InterfaceBlocks::AltSetting => {
                 BlockLength::Fixed(4)
             }
@@ -1245,7 +1264,6 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
                 end.usage_type.to_string(),
                 pad = pad.get(self).unwrap_or(&0)
             )),
-            // _ => None,
         }
     }
 
@@ -1522,7 +1540,6 @@ pub fn render_value<B: Eq + Hash, T>(
     pad: &HashMap<B, usize>,
     settings: &PrintSettings,
     max_string_length: Option<usize>,
-    // TODO take width outside of settings as might change
 ) -> Vec<String> {
     let mut ret = Vec::new();
     for b in blocks {
