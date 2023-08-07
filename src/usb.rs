@@ -155,7 +155,7 @@ impl ConfigAttributes {
     ///
     /// assert_eq!(ConfigAttributes::attributes_to_string(&vec![ConfigAttributes::RemoteWakeup, ConfigAttributes::SelfPowered]), "RemoteWakeup;SelfPowered");
     /// ```
-    pub fn attributes_to_string(attributes: &Vec<ConfigAttributes>) -> String {
+    pub fn attributes_to_string(attributes: &[ConfigAttributes]) -> String {
         let vec: Vec<String> = attributes.iter().map(|a| a.to_string()).collect();
         vec.join(";")
     }

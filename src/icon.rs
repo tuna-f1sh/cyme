@@ -306,7 +306,7 @@ impl IconTheme {
                 .unwrap_or(&DEFAULT_UTF8_TREE.get(icon).unwrap().to_string())
                 .to_string()
         } else {
-            get_default_tree_icon(icon, &encoding)
+            get_default_tree_icon(icon, encoding)
         }
     }
 
@@ -465,7 +465,6 @@ pub fn example_theme() -> IconTheme {
     IconTheme {
         user: Some(example()),
         tree: Some(tree_strings),
-        ..Default::default()
     }
 }
 

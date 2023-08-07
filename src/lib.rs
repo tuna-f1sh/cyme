@@ -33,7 +33,7 @@ pub fn set_log_level(debug: u8) -> crate::error::Result<()> {
         2 => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Debug.to_level_filter()),
-        3 | _ => SimpleLogger::new()
+        _ => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Trace.to_level_filter()),
     }

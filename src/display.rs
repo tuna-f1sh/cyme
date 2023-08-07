@@ -48,12 +48,12 @@ impl std::fmt::Display for ColorWhen {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, ValueEnum, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum Encoding {
-    /// Use glyphs such as NerdFont private use area UTF-8 charactors for the output
+    /// Use UTF-8 private use area charactors such as those used by NerdFont to show glyph icons
     #[default]
     Glyphs,
-    /// Use only standard UTF-8 charactors for the output - no private use area glyphs
+    /// Use only standard UTF-8 charactors for the output; no private use area glyph icons
     Utf8,
-    /// Use only ASCII charactors for the output - no icons
+    /// Use only ASCII charactors for the output; 0x00 - 0x7F (127 chars)
     Ascii,
 }
 
@@ -92,12 +92,10 @@ impl Encoding {
         match self {
             Encoding::Ascii if !c.is_ascii() => false,
             // not inside private use area
-            Encoding::Utf8 => match c {
+            Encoding::Utf8 => !matches!(c, 
                 '\u{E000}'..='\u{F8FF}' |
                 '\u{F0000}'..='\u{FFFFD}' |
-                '\u{100000}'..='\u{10FFFD}' => false,
-                _ => true,
-            },
+                '\u{100000}'..='\u{10FFFD}'),
             _ => true
         }
     }
@@ -327,6 +325,14 @@ impl BlockLength {
         }
     }
 
+    /// Is the length zero
+    pub fn is_empty(self) -> bool {
+        match self {
+            BlockLength::Fixed(s) => s == 0,
+            BlockLength::Variable(s) => s == 0,
+        }
+    }
+
     /// Get the fixed length if `[BlockLength::Fixed]` else None
     pub fn fixed_len(self) -> Option<usize> {
         match self {
@@ -355,7 +361,7 @@ pub trait Block<B: Eq + Hash, T> {
         Self: Sized;
 
     /// Returns the length of block value given device data - like block_length but actual device field length rather than fixed/heading
-    fn len(&self, d: &Vec<&T>, settings: &PrintSettings) -> usize;
+    fn len(&self, d: &[&T], settings: &PrintSettings) -> usize;
 
     /// Returns length type and usize contained, [`BlockLength::Variable`] will be heading usize without actual device data
     fn block_length(&self, settings: &PrintSettings) -> BlockLength;
@@ -364,7 +370,7 @@ pub trait Block<B: Eq + Hash, T> {
     fn generate_padding(d: &Vec<&T>, settings: &PrintSettings) -> HashMap<B, usize>;
 
     /// Colour the block String
-    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString;
+    fn colour(&self, s: &str, ct: &colour::ColourTheme) -> ColoredString;
 
     /// Creates the heading for the block value, for use with the heading flag
     fn heading(&self, settings: &PrintSettings) -> &str;
@@ -457,7 +463,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBDevice>, settings: &PrintSettings) -> usize {
+    fn len(&self, d: &[&USBDevice], settings: &PrintSettings) -> usize {
         match self {
             DeviceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             DeviceBlocks::Serial => d
@@ -661,7 +667,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
+    fn colour(&self, s: &str, ct: &colour::ColourTheme) -> ColoredString {
         match self {
             DeviceBlocks::BcdUsb | DeviceBlocks::BcdDevice | DeviceBlocks::DeviceNumber => {
                 ct.number.map_or(s.normal(), |c| s.color(c))
@@ -772,7 +778,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBBus>, settings: &PrintSettings) -> usize {
+    fn len(&self, d: &[&USBBus], settings: &PrintSettings) -> usize {
         match self {
             BusBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             BusBlocks::HostController => {
@@ -789,7 +795,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             .collect()
     }
 
-    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
+    fn colour(&self, s: &str, ct: &colour::ColourTheme) -> ColoredString {
         match self {
             BusBlocks::BusNumber => ct.location.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::PciVendor => ct.vid.map_or(s.normal(), |c| s.color(c)),
@@ -902,7 +908,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBConfiguration>, settings: &PrintSettings) -> usize {
+    fn len(&self, d: &[&USBConfiguration], settings: &PrintSettings) -> usize {
         match self {
             ConfigurationBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             ConfigurationBlocks::Attributes => d
@@ -920,7 +926,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             .collect()
     }
 
-    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
+    fn colour(&self, s: &str, ct: &colour::ColourTheme) -> ColoredString {
         match self {
             ConfigurationBlocks::Number => ct.location.map_or(s.normal(), |c| s.color(c)),
             ConfigurationBlocks::NumInterfaces => ct.number.map_or(s.normal(), |c| s.color(c)),
@@ -1024,7 +1030,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBInterface>, settings: &PrintSettings) -> usize {
+    fn len(&self, d: &[&USBInterface], settings: &PrintSettings) -> usize {
         match self {
             InterfaceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             InterfaceBlocks::ClassCode => d
@@ -1053,7 +1059,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             .collect()
     }
 
-    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
+    fn colour(&self, s: &str, ct: &colour::ColourTheme) -> ColoredString {
         match self {
             InterfaceBlocks::Number => ct.number.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::Name => ct.name.map_or(s.normal(), |c| s.color(c)),
@@ -1181,7 +1187,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
         }
     }
 
-    fn len(&self, d: &Vec<&USBEndpoint>, settings: &PrintSettings) -> usize {
+    fn len(&self, d: &[&USBEndpoint], settings: &PrintSettings) -> usize {
         match self {
             EndpointBlocks::TransferType => d
                 .iter()
@@ -1218,7 +1224,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
             .collect()
     }
 
-    fn colour(&self, s: &String, ct: &colour::ColourTheme) -> ColoredString {
+    fn colour(&self, s: &str, ct: &colour::ColourTheme) -> ColoredString {
         match self {
             EndpointBlocks::Number | EndpointBlocks::Interval | EndpointBlocks::MaxPacketSize => {
                 ct.number.map_or(s.normal(), |c| s.color(c))
@@ -1652,13 +1658,13 @@ pub fn print_flattened_devices(
     };
 
     // if there is a max variable length, adjust padding to this if current > it
-    max_variable_string_len.as_ref().map(|ml| {
+    if let Some(ml) = max_variable_string_len.as_ref() {
         for (k, v) in pad.iter_mut() {
             if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
-    });
+    }
 
     if settings.headings {
         let heading = render_heading(&db, &pad, settings, max_variable_string_len).join(" ");
@@ -1744,13 +1750,13 @@ pub fn print_bus_grouped(
     };
 
     // if there is a max variable length, adjust padding to this if current > it
-    max_variable_string_len.as_ref().map(|ml| {
+    if let Some(ml) = max_variable_string_len.as_ref() {
         for (k, v) in pad.iter_mut() {
             if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
-    });
+    }
 
     for (bus, devices) in bus_devices {
         if settings.headings {
@@ -1782,7 +1788,7 @@ pub struct TreeData {
 
 /// All device [`USBEndpoint`]
 pub fn print_endpoints(
-    endpoints: &Vec<USBEndpoint>,
+    endpoints: &[USBEndpoint],
     blocks: &Vec<EndpointBlocks>,
     settings: &PrintSettings,
     tree: &TreeData,
@@ -1816,13 +1822,13 @@ pub fn print_endpoints(
     log::trace!("Print endpoints padding {:?}, tree {:?}", pad, tree);
 
     // if there is a max variable length, adjust padding to this if current > it and is variable
-    max_variable_string_len.as_ref().map(|ml| {
+    if let Some(ml) = max_variable_string_len.as_ref() {
         for (k, v) in pad.iter_mut() {
             if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
-    });
+    }
 
     for (i, endpoint) in endpoints.iter().enumerate() {
         // get current prefix based on if last in tree and whether we are within the tree
@@ -1897,7 +1903,7 @@ pub fn print_endpoints(
 
 /// All device [`USBInterface`]
 pub fn print_interfaces(
-    interfaces: &Vec<USBInterface>,
+    interfaces: &[USBInterface],
     blocks: (&Vec<InterfaceBlocks>, &Vec<EndpointBlocks>),
     settings: &PrintSettings,
     tree: &TreeData,
@@ -1929,13 +1935,13 @@ pub fn print_interfaces(
     };
 
     // if there is a max variable length, adjust padding to this if current > it
-    max_variable_string_len.as_ref().map(|ml| {
+    if let Some(ml) = max_variable_string_len.as_ref() {
         for (k, v) in pad.iter_mut() {
             if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
-    });
+    }
 
     log::trace!("Print interfaces padding {:?}, tree {:?}", pad, tree);
 
@@ -2020,7 +2026,7 @@ pub fn print_interfaces(
 
 /// All device [`USBConfiguration`]
 pub fn print_configurations(
-    configs: &Vec<USBConfiguration>,
+    configs: &[USBConfiguration],
     blocks: (
         &Vec<ConfigurationBlocks>,
         &Vec<InterfaceBlocks>,
@@ -2056,13 +2062,13 @@ pub fn print_configurations(
     };
 
     // if there is a max variable length, adjust padding to this if current > it
-    max_variable_string_len.as_ref().map(|ml| {
+    if let Some(ml) = max_variable_string_len.as_ref() {
         for (k, v) in pad.iter_mut() {
             if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
-    });
+    }
 
     log::trace!("Print configs padding {:?}, tree {:?}", pad, tree);
 
@@ -2170,13 +2176,13 @@ pub fn print_devices(
     };
 
     // if there is a max variable length, adjust padding to this if current > it
-    max_variable_string_len.as_ref().map(|ml| {
+    if let Some(ml) = max_variable_string_len.as_ref() {
         for (k, v) in pad.iter_mut() {
             if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
-    });
+    }
 
     log::trace!("Print devices padding {:?}, tree {:?}", pad, tree);
 
@@ -2283,17 +2289,14 @@ pub fn print_devices(
             )
         }
 
-        match device.devices.as_ref() {
-            Some(d) => {
-                // and then walk down devices printing them too
-                print_devices(
-                    d,
-                    db,
-                    settings,
-                    &generate_tree_data(tree, d.len(), i, settings),
-                );
-            }
-            None => (),
+        if let Some(d) = device.devices.as_ref() {
+            // and then walk down devices printing them too
+            print_devices(
+                d,
+                db,
+                settings,
+                &generate_tree_data(tree, d.len(), i, settings),
+            );
         }
     }
 }
@@ -2341,13 +2344,13 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
     };
 
     // if there is a max variable length, adjust padding to this if current > it
-    max_variable_string_len.as_ref().map(|ml| {
+    if let Some(ml) = max_variable_string_len.as_ref() {
         for (k, v) in pad.iter_mut() {
             if k.value_is_variable_length(settings) {
                 *v = cmp::min(*v, *ml);
             }
         }
-    });
+    }
 
     log::trace!(
         "print SPUSBDataType settings, {:?}, padding {:?}, tree {:?}",
@@ -2395,17 +2398,14 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
             render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" ")
         );
 
-        match bus.devices.as_ref() {
-            Some(d) => {
-                // and then walk down devices printing them too
-                print_devices(
-                    d,
-                    &db,
-                    settings,
-                    &generate_tree_data(&base_tree, d.len(), i, settings),
-                );
-            }
-            None => (),
+        if let Some(d) = bus.devices.as_ref() {
+            // and then walk down devices printing them too
+            print_devices(
+                d,
+                &db,
+                settings,
+                &generate_tree_data(&base_tree, d.len(), i, settings),
+            );
         }
 
         // separate bus groups with line

@@ -26,6 +26,7 @@ use std::fs;
 use std::io::Read;
 use std::process::Command;
 use std::str::FromStr;
+use std::cmp::Ordering;
 
 use crate::error::{Error, ErrorKind};
 use crate::types::NumericalUnit;
@@ -151,7 +152,7 @@ impl USBBus {
             self.flattened_devices()
                 .iter()
                 .map(|d| {
-                    let mut new = d.clone().to_owned();
+                    let mut new = (*d).to_owned();
                     new.devices = None;
                     new
                 })
@@ -468,7 +469,6 @@ impl FromStr for DeviceLocation {
             bus,
             tree_positions,
             number,
-            ..Default::default()
         })
     }
 }
@@ -771,18 +771,19 @@ impl USBDevice {
         );
 
         // should not be looking for nodes below us unless root
-        if current_depth > node_depth {
-            panic!(
+        match current_depth.cmp(&node_depth) {
+            Ordering::Greater => panic!(
                 "Trying to find node at {}/{} shallower than current position {}!",
                 &port_path, node_depth, current_depth
-            );
-        // if we are at depth, just check self or return none
-        } else if node_depth == current_depth {
-            if self.port_path() == port_path {
-                return Some(self);
-            } else {
-                return None;
+            ),
+            Ordering::Equal => {
+                if self.port_path() == port_path {
+                    return Some(self);
+                } else {
+                    return None;
+                }
             }
+            Ordering::Less => {}
         }
 
         // else walk through devices recursively running function and returning if found
@@ -825,18 +826,19 @@ impl USBDevice {
         );
 
         // should not be looking for nodes below us
-        if current_depth > node_depth {
-            panic!(
+        match current_depth.cmp(&node_depth) {
+            Ordering::Greater => panic!(
                 "Trying to find node at {}/{} shallower than current position {}!",
                 &port_path, node_depth, current_depth
-            );
-        // if we are at depth, just check self or return none
-        } else if node_depth == current_depth {
-            if self.port_path() == port_path {
-                return Some(self);
-            } else {
-                return None;
+            ),
+            Ordering::Equal => {
+                if self.port_path() == port_path {
+                    return Some(self);
+                } else {
+                    return None;
+                }
             }
+            Ordering::Less => {}
         }
 
         // else walk through devices recursively running function and returning if found

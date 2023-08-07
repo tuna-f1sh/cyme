@@ -51,7 +51,7 @@ pub mod profiler {
         let log_level = match debug {
             0 => rusb::LogLevel::None,
             1 => rusb::LogLevel::Info,
-            2 | _ => rusb::LogLevel::Debug,
+            _ => rusb::LogLevel::Debug,
         };
 
         rusb::set_log_level(log_level);
@@ -415,7 +415,6 @@ pub mod profiler {
                 bus: device.bus_number(),
                 number: device.address(),
                 tree_positions: device.port_numbers()?,
-                ..Default::default()
             },
             bcd_device: Some(device_desc.device_version().into()),
             bcd_usb: Some(device_desc.usb_version().into()),

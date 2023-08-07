@@ -629,7 +629,6 @@ fn cyme() -> Result<()> {
         max_variable_string_len: config.max_variable_string_len,
         auto_width: !config.no_auto_width,
         terminal_size: terminal_size(),
-        ..Default::default()
     };
 
     display::prepare(&mut spusb, filter, &settings);
@@ -644,7 +643,7 @@ fn cyme() -> Result<()> {
                 &format!("Unable to find device at {:?}", args.device.unwrap()),
             ));
         }
-        display::print(&mut spusb, &settings);
+        display::print(&spusb, &settings);
     }
 
     Ok(())
