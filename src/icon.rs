@@ -298,12 +298,20 @@ impl IconTheme {
     }
 
     /// Get tree building icon checks `Self` for user `tree` and tries to find `icon` there, otherwise uses [`DEFAULT_UTF8_TREE`]
+    ///
+    /// Also checks if user icon is valid for encoding, if not will return default for that encoding
     pub fn get_tree_icon(&self, icon: &Icon, encoding: &Encoding) -> String {
         // unwrap on DEFAULT_UTF8_TREE is ok here since should panic if missing from static list
         if let Some(user_tree) = self.tree.as_ref() {
             user_tree
                 .get(icon)
-                .unwrap_or(&DEFAULT_UTF8_TREE.get(icon).unwrap().to_string())
+                .map(|s| {
+                    match encoding.str_is_valid(s) {
+                        true => s.to_owned(),
+                        false => get_default_tree_icon(icon, encoding)
+                    }
+                })
+                .unwrap_or(get_default_tree_icon(icon, encoding))
                 .to_string()
         } else {
             get_default_tree_icon(icon, encoding)

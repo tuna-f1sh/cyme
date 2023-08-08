@@ -411,11 +411,16 @@ pub trait Block<B: Eq + Hash, T> {
             format!("0x{:02x}", v)
         }
     }
+
+    /// If the block is used for icons
+    fn is_icon(&self) -> bool {
+        false
+    }
 }
 
 impl DeviceBlocks {
     /// Default `DeviceBlocks` for tree printing are different to list, get them here
-    pub fn default_device_tree_blocks() -> Vec<DeviceBlocks> {
+    pub fn default_device_tree_blocks() -> Vec<Self> {
         vec![
             DeviceBlocks::Icon,
             DeviceBlocks::DeviceNumber,
@@ -428,7 +433,7 @@ impl DeviceBlocks {
 }
 
 impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
-    fn default_blocks(verbose: bool) -> Vec<DeviceBlocks> {
+    fn default_blocks(verbose: bool) -> Vec<Self> {
         if verbose {
             vec![
                 DeviceBlocks::BusNumber,
@@ -759,10 +764,14 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
+
+    fn is_icon(&self) -> bool {
+        self == &DeviceBlocks::Icon
+    }
 }
 
 impl Block<BusBlocks, USBBus> for BusBlocks {
-    fn default_blocks(verbose: bool) -> Vec<BusBlocks> {
+    fn default_blocks(verbose: bool) -> Vec<Self> {
         if verbose {
             vec![
                 BusBlocks::Icon,
@@ -883,12 +892,16 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
+
+    fn is_icon(&self) -> bool {
+        self == &BusBlocks::Icon
+    }
 }
 
 impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
     const INSET: u8 = 1;
 
-    fn default_blocks(verbose: bool) -> Vec<ConfigurationBlocks> {
+    fn default_blocks(verbose: bool) -> Vec<Self> {
         if verbose {
             vec![
                 ConfigurationBlocks::Number,
@@ -999,12 +1012,16 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
+
+    fn is_icon(&self) -> bool {
+        self == &ConfigurationBlocks::IconAttributes
+    }
 }
 
 impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
     const INSET: u8 = 2;
 
-    fn default_blocks(verbose: bool) -> Vec<InterfaceBlocks> {
+    fn default_blocks(verbose: bool) -> Vec<Self> {
         if verbose {
             vec![
                 InterfaceBlocks::PortPath,
@@ -1159,12 +1176,16 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
+
+    fn is_icon(&self) -> bool {
+        self == &InterfaceBlocks::Icon
+    }
 }
 
 impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
     const INSET: u8 = 3;
 
-    fn default_blocks(verbose: bool) -> Vec<EndpointBlocks> {
+    fn default_blocks(verbose: bool) -> Vec<Self> {
         if verbose {
             vec![
                 EndpointBlocks::Number,
@@ -1459,7 +1480,7 @@ pub fn truncate_string(s: &mut String, len: usize) {
 ///
 /// Total length is based the prior calculated `variable_lens` - the values represent the maximum length of variable fields to print
 pub fn auto_max_string_len<B: Eq + Hash, T>(
-    blocks: &Vec<impl Block<B, T>>,
+    blocks: &[impl Block<B, T>],
     offset: usize,
     variable_lens: &Vec<usize>,
     settings: &PrintSettings,
@@ -1539,10 +1560,28 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
     }
 }
 
+/// Returns true if the [`Block`] has a valid icon for the [`PrintSettings`] [`Encoding`]
+/// TODO if icons auto, check all blocks have valid icons, if none have valid icons, disable icons
+pub fn has_valid_icons<B: Eq + Hash, T>(
+    d: &T,
+    blocks: &Vec<impl Block<B, T>>,
+    pad: &HashMap<B, usize>,
+    settings: &PrintSettings) -> bool {
+    blocks.iter()
+        .filter(|b| b.is_icon())
+        .all(|b| {
+            let val = b.format_value(d, pad, settings);
+            match val {
+                Some(v) => settings.encoding.str_is_valid(&v),
+                None => false,
+            }
+        })
+}
+
 /// Formats each [`Block`] value shown from a device `d`
 pub fn render_value<B: Eq + Hash, T>(
     d: &T,
-    blocks: &Vec<impl Block<B, T>>,
+    blocks: &[impl Block<B, T>],
     pad: &HashMap<B, usize>,
     settings: &PrintSettings,
     max_string_length: Option<usize>,
@@ -1568,7 +1607,7 @@ pub fn render_value<B: Eq + Hash, T>(
 
 /// Renders the headings for each [`Block`] being shown
 pub fn render_heading<B: Eq + Hash, T>(
-    blocks: &Vec<impl Block<B, T>>,
+    blocks: &[impl Block<B, T>],
     pad: &HashMap<B, usize>,
     settings: &PrintSettings,
     max_string_length: Option<usize>,
@@ -1789,7 +1828,7 @@ pub struct TreeData {
 /// All device [`USBEndpoint`]
 pub fn print_endpoints(
     endpoints: &[USBEndpoint],
-    blocks: &Vec<EndpointBlocks>,
+    blocks: &[EndpointBlocks],
     settings: &PrintSettings,
     tree: &TreeData,
 ) {

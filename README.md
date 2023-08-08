@@ -28,7 +28,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 * Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial`, `--filter_class` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
 * Controllable block data like `lsd --blocks` for device, bus, configurations, interfaces and endpoints. Use `--more` to see more by default.
-* Modern terminal features with coloured output, utf-8 characters and icon look-up based device data. Can be turned off and customised.
+* Modern terminal features with coloured output, utf-8 characters and icon look-up based device data. Can be turned off and customised. See `--encoding` (glyphs, utf8 and ascii), which can keep icons within a certain encoding and `--color` (auto, always and never).
 * Can be used as a library too with `system_profiler` parsing module, `lsusb` module using libusb and `display` module for printing amongst others.
 * `--json` output that honours filters and `--tree`.
 * `--headers` to show meta data only when asked and not take space otherwise.
@@ -117,7 +117,7 @@ To check if the font you are using is setup correctly, try running the following
 echo $'\uf115'
 ```
 
-If one does not want icons, provide a config file with custom blocks not including the any 'icon\*' blocks - see the example config - or use the `--ascii` flag.
+If one does not want icons, provide a config file with custom blocks not including the any 'icon\*' blocks - see the example config. Alternatively, to only use standard UTF-8 charactors supported by all fonts (no private use area) pass `--encoding utf8`. For no icon at all, use the `--no-icons` flag.
 
 # Known Issues
 
