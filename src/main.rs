@@ -452,18 +452,18 @@ fn cyme() -> Result<()> {
         display::ColorWhen::Auto => {
             // colored crate manages coloring
             Some(config.colours)
-        },
+        }
         display::ColorWhen::Always => {
             env::set_var("NO_COLOR", "0");
             colored::control::set_override(true);
             Some(config.colours)
-        },
+        }
         display::ColorWhen::Never => {
             // set env to be sure too
             env::set_var("NO_COLOR", "1");
             colored::control::set_override(false);
             None
-        },
+        }
     };
 
     // legacy arg, hidden but still suport with new format

@@ -21,12 +21,12 @@ use colored::*;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{skip_serializing_none, DeserializeFromStr, SerializeDisplay};
+use std::cmp::Ordering;
 use std::fmt;
 use std::fs;
 use std::io::Read;
 use std::process::Command;
 use std::str::FromStr;
-use std::cmp::Ordering;
 
 use crate::error::{Error, ErrorKind};
 use crate::types::NumericalUnit;

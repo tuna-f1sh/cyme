@@ -16,8 +16,8 @@ use terminal_size::{Height, Width};
 use crate::colour;
 use crate::icon;
 use crate::system_profiler;
-use crate::usb::USBDeviceExtra;
 use crate::system_profiler::{USBBus, USBDevice};
+use crate::usb::USBDeviceExtra;
 use crate::usb::{ConfigAttributes, Direction, USBConfiguration, USBEndpoint, USBInterface};
 
 const MAX_VERBOSITY: u8 = 4;
@@ -67,14 +67,14 @@ impl std::fmt::Display for IconWhen {
 impl IconWhen {
     fn retain_ref<B: Eq + Hash, T>(
         &self,
-        devices: &Vec<&T>,
+        devices: &[&T],
         blocks: &mut Vec<impl Block<B, T>>,
         settings: &PrintSettings,
     ) {
         match self {
             IconWhen::Never => {
                 blocks.retain(|b| !b.is_icon());
-            },
+            }
             IconWhen::Auto => {
                 let valid_icons = devices
                     .iter()
@@ -84,10 +84,13 @@ impl IconWhen {
                     log::debug!("{:?} removing icon blocks", settings.icon_when);
                     blocks.retain(|b| !b.is_icon());
                 }
-            },
+            }
             IconWhen::Always => {
                 if settings.icons.is_none() {
-                    log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+                    log::warn!(
+                        "{:?} blocks requested but no icons provided",
+                        settings.icon_when
+                    );
                 }
             }
         }
@@ -95,14 +98,14 @@ impl IconWhen {
 
     fn retain<B: Eq + Hash, T>(
         &self,
-        devices: &Vec<T>,
+        devices: &[T],
         blocks: &mut Vec<impl Block<B, T>>,
         settings: &PrintSettings,
     ) {
         match self {
             IconWhen::Never => {
                 blocks.retain(|b| !b.is_icon());
-            },
+            }
             IconWhen::Auto => {
                 let valid_icons = devices
                     .iter()
@@ -112,10 +115,13 @@ impl IconWhen {
                     log::debug!("{:?} removing icon blocks", settings.icon_when);
                     blocks.retain(|b| !b.is_icon());
                 }
-            },
+            }
             IconWhen::Always => {
                 if settings.icons.is_none() {
-                    log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+                    log::warn!(
+                        "{:?} blocks requested but no icons provided",
+                        settings.icon_when
+                    );
                 }
             }
         }
@@ -170,11 +176,11 @@ impl Encoding {
         match self {
             Encoding::Ascii if !c.is_ascii() => false,
             // not inside private use area
-            Encoding::Utf8 => !matches!(c, 
+            Encoding::Utf8 => !matches!(c,
                 '\u{E000}'..='\u{F8FF}' |
                 '\u{F0000}'..='\u{FFFFD}' |
                 '\u{100000}'..='\u{10FFFD}'),
-            _ => true
+            _ => true,
         }
     }
 
@@ -606,7 +612,10 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn generate_padding(d: &Vec<&system_profiler::USBDevice>, settings: &PrintSettings) -> HashMap<Self, usize> {
+    fn generate_padding(
+        d: &Vec<&system_profiler::USBDevice>,
+        settings: &PrintSettings,
+    ) -> HashMap<Self, usize> {
         DeviceBlocks::iter()
             .map(|b| (b, cmp::max(b.heading(settings).len(), b.len(d, settings))))
             .collect()
@@ -863,7 +872,10 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         }
     }
 
-    fn generate_padding(d: &Vec<&system_profiler::USBBus>, settings: &PrintSettings) -> HashMap<Self, usize> {
+    fn generate_padding(
+        d: &Vec<&system_profiler::USBBus>,
+        settings: &PrintSettings,
+    ) -> HashMap<Self, usize> {
         BusBlocks::iter()
             .map(|b| (b, cmp::max(b.heading(settings).len(), b.len(d, settings))))
             .collect()
@@ -931,7 +943,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::PciRevision => "Revisn",
             BusBlocks::Name => "Name",
             BusBlocks::HostController => "HostController",
-            BusBlocks::Icon => ICON_HEADING
+            BusBlocks::Icon => ICON_HEADING,
         }
     }
 
@@ -994,7 +1006,10 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         }
     }
 
-    fn generate_padding(d: &Vec<&USBConfiguration>, settings: &PrintSettings) -> HashMap<Self, usize> {
+    fn generate_padding(
+        d: &Vec<&USBConfiguration>,
+        settings: &PrintSettings,
+    ) -> HashMap<Self, usize> {
         ConfigurationBlocks::iter()
             .map(|b| (b, cmp::max(b.heading(settings).len(), b.len(d, settings))))
             .collect()
@@ -1618,25 +1633,29 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
 pub fn has_valid_icons<B: Eq + Hash, T>(
     d: &T,
     blocks: &[impl Block<B, T>],
-    settings: &PrintSettings) -> bool {
-    blocks.iter()
-        .filter(|b| b.is_icon())
-        .all(|b| {
-            if log::log_enabled!(log::Level::Trace) {
-                let val = b.format_value(d, &HashMap::new(), settings);
-                let ret = match &val {
-                    Some(v) => settings.encoding.str_is_valid(&v),
-                    None => false,
-                };
-                log::trace!("icon {:?} valid for {:?}: {:?}", val, settings.encoding, ret);
+    settings: &PrintSettings,
+) -> bool {
+    blocks.iter().filter(|b| b.is_icon()).all(|b| {
+        if log::log_enabled!(log::Level::Trace) {
+            let val = b.format_value(d, &HashMap::new(), settings);
+            let ret = match &val {
+                Some(v) => settings.encoding.str_is_valid(v),
+                None => false,
+            };
+            log::trace!(
+                "icon {:?} valid for {:?}: {:?}",
+                val,
+                settings.encoding,
                 ret
-            } else {
-                match b.format_value(d, &HashMap::new(), settings) {
-                    Some(v) => settings.encoding.str_is_valid(&v),
-                    None => false,
-                }
+            );
+            ret
+        } else {
+            match b.format_value(d, &HashMap::new(), settings) {
+                Some(v) => settings.encoding.str_is_valid(&v),
+                None => false,
             }
-        })
+        }
+    })
 }
 
 /// Formats each [`Block`] value shown from a device `d`
@@ -1709,11 +1728,10 @@ fn generate_tree_data(
             format!(
                 "{}{}",
                 pass_tree.prefix,
-                settings
-                    .icons
-                    .as_ref()
-                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| i
-                        .get_tree_icon(&edge_icon, &settings.encoding))
+                settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(&edge_icon, &settings.encoding),
+                    |i| i.get_tree_icon(&edge_icon, &settings.encoding)
+                )
             )
         } else {
             pass_tree.prefix.to_string()
@@ -1733,26 +1751,27 @@ fn generate_tree_data(
 fn generate_extra_blocks(
     extra: &USBDeviceExtra,
     settings: &PrintSettings,
-) -> (Vec<ConfigurationBlocks>, Vec<InterfaceBlocks>, Vec<EndpointBlocks>) {
+) -> (
+    Vec<ConfigurationBlocks>,
+    Vec<InterfaceBlocks>,
+    Vec<EndpointBlocks>,
+) {
     let mut blocks = (
-        settings.config_blocks.to_owned().unwrap_or(Block::<
-            ConfigurationBlocks,
-            USBConfiguration,
-        >::default_blocks(
-            settings.verbosity >= MAX_VERBOSITY || settings.more,
-        )),
-        settings.interface_blocks.to_owned().unwrap_or(Block::<
-            InterfaceBlocks,
-            USBInterface,
-        >::default_blocks(
-            settings.verbosity >= MAX_VERBOSITY || settings.more,
-        )),
-        settings.endpoint_blocks.to_owned().unwrap_or(Block::<
-            EndpointBlocks,
-            USBEndpoint,
-        >::default_blocks(
-            settings.verbosity >= MAX_VERBOSITY || settings.more,
-        )),
+        settings.config_blocks.to_owned().unwrap_or(
+            Block::<ConfigurationBlocks, USBConfiguration>::default_blocks(
+                settings.verbosity >= MAX_VERBOSITY || settings.more,
+            ),
+        ),
+        settings.interface_blocks.to_owned().unwrap_or(
+            Block::<InterfaceBlocks, USBInterface>::default_blocks(
+                settings.verbosity >= MAX_VERBOSITY || settings.more,
+            ),
+        ),
+        settings.endpoint_blocks.to_owned().unwrap_or(
+            Block::<EndpointBlocks, USBEndpoint>::default_blocks(
+                settings.verbosity >= MAX_VERBOSITY || settings.more,
+            ),
+        ),
     );
 
     // auto drop icon blocks depending on IconWhen and Encoding
@@ -1764,22 +1783,31 @@ fn generate_extra_blocks(
             blocks.0.retain(|b| !b.is_icon());
             blocks.1.retain(|b| !b.is_icon());
             blocks.2.retain(|b| !b.is_icon());
-        },
+        }
         // skip further processing if including private use area utf8
         IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
         // always only warn if no icons provided
         IconWhen::Always => {
             if settings.icons.is_none() {
-                log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+                log::warn!(
+                    "{:?} blocks requested but no icons provided",
+                    settings.icon_when
+                );
             }
         }
         // drill through values checking
         _ => {
-            settings.icon_when.retain(&extra.configurations, &mut blocks.0, settings);
+            settings
+                .icon_when
+                .retain(&extra.configurations, &mut blocks.0, settings);
             extra.configurations.iter().for_each(|c| {
-                settings.icon_when.retain(&c.interfaces, &mut blocks.1, settings);
+                settings
+                    .icon_when
+                    .retain(&c.interfaces, &mut blocks.1, settings);
                 c.interfaces.iter().for_each(|i| {
-                    settings.icon_when.retain(&i.endpoints, &mut blocks.2, settings);
+                    settings
+                        .icon_when
+                        .retain(&i.endpoints, &mut blocks.2, settings);
                 });
             });
         }
@@ -1803,13 +1831,16 @@ pub fn print_flattened_devices(
     match settings.icon_when {
         IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {
             db.retain(|b| !b.is_icon());
-        },
+        }
         IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
         IconWhen::Always => {
             if settings.icons.is_none() {
-                log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+                log::warn!(
+                    "{:?} blocks requested but no icons provided",
+                    settings.icon_when
+                );
             }
-        },
+        }
         _ => settings.icon_when.retain_ref(devices, &mut db, settings),
     }
 
@@ -1996,12 +2027,10 @@ pub fn print_endpoints(
                 } else {
                     icon::Icon::TreeCorner
                 };
-                let edge = settings
-                    .icons
-                    .as_ref()
-                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| {
-                        i.get_tree_icon(&edge_icon, &settings.encoding)
-                    });
+                let edge = settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(&edge_icon, &settings.encoding),
+                    |i| i.get_tree_icon(&edge_icon, &settings.encoding),
+                );
                 format!("{}{}", tree.prefix, edge)
             // zero depth
             } else {
@@ -2009,8 +2038,16 @@ pub fn print_endpoints(
             };
 
             let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_default_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction), &settings.encoding),
-                |i| i.get_tree_icon(&icon::Icon::Endpoint(endpoint.address.direction), &settings.encoding),
+                icon::get_default_tree_icon(
+                    &icon::Icon::Endpoint(endpoint.address.direction),
+                    &settings.encoding,
+                ),
+                |i| {
+                    i.get_tree_icon(
+                        &icon::Icon::Endpoint(endpoint.address.direction),
+                        &settings.encoding,
+                    )
+                },
             );
 
             // colour tree
@@ -2032,7 +2069,8 @@ pub fn print_endpoints(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks, &pad, settings, max_variable_string_len).join(" ");
+                let heading =
+                    render_heading(blocks, &pad, settings, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
@@ -2044,7 +2082,8 @@ pub fn print_endpoints(
             );
         } else {
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks, &pad, settings, max_variable_string_len).join(" ");
+                let heading =
+                    render_heading(blocks, &pad, settings, max_variable_string_len).join(" ");
                 println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 6);
             }
 
@@ -2111,12 +2150,10 @@ pub fn print_interfaces(
                 } else {
                     icon::Icon::TreeCorner
                 };
-                let edge = settings
-                    .icons
-                    .as_ref()
-                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| {
-                        i.get_tree_icon(&edge_icon, &settings.encoding)
-                    });
+                let edge = settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(&edge_icon, &settings.encoding),
+                    |i| i.get_tree_icon(&edge_icon, &settings.encoding),
+                );
                 format!("{}{}", tree.prefix, edge)
             // zero depth
             } else {
@@ -2124,7 +2161,10 @@ pub fn print_interfaces(
             };
 
             let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_default_tree_icon(&icon::Icon::TreeInterfaceTerminator, &settings.encoding),
+                icon::get_default_tree_icon(
+                    &icon::Icon::TreeInterfaceTerminator,
+                    &settings.encoding,
+                ),
                 |i| i.get_tree_icon(&icon::Icon::TreeInterfaceTerminator, &settings.encoding),
             );
 
@@ -2142,7 +2182,8 @@ pub fn print_interfaces(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
+                let heading =
+                    render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
@@ -2156,7 +2197,8 @@ pub fn print_interfaces(
             );
         } else {
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
+                let heading =
+                    render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
                 println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 4);
             }
 
@@ -2238,12 +2280,10 @@ pub fn print_configurations(
                 } else {
                     icon::Icon::TreeCorner
                 };
-                let edge = settings
-                    .icons
-                    .as_ref()
-                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| {
-                        i.get_tree_icon(&edge_icon, &settings.encoding)
-                    });
+                let edge = settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(&edge_icon, &settings.encoding),
+                    |i| i.get_tree_icon(&edge_icon, &settings.encoding),
+                );
                 format!("{}{}", tree.prefix, edge)
             // zero depth
             } else {
@@ -2251,7 +2291,10 @@ pub fn print_configurations(
             };
 
             let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_default_tree_icon(&icon::Icon::TreeConfigurationTerminator, &settings.encoding),
+                icon::get_default_tree_icon(
+                    &icon::Icon::TreeConfigurationTerminator,
+                    &settings.encoding,
+                ),
                 |i| i.get_tree_icon(&icon::Icon::TreeConfigurationTerminator, &settings.encoding),
             );
 
@@ -2269,7 +2312,8 @@ pub fn print_configurations(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
+                let heading =
+                    render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
@@ -2282,7 +2326,8 @@ pub fn print_configurations(
             );
         } else {
             if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
+                let heading =
+                    render_heading(blocks.0, &pad, settings, max_variable_string_len).join(" ");
                 println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 2);
             }
 
@@ -2355,12 +2400,10 @@ pub fn print_devices(
                 } else {
                     icon::Icon::TreeCorner
                 };
-                let edge = settings
-                    .icons
-                    .as_ref()
-                    .map_or(icon::get_default_tree_icon(&edge_icon, &settings.encoding), |i| {
-                        i.get_tree_icon(&edge_icon, &settings.encoding)
-                    });
+                let edge = settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(&edge_icon, &settings.encoding),
+                    |i| i.get_tree_icon(&edge_icon, &settings.encoding),
+                );
                 format!("{}{}", tree.prefix, edge)
             // zero depth
             } else {
@@ -2443,11 +2486,12 @@ pub fn print_devices(
 
 /// Print SPUSBDataType
 pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
-    let mut bb = settings.bus_blocks.to_owned().unwrap_or(
-        Block::<BusBlocks, system_profiler::USBBus>::default_blocks(
-            settings.verbosity >= MAX_VERBOSITY || settings.more,
-        ),
-    );
+    let mut bb = settings.bus_blocks.to_owned().unwrap_or(Block::<
+        BusBlocks,
+        system_profiler::USBBus,
+    >::default_blocks(
+        settings.verbosity >= MAX_VERBOSITY || settings.more,
+    ));
     let mut db = settings.device_blocks.to_owned().unwrap_or(
         if settings.verbosity >= MAX_VERBOSITY || settings.more {
             DeviceBlocks::default_blocks(true)
@@ -2463,17 +2507,24 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
         IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {
             bb.retain(|b| !b.is_icon());
             db.retain(|b| !b.is_icon());
-        },
+        }
         IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
         IconWhen::Always => {
             if settings.icons.is_none() {
-                log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+                log::warn!(
+                    "{:?} blocks requested but no icons provided",
+                    settings.icon_when
+                );
             }
-        },
+        }
         _ => {
             settings.icon_when.retain(&sp_usb.buses, &mut bb, settings);
-            sp_usb.buses.iter().for_each(|bo| { bo.devices.iter().for_each(|b| settings.icon_when.retain(&b, &mut db, settings)); });
-        },
+            sp_usb.buses.iter().for_each(|bo| {
+                bo.devices
+                    .iter()
+                    .for_each(|b| settings.icon_when.retain(b, &mut db, settings));
+            });
+        }
     }
 
     let base_tree = TreeData {
@@ -2520,12 +2571,10 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
     for (i, bus) in sp_usb.buses.iter().enumerate() {
         if settings.tree {
             let mut prefix = base_tree.prefix.to_owned();
-            let mut start = settings
-                .icons
-                .as_ref()
-                .map_or(icon::get_default_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding), |i| {
-                    i.get_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding)
-                });
+            let mut start = settings.icons.as_ref().map_or(
+                icon::get_default_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding),
+                |i| i.get_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding),
+            );
 
             // colour tree
             if let Some(ct) = settings.colours.as_ref() {
@@ -2540,7 +2589,8 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
             }
 
             if settings.headings {
-                let heading = render_heading(&bb, &pad, settings, max_variable_string_len).join(" ");
+                let heading =
+                    render_heading(&bb, &pad, settings, max_variable_string_len).join(" ");
                 // 2 spaces for bus start icon and space to info
                 println!("{:>spaces$}{}", "", heading.bold().underline(), spaces = 2);
             }
@@ -2560,7 +2610,7 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
             // and then walk down devices printing them too
             print_devices(
                 d,
-                &mut db,
+                &db,
                 settings,
                 &generate_tree_data(&base_tree, d.len(), i, settings),
             );

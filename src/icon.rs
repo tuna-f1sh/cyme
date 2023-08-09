@@ -5,10 +5,10 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
+use crate::display::Encoding;
 use crate::error::{Error, ErrorKind};
 use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{ClassCode, Direction};
-use crate::display::Encoding;
 
 /// If only standard UTF-8 characters are used, this is the default icon for a device
 // const UTF8_DEFAULT_DEVICE_ICON: &str = "\u{2023}"; // ‣
@@ -305,14 +305,11 @@ impl IconTheme {
         if let Some(user_tree) = self.tree.as_ref() {
             user_tree
                 .get(icon)
-                .map(|s| {
-                    match encoding.str_is_valid(s) {
-                        true => s.to_owned(),
-                        false => get_default_tree_icon(icon, encoding)
-                    }
+                .map(|s| match encoding.str_is_valid(s) {
+                    true => s.to_owned(),
+                    false => get_default_tree_icon(icon, encoding),
                 })
                 .unwrap_or(get_default_tree_icon(icon, encoding))
-                .to_string()
         } else {
             get_default_tree_icon(icon, encoding)
         }
@@ -428,7 +425,7 @@ impl IconTheme {
 /// Gets tree icon from [`DEFAULT_UTF8_TREE`] or [`DEFAULT_ASCII_TREE`] (depanding on [`Encoding`]) as `String` with `unwrap` because should panic if missing from there
 pub fn get_default_tree_icon(i: &Icon, encoding: &Encoding) -> String {
     match encoding {
-        Encoding::Utf8|Encoding::Glyphs => DEFAULT_UTF8_TREE.get(i).unwrap().to_string(),
+        Encoding::Utf8 | Encoding::Glyphs => DEFAULT_UTF8_TREE.get(i).unwrap().to_string(),
         Encoding::Ascii => DEFAULT_ASCII_TREE.get(i).unwrap().to_string(),
     }
 }
