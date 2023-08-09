@@ -16,6 +16,7 @@ use terminal_size::{Height, Width};
 use crate::colour;
 use crate::icon;
 use crate::system_profiler;
+use crate::usb::USBDeviceExtra;
 use crate::system_profiler::{USBBus, USBDevice};
 use crate::usb::{ConfigAttributes, Direction, USBConfiguration, USBEndpoint, USBInterface};
 
@@ -29,7 +30,7 @@ const LIST_INSET_SPACES: u8 = 2; // number of spaces for non-tree inset
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, ValueEnum, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum ColorWhen {
-    /// Show colours if the output goes to an interactive console (default)
+    /// Show colours if the output goes to an interactive console
     #[default]
     Auto,
     /// Always apply colouring to the output
@@ -41,6 +42,83 @@ pub enum ColorWhen {
 impl std::fmt::Display for ColorWhen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+/// Icon control for the output
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, ValueEnum, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum IconWhen {
+    /// Show icon blocks if the [`Encoding`] supports icons matched in the [`icon::IconTheme`]
+    #[default]
+    Auto,
+    /// Always print icon blocks if included in configured blocks
+    Always,
+    /// Never print icon blocks
+    Never,
+}
+
+impl std::fmt::Display for IconWhen {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl IconWhen {
+    fn retain_ref<B: Eq + Hash, T>(
+        &self,
+        devices: &Vec<&T>,
+        blocks: &mut Vec<impl Block<B, T>>,
+        settings: &PrintSettings,
+    ) {
+        match self {
+            IconWhen::Never => {
+                blocks.retain(|b| !b.is_icon());
+            },
+            IconWhen::Auto => {
+                let valid_icons = devices
+                    .iter()
+                    // all must be valid to avoid tofu chars
+                    .all(|d| has_valid_icons(*d, blocks, settings));
+                if settings.icons.is_none() || !valid_icons {
+                    log::debug!("{:?} removing icon blocks", settings.icon_when);
+                    blocks.retain(|b| !b.is_icon());
+                }
+            },
+            IconWhen::Always => {
+                if settings.icons.is_none() {
+                    log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+                }
+            }
+        }
+    }
+
+    fn retain<B: Eq + Hash, T>(
+        &self,
+        devices: &Vec<T>,
+        blocks: &mut Vec<impl Block<B, T>>,
+        settings: &PrintSettings,
+    ) {
+        match self {
+            IconWhen::Never => {
+                blocks.retain(|b| !b.is_icon());
+            },
+            IconWhen::Auto => {
+                let valid_icons = devices
+                    .iter()
+                    // all must be valid to avoid tofu chars
+                    .all(|d| has_valid_icons(d, blocks, settings));
+                if settings.icons.is_none() || !valid_icons {
+                    log::debug!("{:?} removing icon blocks", settings.icon_when);
+                    blocks.retain(|b| !b.is_icon());
+                }
+            },
+            IconWhen::Always => {
+                if settings.icons.is_none() {
+                    log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+                }
+            }
+        }
     }
 }
 
@@ -122,15 +200,6 @@ impl Encoding {
     /// ```
     pub fn str_is_valid(&self, s: &str) -> bool {
         s.chars().all(|c| self.char_is_valid(c))
-    }
-}
-
-/// Checks if icon is valid for encoding, returns empty String if not
-fn icon_or_empty(s: String, encoding: &Encoding) -> String {
-    if encoding.str_is_valid(&s) {
-        s
-    } else {
-        String::new()
     }
 }
 
@@ -606,7 +675,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 ),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            DeviceBlocks::Icon => settings.icons.as_ref().map(|i| icon_or_empty(i.get_device_icon(d), &settings.encoding)),
+            DeviceBlocks::Icon => settings.icons.as_ref().map(|i| i.get_device_icon(d)),
             DeviceBlocks::VendorId => Some(match d.vendor_id {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
@@ -705,7 +774,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn heading(&self, settings: &PrintSettings) -> &str {
+    fn heading(&self, _settings: &PrintSettings) -> &str {
         match self {
             DeviceBlocks::BusNumber => "Bus",
             DeviceBlocks::DeviceNumber => "#",
@@ -732,12 +801,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::ClassCode => "Class",
             DeviceBlocks::SubClass => "SubC",
             DeviceBlocks::Protocol => "Pcol",
-            DeviceBlocks::Icon => {
-                match settings.icons {
-                    Some(_) => ICON_HEADING,
-                    None => "",
-                }
-            }
+            DeviceBlocks::Icon => ICON_HEADING,
         }
     }
 
@@ -751,6 +815,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
 
     fn block_length(&self, settings: &PrintSettings) -> BlockLength {
         match self {
+            DeviceBlocks::Icon => BlockLength::Fixed(1),
             DeviceBlocks::BusNumber | DeviceBlocks::DeviceNumber | DeviceBlocks::BranchPosition => {
                 BlockLength::Fixed(3)
             }
@@ -825,7 +890,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
     ) -> Option<String> {
         match self {
             BusBlocks::BusNumber => Some(format!("{:3}", bus.get_bus_number())),
-            BusBlocks::Icon => settings.icons.as_ref().map(|i| icon_or_empty(i.get_bus_icon(bus), &settings.encoding)),
+            BusBlocks::Icon => settings.icons.as_ref().map(|i| i.get_bus_icon(bus)),
             BusBlocks::PciVendor => Some(match bus.pci_vendor {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
@@ -857,7 +922,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         }
     }
 
-    fn heading(&self, settings: &PrintSettings) -> &str {
+    fn heading(&self, _settings: &PrintSettings) -> &str {
         match self {
             BusBlocks::BusNumber => "Bus",
             BusBlocks::PortPath => "PPath",
@@ -866,12 +931,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::PciRevision => "Revisn",
             BusBlocks::Name => "Name",
             BusBlocks::HostController => "HostController",
-            BusBlocks::Icon => {
-                match settings.icons {
-                    Some(_) => ICON_HEADING,
-                    None => "",
-                }
-            }
+            BusBlocks::Icon => ICON_HEADING
         }
     }
 
@@ -885,6 +945,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
 
     fn block_length(&self, settings: &PrintSettings) -> BlockLength {
         match self {
+            BusBlocks::Icon => BlockLength::Fixed(1),
             BusBlocks::BusNumber => BlockLength::Fixed(3),
             BusBlocks::PciDevice | BusBlocks::PciVendor | BusBlocks::PciRevision => {
                 BlockLength::Fixed(6)
@@ -978,19 +1039,14 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         }
     }
 
-    fn heading(&self, settings: &PrintSettings) -> &str {
+    fn heading(&self, _settings: &PrintSettings) -> &str {
         match self {
             ConfigurationBlocks::Number => "#",
             ConfigurationBlocks::NumInterfaces => "I#",
             ConfigurationBlocks::MaxPower => "PMax",
             ConfigurationBlocks::Name => "Name",
             ConfigurationBlocks::Attributes => "Attributes",
-            ConfigurationBlocks::IconAttributes => {
-                match settings.icons {
-                    Some(_) => ICON_HEADING,
-                    None => "",
-                }
-            }
+            ConfigurationBlocks::IconAttributes => ICON_HEADING,
         }
     }
 
@@ -1007,8 +1063,8 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
             ConfigurationBlocks::Number => BlockLength::Fixed(2),
             ConfigurationBlocks::NumInterfaces => BlockLength::Fixed(2),
             ConfigurationBlocks::MaxPower => BlockLength::Fixed(6),
-            // two possible icons and a space between - variable length in case if icons not valid for encoding
-            // ConfigurationBlocks::IconAttributes => BlockLength::Fixed(3),
+            // two possible icons and a space between
+            ConfigurationBlocks::IconAttributes => BlockLength::Fixed(3),
             _ => BlockLength::Variable(self.heading(settings).len()),
         }
     }
@@ -1132,12 +1188,12 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 Some(Self::format_base_u8(interface.alt_setting, settings))
             }
             InterfaceBlocks::Icon => settings.icons.as_ref().map(|i| {
-                icon_or_empty(i.get_classifier_icon(&interface.class, interface.sub_class, interface.protocol), &settings.encoding)
+                i.get_classifier_icon(&interface.class, interface.sub_class, interface.protocol)
             }),
         }
     }
 
-    fn heading(&self, settings: &PrintSettings) -> &str {
+    fn heading(&self, _settings: &PrintSettings) -> &str {
         match self {
             InterfaceBlocks::Number => "#",
             InterfaceBlocks::Name => "Name",
@@ -1149,12 +1205,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::SubClass => "SubC",
             InterfaceBlocks::Protocol => "Pcol",
             InterfaceBlocks::AltSetting => "Alt#",
-            InterfaceBlocks::Icon => {
-                match settings.icons {
-                    Some(_) => ICON_HEADING,
-                    None => "",
-                }
-            }
+            InterfaceBlocks::Icon => ICON_HEADING,
         }
     }
 
@@ -1168,6 +1219,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
 
     fn block_length(&self, settings: &PrintSettings) -> BlockLength {
         match self {
+            InterfaceBlocks::Icon => BlockLength::Fixed(1),
             InterfaceBlocks::Number => BlockLength::Fixed(2),
             InterfaceBlocks::NumEndpoints => BlockLength::Fixed(2),
             InterfaceBlocks::SubClass | InterfaceBlocks::Protocol | InterfaceBlocks::AltSetting => {
@@ -1440,6 +1492,8 @@ pub struct PrintSettings {
     pub auto_width: bool,
     /// Terminal width and height data
     pub terminal_size: Option<(Width, Height)>,
+    /// When to print icon blocks
+    pub icon_when: IconWhen,
 }
 
 /// Converts a HashSet of [`ConfigAttributes`] a String of nerd icons
@@ -1561,19 +1615,26 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
 }
 
 /// Returns true if the [`Block`] has a valid icon for the [`PrintSettings`] [`Encoding`]
-/// TODO if icons auto, check all blocks have valid icons, if none have valid icons, disable icons
 pub fn has_valid_icons<B: Eq + Hash, T>(
     d: &T,
-    blocks: &Vec<impl Block<B, T>>,
-    pad: &HashMap<B, usize>,
+    blocks: &[impl Block<B, T>],
     settings: &PrintSettings) -> bool {
     blocks.iter()
         .filter(|b| b.is_icon())
         .all(|b| {
-            let val = b.format_value(d, pad, settings);
-            match val {
-                Some(v) => settings.encoding.str_is_valid(&v),
-                None => false,
+            if log::log_enabled!(log::Level::Trace) {
+                let val = b.format_value(d, &HashMap::new(), settings);
+                let ret = match &val {
+                    Some(v) => settings.encoding.str_is_valid(&v),
+                    None => false,
+                };
+                log::trace!("icon {:?} valid for {:?}: {:?}", val, settings.encoding, ret);
+                ret
+            } else {
+                match b.format_value(d, &HashMap::new(), settings) {
+                    Some(v) => settings.encoding.str_is_valid(&v),
+                    None => false,
+                }
             }
         })
 }
@@ -1666,17 +1727,92 @@ fn generate_tree_data(
     pass_tree
 }
 
+/// Generates the [`USBDeviceExtra`] blocks based on the [`PrintSettings`] or defaults. Will also retain based on `is_icon` and [`IconWhen`] setting
+///
+/// If [`IconWhen::Auto`] will render icon block values to check if supported by [`Encoding`] and remove if not
+fn generate_extra_blocks(
+    extra: &USBDeviceExtra,
+    settings: &PrintSettings,
+) -> (Vec<ConfigurationBlocks>, Vec<InterfaceBlocks>, Vec<EndpointBlocks>) {
+    let mut blocks = (
+        settings.config_blocks.to_owned().unwrap_or(Block::<
+            ConfigurationBlocks,
+            USBConfiguration,
+        >::default_blocks(
+            settings.verbosity >= MAX_VERBOSITY || settings.more,
+        )),
+        settings.interface_blocks.to_owned().unwrap_or(Block::<
+            InterfaceBlocks,
+            USBInterface,
+        >::default_blocks(
+            settings.verbosity >= MAX_VERBOSITY || settings.more,
+        )),
+        settings.endpoint_blocks.to_owned().unwrap_or(Block::<
+            EndpointBlocks,
+            USBEndpoint,
+        >::default_blocks(
+            settings.verbosity >= MAX_VERBOSITY || settings.more,
+        )),
+    );
+
+    // auto drop icon blocks depending on IconWhen and Encoding
+    // will drop if any in search is not valid for encoding rather than per device
+    // I think accepable as similar to device block behaviour
+    match settings.icon_when {
+        // if never or auto and no icons, drop
+        IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {
+            blocks.0.retain(|b| !b.is_icon());
+            blocks.1.retain(|b| !b.is_icon());
+            blocks.2.retain(|b| !b.is_icon());
+        },
+        // skip further processing if including private use area utf8
+        IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
+        // always only warn if no icons provided
+        IconWhen::Always => {
+            if settings.icons.is_none() {
+                log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+            }
+        }
+        // drill through values checking
+        _ => {
+            settings.icon_when.retain(&extra.configurations, &mut blocks.0, settings);
+            extra.configurations.iter().for_each(|c| {
+                settings.icon_when.retain(&c.interfaces, &mut blocks.1, settings);
+                c.interfaces.iter().for_each(|i| {
+                    settings.icon_when.retain(&i.endpoints, &mut blocks.2, settings);
+                });
+            });
+        }
+    }
+    blocks
+}
+
 /// Print `devices` `USBDevice` references without looking down each device's devices!
 pub fn print_flattened_devices(
     devices: &Vec<&system_profiler::USBDevice>,
     settings: &PrintSettings,
 ) {
-    let db = settings
+    let mut db = settings
         .device_blocks
         .to_owned()
         .unwrap_or(DeviceBlocks::default_blocks(
             settings.verbosity >= MAX_VERBOSITY || settings.more,
         ));
+
+    // remove icon blocks if not supported
+    match settings.icon_when {
+        IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {
+            db.retain(|b| !b.is_icon());
+        },
+        IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
+        IconWhen::Always => {
+            if settings.icons.is_none() {
+                log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+            }
+        },
+        _ => settings.icon_when.retain_ref(devices, &mut db, settings),
+    }
+
     let mut pad = if !settings.no_padding {
         DeviceBlocks::generate_padding(devices, settings)
     } else {
@@ -1718,30 +1854,12 @@ pub fn print_flattened_devices(
         // print the configurations
         if let Some(extra) = device.extra.as_ref() {
             if settings.verbosity >= 1 {
-                let blocks = (
-                    &settings.config_blocks.to_owned().unwrap_or(Block::<
-                        ConfigurationBlocks,
-                        USBConfiguration,
-                    >::default_blocks(
-                        settings.verbosity >= MAX_VERBOSITY || settings.more,
-                    )),
-                    &settings.interface_blocks.to_owned().unwrap_or(Block::<
-                        InterfaceBlocks,
-                        USBInterface,
-                    >::default_blocks(
-                        settings.verbosity >= MAX_VERBOSITY || settings.more,
-                    )),
-                    &settings.endpoint_blocks.to_owned().unwrap_or(Block::<
-                        EndpointBlocks,
-                        USBEndpoint,
-                    >::default_blocks(
-                        settings.verbosity >= MAX_VERBOSITY || settings.more,
-                    )),
-                );
+                let blocks = generate_extra_blocks(extra, settings);
+
                 // pass branch length as number of configurations for this device plus devices still to print
                 print_configurations(
                     &extra.configurations,
-                    blocks,
+                    (&blocks.0, &blocks.1, &blocks.2),
                     settings,
                     &generate_tree_data(
                         &Default::default(),
@@ -2288,30 +2406,13 @@ pub fn print_devices(
         // print the configurations
         if let Some(extra) = device.extra.as_ref() {
             if settings.verbosity >= 1 {
-                let blocks = (
-                    &settings.config_blocks.to_owned().unwrap_or(Block::<
-                        ConfigurationBlocks,
-                        USBConfiguration,
-                    >::default_blocks(
-                        settings.verbosity >= MAX_VERBOSITY || settings.more,
-                    )),
-                    &settings.interface_blocks.to_owned().unwrap_or(Block::<
-                        InterfaceBlocks,
-                        USBInterface,
-                    >::default_blocks(
-                        settings.verbosity >= MAX_VERBOSITY || settings.more,
-                    )),
-                    &settings.endpoint_blocks.to_owned().unwrap_or(Block::<
-                        EndpointBlocks,
-                        USBEndpoint,
-                    >::default_blocks(
-                        settings.verbosity >= MAX_VERBOSITY || settings.more,
-                    )),
-                );
+                // generate extra blocks if not passed and drop icons if not supported by encoding
+                let blocks = generate_extra_blocks(extra, settings);
+
                 // pass branch length as number of configurations for this device plus devices still to print
                 print_configurations(
                     &extra.configurations,
-                    blocks,
+                    (&blocks.0, &blocks.1, &blocks.2),
                     settings,
                     &generate_tree_data(
                         tree,
@@ -2342,12 +2443,12 @@ pub fn print_devices(
 
 /// Print SPUSBDataType
 pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
-    let bb = settings.bus_blocks.to_owned().unwrap_or(
+    let mut bb = settings.bus_blocks.to_owned().unwrap_or(
         Block::<BusBlocks, system_profiler::USBBus>::default_blocks(
             settings.verbosity >= MAX_VERBOSITY || settings.more,
         ),
     );
-    let db = settings.device_blocks.to_owned().unwrap_or(
+    let mut db = settings.device_blocks.to_owned().unwrap_or(
         if settings.verbosity >= MAX_VERBOSITY || settings.more {
             DeviceBlocks::default_blocks(true)
         } else if settings.tree {
@@ -2356,6 +2457,24 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
             DeviceBlocks::default_blocks(false)
         },
     );
+
+    // remove icon blocks if not supported by encoding
+    match settings.icon_when {
+        IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {
+            bb.retain(|b| !b.is_icon());
+            db.retain(|b| !b.is_icon());
+        },
+        IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
+        IconWhen::Always => {
+            if settings.icons.is_none() {
+                log::warn!("{:?} blocks requested but no icons provided", settings.icon_when);
+            }
+        },
+        _ => {
+            settings.icon_when.retain(&sp_usb.buses, &mut bb, settings);
+            sp_usb.buses.iter().for_each(|bo| { bo.devices.iter().for_each(|b| settings.icon_when.retain(&b, &mut db, settings)); });
+        },
+    }
 
     let base_tree = TreeData {
         ..Default::default()
@@ -2441,7 +2560,7 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
             // and then walk down devices printing them too
             print_devices(
                 d,
-                &db,
+                &mut db,
                 settings,
                 &generate_tree_data(&base_tree, d.len(), i, settings),
             );

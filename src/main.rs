@@ -122,9 +122,13 @@ struct Args {
     #[arg(long, default_value_t = false, hide = true)]
     ascii: bool,
 
-    /// Disables all Block icons by not using any IconTheme. Providing custom XxxxBlocks is a nicer way to do this, since this option will just print "" in place if a icon
+    /// Disables all Block icons by not using any IconTheme. Providing custom XxxxBlocks without any icons is a nicer way to do this
     #[arg(long, default_value_t = false, hide = true)]
     no_icons: bool,
+
+    /// When to print icon blocks
+    #[arg(long, value_enum, default_value_t = display::IconWhen::Auto)]
+    icon: display::IconWhen,
 
     /// Show block headings
     #[arg(long, default_value_t = false)]
@@ -467,8 +471,9 @@ fn cyme() -> Result<()> {
         args.encoding = display::Encoding::Ascii;
     }
 
+    // support hidden no_icons arg
     let icons = if args.no_icons {
-        // None will print "" in place of a icon. For the tree, the display crate falls back to the static defaults for the encoding
+        // For the tree, the display crate falls back to the static defaults for the encoding
         None
     } else {
         // Default icons and any user supplied
@@ -629,6 +634,7 @@ fn cyme() -> Result<()> {
         max_variable_string_len: config.max_variable_string_len,
         auto_width: !config.no_auto_width,
         terminal_size: terminal_size(),
+        icon_when: args.icon,
     };
 
     display::prepare(&mut spusb, filter, &settings);

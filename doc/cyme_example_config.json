@@ -98,6 +98,7 @@
   "decimal": false,
   "no-padding": false,
   "ascii": false,
+  "no-icons": false,
   "headings": false,
   "force-libusb": false,
   "print-non-critical-profiler-stderr": false

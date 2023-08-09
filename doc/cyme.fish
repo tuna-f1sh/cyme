@@ -11,6 +11,9 @@ complete -c cyme -l interface-blocks -d 'Specify the blocks which will be displa
 complete -c cyme -l endpoint-blocks -d 'Specify the blocks which will be displayed for each endpoint and in what order' -r -f -a "{number	Endpoint number on interface,direction	Direction of data into endpoint,transfer-type	Type of data transfer endpoint accepts,sync-type	Synchronisation type (Iso mode),usage-type	Usage type (Iso mode),max-packet-size	Maximum packet size in bytes endpoint can send/recieve,interval	Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints}"
 complete -c cyme -l sort-devices -d 'Sort devices by value' -r -f -a "{branch-position	Sort by position in parent branch,device-number	Sort by bus device number,no-sort	No sorting; whatever order it was parsed}"
 complete -c cyme -l group-devices -d 'Group devices by value when listing' -r -f -a "{no-group	No grouping,bus	Group into buses with bus info as heading - like a flat tree}"
+complete -c cyme -l color -d 'Output coloring mode' -r -f -a "{auto	Show colours if the output goes to an interactive console,always	Always apply colouring to the output,never	Never apply colouring to the output}"
+complete -c cyme -l encoding -d 'Output charactor encoding' -r -f -a "{glyphs	Use UTF-8 private use area charactors such as those used by NerdFont to show glyph icons,utf8	Use only standard UTF-8 charactors for the output; no private use area glyph icons,ascii	Use only ASCII charactors for the output; 0x00 - 0x7F (127 chars)}"
+complete -c cyme -l icon -d 'When to print icon blocks' -r -f -a "{auto	Show icon blocks if the [`Encoding`] supports icons matched in the [`icon::IconTheme`],always	Always print icon blocks if included in configured blocks,never	Never print icon blocks}"
 complete -c cyme -l from-json -d 'Read from json output rather than profiling system - must use --tree json dump' -r
 complete -c cyme -s c -l config -d 'Path to user config file to use for custom icons, colours and default settings' -r
 complete -c cyme -l mask-serials -d 'Mask serial numbers with \'*\' or random chars' -r -f -a "{hide	Hide with \'*\' char,scramble	Mask by randomising existing chars,replace	Mask by replacing length with random chars}"
@@ -23,8 +26,9 @@ complete -c cyme -l hide-buses -d 'Hide empty buses when printing tree; those wi
 complete -c cyme -l hide-hubs -d 'Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not'
 complete -c cyme -l decimal -d 'Show base16 values as base10 decimal instead'
 complete -c cyme -l no-padding -d 'Disable padding to align blocks - will cause --headings to become maligned'
-complete -c cyme -l no-colour -d 'Disable coloured output, can also use NO_COLOR environment variable'
+complete -c cyme -l no-color -d 'Disable coloured output, can also use NO_COLOR environment variable'
 complete -c cyme -l ascii -d 'Disables icons and utf-8 charactors'
+complete -c cyme -l no-icons -d 'Disables all Block icons by not using any IconTheme. Providing custom XxxxBlocks without any icons is a nicer way to do this'
 complete -c cyme -l headings -d 'Show block headings'
 complete -c cyme -l json -d 'Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices'
 complete -c cyme -s F -l force-libusb -d 'Force libusb profiler on macOS rather than using/combining system_profiler output'

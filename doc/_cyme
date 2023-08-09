@@ -15,10 +15,10 @@ _cyme() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
-'-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:\[PID\]]:VIDPID: ' \
-'--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:\[PID\]]:VIDPID: ' \
-'-s+[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]:\]\[devnum\]]:SHOW: ' \
-'--show=[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]:\]\[devnum\]]:SHOW: ' \
+'-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID: ' \
+'--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID: ' \
+'-s+[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW: ' \
+'--show=[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW: ' \
 '-D+[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE: ' \
 '--device=[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE: ' \
 '--filter-name=[Filter on string contained in name]:FILTER_NAME: ' \
@@ -30,7 +30,7 @@ hid\:"Human Interface Device; game controllers, keyboards, mice etc. Also common
 physical\:"Force feedback joystick"
 image\:"Scanners, cameras"
 printer\:"Laser printer, inkjet printer, CNC machine"
-mass-storage\:"Mass storage devices (MSD): USB flash drive, memory card reader, digital audio player, digital camera, external drive"
+mass-storage\:"Mass storage devices (MSD)\: USB flash drive, memory card reader, digital audio player, digital camera, external drive"
 hub\:"High speed USB hub"
 cdc-data\:"Used together with class 02h (Communications and CDC Control) above"
 smart-cart\:"USB smart card reader"
@@ -42,7 +42,7 @@ billboard\:"Describes USB-C alternate modes supported by device"
 usb-type-c-bridge\:"An interface to expose and configure the USB Type-C capabilities of Connectors on USB Hubs or Alternate Mode Adapters"
 i3c-device\:"An interface to expose and configure I3C function within a USB device to allow interaction between host software and the I3C device, to drive transaction on the I3C bus to/from target devices"
 diagnostic\:"Trace and debugging equipment"
-wireless-controller\:"Wireless controllers: Bluetooth adaptors, Microsoft RNDIS"
+wireless-controller\:"Wireless controllers\: Bluetooth adaptors, Microsoft RNDIS"
 miscellaneous\:"This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website"
 application-specific-interface\:"This base class is defined for devices that conform to several class specifications found on the USB-IF website"
 vendor-specific-class\:"This base class is defined for vendors to use as they please"))' \
@@ -131,6 +131,15 @@ device-number\:"Sort by bus device number"
 no-sort\:"No sorting; whatever order it was parsed"))' \
 '--group-devices=[Group devices by value when listing]:GROUP_DEVICES:((no-group\:"No grouping"
 bus\:"Group into buses with bus info as heading - like a flat tree"))' \
+'--color=[Output coloring mode]:COLOR:((auto\:"Show colours if the output goes to an interactive console"
+always\:"Always apply colouring to the output"
+never\:"Never apply colouring to the output"))' \
+'--encoding=[Output charactor encoding]:ENCODING:((glyphs\:"Use UTF-8 private use area charactors such as those used by NerdFont to show glyph icons"
+utf8\:"Use only standard UTF-8 charactors for the output; no private use area glyph icons"
+ascii\:"Use only ASCII charactors for the output; 0x00 - 0x7F (127 chars)"))' \
+'--icon=[When to print icon blocks]:ICON:((auto\:"Show icon blocks if the \[\`Encoding\`\] supports icons matched in the \[\`icon\:\:IconTheme\`\]"
+always\:"Always print icon blocks if included in configured blocks"
+never\:"Never print icon blocks"))' \
 '--from-json=[Read from json output rather than profiling system - must use --tree json dump]:FROM_JSON: ' \
 '-c+[Path to user config file to use for custom icons, colours and default settings]:CONFIG: ' \
 '--config=[Path to user config file to use for custom icons, colours and default settings]:CONFIG: ' \
@@ -141,8 +150,8 @@ replace\:"Mask by replacing length with random chars"))' \
 '--lsusb[Attempt to maintain compatibility with lsusb output]' \
 '-t[Dump USB device hierarchy as a tree]' \
 '--tree[Dump USB device hierarchy as a tree]' \
-'*-v[Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks]' \
-'*--verbose[Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks]' \
+'*-v[Verbosity level\: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks]' \
+'*--verbose[Verbosity level\: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks]' \
 '-m[Print more blocks by default at each verbosity]' \
 '--more[Print more blocks by default at each verbosity]' \
 '--sort-buses[Sort devices by bus number]' \
@@ -150,14 +159,15 @@ replace\:"Mask by replacing length with random chars"))' \
 '--hide-hubs[Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not]' \
 '--decimal[Show base16 values as base10 decimal instead]' \
 '--no-padding[Disable padding to align blocks - will cause --headings to become maligned]' \
-'--no-colour[Disable coloured output, can also use NO_COLOR environment variable]' \
+'--no-color[Disable coloured output, can also use NO_COLOR environment variable]' \
 '--ascii[Disables icons and utf-8 charactors]' \
+'--no-icons[Disables all Block icons by not using any IconTheme. Providing custom XxxxBlocks without any icons is a nicer way to do this]' \
 '--headings[Show block headings]' \
 '--json[Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices]' \
 '-F[Force libusb profiler on macOS rather than using/combining system_profiler output]' \
 '--force-libusb[Force libusb profiler on macOS rather than using/combining system_profiler output]' \
-'*-z[Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE]' \
-'*--debug[Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE]' \
+'*-z[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
+'*--debug[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
 '--gen[Generate cli completions and man page]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
