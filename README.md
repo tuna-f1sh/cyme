@@ -44,7 +44,6 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 * Packages for other Linux distros.
 * Fully decode device class based base class and tables at [USB-IF](https://www.usb.org/defined-class-codes).
-* Support 'auto', 'always', 'never' or icon, colours, utf-8 etc.
 * More examples for lib usage.
 
 # Install
