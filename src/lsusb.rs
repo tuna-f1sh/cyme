@@ -603,7 +603,7 @@ pub mod profiler {
         // merge if passed has any buses
         if !spusb.buses.is_empty() {
             for mut bus in libusb_spusb.buses {
-                if let Some(mut existing) = spusb
+                if let Some(existing) = spusb
                     .buses
                     .iter_mut()
                     .find(|b| b.get_bus_number() == bus.get_bus_number())

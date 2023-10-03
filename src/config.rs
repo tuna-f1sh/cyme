@@ -60,7 +60,7 @@ pub struct Config {
     pub ascii: bool,
     // /// Output charactor encoding
     // pub encoding: display::Encoding,
-    /// Disables all [`Display::Block`] icons
+    /// Disables all [`display::Block`] icons
     pub no_icons: bool,
     /// Show block headings
     pub headings: bool,
