@@ -89,6 +89,8 @@ Will cover this more as it develops. Use `cyme --help` for basic usage or `man .
 
 For usage as a library for profiling system USB devices, the crate is 100% documented so look at [docs.rs](https://docs.rs/cyme/latest/cyme/). The main useful modules for import are [system_profiler](https://docs.rs/cyme/latest/cyme/system_profiler/index.html), [lsusb::profiler](https://docs.rs/cyme/latest/cyme/lsusb/profiler/index.html) and [usb](https://docs.rs/cyme/latest/cyme/usb/index.html)
 
+There are also some examples in 'examples/', these can be run with `cargo run --example filter_devices`.
+
 ## Config
 
 `cyme` will check for a 'cyme.json' config file in:
