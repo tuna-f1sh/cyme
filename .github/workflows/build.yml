@@ -28,8 +28,8 @@ jobs:
           # - { os: windows-latest, target: i686-pc-windows-gnu, use-cross: false }
           # - { os: windows-latest, target: x86_64-pc-windows-gnu, use-cross: false }
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
 
