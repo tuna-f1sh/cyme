@@ -428,7 +428,7 @@ fn cyme() -> Result<()> {
     #[cfg(feature = "libusb")]
     lsusb::profiler::set_log_level(args.debug);
 
-    let config = if let Some(path) = args.config.as_ref() {
+    let mut config = if let Some(path) = args.config.as_ref() {
         let config = Config::from_file(path)?;
         log::info!("Using user config {:?}", config);
         config
@@ -437,7 +437,7 @@ fn cyme() -> Result<()> {
     };
 
     // add any config ENV override
-    std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR")
+    config.print_non_critical_profiler_stderr = std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR")
         .map_or(config.print_non_critical_profiler_stderr, |_| true);
 
     merge_config(&config, &mut args);

@@ -210,8 +210,8 @@ impl USBBus {
     /// Remove the root_hub if existing in bus
     pub fn remove_root_hub_device(&mut self) {
         self.devices
-            .as_mut()
-            .map_or((), |devs| devs.retain(|d| !d.is_root_hub()));
+            .iter_mut()
+            .for_each(|devs| devs.retain(|d| !d.is_root_hub()));
     }
 
     /// Gets the device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
@@ -1305,7 +1305,7 @@ impl USBFilter {
         });
 
         for bus in buses {
-            bus.devices.as_mut().map_or((), |d| self.retain_devices(d));
+            bus.devices.iter_mut().for_each(|d| self.retain_devices(d));
         }
     }
 
@@ -1316,7 +1316,7 @@ impl USBFilter {
         devices.retain(|d| self.exists_in_tree(d));
 
         for d in devices {
-            d.devices.as_mut().map_or((), |d| self.retain_devices(d));
+            d.devices.iter_mut().for_each(|d| self.retain_devices(d));
         }
     }
 

@@ -477,7 +477,7 @@ pub mod profiler {
                     cache.push(sp_device.to_owned());
 
                     // print any non-critical error during extra capture
-                    sp_device.profiler_error.as_ref().map_or((), |e| {
+                    sp_device.profiler_error.iter().for_each(|e| {
                         if print_stderr {
                             eprintln!("{}", e);
                         } else {

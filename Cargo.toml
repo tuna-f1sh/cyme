@@ -79,3 +79,6 @@ pre-build = ["dpkg --add-architecture i386 && apt-get update && apt-get install 
 
 [package.metadata.cross.target.x86_64-unknown-linux-gnu]
 pre-build = ["apt-get update && apt-get install --assume-yes libusb-1.0-0-dev libudev-dev"]
+
+[package.metadata.deb]
+section = "utility"

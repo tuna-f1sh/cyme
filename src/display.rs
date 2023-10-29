@@ -2641,7 +2641,7 @@ pub fn mask_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial, r
     }
 
     if recursive {
-        device.devices.as_mut().map_or((), |dd| {
+        device.devices.iter_mut().for_each(|dd| {
             dd.iter_mut().for_each(|d| mask_serial(d, hide, recursive))
         });
     }
@@ -2663,8 +2663,8 @@ pub fn prepare(
 
     // do the filter if present; will keep parents of matched devices even if they do not match
     filter
-        .as_ref()
-        .map_or((), |f| f.retain_buses(&mut sp_usb.buses));
+        .iter()
+        .for_each(|f| f.retain_buses(&mut sp_usb.buses));
 
     // hide any empty buses and hubs now we've filtered
     if settings.hide_buses {
@@ -2685,7 +2685,7 @@ pub fn prepare(
     // hide serials Recursively
     if let Some(hide) = settings.mask_serials.as_ref() {
         for bus in &mut sp_usb.buses {
-            bus.devices.as_mut().map_or((), |devices| {
+            bus.devices.iter_mut().for_each(|devices| {
                 for device in devices {
                     mask_serial(device, hide, true);
                 }
