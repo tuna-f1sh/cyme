@@ -14,19 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          # - { os: ubuntu-latest, target: arm-unknown-linux-gnueabihf, use-cross: true }
           - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, use-cross: true }
-          # - { os: ubuntu-latest, target: i686-unknown-linux-gnu, use-cross: true }
-          # - { os: ubuntu-latest, target: i686-pc-windows-gnu, use-cross: true }
           - { os: ubuntu-latest, target: x86_64-pc-windows-gnu, use-cross: true }
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: false }
           - { os: macos-latest, target: universal-apple-darwin, use-cross: false }
-          # Targets are built as part of universal
-          # - { os: macos-latest, target: x86_64-apple-darwin, use-cross: false }
-          # - { os: macos-latest, target: aarch64-apple-darwin, use-cross: false }
-          # Windows host targets don't build
-          # - { os: windows-latest, target: i686-pc-windows-gnu, use-cross: false }
-          # - { os: windows-latest, target: x86_64-pc-windows-gnu, use-cross: false }
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@v1
@@ -41,6 +32,7 @@ jobs:
               sudo apt-get -y update;
               sudo apt-get -y install libudev-dev;
               sudo apt-get -y install libusb-1.0-0-dev;
+              cargo install cargo-deb
               ;;
             universal-apple-*)
               brew install libusb
@@ -73,20 +65,8 @@ jobs:
       - name: Test
         id: test
         shell: bash
-        # don't run tests on Windows because libusb needs install TODO
-        if: matrix.job.use-cross == false && !startsWith(matrix.job.os, 'windows')
+        if: matrix.job.use-cross == false
         run: cargo test
-        # run: |
-        #   case ${{ matrix.job.target }} in
-        #     # apple only test on platform arch
-        #     *-apple-*) 
-        #       cargo test
-        #       ;;
-        #     # else test on target arch
-        #     *) 
-        #       ${{ env.CARGO_CMD }} test --target=${{ matrix.job.target }}
-        #       ;;
-        #   esac
 
       - name: Build release
         id: build
@@ -172,11 +152,41 @@ jobs:
           # Let subsequent steps know where to find the compressed package
           echo "PKG_PATH=${PKG_STAGING}/${PKG_NAME}" >> "$GITHUB_OUTPUT"
 
+      - name: Create Debian package
+        id: debian-package
+        shell: bash
+        if: startsWith(matrix.job.os, 'ubuntu') && !contains(matrix.job.target, 'windows')
+        run: |
+          DPKG_STAGING="${{ env.INTERMEDIATES_DIR }}/debian-package"
+          DPKG_DIR="${DPKG_STAGING}/dpkg"
+          case ${{ matrix.job.target }} in
+            aarch64-*-linux-*) DPKG_ARCH=arm64 ;;
+            arm-*-linux-*hf) DPKG_ARCH=armhf ;;
+            i686-*-linux-*) DPKG_ARCH=i686 ;;
+            x86_64-*-linux-*) DPKG_ARCH=amd64 ;;
+          *) DPKG_ARCH=notset ;;
+          esac;
+
+          DPKG_NAME="${PROJECT_NAME}-v${PROJECT_VERSION}-1-${DPKG_ARCH}.deb"
+          echo "DPKG_NAME=${DPKG_NAME}" >> $GITHUB_OUTPUT
+          mkdir -p "${DPKG_DIR}"
+          DPKG_PATH="${DPKG_STAGING}/${DPKG_NAME}"
+          echo "DPKG_PATH=${DPKG_PATH}" >> $GITHUB_OUTPUT
+
+          cargo deb --target=${{ matrix.job.target }} --output "${DPKG_PATH}" --no-build --no-strip
+
       - name: Upload package artifact
         uses: actions/upload-artifact@master
         with:
           name: ${{ steps.package.outputs.PKG_NAME }}
           path: ${{ steps.package.outputs.PKG_PATH }}
+
+      - name: Upload dpkg artifact
+        uses: actions/upload-artifact@master
+        if: steps.debian-package.outputs.DPKG_NAME
+        with:
+          name: ${{ steps.debian-package.outputs.DPKG_NAME }}
+          path: ${{ steps.debian-package.outputs.DPKG_PATH }}
 
       - name: Check for release
         id: is-release
@@ -189,7 +199,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: steps.is-release.outputs.IS_RELEASE
         with:
-          files: ${{ steps.package.outputs.PKG_PATH }}
+          files: |
+            ${{ steps.package.outputs.PKG_PATH }}
+            ${{ steps.debian-package.outputs.DPKG_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
