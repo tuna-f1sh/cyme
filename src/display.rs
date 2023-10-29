@@ -16,7 +16,7 @@ use terminal_size::{Height, Width};
 use crate::colour;
 use crate::icon;
 use crate::system_profiler;
-use crate::system_profiler::{USBBus, USBDevice};
+use crate::system_profiler::{SPUSBDataType, USBBus, USBDevice, USBFilter};
 use crate::usb::USBDeviceExtra;
 use crate::usb::{ConfigAttributes, Direction, USBConfiguration, USBEndpoint, USBInterface};
 
@@ -442,7 +442,7 @@ pub trait Block<B: Eq + Hash, T> {
     fn block_length(&self) -> BlockLength;
 
     /// Creates a HashMap of B keys to usize of longest value for that key in the `d` Vec or heading if > this; values can then be padded to match this
-    fn generate_padding(d: &Vec<&T>) -> HashMap<B, usize>;
+    fn generate_padding(d: &[&T]) -> HashMap<B, usize>;
 
     /// Colour the block String
     fn colour(&self, s: &str, ct: &colour::ColourTheme) -> ColoredString;
@@ -613,7 +613,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
     }
 
     fn generate_padding(
-        d: &Vec<&system_profiler::USBDevice>,
+        d: &[&system_profiler::USBDevice],
     ) -> HashMap<Self, usize> {
         DeviceBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
@@ -872,7 +872,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
     }
 
     fn generate_padding(
-        d: &Vec<&system_profiler::USBBus>,
+        d: &[&USBBus],
     ) -> HashMap<Self, usize> {
         BusBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
@@ -894,7 +894,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
 
     fn format_value(
         &self,
-        bus: &system_profiler::USBBus,
+        bus: &USBBus,
         pad: &HashMap<Self, usize>,
         settings: &PrintSettings,
     ) -> Option<String> {
@@ -1005,7 +1005,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
     }
 
     fn generate_padding(
-        d: &Vec<&USBConfiguration>,
+        d: &[&USBConfiguration],
     ) -> HashMap<Self, usize> {
         ConfigurationBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
@@ -1138,7 +1138,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
         }
     }
 
-    fn generate_padding(d: &Vec<&USBInterface>) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&USBInterface]) -> HashMap<Self, usize> {
         InterfaceBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -1303,7 +1303,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
         }
     }
 
-    fn generate_padding(d: &Vec<&USBEndpoint>) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&USBEndpoint]) -> HashMap<Self, usize> {
         EndpointBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -1403,8 +1403,8 @@ impl Sort {
     /// The clone and sort the [`USBDevice`]s `d`
     pub fn sort_devices(
         &self,
-        d: &Vec<system_profiler::USBDevice>,
-    ) -> Vec<system_profiler::USBDevice> {
+        d: &Vec<USBDevice>,
+    ) -> Vec<USBDevice> {
         let mut sorted = d.to_owned();
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
@@ -1418,8 +1418,8 @@ impl Sort {
     /// The clone and sort the references to [`USBDevice`]s `d`
     pub fn sort_devices_ref<'a>(
         &self,
-        d: &Vec<&'a system_profiler::USBDevice>,
-    ) -> Vec<&'a system_profiler::USBDevice> {
+        d: &Vec<&'a USBDevice>,
+    ) -> Vec<&'a USBDevice> {
         let mut sorted = d.to_owned();
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
@@ -1813,7 +1813,7 @@ fn generate_extra_blocks(
 
 /// Print `devices` `USBDevice` references without looking down each device's devices!
 pub fn print_flattened_devices(
-    devices: &Vec<&system_profiler::USBDevice>,
+    devices: &Vec<&USBDevice>,
     settings: &PrintSettings,
 ) {
     let mut db = settings
@@ -1909,16 +1909,17 @@ pub fn print_flattened_devices(
 ///
 /// Prints each `&USBBus` and tuple pair `Vec<&USBDevice>`
 pub fn print_bus_grouped(
-    bus_devices: Vec<(&system_profiler::USBBus, Vec<&system_profiler::USBDevice>)>,
+    bus_devices: Vec<(&USBBus, Vec<&USBDevice>)>,
     settings: &PrintSettings,
 ) {
     let bb = settings.bus_blocks.to_owned().unwrap_or(
-        Block::<BusBlocks, system_profiler::USBBus>::default_blocks(
+        Block::<BusBlocks, USBBus>::default_blocks(
             settings.verbosity >= MAX_VERBOSITY || settings.more,
         ),
     );
     let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
-        BusBlocks::generate_padding(&bus_devices.iter().map(|bd| bd.0).collect())
+        let buses: Vec<&USBBus> = bus_devices.iter().map(|bd| bd.0).collect();
+        BusBlocks::generate_padding(&buses)
     } else {
         HashMap::new()
     };
@@ -1978,7 +1979,8 @@ pub fn print_endpoints(
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        EndpointBlocks::generate_padding(&endpoints.iter().collect())
+        let endpoints: Vec<&USBEndpoint> = endpoints.iter().collect();
+        EndpointBlocks::generate_padding(&endpoints)
     } else {
         HashMap::new()
     };
@@ -2101,7 +2103,8 @@ pub fn print_interfaces(
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        InterfaceBlocks::generate_padding(&interfaces.iter().collect())
+        let interfaces: Vec<&USBInterface> = interfaces.iter().collect();
+        InterfaceBlocks::generate_padding(&interfaces)
     } else {
         HashMap::new()
     };
@@ -2231,7 +2234,8 @@ pub fn print_configurations(
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        ConfigurationBlocks::generate_padding(&configs.iter().collect())
+        let configs: Vec<&USBConfiguration> = configs.iter().collect();
+        ConfigurationBlocks::generate_padding(&configs)
     } else {
         HashMap::new()
     };
@@ -2351,13 +2355,14 @@ pub fn print_configurations(
 ///
 /// Will draw tree if `settings.tree`, otherwise it will be flat
 pub fn print_devices(
-    devices: &Vec<system_profiler::USBDevice>,
+    devices: &Vec<USBDevice>,
     db: &Vec<DeviceBlocks>,
     settings: &PrintSettings,
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        DeviceBlocks::generate_padding(&devices.iter().collect())
+        let devices: Vec<&USBDevice> = devices.iter().collect();
+        DeviceBlocks::generate_padding(&devices)
     } else {
         HashMap::new()
     };
@@ -2481,10 +2486,10 @@ pub fn print_devices(
 }
 
 /// Print SPUSBDataType
-pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
+pub fn print_sp_usb(sp_usb: &SPUSBDataType, settings: &PrintSettings) {
     let mut bb = settings.bus_blocks.to_owned().unwrap_or(Block::<
         BusBlocks,
-        system_profiler::USBBus,
+        USBBus,
     >::default_blocks(
         settings.verbosity >= MAX_VERBOSITY || settings.more,
     ));
@@ -2528,7 +2533,7 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
     };
 
     let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
-        BusBlocks::generate_padding(&sp_usb.buses.iter().collect())
+        BusBlocks::generate_padding(&sp_usb.buses.iter().collect::<Vec<&USBBus>>())
     } else {
         HashMap::new()
     };
@@ -2618,7 +2623,7 @@ pub fn print_sp_usb(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSet
 }
 
 /// Mask the `device` serial if it has one using the [`MaskSerial`] method and recursively if `recursive`
-pub fn mask_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial, recursive: bool) {
+pub fn mask_serial(device: &mut USBDevice, hide: &MaskSerial, recursive: bool) {
     if let Some(serial) = device.serial_num.as_mut() {
         *serial = match hide {
             MaskSerial::Hide => serial.chars().map(|_| '*').collect::<String>(),
@@ -2649,8 +2654,8 @@ pub fn mask_serial(device: &mut system_profiler::USBDevice, hide: &MaskSerial, r
 
 /// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
 pub fn prepare(
-    sp_usb: &mut system_profiler::SPUSBDataType,
-    filter: Option<system_profiler::USBFilter>,
+    sp_usb: &mut SPUSBDataType,
+    filter: Option<USBFilter>,
     settings: &PrintSettings,
 ) {
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
