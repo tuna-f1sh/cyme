@@ -67,8 +67,9 @@ brew install tuna-f1sh/taps/cyme
 ```
 
 * [Arch AUR 'cyme-bin'](https://aur.archlinux.org/packages/cyme-bin)
+* [Debian packages as part of release](https://github.com/tuna-f1sh/cyme/releases) - need a Debian maintainer for this.
 
-More package managers to come, please feel free to create a PR if you want to help out here.
+More package managers to come/package distribution, please feel free to create a PR if you want to help out here.
 
 ## Linux udev
 

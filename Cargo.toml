@@ -5,7 +5,7 @@ description = "List system USB buses and devices; a modern cross-platform `lsusb
 repository = "https://github.com/tuna-f1sh/cyme"
 readme = "README.md"
 license = "GPL-3.0-or-later"
-version = "1.5.1"
+version = "1.5.2"
 edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
 categories = ["command-line-utilities"]
@@ -81,5 +81,4 @@ pre-build = ["dpkg --add-architecture i386 && apt-get update && apt-get install 
 pre-build = ["apt-get update && apt-get install --assume-yes libusb-1.0-0-dev libudev-dev"]
 
 [package.metadata.deb]
-description = "List system USB buses and devices; a modern cross-platform `lsusb`"
 section = "utility"
