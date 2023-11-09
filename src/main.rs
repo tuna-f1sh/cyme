@@ -437,8 +437,9 @@ fn cyme() -> Result<()> {
     };
 
     // add any config ENV override
-    config.print_non_critical_profiler_stderr = std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR")
-        .map_or(config.print_non_critical_profiler_stderr, |_| true);
+    config.print_non_critical_profiler_stderr =
+        std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR")
+            .map_or(config.print_non_critical_profiler_stderr, |_| true);
 
     merge_config(&config, &mut args);
 

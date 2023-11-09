@@ -13,9 +13,8 @@ fn recusive_map_devices(device: &USBDevice) {
 
 fn main() -> Result<(), String> {
     // get all system devices
-    let sp_usb = profiler::get_spusb(false).map_err(|e| {
-        format!("Failed to gather system USB data from libusb, Error({})", e)
-    })?;
+    let sp_usb = profiler::get_spusb(false)
+        .map_err(|e| format!("Failed to gather system USB data from libusb, Error({})", e))?;
 
     // SPUSBDataType contains buses...
     for bus in sp_usb.buses {
