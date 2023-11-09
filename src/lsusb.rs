@@ -386,28 +386,7 @@ pub mod profiler {
             }
         };
 
-        // lookup manufacturer and device name from Linux list if empty
-        let manufacturer = get_manufacturer_string(&device_desc, &mut usb_device)
-            .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
-                .map(|vendor| vendor.name().to_owned()));
-
-        let name = match get_product_string(&device_desc, &mut usb_device) {
-            Some(n) => n,
-            None => {
-                match usb_ids::Device::from_vid_pid(
-                    device_desc.vendor_id(),
-                    device_desc.product_id(),
-                ) {
-                    Some(product) => product.name().to_owned(),
-                    None => String::new(),
-                }
-            }
-        };
-
         let mut sp_device = system_profiler::USBDevice {
-            name,
-            manufacturer,
-            serial_num: get_serial_string(&device_desc, &mut usb_device),
             vendor_id: Some(device_desc.vendor_id()),
             product_id: Some(device_desc.product_id()),
             device_speed: speed,
@@ -423,6 +402,63 @@ pub mod profiler {
             protocol: Some(device_desc.protocol_code()),
             ..Default::default()
         };
+
+        // Attempt to lookup 'i' strings (iManufacturer, iProduct, iSerialNumber) from device with
+        // the following precedence
+        // 1. Read directly from the device descriptor (usually requires root access)
+        // 2. (on Linux) Read from udev, which is a cached copy of the device descriptor
+        //    TODO (does macOS and Windows have an equivalent/similar way to retrieve this info?)
+        // 3. Lookup iManufacturer and iProduct from the USB IDs list (iSerial has no alternative)
+
+        sp_device.manufacturer = get_manufacturer_string(&device_desc, &mut usb_device)
+            .or({
+                #[cfg(all(target_os = "linux", feature = "udev"))]
+                {
+                    udev::get_udev_attribute(&sp_device.port_path(), "manufacturer")
+                }
+
+                #[cfg(not(all(target_os = "linux", feature = "udev")))]
+                {
+                    None
+                }
+            })
+            .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
+                .map(|vendor| vendor.name().to_owned()));
+
+        sp_device.name = match get_product_string(&device_desc, &mut usb_device).or({
+            #[cfg(all(target_os = "linux", feature = "udev"))]
+            {
+                udev::get_udev_attribute(&sp_device.port_path(), "product")
+            }
+
+            #[cfg(not(all(target_os = "linux", feature = "udev")))]
+            {
+                None
+            }
+        }) {
+            Some(n) => n,
+            None => {
+                match usb_ids::Device::from_vid_pid(
+                    device_desc.vendor_id(),
+                    device_desc.product_id(),
+                ) {
+                    Some(product) => product.name().to_owned(),
+                    None => String::new(),
+                }
+            }
+        };
+
+        sp_device.serial_num = get_serial_string(&device_desc, &mut usb_device).or({
+            #[cfg(all(target_os = "linux", feature = "udev"))]
+            {
+                udev::get_udev_attribute(&sp_device.port_path(), "serial")
+            }
+
+            #[cfg(not(all(target_os = "linux", feature = "udev")))]
+            {
+                None
+            }
+        });
 
         let extra_error_str = if with_extra {
             match build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device, true) {
