@@ -867,7 +867,7 @@ pub mod display {
             "          Transfer Type          {:?}",
             endpoint.transfer_type
         );
-        println!("          Sync Type             {:?}", endpoint.sync_type);
+        println!("          Sync Type              {:?}", endpoint.sync_type);
         println!("          Usage Type             {:?}", endpoint.usage_type);
         println!(
             "        wMaxPacketSize    {:#06x} {} bytes",
