@@ -697,10 +697,10 @@ pub struct USBDeviceExtra {
 /// ```
 /// use cyme::usb::get_port_path;
 ///
-/// assert_eq!(get_port_path(1, &vec![1, 3, 2]), String::from("1-1.3.2"));
-/// assert_eq!(get_port_path(1, &vec![2]), String::from("1-2"));
+/// assert_eq!(get_port_path(1, &[1, 3, 2]), String::from("1-1.3.2"));
+/// assert_eq!(get_port_path(1, &[2]), String::from("1-2"));
 /// // special case for root_hub
-/// assert_eq!(get_port_path(2, &vec![]), String::from("2-0"));
+/// assert_eq!(get_port_path(2, &[]), String::from("2-0"));
 /// ```
 ///
 /// [ref](http://gajjarpremal.blogspot.com/2015/04/sysfs-structures-for-linux-usb.html)
@@ -710,7 +710,7 @@ pub struct USBDeviceExtra {
 /// All the other entries refer to genuine USB devices and their interfaces. The devices are named by a scheme like this:
 ///
 ///  bus-port.port.port ...
-pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
+pub fn get_port_path(bus: u8, ports: &[u8]) -> String {
     if ports.len() <= 1 {
         get_trunk_path(bus, ports)
     } else {
@@ -722,9 +722,9 @@ pub fn get_port_path(bus: u8, ports: &Vec<u8>) -> String {
 /// ```
 /// use cyme::usb::get_parent_path;
 ///
-/// assert_eq!(get_parent_path(1, &vec![1, 3, 4, 5]).unwrap(), String::from("1-1.3.4"));
+/// assert_eq!(get_parent_path(1, &[1, 3, 4, 5]).unwrap(), String::from("1-1.3.4"));
 /// ```
-pub fn get_parent_path(bus: u8, ports: &Vec<u8>) -> error::Result<String> {
+pub fn get_parent_path(bus: u8, ports: &[u8]) -> error::Result<String> {
     if ports.is_empty() {
         Err(Error::new(
             ErrorKind::InvalidArg,
@@ -739,11 +739,11 @@ pub fn get_parent_path(bus: u8, ports: &Vec<u8>) -> error::Result<String> {
 /// ```
 /// use cyme::usb::get_trunk_path;
 ///
-/// assert_eq!(get_trunk_path(1, &vec![1, 3, 5, 6]), String::from("1-1"));
+/// assert_eq!(get_trunk_path(1, &[1, 3, 5, 6]), String::from("1-1"));
 /// // special case for root_hub
-/// assert_eq!(get_trunk_path(1, &vec![]), String::from("1-0"));
+/// assert_eq!(get_trunk_path(1, &[]), String::from("1-0"));
 /// ```
-pub fn get_trunk_path(bus: u8, ports: &Vec<u8>) -> String {
+pub fn get_trunk_path(bus: u8, ports: &[u8]) -> String {
     if ports.is_empty() {
         // special case for root_hub
         format!("{:}-{}", bus, 0)
@@ -757,11 +757,11 @@ pub fn get_trunk_path(bus: u8, ports: &Vec<u8>) -> String {
 /// ```
 /// use cyme::usb::get_interface_path;
 ///
-/// assert_eq!(get_interface_path(1, &vec![1, 3], 1, 0), String::from("1-1.3:1.0"));
+/// assert_eq!(get_interface_path(1, &[1, 3], 1, 0), String::from("1-1.3:1.0"));
 /// // bus
-/// assert_eq!(get_interface_path(1, &vec![], 1, 0), String::from("1-0:1.0"));
+/// assert_eq!(get_interface_path(1, &[], 1, 0), String::from("1-0:1.0"));
 /// ```
-pub fn get_interface_path(bus: u8, ports: &Vec<u8>, config: u8, interface: u8) -> String {
+pub fn get_interface_path(bus: u8, ports: &[u8], config: u8, interface: u8) -> String {
     format!("{}:{}.{}", get_port_path(bus, ports), config, interface)
 }
 
@@ -784,6 +784,27 @@ pub fn get_dev_path(bus: u8, device_no: Option<u8>) -> String {
         format!("/dev/bus/usb/{:03}/{:03}", bus, devno)
     } else {
         format!("/dev/bus/usb/{:03}/001", bus)
+    }
+}
+
+/// Builds a replica of sysfs name for reading sysfs_props ala: https://github.com/gregkh/usbutils/blob/master/sysfs.c#L29
+///
+/// Like `get_port_path` but root_hubs use the USB controller name (usbX) rather than interface
+///
+/// ```
+/// use cyme::usb::get_sysfs_name;
+///
+/// assert_eq!(get_sysfs_name(1, &vec![1, 3, 2]), String::from("1-1.3.2"));
+/// assert_eq!(get_sysfs_name(1, &vec![2]), String::from("1-2"));
+/// // special case for root_hub
+/// assert_eq!(get_sysfs_name(2, &vec![]), String::from("usb2"));
+/// ```
+pub fn get_sysfs_name(bus: u8, ports: &[u8]) -> String {
+    if ports.is_empty() {
+        // special cae for root_hub
+        format!("usb{}", bus)
+    } else {
+        get_port_path(bus, &ports)
     }
 }
 

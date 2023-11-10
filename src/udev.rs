@@ -77,8 +77,8 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
             return None;
         }
     };
-    let value = device.attribute_value(attribute).unwrap_or_default();
-    Some(value.to_str().unwrap_or("").to_string())
+
+    device.attribute_value(attribute).map(|s| s.to_str().unwrap_or("").to_string())
 }
 
 #[cfg(test)]

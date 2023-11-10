@@ -316,6 +316,7 @@ pub mod profiler {
             ),
             driver: None,
             syspath: None,
+            // These are idProduct, idVendor in lsusb - from usb_ids
             vendor: usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned()),
             product_name: usb_ids::Device::from_vid_pid(
                 device_desc.vendor_id(),
@@ -414,7 +415,7 @@ pub mod profiler {
             .or({
                 #[cfg(all(target_os = "linux", feature = "udev"))]
                 {
-                    udev::get_udev_attribute(&sp_device.port_path(), "manufacturer")
+                    udev::get_udev_attribute(&sp_device.sysfs_name(), "manufacturer")
                 }
 
                 #[cfg(not(all(target_os = "linux", feature = "udev")))]
@@ -428,7 +429,7 @@ pub mod profiler {
         sp_device.name = match get_product_string(&device_desc, &mut usb_device).or({
             #[cfg(all(target_os = "linux", feature = "udev"))]
             {
-                udev::get_udev_attribute(&sp_device.port_path(), "product")
+                udev::get_udev_attribute(&sp_device.sysfs_name(), "product")
             }
 
             #[cfg(not(all(target_os = "linux", feature = "udev")))]
@@ -451,7 +452,7 @@ pub mod profiler {
         sp_device.serial_num = get_serial_string(&device_desc, &mut usb_device).or({
             #[cfg(all(target_os = "linux", feature = "udev"))]
             {
-                udev::get_udev_attribute(&sp_device.port_path(), "serial")
+                udev::get_udev_attribute(&sp_device.sysfs_name(), "serial")
             }
 
             #[cfg(not(all(target_os = "linux", feature = "udev")))]
