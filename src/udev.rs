@@ -49,6 +49,9 @@ pub fn get_udev_info(
 /// This only works on Linux and not all devices have all attributes.
 /// These attributes are generally readable by all users.
 ///
+/// NOTE: In general you should read from sysfs directly as it does not
+///       depend on the udev feature. See `get_sysfs_string()` in lsusb.rs
+///
 /// ```no_run
 /// use cyme::udev::get_udev_attribute;
 ///
@@ -78,7 +81,9 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
         }
     };
 
-    device.attribute_value(attribute).map(|s| s.to_str().unwrap_or("").to_string())
+    device
+        .attribute_value(attribute)
+        .map(|s| s.to_str().unwrap_or("").to_string())
 }
 
 #[cfg(test)]
@@ -101,7 +106,8 @@ mod tests {
     #[cfg_attr(not(feature = "usb_test"), ignore)]
     #[test]
     fn test_udev_attribute() {
-        let interface_class = get_udev_attribute(&String::from("1-0:1.0"),"bInterfaceClass").unwrap();
+        let interface_class =
+            get_udev_attribute(&String::from("1-0:1.0"), "bInterfaceClass").unwrap();
         assert_eq!(interface_class, "09");
     }
 }
