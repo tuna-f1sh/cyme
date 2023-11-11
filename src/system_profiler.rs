@@ -199,7 +199,7 @@ impl USBBus {
 
     /// syspath style path to bus
     pub fn path(&self) -> String {
-        get_trunk_path(self.get_bus_number(), &vec![])
+        get_trunk_path(self.get_bus_number(), &[])
     }
 
     /// sysfs style path to bus interface

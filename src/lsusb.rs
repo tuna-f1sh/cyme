@@ -67,10 +67,7 @@ pub mod profiler {
             Some(s) => match s.parse::<u8>() {
                 Ok(v) => {
                     // Determine iConfiguration
-                    match get_sysfs_string(sysfs_name, "configuration") {
-                        Some(s) => Some((v, s)),
-                        None => None,
-                    }
+                    get_sysfs_string(sysfs_name, "configuration").map(|s| (v, s))
                 }
                 Err(_) => None,
             },
@@ -270,7 +267,7 @@ pub mod profiler {
                 let mut _interface = usb::USBInterface {
                     name: get_sysfs_string(&path, "interface")
                         .or(get_interface_string(&interface_desc, handle))
-                        .unwrap_or(String::new()),
+                        .unwrap_or_default(),
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
                     path,

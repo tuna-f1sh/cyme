@@ -628,7 +628,7 @@ pub struct USBInterface {
 
 impl USBInterface {
     /// Linux syspath to interface
-    pub fn path(&self, bus: u8, ports: &Vec<u8>, config: u8) -> String {
+    pub fn path(&self, bus: u8, ports: &[u8], config: u8) -> String {
         get_interface_path(bus, ports, config, self.number)
     }
 }
@@ -731,7 +731,7 @@ pub fn get_parent_path(bus: u8, ports: &[u8]) -> error::Result<String> {
             "Cannot get parent path for root device",
         ))
     } else {
-        Ok(get_port_path(bus, &ports[..ports.len() - 1].to_vec()))
+        Ok(get_port_path(bus, &ports[..ports.len() - 1]))
     }
 }
 
@@ -804,7 +804,7 @@ pub fn get_sysfs_name(bus: u8, ports: &[u8]) -> String {
         // special cae for root_hub
         format!("usb{}", bus)
     } else {
-        get_port_path(bus, &ports)
+        get_port_path(bus, ports)
     }
 }
 
