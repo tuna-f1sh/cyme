@@ -234,15 +234,15 @@ impl fmt::Display for ClassCode {
 impl From<u8> for ClassCode {
     fn from(b: u8) -> ClassCode {
         match b {
-            0 => ClassCode::UseInterfaceDescriptor,
-            1 => ClassCode::Audio,
-            2 => ClassCode::CDCCommunications,
-            3 => ClassCode::HID,
-            5 => ClassCode::Physical,
-            6 => ClassCode::Image,
-            7 => ClassCode::Printer,
-            8 => ClassCode::MassStorage,
-            9 => ClassCode::Hub,
+            0x00 => ClassCode::UseInterfaceDescriptor,
+            0x01 => ClassCode::Audio,
+            0x02 => ClassCode::CDCCommunications,
+            0x03 => ClassCode::HID,
+            0x05 => ClassCode::Physical,
+            0x06 => ClassCode::Image,
+            0x07 => ClassCode::Printer,
+            0x08 => ClassCode::MassStorage,
+            0x09 => ClassCode::Hub,
             0x0a => ClassCode::CDCData,
             0x0b => ClassCode::SmartCart,
             0x0d => ClassCode::ContentSecurity,
@@ -659,7 +659,7 @@ impl USBConfiguration {
 
     /// Convert attibutes back to reg value
     pub fn attributes_value(&self) -> u8 {
-        let mut ret: u8 = 0;
+        let mut ret: u8 = 0x80; // always set reserved bit
         for attr in self.attributes.iter() {
             match attr {
                 ConfigAttributes::SelfPowered => ret |= 0x40,

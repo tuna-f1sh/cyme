@@ -820,6 +820,9 @@ pub mod display {
             .expect("Cannot print verbose without extra data");
 
         println!("Device Descriptor:");
+        // These are constants - length is 18 bytes for descriptor, type is 1
+        println!("  bLength               18");
+        println!("  bDescriptorType        1");
         println!(
             "  bcdUSB              {}",
             device
@@ -829,13 +832,13 @@ pub mod display {
         );
         println!(
             "  bDeviceClass         {:3} {}",
-            device.class.as_ref().map_or(0, |c| c.to_owned() as u8),
+            device.class.as_ref().map_or(0, |c| u8::from(c.to_owned())),
             device
                 .class
                 .as_ref()
                 .map_or(String::new(), |c| c.to_string())
         );
-        println!("  bDeviceSubClass      {:3}", device.sub_class.unwrap_or(0),);
+        println!("  bDeviceSubClass      {:3}", device.sub_class.unwrap_or(0));
         println!("  bDeviceProtocol      {:3}", device.protocol.unwrap_or(0));
         println!("  bMaxPacketSize0      {:3}", device_extra.max_packet_size);
         println!(
@@ -876,7 +879,9 @@ pub mod display {
     }
 
     fn print_config(config: &usb::USBConfiguration) {
-        println!("  Config Descriptor:");
+        println!("  Configuration Descriptor:");
+        // println!("    bLength               18"); // TODO length, wTotalLength
+        println!("    bDescriptorType        2"); // type 2 for configuration
         println!("    bNumInterfaces       {:3}", config.interfaces.len());
         println!("    bConfigurationValue  {:3}", config.number);
         println!(
@@ -900,19 +905,21 @@ pub mod display {
             println!("      Remote Wakeup");
         }
         println!(
-            "    bMaxPower           {:4}{}",
+            "    MaxPower           {:4}{}",
             config.max_power.value, config.max_power.unit
         )
     }
 
     fn print_interface(interface: &usb::USBInterface) {
         println!("    Interface Descriptor:");
+        println!("      bLength                9"); // fixed length for interface
+        println!("      bDescriptorType        4"); // type 4 for interface
         println!("      bInterfaceNumber     {:3}", interface.number);
         println!("      bAlternateSetting    {:3}", interface.alt_setting);
         println!("      bNumEndpoints        {:3}", interface.endpoints.len());
         println!(
             "      bInterfaceClass      {:3} {}",
-            interface.class.to_owned() as u8,
+            u8::from(interface.class.to_owned()),
             interface.class
         );
         println!("      bInterfaceSubClass   {:3}", interface.sub_class);
@@ -925,6 +932,8 @@ pub mod display {
 
     fn print_endpoint(endpoint: &usb::USBEndpoint) {
         println!("      Endpoint Descriptor:");
+        println!("        bLength                7"); // fixed length for endpoint
+        println!("        bDescriptorType        5"); // type 5 for endpoint
         println!(
             "        bEndpointAddress    {:#04x} EP {} {}",
             endpoint.address.address,

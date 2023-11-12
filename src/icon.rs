@@ -153,11 +153,11 @@ impl fmt::Display for Icon {
             Icon::Vid(v) => write!(f, "vid#{:04x}", v),
             Icon::VidPid((v, p)) => write!(f, "vid-pid#{:04x}:{:04x}", v, p),
             Icon::VidPidMsb((v, p)) => write!(f, "vid-pid-msb#{:04x}:{:02x}", v, p),
-            Icon::Classifier(c) => write!(f, "classifier#{:02x}", c.to_owned() as u8),
+            Icon::Classifier(c) => write!(f, "classifier#{:02x}", u8::from(c.to_owned())),
             Icon::ClassifierSubProtocol(c) => write!(
                 f,
                 "classifier-sub-protocol#{:02x}:{:02x}:{:02x}",
-                c.0.to_owned() as u8,
+                u8::from(c.0.to_owned()),
                 c.1,
                 c.2
             ),
