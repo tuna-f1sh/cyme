@@ -350,59 +350,59 @@ impl From<ClassCode> for DescriptorUsage {
     }
 }
 
-pub enum DeviceClass {
-    /// Generic devices just have a 'Base Class'. It is a device without a defining SubClass or Protocol
-    Generic(ClassCode),
-    /// Full speed Hub
-    FullSpeedHub,
-    HighSpeedHubSingleTT,
-    HighSpeedHubMultiTT,
-    AudioVideoAVControlInterface,
-    AudioVideoAVDataVideo,
-    AudioVideoAVDataAudio,
-    MCTPManagementController,
-    MCTPHostInterfaceEndpoint,
-    USB2CompliaceDevice,
-    DebugTargetVendorDefined,
-    GNURemoteDebugCommandSet,
-    VendorDefinedTraceDbC,
-    VendorDefinedDfxDbC,
-    VendorDefinedTraceGPDvC,
-    GNUProtocolGPDvC,
-    VendorDefinedDfxDvC,
-    VendorDefinedTraceDvC,
-    BluetoothProgrammingInterface,
-    UWBRadioControlInterace,
-    RemoteNDIS,
-    BluetoothAMPController,
-    HostWireAdaptor,
-    DeviceWireAdaptor,
-    ActiveSync,
-    PalmSync,
-    InterfaceAssociationDescriptor,
-    WireAdaptorMultifunctionPeripheral,
-    CableBasedAssociationFramework,
-    RNDISOverEthernet,
-    RNDISOverWiFi,
-    RNDISOverWiMAX,
-    RNDISOverWWAN,
-    RNDISforRawIPv4,
-    RNDISforRawIPv6,
-    RNDISforGPRS,
-    USB3VisionControlInterface,
-    USB3VisionEventInterface,
-    USB3VisionStreamingInterface,
-    STEPStreamTransport,
-    STEPRAWStreamTransport,
-    CommandInterfaceIAD,
-    CommandInterfaceID,
-    MediaInterfaceID,
-    DeviceFirmwareUpgrade,
-    IRDABridge,
-    USBTestMeasurement,
-    USBTestMeasurementUSBTMC488,
-    Undefined,
-}
+// pub enum DeviceClass {
+//     /// Generic devices just have a 'Base Class'. It is a device without a defining SubClass or Protocol
+//     Generic(ClassCode),
+//     /// Full speed Hub
+//     FullSpeedHub,
+//     HighSpeedHubSingleTT,
+//     HighSpeedHubMultiTT,
+//     AudioVideoAVControlInterface,
+//     AudioVideoAVDataVideo,
+//     AudioVideoAVDataAudio,
+//     MCTPManagementController,
+//     MCTPHostInterfaceEndpoint,
+//     USB2CompliaceDevice,
+//     DebugTargetVendorDefined,
+//     GNURemoteDebugCommandSet,
+//     VendorDefinedTraceDbC,
+//     VendorDefinedDfxDbC,
+//     VendorDefinedTraceGPDvC,
+//     GNUProtocolGPDvC,
+//     VendorDefinedDfxDvC,
+//     VendorDefinedTraceDvC,
+//     BluetoothProgrammingInterface,
+//     UWBRadioControlInterace,
+//     RemoteNDIS,
+//     BluetoothAMPController,
+//     HostWireAdaptor,
+//     DeviceWireAdaptor,
+//     ActiveSync,
+//     PalmSync,
+//     InterfaceAssociationDescriptor,
+//     WireAdaptorMultifunctionPeripheral,
+//     CableBasedAssociationFramework,
+//     RNDISOverEthernet,
+//     RNDISOverWiFi,
+//     RNDISOverWiMAX,
+//     RNDISOverWWAN,
+//     RNDISforRawIPv4,
+//     RNDISforRawIPv6,
+//     RNDISforGPRS,
+//     USB3VisionControlInterface,
+//     USB3VisionEventInterface,
+//     USB3VisionStreamingInterface,
+//     STEPStreamTransport,
+//     STEPRAWStreamTransport,
+//     CommandInterfaceIAD,
+//     CommandInterfaceID,
+//     MediaInterfaceID,
+//     DeviceFirmwareUpgrade,
+//     IRDABridge,
+//     USBTestMeasurement,
+//     USBTestMeasurementUSBTMC488,
+//     Undefined,
+// }
 
 /// USB Speed is also defined in libusb but this one allows us to provide updates and custom impl
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -609,6 +609,9 @@ pub struct EndpointAddress {
 /// Endpoint for a [`USBInterface`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBEndpoint {
+    /// Endpoint length in bytes
+    #[serde(skip)]
+    pub length: u8,
     /// Address information for endpoint
     pub address: EndpointAddress,
     /// Type of data transfer endpoint accepts
@@ -640,6 +643,7 @@ impl USBEndpoint {
     ///     usage_type: UsageType::Data,
     ///     max_packet_size: 0xfff1,
     ///     interval: 3,
+    ///     length: 7,
     /// };
     /// assert_eq!(ep.max_packet_string(), "4x 2033");
     /// ep.max_packet_size = 0x0064;
@@ -680,6 +684,9 @@ pub struct USBInterface {
     pub syspath: Option<String>,
     /// An interface can have many endpoints
     pub endpoints: Vec<USBEndpoint>,
+    /// Size of interface descriptor in bytes
+    #[serde(skip)]
+    pub length: u8,
 }
 
 impl USBInterface {
@@ -705,6 +712,12 @@ pub struct USBConfiguration {
     pub attributes: Vec<ConfigAttributes>,
     /// Maximum power consumption in mA
     pub max_power: NumericalUnit<u32>,
+    /// Size of interface descriptor in bytes
+    #[serde(skip)]
+    pub length: u8,
+    /// Total length of configuration descriptor in bytes including all interfaces and endpoints
+    #[serde(skip)]
+    pub total_length: u16,
 }
 
 impl USBConfiguration {

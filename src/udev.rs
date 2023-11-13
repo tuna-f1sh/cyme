@@ -35,7 +35,7 @@ pub fn get_udev_info(
             ),
         )
     })?;
-    log::debug!("Got device driver {:?}", device.driver());
+    log::trace!("Got device driver {:?}", device.driver());
     *driver_ref = device
         .driver()
         .map(|s| s.to_str().unwrap_or("").to_string());
@@ -56,14 +56,14 @@ pub fn get_udev_info(
 /// use cyme::udev::get_udev_attribute;
 ///
 /// let interface_class = get_udev_attribute(&String::from("1-0:1.0"),"bInterfaceClass").unwrap();
-/// assert_eq!(interface_class, "09");
+/// assert_eq!(interface_class, Some("09".into()));
 /// ```
 pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
     port_path: &String,
     attribute: T,
-) -> Option<String> {
+) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = match udevlib::Device::from_syspath(&Path::new(&path)).map_err(|e| {
+    let device = udevlib::Device::from_syspath(&Path::new(&path)).map_err(|e| {
         Error::new(
             ErrorKind::Udev,
             &format!(
@@ -73,17 +73,42 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
                 e.to_string()
             ),
         )
-    }) {
-        Ok(d) => d,
-        Err(err) => {
-            log::warn!("{:?}", err);
-            return None;
-        }
-    };
+    })?;
 
-    device
+    Ok(device
         .attribute_value(attribute)
-        .map(|s| s.to_str().unwrap_or("").to_string())
+        .map(|s| s.to_str().unwrap_or("").to_string()))
+}
+
+/// Lookup an entry in the udev hwdb given the `modalias` and `key`.
+///
+/// Should act like https://github.com/gregkh/usbutils/blob/master/names.c#L115
+///
+/// ```
+/// use cyme::udev::hwdb_get;
+/// 
+/// let modalias = String::from("usb:v1D6Bp0001");
+/// let key = String::from("ID_VENDOR_FROM_DATABASE");
+/// let vendor = hwdb_get(&modalias, &key).unwrap();
+///
+/// assert_eq!(vendor, Some("Linux Foundation".into()));
+///
+/// let modalias = String::from("usb:v*p*d*dc03dsc01dp01*");
+/// let key = String::from("ID_USB_PROTOCOL_FROM_DATABASE");
+/// let vendor = hwdb_get(&modalias, &key).unwrap();
+///
+/// assert_eq!(vendor, Some("Keyboard".into()));
+/// ```
+pub fn hwdb_get(modalias: &String, key: &String) -> Result<Option<String>, Error> {
+    let hwdb = udevlib::Hwdb::new().map_err(|e| {
+        Error::new(
+            ErrorKind::Udev,
+            &format!("Failed to get hwdb: Error({})", e.to_string()),
+        )
+    })?;
+
+    Ok(hwdb.query_one(modalias, key)
+        .map(|s| s.to_str().unwrap_or("").to_string()))
 }
 
 #[cfg(test)]
@@ -108,6 +133,6 @@ mod tests {
     fn test_udev_attribute() {
         let interface_class =
             get_udev_attribute(&String::from("1-0:1.0"), "bInterfaceClass").unwrap();
-        assert_eq!(interface_class, "09");
+        assert_eq!(interface_class, Some("09".into()));
     }
 }

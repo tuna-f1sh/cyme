@@ -16,7 +16,7 @@ clap = { version = "4.0.22", features = ["derive", "wrap_help"] }
 colored = "2.0.0"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
-rusb = { version = "0.9.1", optional = true }
+rusb = { git = "https://github.com/tuna-f1sh/rusb.git", version = "0.9.1", optional = true }
 log = "0.4.17"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.87"
@@ -37,18 +37,18 @@ diff = "0.1"
 assert-json-diff = "2.0.2"
 
 [target.x86_64-unknown-linux-gnu.dependencies]
-udev = { version = "^0.7.0", optional = true }
-rusb = { version = "0.9.1" }
+udev = { version = "^0.8.0", optional = true, features = ["hwdb"] }
+rusb = { git = "https://github.com/tuna-f1sh/rusb.git", version = "0.9.1" }
 usb-ids = "1"
 
 [target.arm-unknown-linux-gnueabihf.dependencies]
-udev = { version = "^0.7.0", optional = true }
-rusb = { version = "0.9.1" }
+udev = { version = "^0.8.0", optional = true, features = ["hwdb"] }
+rusb = { git = "https://github.com/tuna-f1sh/rusb.git", version = "0.9.1" }
 usb-ids = "1"
 
 [target.aarch64-unknown-linux-gnu.dependencies]
-udev = { version = "^0.7.0", optional = true }
-rusb = { version = "0.9.1" }
+udev = { version = "^0.8.0", optional = true, features = ["hwdb"] }
+rusb = { git = "https://github.com/tuna-f1sh/rusb.git", version = "0.9.1" }
 usb-ids = "1"
 
 [features]

@@ -241,6 +241,7 @@ pub mod profiler {
                 usage_type: usb::UsageType::from(endpoint_desc.usage_type()),
                 max_packet_size: endpoint_desc.max_packet_size(),
                 interval: endpoint_desc.interval(),
+                length: endpoint_desc.length(),
             });
         }
 
@@ -277,6 +278,7 @@ pub mod profiler {
                     alt_setting: interface_desc.setting_number(),
                     driver: None,
                     syspath: None,
+                    length: interface_desc.length(),
                     endpoints: build_endpoints(&interface_desc),
                 };
 
@@ -346,6 +348,8 @@ pub mod profiler {
                     unit: String::from("mA"),
                     description: None,
                 },
+                length: config_desc.length(),
+                total_length: config_desc.total_length(),
                 interfaces: build_interfaces(device, handle, &config_desc, with_udev)?,
             });
         }
@@ -880,8 +884,9 @@ pub mod display {
 
     fn print_config(config: &usb::USBConfiguration) {
         println!("  Configuration Descriptor:");
-        // println!("    bLength               18"); // TODO length, wTotalLength
+        println!("    bLength              {:3}", config.length);
         println!("    bDescriptorType        2"); // type 2 for configuration
+        println!("    wTotalLength      {:#06x}", config.total_length);
         println!("    bNumInterfaces       {:3}", config.interfaces.len());
         println!("    bConfigurationValue  {:3}", config.number);
         println!(
@@ -892,17 +897,22 @@ pub mod display {
             "    bmAttributes:       0x{:02x}",
             config.attributes_value()
         );
-        if config
-            .attributes
-            .contains(&usb::ConfigAttributes::SelfPowered)
-        {
-            println!("      Self Powered");
-        }
-        if config
-            .attributes
-            .contains(&usb::ConfigAttributes::RemoteWakeup)
-        {
-            println!("      Remote Wakeup");
+        // no attributes is bus powered
+        if config.attributes.is_empty() {
+            println!("      (Bus Powered)");
+        } else {
+            if config
+                .attributes
+                .contains(&usb::ConfigAttributes::SelfPowered)
+            {
+                println!("      Self Powered");
+            }
+            if config
+                .attributes
+                .contains(&usb::ConfigAttributes::RemoteWakeup)
+            {
+                println!("      Remote Wakeup");
+            }
         }
         println!(
             "    MaxPower           {:4}{}",
@@ -912,7 +922,7 @@ pub mod display {
 
     fn print_interface(interface: &usb::USBInterface) {
         println!("    Interface Descriptor:");
-        println!("      bLength                9"); // fixed length for interface
+        println!("      bLength              {:3}", interface.length);
         println!("      bDescriptorType        4"); // type 4 for interface
         println!("      bInterfaceNumber     {:3}", interface.number);
         println!("      bAlternateSetting    {:3}", interface.alt_setting);
@@ -932,7 +942,7 @@ pub mod display {
 
     fn print_endpoint(endpoint: &usb::USBEndpoint) {
         println!("      Endpoint Descriptor:");
-        println!("        bLength                7"); // fixed length for endpoint
+        println!("        bLength              {:3}", endpoint.length);
         println!("        bDescriptorType        5"); // type 5 for endpoint
         println!(
             "        bEndpointAddress    {:#04x} EP {} {}",
