@@ -173,6 +173,8 @@ pub enum DescriptorUsage {
 }
 
 /// USB class code defines [ref](https://www.usb.org/defined-class-codes)
+///
+/// Technically this is the 'Base Class' - the 'Class Code' is the full triplet of (Base Class, Sub Class, Protocol). TODO rename in 2.0 release
 #[derive(Debug, ValueEnum, Default, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ClassCode {
@@ -187,7 +189,7 @@ pub enum ClassCode {
     HID,
     /// Force feedback joystick
     Physical,
-    /// Scanners, cameras
+    /// Still imaging device; scanners, cameras
     Image,
     /// Laser printer, inkjet printer, CNC machine
     Printer,
@@ -346,6 +348,60 @@ impl From<ClassCode> for DescriptorUsage {
     fn from(c: ClassCode) -> DescriptorUsage {
         c.usage()
     }
+}
+
+pub enum DeviceClass {
+    /// Generic devices just have a 'Base Class'. It is a device without a defining SubClass or Protocol
+    Generic(ClassCode),
+    /// Full speed Hub
+    FullSpeedHub,
+    HighSpeedHubSingleTT,
+    HighSpeedHubMultiTT,
+    AudioVideoAVControlInterface,
+    AudioVideoAVDataVideo,
+    AudioVideoAVDataAudio,
+    MCTPManagementController,
+    MCTPHostInterfaceEndpoint,
+    USB2CompliaceDevice,
+    DebugTargetVendorDefined,
+    GNURemoteDebugCommandSet,
+    VendorDefinedTraceDbC,
+    VendorDefinedDfxDbC,
+    VendorDefinedTraceGPDvC,
+    GNUProtocolGPDvC,
+    VendorDefinedDfxDvC,
+    VendorDefinedTraceDvC,
+    BluetoothProgrammingInterface,
+    UWBRadioControlInterace,
+    RemoteNDIS,
+    BluetoothAMPController,
+    HostWireAdaptor,
+    DeviceWireAdaptor,
+    ActiveSync,
+    PalmSync,
+    InterfaceAssociationDescriptor,
+    WireAdaptorMultifunctionPeripheral,
+    CableBasedAssociationFramework,
+    RNDISOverEthernet,
+    RNDISOverWiFi,
+    RNDISOverWiMAX,
+    RNDISOverWWAN,
+    RNDISforRawIPv4,
+    RNDISforRawIPv6,
+    RNDISforGPRS,
+    USB3VisionControlInterface,
+    USB3VisionEventInterface,
+    USB3VisionStreamingInterface,
+    STEPStreamTransport,
+    STEPRAWStreamTransport,
+    CommandInterfaceIAD,
+    CommandInterfaceID,
+    MediaInterfaceID,
+    DeviceFirmwareUpgrade,
+    IRDABridge,
+    USBTestMeasurement,
+    USBTestMeasurementUSBTMC488,
+    Undefined,
 }
 
 /// USB Speed is also defined in libusb but this one allows us to provide updates and custom impl
