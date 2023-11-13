@@ -612,9 +612,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn generate_padding(
-        d: &[&system_profiler::USBDevice],
-    ) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&system_profiler::USBDevice]) -> HashMap<Self, usize> {
         DeviceBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -871,9 +869,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         }
     }
 
-    fn generate_padding(
-        d: &[&USBBus],
-    ) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&USBBus]) -> HashMap<Self, usize> {
         BusBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -1004,9 +1000,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         }
     }
 
-    fn generate_padding(
-        d: &[&USBConfiguration],
-    ) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&USBConfiguration]) -> HashMap<Self, usize> {
         ConfigurationBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -1401,10 +1395,7 @@ pub enum Sort {
 
 impl Sort {
     /// The clone and sort the [`USBDevice`]s `d`
-    pub fn sort_devices(
-        &self,
-        d: &Vec<USBDevice>,
-    ) -> Vec<USBDevice> {
+    pub fn sort_devices(&self, d: &Vec<USBDevice>) -> Vec<USBDevice> {
         let mut sorted = d.to_owned();
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
@@ -1416,10 +1407,7 @@ impl Sort {
     }
 
     /// The clone and sort the references to [`USBDevice`]s `d`
-    pub fn sort_devices_ref<'a>(
-        &self,
-        d: &Vec<&'a USBDevice>,
-    ) -> Vec<&'a USBDevice> {
+    pub fn sort_devices_ref<'a>(&self, d: &Vec<&'a USBDevice>) -> Vec<&'a USBDevice> {
         let mut sorted = d.to_owned();
         match self {
             Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
@@ -1812,10 +1800,7 @@ fn generate_extra_blocks(
 }
 
 /// Print `devices` `USBDevice` references without looking down each device's devices!
-pub fn print_flattened_devices(
-    devices: &Vec<&USBDevice>,
-    settings: &PrintSettings,
-) {
+pub fn print_flattened_devices(devices: &Vec<&USBDevice>, settings: &PrintSettings) {
     let mut db = settings
         .device_blocks
         .to_owned()
@@ -1908,15 +1893,13 @@ pub fn print_flattened_devices(
 /// A way of printing a reference flattened `SPUSBDataType` rather than hard flatten
 ///
 /// Prints each `&USBBus` and tuple pair `Vec<&USBDevice>`
-pub fn print_bus_grouped(
-    bus_devices: Vec<(&USBBus, Vec<&USBDevice>)>,
-    settings: &PrintSettings,
-) {
-    let bb = settings.bus_blocks.to_owned().unwrap_or(
-        Block::<BusBlocks, USBBus>::default_blocks(
+pub fn print_bus_grouped(bus_devices: Vec<(&USBBus, Vec<&USBDevice>)>, settings: &PrintSettings) {
+    let bb = settings
+        .bus_blocks
+        .to_owned()
+        .unwrap_or(Block::<BusBlocks, USBBus>::default_blocks(
             settings.verbosity >= MAX_VERBOSITY || settings.more,
-        ),
-    );
+        ));
     let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
         let buses: Vec<&USBBus> = bus_devices.iter().map(|bd| bd.0).collect();
         BusBlocks::generate_padding(&buses)
@@ -2067,8 +2050,7 @@ pub fn print_endpoints(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading =
-                    render_heading(blocks, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
@@ -2080,8 +2062,7 @@ pub fn print_endpoints(
             );
         } else {
             if settings.headings && i == 0 {
-                let heading =
-                    render_heading(blocks, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
                 println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 6);
             }
 
@@ -2181,8 +2162,7 @@ pub fn print_interfaces(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading =
-                    render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
@@ -2196,8 +2176,7 @@ pub fn print_interfaces(
             );
         } else {
             if settings.headings && i == 0 {
-                let heading =
-                    render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
                 println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 4);
             }
 
@@ -2312,8 +2291,7 @@ pub fn print_configurations(
 
             // maybe should just do once at start of bus
             if settings.headings && i == 0 {
-                let heading =
-                    render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
                 println!("{}  {}", prefix, heading.bold().underline());
             }
 
@@ -2326,8 +2304,7 @@ pub fn print_configurations(
             );
         } else {
             if settings.headings && i == 0 {
-                let heading =
-                    render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
                 println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 2);
             }
 
@@ -2487,12 +2464,13 @@ pub fn print_devices(
 
 /// Print SPUSBDataType
 pub fn print_sp_usb(sp_usb: &SPUSBDataType, settings: &PrintSettings) {
-    let mut bb = settings.bus_blocks.to_owned().unwrap_or(Block::<
-        BusBlocks,
-        USBBus,
-    >::default_blocks(
-        settings.verbosity >= MAX_VERBOSITY || settings.more,
-    ));
+    let mut bb =
+        settings
+            .bus_blocks
+            .to_owned()
+            .unwrap_or(Block::<BusBlocks, USBBus>::default_blocks(
+                settings.verbosity >= MAX_VERBOSITY || settings.more,
+            ));
     let mut db = settings.device_blocks.to_owned().unwrap_or(
         if settings.verbosity >= MAX_VERBOSITY || settings.more {
             DeviceBlocks::default_blocks(true)
@@ -2590,8 +2568,7 @@ pub fn print_sp_usb(sp_usb: &SPUSBDataType, settings: &PrintSettings) {
             }
 
             if settings.headings {
-                let heading =
-                    render_heading(&bb, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
                 // 2 spaces for bus start icon and space to info
                 println!("{:>spaces$}{}", "", heading.bold().underline(), spaces = 2);
             }
@@ -2646,18 +2623,15 @@ pub fn mask_serial(device: &mut USBDevice, hide: &MaskSerial, recursive: bool) {
     }
 
     if recursive {
-        device.devices.iter_mut().for_each(|dd| {
-            dd.iter_mut().for_each(|d| mask_serial(d, hide, recursive))
-        });
+        device
+            .devices
+            .iter_mut()
+            .for_each(|dd| dd.iter_mut().for_each(|d| mask_serial(d, hide, recursive)));
     }
 }
 
 /// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
-pub fn prepare(
-    sp_usb: &mut SPUSBDataType,
-    filter: Option<USBFilter>,
-    settings: &PrintSettings,
-) {
+pub fn prepare(sp_usb: &mut SPUSBDataType, filter: Option<USBFilter>, settings: &PrintSettings) {
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
     // but only do it if there is a filter, grouping by bus (which uses tree print without tree...) or json
     // flattening now will also mean hubs will be removed when listing if `hide_hubs` because they will appear empty

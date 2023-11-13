@@ -199,7 +199,7 @@ impl USBBus {
 
     /// syspath style path to bus
     pub fn path(&self) -> String {
-        get_trunk_path(self.get_bus_number(), &vec![])
+        get_trunk_path(self.get_bus_number(), &[])
     }
 
     /// sysfs style path to bus interface
@@ -493,6 +493,11 @@ impl DeviceLocation {
     /// A wrapper for [`get_trunk_path`]
     pub fn trunk_path(&self) -> String {
         get_trunk_path(self.bus, &self.tree_positions)
+    }
+
+    /// Linux sysfs name of [`USBDevice`] similar to `port_path` but root_hubs use the USB controller name instead of port
+    pub fn sysfs_name(&self) -> String {
+        get_sysfs_name(self.bus, &self.tree_positions)
     }
 }
 
@@ -941,6 +946,11 @@ impl USBDevice {
     /// Linux devpath to [`USBDevice`]
     pub fn dev_path(&self) -> String {
         get_dev_path(self.location_id.bus, Some(self.location_id.number))
+    }
+
+    /// Linux sysfs name of [`USBDevice`]
+    pub fn sysfs_name(&self) -> String {
+        self.location_id.sysfs_name()
     }
 
     /// Trunk device is first in tree

@@ -57,6 +57,38 @@ pub mod profiler {
         rusb::set_log_level(log_level);
     }
 
+    /// Attempt to retrieve the current bConfigurationValue and iConfiguration for a device
+    /// This will only return the current configuration, not all possible configurations
+    /// If there are any failures in retrieving the data, None is returned
+    fn get_sysfs_configuration_string(sysfs_name: &str) -> Option<(u8, String)> {
+        #[cfg(target_os = "linux")]
+        // Determine bConfigurationValue value on linux
+        match get_sysfs_string(sysfs_name, "bConfigurationValue") {
+            Some(s) => match s.parse::<u8>() {
+                Ok(v) => {
+                    // Determine iConfiguration
+                    get_sysfs_string(sysfs_name, "configuration").map(|s| (v, s))
+                }
+                Err(_) => None,
+            },
+            None => None,
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        None
+    }
+
+    fn get_sysfs_string(sysfs_name: &str, name: &str) -> Option<String> {
+        #[cfg(target_os = "linux")]
+        match std::fs::read_to_string(format!("/sys/bus/usb/devices/{}/{}", sysfs_name, name)) {
+            Ok(s) => Some(s.trim().to_string()),
+            Err(_) => None,
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        None
+    }
+
     fn get_product_string<T: libusb::UsbContext>(
         device_desc: &libusb::DeviceDescriptor,
         handle: &mut Option<UsbDevice<T>>,
@@ -225,16 +257,20 @@ pub mod profiler {
 
         for interface in config_desc.interfaces() {
             for interface_desc in interface.descriptors() {
+                let path = usb::get_interface_path(
+                    device.bus_number(),
+                    &device.port_numbers()?,
+                    config_desc.number(),
+                    interface_desc.interface_number(),
+                );
+
                 let mut _interface = usb::USBInterface {
-                    name: get_interface_string(&interface_desc, handle).unwrap_or(String::new()),
+                    name: get_sysfs_string(&path, "interface")
+                        .or(get_interface_string(&interface_desc, handle))
+                        .unwrap_or_default(),
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
-                    path: usb::get_interface_path(
-                        device.bus_number(),
-                        &device.port_numbers()?,
-                        config_desc.number(),
-                        interface_desc.interface_number(),
-                    ),
+                    path,
                     class: usb::ClassCode::from(interface_desc.class_code()),
                     sub_class: interface_desc.sub_class_code(),
                     protocol: interface_desc.protocol_code(),
@@ -264,8 +300,11 @@ pub mod profiler {
         device: &libusb::Device<T>,
         handle: &mut Option<UsbDevice<T>>,
         device_desc: &libusb::DeviceDescriptor,
+        sp_device: &system_profiler::USBDevice,
         with_udev: bool,
     ) -> error::Result<Vec<usb::USBConfiguration>> {
+        // Retrieve the current configuration (if available)
+        let cur_config = get_sysfs_configuration_string(&sp_device.sysfs_name());
         let mut ret: Vec<usb::USBConfiguration> = Vec::new();
 
         for n in 0..device_desc.num_configurations() {
@@ -283,8 +322,22 @@ pub mod profiler {
                 attributes.push(usb::ConfigAttributes::SelfPowered);
             }
 
+            // Check if we have a cached iConfiguration string
+            let config_name = if let Some((config_num, ref config_name)) = cur_config {
+                // Configs start from 1, not 0
+                if config_num - 1 == n {
+                    Some(config_name.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
             ret.push(usb::USBConfiguration {
-                name: get_configuration_string(&config_desc, handle).unwrap_or(String::new()),
+                name: get_configuration_string(&config_desc, handle)
+                    .or(config_name)
+                    .unwrap_or(String::new()),
                 string_index: config_desc.description_string_index().unwrap_or(0),
                 number: config_desc.number(),
                 attributes,
@@ -304,7 +357,7 @@ pub mod profiler {
         device: &libusb::Device<T>,
         handle: &mut Option<UsbDevice<T>>,
         device_desc: &libusb::DeviceDescriptor,
-        _sp_device: &system_profiler::USBDevice,
+        sp_device: &system_profiler::USBDevice,
         _with_udev: bool,
     ) -> error::Result<usb::USBDeviceExtra> {
         let mut _extra = usb::USBDeviceExtra {
@@ -316,13 +369,20 @@ pub mod profiler {
             ),
             driver: None,
             syspath: None,
+            // These are idProduct, idVendor in lsusb - from usb_ids
             vendor: usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned()),
             product_name: usb_ids::Device::from_vid_pid(
                 device_desc.vendor_id(),
                 device_desc.product_id(),
             )
             .map(|v| v.name().to_owned()),
-            configurations: build_configurations(device, handle, device_desc, _with_udev)?,
+            configurations: build_configurations(
+                device,
+                handle,
+                device_desc,
+                sp_device,
+                _with_udev,
+            )?,
         };
 
         #[cfg(all(target_os = "linux", feature = "udev"))]
@@ -330,7 +390,7 @@ pub mod profiler {
             udev::get_udev_info(
                 &mut _extra.driver,
                 &mut _extra.syspath,
-                &_sp_device.port_path(),
+                &sp_device.port_path(),
             )?;
         }
 
@@ -386,28 +446,7 @@ pub mod profiler {
             }
         };
 
-        // lookup manufacturer and device name from Linux list if empty
-        let manufacturer = get_manufacturer_string(&device_desc, &mut usb_device)
-            .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
-                .map(|vendor| vendor.name().to_owned()));
-
-        let name = match get_product_string(&device_desc, &mut usb_device) {
-            Some(n) => n,
-            None => {
-                match usb_ids::Device::from_vid_pid(
-                    device_desc.vendor_id(),
-                    device_desc.product_id(),
-                ) {
-                    Some(product) => product.name().to_owned(),
-                    None => String::new(),
-                }
-            }
-        };
-
         let mut sp_device = system_profiler::USBDevice {
-            name,
-            manufacturer,
-            serial_num: get_serial_string(&device_desc, &mut usb_device),
             vendor_id: Some(device_desc.vendor_id()),
             product_id: Some(device_desc.product_id()),
             device_speed: speed,
@@ -423,6 +462,36 @@ pub mod profiler {
             protocol: Some(device_desc.protocol_code()),
             ..Default::default()
         };
+
+        // Attempt to lookup 'i' strings (iManufacturer, iProduct, iSerialNumber) from device with
+        // the following precedence
+        // 1. Read directly from the device descriptor (usually requires root access)
+        // 2. (on Linux) Read from sysfs, which is a cached copy of the device descriptor
+        //    TODO (does macOS and Windows have an equivalent/similar way to retrieve this info?)
+        // 3. Lookup iManufacturer and iProduct from the USB IDs list (iSerial has no alternative)
+
+        sp_device.manufacturer = get_manufacturer_string(&device_desc, &mut usb_device)
+            .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer"))
+            .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
+                .map(|vendor| vendor.name().to_owned()));
+
+        sp_device.name = match get_product_string(&device_desc, &mut usb_device)
+            .or(get_sysfs_string(&sp_device.sysfs_name(), "product"))
+        {
+            Some(n) => n,
+            None => {
+                match usb_ids::Device::from_vid_pid(
+                    device_desc.vendor_id(),
+                    device_desc.product_id(),
+                ) {
+                    Some(product) => product.name().to_owned(),
+                    None => String::new(),
+                }
+            }
+        };
+
+        sp_device.serial_num = get_serial_string(&device_desc, &mut usb_device)
+            .or(get_sysfs_string(&sp_device.sysfs_name(), "serial"));
 
         let extra_error_str = if with_extra {
             match build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device, true) {

@@ -196,9 +196,7 @@ where
     match ColorOrNull::deserialize(deserializer)? {
         ColorOrNull::Str(s) => match s {
             "" => Ok(None),
-            _ => Color::try_from(s)
-                .map(Some)
-                .map_err(serde::de::Error::custom),
+            _ => Ok(Some(Color::from(s))),
         },
         ColorOrNull::FromStr(i) => Ok(Some(i)),
         ColorOrNull::Null => Ok(None),
@@ -222,8 +220,7 @@ where
         where
             E: serde::de::Error,
         {
-            Color::try_from(value)
-                .map_err(|_| E::invalid_value(serde::de::Unexpected::Str(value), &self))
+            Ok(Color::from(value))
         }
 
         fn visit_seq<M>(self, mut seq: M) -> Result<Color, M::Error>
