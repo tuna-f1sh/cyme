@@ -60,6 +60,7 @@ pub mod profiler {
     /// Attempt to retrieve the current bConfigurationValue and iConfiguration for a device
     /// This will only return the current configuration, not all possible configurations
     /// If there are any failures in retrieving the data, None is returned
+    #[allow(unused_variables)]
     fn get_sysfs_configuration_string(sysfs_name: &str) -> Option<(u8, String)> {
         #[cfg(target_os = "linux")]
         // Determine bConfigurationValue value on linux
@@ -78,6 +79,7 @@ pub mod profiler {
         None
     }
 
+    #[allow(unused_variables)]
     fn get_sysfs_string(sysfs_name: &str, name: &str) -> Option<String> {
         #[cfg(target_os = "linux")]
         match std::fs::read_to_string(format!("/sys/bus/usb/devices/{}/{}", sysfs_name, name)) {
@@ -248,11 +250,12 @@ pub mod profiler {
         ret
     }
 
+    #[allow(unused_variables)]
     fn build_interfaces<T: libusb::UsbContext>(
         device: &libusb::Device<T>,
         handle: &mut Option<UsbDevice<T>>,
         config_desc: &libusb::ConfigDescriptor,
-        _with_udev: bool,
+        with_udev: bool,
     ) -> error::Result<Vec<usb::USBInterface>> {
         let mut ret: Vec<usb::USBInterface> = Vec::new();
 
@@ -283,7 +286,7 @@ pub mod profiler {
                 };
 
                 #[cfg(all(target_os = "linux", feature = "udev"))]
-                if _with_udev {
+                if with_udev {
                     udev::get_udev_info(
                         &mut _interface.driver,
                         &mut _interface.syspath,
@@ -357,12 +360,13 @@ pub mod profiler {
         Ok(ret)
     }
 
+    #[allow(unused_variables)]
     fn build_spdevice_extra<T: libusb::UsbContext>(
         device: &libusb::Device<T>,
         handle: &mut Option<UsbDevice<T>>,
         device_desc: &libusb::DeviceDescriptor,
         sp_device: &system_profiler::USBDevice,
-        _with_udev: bool,
+        with_udev: bool,
     ) -> error::Result<usb::USBDeviceExtra> {
         let mut _extra = usb::USBDeviceExtra {
             max_packet_size: device_desc.max_packet_size(),
@@ -385,12 +389,12 @@ pub mod profiler {
                 handle,
                 device_desc,
                 sp_device,
-                _with_udev,
+                with_udev,
             )?,
         };
 
         #[cfg(all(target_os = "linux", feature = "udev"))]
-        if _with_udev {
+        if with_udev {
             udev::get_udev_info(
                 &mut _extra.driver,
                 &mut _extra.syspath,
@@ -823,6 +827,24 @@ pub mod display {
             .as_ref()
             .expect("Cannot print verbose without extra data");
 
+        // lsusb doesn't show 0x00 for defined at interface level
+        let class_name = if device.base_class_code() != Some(0) {
+            device.class_name()
+        } else {
+            None
+        };
+        // or 0x00 sub-class/protocol
+        let sub_class_name = if device.sub_class != Some(0) {
+            device.sub_class_name()
+        } else {
+            None
+        };
+        let protocol_name = if device.protocol != Some(0) {
+            device.protocol_name()
+        } else {
+            None
+        };
+
         println!("Device Descriptor:");
         // These are constants - length is 18 bytes for descriptor, type is 1
         println!("  bLength               18");
@@ -836,14 +858,19 @@ pub mod display {
         );
         println!(
             "  bDeviceClass         {:3} {}",
-            device.class.as_ref().map_or(0, |c| u8::from(c.to_owned())),
-            device
-                .class
-                .as_ref()
-                .map_or(String::new(), |c| c.to_string())
+            device.base_class_code().unwrap_or(0),
+            class_name.unwrap_or_default()
         );
-        println!("  bDeviceSubClass      {:3}", device.sub_class.unwrap_or(0));
-        println!("  bDeviceProtocol      {:3}", device.protocol.unwrap_or(0));
+        println!(
+            "  bDeviceSubClass      {:3} {}",
+            device.sub_class.unwrap_or(0),
+            sub_class_name.unwrap_or_default()
+        );
+        println!(
+            "  bDeviceProtocol      {:3} {}",
+            device.protocol.unwrap_or(0),
+            protocol_name.unwrap_or_default()
+        );
         println!("  bMaxPacketSize0      {:3}", device_extra.max_packet_size);
         println!(
             "  idVendor          {:#06x} {}",
@@ -921,6 +948,17 @@ pub mod display {
     }
 
     fn print_interface(interface: &usb::USBInterface) {
+        let sub_class_name = if interface.sub_class != 0x00 {
+            interface.sub_class_name()
+        } else {
+            None
+        };
+        let protocol_name = if interface.protocol != 0x00 {
+            interface.protocol_name()
+        } else {
+            None
+        };
+
         println!("    Interface Descriptor:");
         println!("      bLength              {:3}", interface.length);
         println!("      bDescriptorType        4"); // type 4 for interface
@@ -930,10 +968,18 @@ pub mod display {
         println!(
             "      bInterfaceClass      {:3} {}",
             u8::from(interface.class.to_owned()),
-            interface.class
+            interface.class_name().unwrap_or_default()
         );
-        println!("      bInterfaceSubClass   {:3}", interface.sub_class);
-        println!("      bInterfaceProtocol   {:3}", interface.protocol);
+        println!(
+            "      bInterfaceSubClass   {:3} {}",
+            interface.sub_class,
+            sub_class_name.unwrap_or_default()
+        );
+        println!(
+            "      bInterfaceProtocol   {:3} {}",
+            interface.protocol,
+            protocol_name.unwrap_or_default()
+        );
         println!(
             "      iInterface           {:3} {}",
             interface.string_index, interface.name

@@ -175,7 +175,7 @@ pub enum DescriptorUsage {
 /// USB class code defines [ref](https://www.usb.org/defined-class-codes)
 ///
 /// Technically this is the 'Base Class' - the 'Class Code' is the full triplet of (Base Class, Sub Class, Protocol). TODO rename in 2.0 release
-#[derive(Debug, ValueEnum, Default, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, ValueEnum, Default, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ClassCode {
     #[default]
@@ -693,6 +693,24 @@ impl USBInterface {
     /// Linux syspath to interface
     pub fn path(&self, bus: u8, ports: &[u8], config: u8) -> String {
         get_interface_path(bus, ports, config, self.number)
+    }
+
+    /// Name of class from Linux USB IDs repository
+    pub fn class_name(&self) -> Option<&str> {
+        usb_ids::Classes::iter()
+            .find(|c| c.id() == u8::from(self.class))
+            .map(|c| c.name())
+    }
+
+    /// Name of sub class from Linux USB IDs repository
+    pub fn sub_class_name(&self) -> Option<&str> {
+        usb_ids::SubClass::from_cid_scid(u8::from(self.class), self.sub_class).map(|sc| sc.name())
+    }
+
+    /// Name of protocol from Linux USB IDs repository
+    pub fn protocol_name(&self) -> Option<&str> {
+        usb_ids::Protocol::from_cid_scid_pid(u8::from(self.class), self.sub_class, self.protocol)
+            .map(|p| p.name())
     }
 }
 

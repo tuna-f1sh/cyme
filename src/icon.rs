@@ -550,7 +550,7 @@ mod tests {
         let icon = Icon::from_str(str);
         assert_eq!(
             icon.unwrap(),
-            Icon::ClassifierSubProtocol((ClassCode::HID, 01, 10))
+            Icon::ClassifierSubProtocol((ClassCode::HID, 1, 10))
         );
 
         let str = "endpoint_in";

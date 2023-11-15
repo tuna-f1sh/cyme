@@ -14,11 +14,8 @@ fn main() -> Result<(), String> {
 
     // alternatively interate over devices and do something with them
     for device in devices {
-        match (device.vendor_id, device.product_id) {
-            (Some(0x05ac), Some(_)) => {
-                println!("Found Apple device: {}", device);
-            }
-            _ => {}
+        if let (Some(0x05ac), Some(_)) = (device.vendor_id, device.product_id) {
+            println!("Found Apple device: {}", device);
         }
     }
 

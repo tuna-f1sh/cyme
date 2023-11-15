@@ -1116,6 +1116,41 @@ impl USBDevice {
 
         format_strs
     }
+
+    /// Gets the base class code byte from [`ClassCode`]
+    pub fn base_class_code(&self) -> Option<u8> {
+        self.class.as_ref().map(|c| u8::from(*c))
+    }
+
+    /// Name of class from Linux USB IDs repository
+    pub fn class_name(&self) -> Option<&str> {
+        match self.base_class_code() {
+            Some(cid) => usb_ids::Classes::iter()
+                .find(|c| c.id() == cid)
+                .map(|c| c.name()),
+            None => None,
+        }
+    }
+
+    /// Name of sub class from Linux USB IDs repository
+    pub fn sub_class_name(&self) -> Option<&str> {
+        match (self.base_class_code(), self.sub_class) {
+            (Some(cid), Some(sid)) => {
+                usb_ids::SubClass::from_cid_scid(cid, sid).map(|sc| sc.name())
+            }
+            _ => None,
+        }
+    }
+
+    /// Name of protocol from Linux USB IDs repository
+    pub fn protocol_name(&self) -> Option<&str> {
+        match (self.base_class_code(), self.sub_class, self.protocol) {
+            (Some(cid), Some(sid), Some(pid)) => {
+                usb_ids::Protocol::from_cid_scid_pid(cid, sid, pid).map(|p| p.name())
+            }
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for USBDevice {

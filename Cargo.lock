@@ -960,12 +960,12 @@ checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
 [[package]]
 name = "usb-ids"
 version = "1.2023.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "313d37a4508b2a268a62bc68217fef4df82537c5db1af8469824d2892ac05c34"
+source = "git+https://github.com/tuna-f1sh/usb-ids.rs.git#1c824865e14b2bde0610fda17c72170c10ac88cc"
 dependencies = [
  "nom",
  "phf",
  "phf_codegen",
+ "phf_shared",
  "proc-macro2",
  "quote",
 ]

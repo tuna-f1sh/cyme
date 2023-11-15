@@ -86,7 +86,7 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
 ///
 /// ```
 /// use cyme::udev::hwdb_get;
-/// 
+///
 /// let modalias = String::from("usb:v1D6Bp0001");
 /// let key = String::from("ID_VENDOR_FROM_DATABASE");
 /// let vendor = hwdb_get(&modalias, &key).unwrap();
@@ -107,7 +107,8 @@ pub fn hwdb_get(modalias: &String, key: &String) -> Result<Option<String>, Error
         )
     })?;
 
-    Ok(hwdb.query_one(modalias, key)
+    Ok(hwdb
+        .query_one(modalias, key)
         .map(|s| s.to_str().unwrap_or("").to_string()))
 }
 

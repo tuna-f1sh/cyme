@@ -9,12 +9,12 @@ fn main() -> Result<(), String> {
 
     // print all configurations
     for device in devices {
-        device.extra.as_ref().map(|extra| {
+        if let Some(extra) = device.extra.as_ref() {
             println!("Device {} has configurations:", device.name);
             for c in extra.configurations.iter() {
                 println!("{:?}", c);
             }
-        });
+        };
     }
 
     Ok(())
