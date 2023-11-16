@@ -60,10 +60,14 @@ pub fn set_log_level(debug: u8) -> crate::error::Result<()> {
             .env(),
         1 => SimpleLogger::new()
             .with_utc_timestamps()
-            .with_level(log::Level::Info.to_level_filter()),
+            .with_module_level("cyme", log::Level::Info.to_level_filter()),
         2 => SimpleLogger::new()
             .with_utc_timestamps()
-            .with_level(log::Level::Debug.to_level_filter()),
+            .with_module_level("cyme", log::Level::Debug.to_level_filter()),
+        3 => SimpleLogger::new()
+            .with_utc_timestamps()
+            .with_module_level("cyme", log::Level::Trace.to_level_filter()),
+        // all modules
         _ => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Trace.to_level_filter()),
