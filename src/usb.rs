@@ -134,6 +134,7 @@ impl TryFrom<f32> for Version {
 
 /// Configuration attributes
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum ConfigAttributes {
     /// Device powers itself not from bus
     SelfPowered,
@@ -177,6 +178,7 @@ pub enum DescriptorUsage {
 /// Technically this is the 'Base Class' - the 'Class Code' is the full triplet of (Base Class, Sub Class, Protocol). TODO rename in 2.0 release
 #[derive(Debug, ValueEnum, Default, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[non_exhaustive]
 pub enum ClassCode {
     #[default]
     /// Device class is unspecified, interface descriptors are used to determine needed drivers
@@ -213,6 +215,10 @@ pub enum ClassCode {
     Billboard,
     /// An interface to expose and configure the USB Type-C capabilities of Connectors on USB Hubs or Alternate Mode Adapters
     USBTypeCBridge,
+    /// This base class is defined for devices that conform to the “VESA USB BDP Device Specification” found at the VESA website. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors.
+    BDP,
+    /// This base class is defined for devices that conform to the “MCTP over USB” found at the DMTF website as DSP0283. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors.
+    MCTP,
     /// An interface to expose and configure I3C function within a USB device to allow interaction between host software and the I3C device, to drive transaction on the I3C bus to/from target devices
     I3CDevice,
     /// Trace and debugging equipment
@@ -253,6 +259,8 @@ impl From<u8> for ClassCode {
             0x10 => ClassCode::AudioVideo,
             0x11 => ClassCode::Billboard,
             0x12 => ClassCode::USBTypeCBridge,
+            0x13 => ClassCode::BDP,
+            0x14 => ClassCode::MCTP,
             0x3c => ClassCode::I3CDevice,
             0xdc => ClassCode::Diagnostic,
             0xe0 => ClassCode::WirelessController,
@@ -284,6 +292,8 @@ impl From<ClassCode> for u8 {
             ClassCode::AudioVideo => 0x10,
             ClassCode::Billboard => 0x11,
             ClassCode::USBTypeCBridge => 0x12,
+            ClassCode::BDP => 0x13,
+            ClassCode::MCTP => 0x14,
             ClassCode::I3CDevice => 0x3c,
             ClassCode::Diagnostic => 0xdc,
             ClassCode::WirelessController => 0xe0,
@@ -294,7 +304,62 @@ impl From<ClassCode> for u8 {
     }
 }
 
-// TODO return device based on base class and subclass, protocol
+impl From<Class> for ClassCode {
+    fn from(c: Class) -> Self {
+        match c {
+            Class::Generic(c) => c,
+            Class::FullSpeedHub => ClassCode::Hub,
+            Class::HighSpeedHubSingleTT => ClassCode::Hub,
+            Class::HighSpeedHubMultiTT => ClassCode::Hub,
+            Class::AudioVideoAVControlInterface => ClassCode::Audio,
+            Class::AudioVideoAVDataVideo => ClassCode::Audio,
+            Class::AudioVideoAVDataAudio => ClassCode::Audio,
+            Class::MCTPManagementController => ClassCode::MCTP,
+            Class::MCTPHostInterfaceEndpoint => ClassCode::MCTP,
+            Class::USB2CompliaceDevice => ClassCode::Diagnostic,
+            Class::DebugTargetVendorDefined => ClassCode::Diagnostic,
+            Class::GNURemoteDebugCommandSet => ClassCode::Diagnostic,
+            Class::VendorDefinedTraceDbC => ClassCode::Diagnostic,
+            Class::VendorDefinedDfxDbC => ClassCode::Diagnostic,
+            Class::VendorDefinedTraceGPDvC => ClassCode::Diagnostic,
+            Class::GNUProtocolGPDvC => ClassCode::Diagnostic,
+            Class::VendorDefinedDfxDvC => ClassCode::Diagnostic,
+            Class::VendorDefinedTraceDvC => ClassCode::Diagnostic,
+            Class::BluetoothProgrammingInterface => ClassCode::WirelessController,
+            Class::UWBRadioControlInterace => ClassCode::WirelessController,
+            Class::RemoteNDIS => ClassCode::WirelessController,
+            Class::BluetoothAMPController => ClassCode::WirelessController,
+            Class::HostWireAdaptor => ClassCode::WirelessController,
+            Class::DeviceWireAdaptor => ClassCode::WirelessController,
+            Class::DeviceWireAdaptorIsochronous => ClassCode::WirelessController,
+            Class::ActiveSync => ClassCode::Miscellaneous,
+            Class::PalmSync => ClassCode::Miscellaneous,
+            Class::InterfaceAssociationDescriptor => ClassCode::Miscellaneous,
+            Class::WireAdaptorMultifunctionPeripheral => ClassCode::Miscellaneous,
+            Class::CableBasedAssociationFramework => ClassCode::Miscellaneous,
+            Class::RNDISOverEthernet => ClassCode::Miscellaneous,
+            Class::RNDISOverWiFi => ClassCode::Miscellaneous,
+            Class::RNDISOverWiMAX => ClassCode::Miscellaneous,
+            Class::RNDISOverWWAN => ClassCode::Miscellaneous,
+            Class::RNDISforRawIPv4 => ClassCode::Miscellaneous,
+            Class::RNDISforRawIPv6 => ClassCode::Miscellaneous,
+            Class::RNDISforGPRS => ClassCode::Miscellaneous,
+            Class::USB3VisionControlInterface => ClassCode::Miscellaneous,
+            Class::USB3VisionEventInterface => ClassCode::Miscellaneous,
+            Class::USB3VisionStreamingInterface => ClassCode::Miscellaneous,
+            Class::STEPStreamTransport => ClassCode::Miscellaneous,
+            Class::STEPRAWStreamTransport => ClassCode::Miscellaneous,
+            Class::CommandInterfaceIAD => ClassCode::Miscellaneous,
+            Class::CommandInterfaceID => ClassCode::Miscellaneous,
+            Class::MediaInterfaceID => ClassCode::Miscellaneous,
+            Class::DeviceFirmwareUpgrade => ClassCode::ApplicationSpecificInterface,
+            Class::IRDABridge => ClassCode::ApplicationSpecificInterface,
+            Class::USBTestMeasurement => ClassCode::ApplicationSpecificInterface,
+            Class::USBTestMeasurementUSBTMC488 => ClassCode::ApplicationSpecificInterface,
+        }
+    }
+}
+
 impl ClassCode {
     /// How the ClassCode is used [`DescriptorUsage`]
     pub fn usage(&self) -> DescriptorUsage {
@@ -350,59 +415,226 @@ impl From<ClassCode> for DescriptorUsage {
     }
 }
 
-// pub enum DeviceClass {
-//     /// Generic devices just have a 'Base Class'. It is a device without a defining SubClass or Protocol
-//     Generic(ClassCode),
-//     /// Full speed Hub
-//     FullSpeedHub,
-//     HighSpeedHubSingleTT,
-//     HighSpeedHubMultiTT,
-//     AudioVideoAVControlInterface,
-//     AudioVideoAVDataVideo,
-//     AudioVideoAVDataAudio,
-//     MCTPManagementController,
-//     MCTPHostInterfaceEndpoint,
-//     USB2CompliaceDevice,
-//     DebugTargetVendorDefined,
-//     GNURemoteDebugCommandSet,
-//     VendorDefinedTraceDbC,
-//     VendorDefinedDfxDbC,
-//     VendorDefinedTraceGPDvC,
-//     GNUProtocolGPDvC,
-//     VendorDefinedDfxDvC,
-//     VendorDefinedTraceDvC,
-//     BluetoothProgrammingInterface,
-//     UWBRadioControlInterace,
-//     RemoteNDIS,
-//     BluetoothAMPController,
-//     HostWireAdaptor,
-//     DeviceWireAdaptor,
-//     ActiveSync,
-//     PalmSync,
-//     InterfaceAssociationDescriptor,
-//     WireAdaptorMultifunctionPeripheral,
-//     CableBasedAssociationFramework,
-//     RNDISOverEthernet,
-//     RNDISOverWiFi,
-//     RNDISOverWiMAX,
-//     RNDISOverWWAN,
-//     RNDISforRawIPv4,
-//     RNDISforRawIPv6,
-//     RNDISforGPRS,
-//     USB3VisionControlInterface,
-//     USB3VisionEventInterface,
-//     USB3VisionStreamingInterface,
-//     STEPStreamTransport,
-//     STEPRAWStreamTransport,
-//     CommandInterfaceIAD,
-//     CommandInterfaceID,
-//     MediaInterfaceID,
-//     DeviceFirmwareUpgrade,
-//     IRDABridge,
-//     USBTestMeasurement,
-//     USBTestMeasurementUSBTMC488,
-//     Undefined,
-// }
+/// Fully defined USB-IF class based on (Base Class, Sub Class, Protocol) Class Code triplet
+///
+/// https://www.usb.org/defined-class-codes
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[non_exhaustive]
+pub enum Class {
+    /// Generic devices just have a 'Base Class'. It is a device without a defining SubClass or Protocol
+    Generic(ClassCode),
+    /// Full speed Hub
+    FullSpeedHub,
+    /// Hi-speed hub with single TT
+    HighSpeedHubSingleTT,
+    /// Hi-speed hub with multiple TTs
+    HighSpeedHubMultiTT,
+    /// Audio/Video Device – AVControl Interface
+    AudioVideoAVControlInterface,
+    /// Audio/Video Device – AVData Video Streaming Interface
+    AudioVideoAVDataVideo,
+    /// Audio/Video Device – AVData Audio Streaming Interface
+    AudioVideoAVDataAudio,
+    /// MCTP Management-controller and Managed-Device endpoints
+    MCTPManagementController,
+    /// MCTP Host Interface endpoint
+    MCTPHostInterfaceEndpoint,
+    /// USB2 Compliance Device. Definition for this device can be found at http://www.intel.com/technology/usb/spec.htm
+    USB2CompliaceDevice,
+    /// Debug Target vendor defined. Please see http://www.intel.com/content/www/us/en/io/universal-serial-bus/extensible-host-controler-interface-usb-xhci.html for more info.
+    DebugTargetVendorDefined,
+    /// GNU Remote Debug Command Set. Please see http://www.intel.com/content/www/us/en/io/universal-serial-bus/extensible-host-controler-interface-usb-xhci.html for more info.
+    GNURemoteDebugCommandSet,
+    /// Vendor defined Trace protocol on DbC.
+    VendorDefinedTraceDbC,
+    /// Vendor defined Dfx protocol on DbC.
+    VendorDefinedDfxDbC,
+    /// Vendor defined Trace protocol over General Purpose (GP) endpoint on DvC.
+    VendorDefinedTraceGPDvC,
+    /// GNU Protocol protocol over General Purpose (GP) endpoint on DvC.
+    ///
+    /// http://www.gnu.org/software/gdb/
+    GNUProtocolGPDvC,
+    /// Vendor defined Dfx protocol on DvC.
+    VendorDefinedDfxDvC,
+    /// Vendor defined Trace protocol on DvC.
+    VendorDefinedTraceDvC,
+    /// Bluetooth Programming Interface. Get specific information from www.bluetooth.com.
+    BluetoothProgrammingInterface,
+    /// UWB Radio Control Interface. Definition for this is found in the Wireless USB Specification in Chapter 8.
+    UWBRadioControlInterace,
+    /// Remote NDIS. Information can be found at: http://www.microsoft.com/windowsmobile/mobileoperators/default.mspx
+    RemoteNDIS,
+    /// Bluetooth AMP Controller. Get specific information from www.bluetooth.com.
+    BluetoothAMPController,
+    /// Host Wire Adapter Control/Data interface. Definition can be found in the Wireless USB Specification in Chapter 8.
+    HostWireAdaptor,
+    /// Device Wire Adapter Control/Data interface. Definition can be found in the Wireless USB Specification in Chapter 8.
+    DeviceWireAdaptor,
+    /// Device Wire Adapter Isochronous interface. Definition can be found in the Wireless USB Specification in Chapter 8.
+    DeviceWireAdaptorIsochronous,
+    /// Active Sync device. This class code can be used in either Device or Interface Descriptors. Contact Microsoft for more information on this class.
+    ActiveSync,
+    /// Palm Sync. This class code can be used in either Device or Interface Descriptors.
+    PalmSync,
+    /// Interface Association Descriptor. The usage of this class code triple is defined in the Interface Association Descriptor ECN that is provided on www.usb.org . This class code may only be used in Device Descriptors.
+    InterfaceAssociationDescriptor,
+    /// Wire Adapter Multifunction Peripheral programming interface. Definition can be found in the Wireless USB Specification in Chapter 8. This class code may only be used in Device Descriptors.
+    WireAdaptorMultifunctionPeripheral,
+    /// Cable Based Association Framework. This is defined in the Association Model addendum to the Wireless USB specification. This class code may only be used in Interface Descriptors.
+    CableBasedAssociationFramework,
+    /// RNDIS over Ethernet.
+    ///
+    /// Connecting a host to the Internet via Ethernet mobile device. The device appears to the host as an Ethernet gateway device. This class code may only be used in Interface Descriptors.
+    RNDISOverEthernet,
+    /// RNDIS over WiFi.
+    ///
+    /// Connecting a host to the Internet via WiFi enabled mobile device. The device represents itself to the host as an 802.11 compliant network device. This class code may only be used in Interface Descriptors.
+    RNDISOverWiFi,
+    /// RNDIS over WiMAX
+    ///
+    /// Connecting a host to the Internet via WiMAX enabled mobile device. The device is represented to the host as an 802.16 network device.
+    ///
+    /// This class code may only be used in Interface Descriptors.
+    RNDISOverWiMAX,
+    /// RNDIS over WWAN
+    ///
+    /// Connecting a host to the Internet via a device using mobile broadband, i.e. WWAN (GSM/CDMA).
+    ///
+    /// This class code may only be used in Interface Descriptors.
+    RNDISOverWWAN,
+    /// RNDIS for Raw IPv4
+    ///
+    /// Connecting a host to the Internet using raw IPv4 via non-Ethernet mobile device. Devices that provide raw IPv4, not in an Ethernet packet, may use this form to in lieu of other stock types.
+    ///
+    /// This class code may only be used in Interface Descriptors.
+    RNDISforRawIPv4,
+    /// RNDIS for Raw IPv6
+    ///
+    /// Connecting a host to the Internet using raw IPv6 via non-Ethernet mobile device. Devices that provide raw IPv6, not in an Ethernet packet, may use this form to in lieu of other stock types.
+    ///
+    /// This class code may only be used in Interface Descriptors.
+    RNDISforRawIPv6,
+    /// RNDIS for GPRS
+    ///
+    /// Connecting a host to the Internet over GPRS mobile device using the device’s cellular radio
+    RNDISforGPRS,
+    /// USB3 Vision Control Interface
+    USB3VisionControlInterface,
+    /// USB3 Vision Event Interface
+    USB3VisionEventInterface,
+    /// USB3 Vision Streaming Interface
+    USB3VisionStreamingInterface,
+    /// STEP. Stream Transport Efficient Protocol for content protection.
+    STEPStreamTransport,
+    /// STEP RAW. Stream Transport Efficient Protocol for Raw content protection.
+    STEPRAWStreamTransport,
+    /// Command Interface in IAD
+    CommandInterfaceIAD,
+    /// Command Interface in Interface Descriptor
+    CommandInterfaceID,
+    /// Media Interface in Interface Descriptor
+    MediaInterfaceID,
+    /// Device Firmware Upgrade. Device class definition provided on www.usb.org .
+    DeviceFirmwareUpgrade,
+    /// IRDA Bridge device. Device class definition provided on www.usb.org .
+    IRDABridge,
+    /// USB Test and Measurement Device. Definition provided in the USB Test and Measurement Class spec found on www.usb.org .
+    USBTestMeasurement,
+    /// USB Test and Measurement Device conforming to the USBTMC USB488 Subclass Specification found on www.usb.org.
+    USBTestMeasurementUSBTMC488,
+}
+
+/// A fully defined Class Code requires a (Base Class, Sub Class, Protocol) triplet
+pub type ClassCodeTriplet<T> = (T, u8, u8);
+
+impl<T> From<ClassCodeTriplet<T>> for Class
+where
+    T: Into<ClassCode>,
+{
+    fn from(triplet: ClassCodeTriplet<T>) -> Self {
+        match (triplet.0.into(), triplet.1, triplet.2) {
+            (ClassCode::Hub, 0x00, 0x00) => Class::FullSpeedHub,
+            (ClassCode::Hub, 0x00, 0x01) => Class::HighSpeedHubSingleTT,
+            (ClassCode::Hub, 0x00, 0x02) => Class::HighSpeedHubMultiTT,
+            (ClassCode::Audio, 0x01, 0x00) => Class::AudioVideoAVControlInterface,
+            (ClassCode::Audio, 0x02, 0x00) => Class::AudioVideoAVDataVideo,
+            (ClassCode::Audio, 0x03, 0x00) => Class::AudioVideoAVDataAudio,
+            (ClassCode::MCTP, 0x00, 0x01) => Class::MCTPManagementController,
+            (ClassCode::MCTP, 0x00, 0x02) => Class::MCTPHostInterfaceEndpoint,
+            (ClassCode::Diagnostic, 0x01, 0x01) => Class::USB2CompliaceDevice,
+            (ClassCode::Diagnostic, 0x02, 0x00) => Class::DebugTargetVendorDefined,
+            (ClassCode::Diagnostic, 0x02, 0x01) => Class::GNURemoteDebugCommandSet,
+            (ClassCode::Diagnostic, 0x03, 0x01) => Class::VendorDefinedTraceDbC,
+            (ClassCode::Diagnostic, 0x04, 0x01) => Class::VendorDefinedDfxDbC,
+            (ClassCode::Diagnostic, 0x05, 0x00) => Class::VendorDefinedTraceGPDvC,
+            (ClassCode::Diagnostic, 0x05, 0x01) => Class::GNUProtocolGPDvC,
+            (ClassCode::Diagnostic, 0x06, 0x01) => Class::VendorDefinedDfxDvC,
+            (ClassCode::Diagnostic, 0x07, 0x01) => Class::VendorDefinedTraceDvC,
+            (ClassCode::WirelessController, 0x01, 0x01) => {
+                Class::BluetoothProgrammingInterface
+            }
+            (ClassCode::WirelessController, 0x01, 0x02) => Class::UWBRadioControlInterace,
+            (ClassCode::WirelessController, 0x01, 0x03) => Class::RemoteNDIS,
+            (ClassCode::WirelessController, 0x01, 0x04) => Class::BluetoothAMPController,
+            (ClassCode::WirelessController, 0x02, 0x01) => Class::HostWireAdaptor,
+            (ClassCode::WirelessController, 0x02, 0x02) => Class::DeviceWireAdaptor,
+            (ClassCode::WirelessController, 0x02, 0x03) => {
+                Class::DeviceWireAdaptorIsochronous
+            }
+            (ClassCode::Miscellaneous, 0x01, 0x01) => Class::ActiveSync,
+            (ClassCode::Miscellaneous, 0x01, 0x02) => Class::PalmSync,
+            (ClassCode::Miscellaneous, 0x02, 0x01) => Class::InterfaceAssociationDescriptor,
+            (ClassCode::Miscellaneous, 0x02, 0x02) => {
+                Class::WireAdaptorMultifunctionPeripheral
+            }
+            (ClassCode::Miscellaneous, 0x03, 0x01) => Class::CableBasedAssociationFramework,
+            (ClassCode::Miscellaneous, 0x04, 0x01) => Class::RNDISOverEthernet,
+            (ClassCode::Miscellaneous, 0x04, 0x02) => Class::RNDISOverWiFi,
+            (ClassCode::Miscellaneous, 0x04, 0x03) => Class::RNDISOverWiMAX,
+            (ClassCode::Miscellaneous, 0x04, 0x04) => Class::RNDISOverWWAN,
+            (ClassCode::Miscellaneous, 0x04, 0x05) => Class::RNDISforRawIPv4,
+            (ClassCode::Miscellaneous, 0x04, 0x06) => Class::RNDISforRawIPv6,
+            (ClassCode::Miscellaneous, 0x04, 0x07) => Class::RNDISforGPRS,
+            (ClassCode::Miscellaneous, 0x05, 0x00) => Class::USB3VisionControlInterface,
+            (ClassCode::Miscellaneous, 0x05, 0x01) => Class::USB3VisionEventInterface,
+            (ClassCode::Miscellaneous, 0x05, 0x02) => Class::USB3VisionStreamingInterface,
+            (ClassCode::Miscellaneous, 0x06, 0x01) => Class::STEPStreamTransport,
+            (ClassCode::Miscellaneous, 0x06, 0x02) => Class::STEPRAWStreamTransport,
+            // (ClassCode::Miscellaneous, 0x07, 0x01) => DeviceClass::CommandInterfaceIAD,
+            (ClassCode::Miscellaneous, 0x07, 0x01) => Class::CommandInterfaceID,
+            (ClassCode::Miscellaneous, 0x07, 0x02) => Class::MediaInterfaceID,
+            (ClassCode::ApplicationSpecificInterface, 0x01, 0x01) => {
+                Class::DeviceFirmwareUpgrade
+            }
+            (ClassCode::ApplicationSpecificInterface, 0x02, 0x00) => Class::IRDABridge,
+            (ClassCode::ApplicationSpecificInterface, 0x03, 0x00) => {
+                Class::USBTestMeasurement
+            }
+            (ClassCode::ApplicationSpecificInterface, 0x03, 0x01) => {
+                Class::USBTestMeasurementUSBTMC488
+            }
+            (c, _, _) => Class::Generic(c),
+        }
+    }
+}
+
+impl From<ClassCode> for Class {
+    fn from(class: ClassCode) -> Self {
+        Class::Generic(class)
+    }
+}
+
+impl Class {
+    // TODO ensure this is correct
+    fn usage(&self) -> DescriptorUsage {
+        match self {
+            Class::Generic(c) => c.usage(),
+            _ => DescriptorUsage::Interface,
+        }
+    }
+}
 
 /// USB Speed is also defined in libusb but this one allows us to provide updates and custom impl
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -578,6 +810,7 @@ impl fmt::Display for SyncType {
 
 /// Isochronous usage type for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum UsageType {
     /// Data endpoint.
     Data,
@@ -595,6 +828,27 @@ impl fmt::Display for UsageType {
     }
 }
 
+// these are for backwards compatible json defaults
+/// The USB device descriptor is actually a fixed length
+fn default_device_desc_length() -> u8 {
+    18
+}
+
+/// The USB configuration descriptor is variable but most are 9 bytes
+fn default_configuration_desc_length() -> u8 {
+    9
+}
+
+/// The USB interface descriptor is variable but most are 9 bytes
+fn default_interface_desc_length() -> u8 {
+    9
+}
+
+/// True for most endpoints other than audio
+fn default_endpoint_desc_length() -> u8 {
+    7
+}
+
 /// Address information for a [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EndpointAddress {
@@ -610,7 +864,7 @@ pub struct EndpointAddress {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USBEndpoint {
     /// Endpoint length in bytes
-    #[serde(skip)]
+    #[serde(default = "default_endpoint_desc_length")] // for backwards compatible json
     pub length: u8,
     /// Address information for endpoint
     pub address: EndpointAddress,
@@ -685,7 +939,7 @@ pub struct USBInterface {
     /// An interface can have many endpoints
     pub endpoints: Vec<USBEndpoint>,
     /// Size of interface descriptor in bytes
-    #[serde(skip)]
+    #[serde(default = "default_interface_desc_length")]
     pub length: u8,
 }
 
@@ -730,11 +984,11 @@ pub struct USBConfiguration {
     pub attributes: Vec<ConfigAttributes>,
     /// Maximum power consumption in mA
     pub max_power: NumericalUnit<u32>,
-    /// Size of interface descriptor in bytes
-    #[serde(skip)]
+    /// Size of configuration descriptor in bytes
+    #[serde(default = "default_configuration_desc_length")]
     pub length: u8,
     /// Total length of configuration descriptor in bytes including all interfaces and endpoints
-    #[serde(skip)]
+    #[serde(default)]
     pub total_length: u16,
 }
 
