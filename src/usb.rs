@@ -610,6 +610,12 @@ where
     }
 }
 
+impl fmt::Display for Class {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl From<ClassCode> for Class {
     fn from(class: ClassCode) -> Self {
         Class::Generic(class)

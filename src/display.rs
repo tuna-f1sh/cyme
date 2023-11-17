@@ -269,12 +269,22 @@ pub enum DeviceBlocks {
     BcdDevice,
     /// The supported USB version
     BcdUsb,
-    /// Class of interface provided by USB IF - only available when using libusb
+    /// Base class enum of interface provided by USB IF - only available when using libusb
     ClassCode,
-    /// Sub-class of interface provided by USB IF - only available when using libusb
+    /// Sub-class value of interface provided by USB IF - only available when using libusb
     SubClass,
-    /// Prototol code for interface provided by USB IF - only available when using libusb
+    /// Prototol value for interface provided by USB IF - only available when using libusb
     Protocol,
+    /// Class name from USB IDs repository
+    UidClass,
+    /// Sub-class name from USB IDs repository
+    UidSubClass,
+    /// Protocol name from USB IDs repository
+    UidProtocol,
+    /// Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+    Class,
+    /// Base class as number value
+    ClassValue,
 }
 
 /// Info that can be printed about a [`USBBus`]
@@ -343,11 +353,11 @@ pub enum InterfaceBlocks {
     Number,
     /// Interface port path, applicable to Linux
     PortPath,
-    /// Class of interface provided by USB IF
+    /// Class enum of interface provided by USB IF
     ClassCode,
-    /// Sub-class of interface provided by USB IF
+    /// Sub-class value of interface provided by USB IF
     SubClass,
-    /// Prototol code for interface provided by USB IF
+    /// Prototol value for interface provided by USB IF
     Protocol,
     /// Interfaces can have the same number but an alternate settings defined here
     AltSetting,
@@ -359,6 +369,16 @@ pub enum InterfaceBlocks {
     NumEndpoints,
     /// Icon based on ClassCode/SubCode/Protocol
     Icon,
+    /// Class name from USB IDs repository
+    UidClass,
+    /// Sub-class name from USB IDs repository
+    UidSubClass,
+    /// Protocol name from USB IDs repository
+    UidProtocol,
+    /// Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+    Class,
+    /// Base class as number value
+    ClassValue,
 }
 
 /// Info that can be printed about a [`USBEndpoint`]
@@ -520,9 +540,12 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 DeviceBlocks::ProductId,
                 DeviceBlocks::BcdDevice,
                 DeviceBlocks::BcdUsb,
+                DeviceBlocks::ClassValue,
                 DeviceBlocks::ClassCode,
                 DeviceBlocks::SubClass,
+                DeviceBlocks::UidSubClass,
                 DeviceBlocks::Protocol,
+                DeviceBlocks::UidProtocol,
                 DeviceBlocks::Name,
                 DeviceBlocks::Manufacturer,
                 DeviceBlocks::Serial,
@@ -606,6 +629,26 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                         .map_or(String::new(), |c| c.to_string())
                         .len()
                 })
+                .max()
+                .unwrap_or(0),
+            DeviceBlocks::UidClass => d
+                .iter()
+                .map(|d| d.class_name().unwrap_or_default().len())
+                .max()
+                .unwrap_or(0),
+            DeviceBlocks::UidSubClass => d
+                .iter()
+                .map(|d| d.sub_class_name().unwrap_or_default().len())
+                .max()
+                .unwrap_or(0),
+            DeviceBlocks::UidProtocol => d
+                .iter()
+                .map(|d| d.protocol_name().unwrap_or_default().len())
+                .max()
+                .unwrap_or(0),
+            DeviceBlocks::Class => d
+                .iter()
+                .map(|d| d.fully_defined_class().map_or(0, |c| c.to_string().len()))
                 .max()
                 .unwrap_or(0),
             _ => self.block_length().len(),
@@ -744,6 +787,26 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 Some(v) => Self::format_base_u8(*v, settings),
                 None => format!("{:>4}", "-"),
             }),
+            DeviceBlocks::UidClass => Some(match d.class_name() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            DeviceBlocks::UidSubClass => Some(match d.sub_class_name() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            DeviceBlocks::UidProtocol => Some(match d.protocol_name() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            DeviceBlocks::Class => Some(match d.fully_defined_class() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            DeviceBlocks::ClassValue => Some(match d.class.as_ref() {
+                Some(v) => Self::format_base_u8((*v).into(), settings),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
         }
     }
 
@@ -773,10 +836,16 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::BusPower
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => ct.power.map_or(s.normal(), |c| s.color(c)),
-            DeviceBlocks::ClassCode => ct.class_code.map_or(s.normal(), |c| s.color(c)),
-            DeviceBlocks::SubClass => ct.sub_code.map_or(s.normal(), |c| s.color(c)),
-            DeviceBlocks::Protocol => ct.protocol.map_or(s.normal(), |c| s.color(c)),
-            // _ => s.normal(),
+            DeviceBlocks::ClassCode
+            | DeviceBlocks::UidClass
+            | DeviceBlocks::Class
+            | DeviceBlocks::ClassValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::SubClass | DeviceBlocks::UidSubClass => {
+                ct.sub_code.map_or(s.normal(), |c| s.color(c))
+            }
+            DeviceBlocks::Protocol | DeviceBlocks::UidProtocol => {
+                ct.protocol.map_or(s.normal(), |c| s.color(c))
+            }
         }
     }
 
@@ -804,9 +873,14 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             // 00.00 = 5
             DeviceBlocks::BcdDevice => "Dev V",
             DeviceBlocks::BcdUsb => "USB V",
-            DeviceBlocks::ClassCode => "Class",
+            DeviceBlocks::ClassCode => "BaseC",
             DeviceBlocks::SubClass => "SubC",
             DeviceBlocks::Protocol => "Pcol",
+            DeviceBlocks::UidClass => "UidCl",
+            DeviceBlocks::UidSubClass => "UidSc",
+            DeviceBlocks::UidProtocol => "UidPc",
+            DeviceBlocks::Class => "Class",
+            DeviceBlocks::ClassValue => "CVal",
             DeviceBlocks::Icon => ICON_HEADING,
         }
     }
@@ -831,7 +905,9 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => BlockLength::Fixed(6),
             DeviceBlocks::BcdDevice | DeviceBlocks::BcdUsb => BlockLength::Fixed(5),
-            DeviceBlocks::SubClass | DeviceBlocks::Protocol => BlockLength::Fixed(4),
+            DeviceBlocks::SubClass | DeviceBlocks::Protocol | DeviceBlocks::ClassValue => {
+                BlockLength::Fixed(4)
+            }
             _ => BlockLength::Variable(self.heading().len()),
         }
     }
@@ -1089,9 +1165,12 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 InterfaceBlocks::PortPath,
                 InterfaceBlocks::Icon,
                 InterfaceBlocks::AltSetting,
+                InterfaceBlocks::ClassValue,
                 InterfaceBlocks::ClassCode,
                 InterfaceBlocks::SubClass,
+                InterfaceBlocks::UidSubClass,
                 InterfaceBlocks::Protocol,
+                InterfaceBlocks::UidProtocol,
                 InterfaceBlocks::Name,
                 InterfaceBlocks::Driver,
                 InterfaceBlocks::NumEndpoints,
@@ -1128,6 +1207,26 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 .map(|d| d.driver.as_ref().unwrap_or(&String::new()).len())
                 .max()
                 .unwrap_or(0),
+            InterfaceBlocks::UidClass => d
+                .iter()
+                .map(|d| d.class_name().unwrap_or_default().len())
+                .max()
+                .unwrap_or(0),
+            InterfaceBlocks::UidSubClass => d
+                .iter()
+                .map(|d| d.sub_class_name().unwrap_or_default().len())
+                .max()
+                .unwrap_or(0),
+            InterfaceBlocks::UidProtocol => d
+                .iter()
+                .map(|d| d.protocol_name().unwrap_or_default().len())
+                .max()
+                .unwrap_or(0),
+            InterfaceBlocks::Class => d
+                .iter()
+                .map(|d| d.fully_defined_class().to_string().len())
+                .max()
+                .unwrap_or(0),
             _ => self.block_length().len(),
         }
     }
@@ -1146,9 +1245,16 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 ct.path.map_or(s.normal(), |c| s.color(c))
             }
             InterfaceBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
-            InterfaceBlocks::ClassCode => ct.class_code.map_or(s.normal(), |c| s.color(c)),
-            InterfaceBlocks::SubClass => ct.sub_code.map_or(s.normal(), |c| s.color(c)),
-            InterfaceBlocks::Protocol => ct.protocol.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::ClassCode
+            | InterfaceBlocks::UidClass
+            | InterfaceBlocks::Class
+            | InterfaceBlocks::ClassValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
+            InterfaceBlocks::SubClass | InterfaceBlocks::UidSubClass => {
+                ct.sub_code.map_or(s.normal(), |c| s.color(c))
+            }
+            InterfaceBlocks::Protocol | InterfaceBlocks::UidProtocol => {
+                ct.protocol.map_or(s.normal(), |c| s.color(c))
+            }
             InterfaceBlocks::Driver => ct.driver.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::AltSetting | InterfaceBlocks::NumEndpoints => {
                 ct.number.map_or(s.normal(), |c| s.color(c))
@@ -1196,6 +1302,26 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::Icon => settings.icons.as_ref().map(|i| {
                 i.get_classifier_icon(&interface.class, interface.sub_class, interface.protocol)
             }),
+            InterfaceBlocks::UidClass => Some(match interface.class_name() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            InterfaceBlocks::UidSubClass => Some(match interface.sub_class_name() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            InterfaceBlocks::UidProtocol => Some(match interface.protocol_name() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            InterfaceBlocks::Class => Some(format!(
+                "{:pad$}",
+                interface.fully_defined_class(),
+                pad = pad.get(self).unwrap_or(&0)
+            )),
+            InterfaceBlocks::ClassValue => {
+                Some(Self::format_base_u8(interface.class.into(), settings))
+            }
         }
     }
 
@@ -1207,10 +1333,15 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::PortPath => "PPath",
             InterfaceBlocks::SysPath => "SPath",
             InterfaceBlocks::Driver => "Driver",
-            InterfaceBlocks::ClassCode => "Class",
+            InterfaceBlocks::ClassCode => "BaseC",
             InterfaceBlocks::SubClass => "SubC",
             InterfaceBlocks::Protocol => "Pcol",
             InterfaceBlocks::AltSetting => "Alt#",
+            InterfaceBlocks::UidClass => "UidCl",
+            InterfaceBlocks::UidSubClass => "UidSc",
+            InterfaceBlocks::UidProtocol => "UidPc",
+            InterfaceBlocks::Class => "Class",
+            InterfaceBlocks::ClassValue => "CVal",
             InterfaceBlocks::Icon => ICON_HEADING,
         }
     }
@@ -1228,9 +1359,10 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::Icon => BlockLength::Fixed(1),
             InterfaceBlocks::Number => BlockLength::Fixed(2),
             InterfaceBlocks::NumEndpoints => BlockLength::Fixed(2),
-            InterfaceBlocks::SubClass | InterfaceBlocks::Protocol | InterfaceBlocks::AltSetting => {
-                BlockLength::Fixed(4)
-            }
+            InterfaceBlocks::SubClass
+            | InterfaceBlocks::Protocol
+            | InterfaceBlocks::AltSetting
+            | InterfaceBlocks::ClassValue => BlockLength::Fixed(4),
             _ => BlockLength::Variable(self.heading().len()),
         }
     }

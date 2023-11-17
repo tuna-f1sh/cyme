@@ -1154,7 +1154,8 @@ impl USBDevice {
 
     /// Returns fully defined USB [`Class`] based on base_class, sub_class and protocol triplet
     pub fn fully_defined_class(&self) -> Option<Class> {
-        self.class.map(|c| (c, self.sub_class.unwrap_or(0), self.protocol.unwrap_or(0)).into())
+        self.class
+            .map(|c| (c, self.sub_class.unwrap_or(0), self.protocol.unwrap_or(0)).into())
     }
 }
 
