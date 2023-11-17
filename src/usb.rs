@@ -572,23 +572,17 @@ where
             (ClassCode::Diagnostic, 0x05, 0x01) => Class::GNUProtocolGPDvC,
             (ClassCode::Diagnostic, 0x06, 0x01) => Class::VendorDefinedDfxDvC,
             (ClassCode::Diagnostic, 0x07, 0x01) => Class::VendorDefinedTraceDvC,
-            (ClassCode::WirelessController, 0x01, 0x01) => {
-                Class::BluetoothProgrammingInterface
-            }
+            (ClassCode::WirelessController, 0x01, 0x01) => Class::BluetoothProgrammingInterface,
             (ClassCode::WirelessController, 0x01, 0x02) => Class::UWBRadioControlInterace,
             (ClassCode::WirelessController, 0x01, 0x03) => Class::RemoteNDIS,
             (ClassCode::WirelessController, 0x01, 0x04) => Class::BluetoothAMPController,
             (ClassCode::WirelessController, 0x02, 0x01) => Class::HostWireAdaptor,
             (ClassCode::WirelessController, 0x02, 0x02) => Class::DeviceWireAdaptor,
-            (ClassCode::WirelessController, 0x02, 0x03) => {
-                Class::DeviceWireAdaptorIsochronous
-            }
+            (ClassCode::WirelessController, 0x02, 0x03) => Class::DeviceWireAdaptorIsochronous,
             (ClassCode::Miscellaneous, 0x01, 0x01) => Class::ActiveSync,
             (ClassCode::Miscellaneous, 0x01, 0x02) => Class::PalmSync,
             (ClassCode::Miscellaneous, 0x02, 0x01) => Class::InterfaceAssociationDescriptor,
-            (ClassCode::Miscellaneous, 0x02, 0x02) => {
-                Class::WireAdaptorMultifunctionPeripheral
-            }
+            (ClassCode::Miscellaneous, 0x02, 0x02) => Class::WireAdaptorMultifunctionPeripheral,
             (ClassCode::Miscellaneous, 0x03, 0x01) => Class::CableBasedAssociationFramework,
             (ClassCode::Miscellaneous, 0x04, 0x01) => Class::RNDISOverEthernet,
             (ClassCode::Miscellaneous, 0x04, 0x02) => Class::RNDISOverWiFi,
@@ -605,13 +599,9 @@ where
             // (ClassCode::Miscellaneous, 0x07, 0x01) => DeviceClass::CommandInterfaceIAD,
             (ClassCode::Miscellaneous, 0x07, 0x01) => Class::CommandInterfaceID,
             (ClassCode::Miscellaneous, 0x07, 0x02) => Class::MediaInterfaceID,
-            (ClassCode::ApplicationSpecificInterface, 0x01, 0x01) => {
-                Class::DeviceFirmwareUpgrade
-            }
+            (ClassCode::ApplicationSpecificInterface, 0x01, 0x01) => Class::DeviceFirmwareUpgrade,
             (ClassCode::ApplicationSpecificInterface, 0x02, 0x00) => Class::IRDABridge,
-            (ClassCode::ApplicationSpecificInterface, 0x03, 0x00) => {
-                Class::USBTestMeasurement
-            }
+            (ClassCode::ApplicationSpecificInterface, 0x03, 0x00) => Class::USBTestMeasurement,
             (ClassCode::ApplicationSpecificInterface, 0x03, 0x01) => {
                 Class::USBTestMeasurementUSBTMC488
             }
@@ -965,6 +955,11 @@ impl USBInterface {
     pub fn protocol_name(&self) -> Option<&str> {
         usb_ids::Protocol::from_cid_scid_pid(u8::from(self.class), self.sub_class, self.protocol)
             .map(|p| p.name())
+    }
+
+    /// Returns fully defined USB [`Class`] based on base_class, sub_class and protocol triplet
+    pub fn fully_defined_class(&self) -> Class {
+        (self.class, self.sub_class, self.protocol).into()
     }
 }
 
