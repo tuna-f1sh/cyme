@@ -93,17 +93,17 @@ pub mod profiler {
 
     #[allow(unused_variables)]
     fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
-        #[cfg(feature = "udev")]
+        #[cfg(all(target_os = "linux", feature = "udev"))]
         return udev::get_udev_driver_name(port_path);
-        #[cfg(not(feature = "udev"))]
+        #[cfg(not(all(target_os = "linux", feature = "udev")))]
         return Ok(None);
     }
 
     #[allow(unused_variables)]
     fn get_udev_syspath(port_path: &str) -> Result<Option<String>, Error> {
-        #[cfg(feature = "udev")]
+        #[cfg(all(target_os = "linux", feature = "udev"))]
         return udev::get_udev_syspath(port_path);
-        #[cfg(not(feature = "udev"))]
+        #[cfg(not(all(target_os = "linux", feature = "udev")))]
         return Ok(None);
     }
 
@@ -832,10 +832,10 @@ pub mod names {
     /// Wrapper around [`crate::udev::hwdb_get`] so that it can be 'used' without feature
     #[allow(unused_variables)]
     fn hwdb_get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
-        #[cfg(feature = "udev")]
+        #[cfg(all(target_os = "linux", feature = "udev"))]
         return crate::udev::hwdb_get(modalias, key);
 
-        #[cfg(not(feature = "udev"))]
+        #[cfg(not(all(target_os = "linux", feature = "udev")))]
         return Err(Error::new(
             ErrorKind::Unsupported,
             "hwdb_get requires 'udev' feature",
