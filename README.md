@@ -24,7 +24,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Features
 
-* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb. Output is identical for use with no args (list), almost matching for tree (driver port number not included) and near match for verbose.
+* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb. Output is identical for use with no args (list), almost matching for tree (driver port number not included) and near match for verbose (missing full extended descriptor dump).
 * Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial`, `--filter_class` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
 * Controllable block data like `lsd --blocks` for device, bus, configurations, interfaces and endpoints. Use `--more` to see more by default.
@@ -34,16 +34,11 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 * `--headers` to show meta data only when asked and not take space otherwise.
 * `--mask_serials` to either '\*' or randomise serial string for sharing dumps with sensitive serial numbers.
 * Auto-scaling to terminal width. Variable length strings such as descriptors will be truncated with a '...' to indicate this. Can be disabled with config option 'no-auto-width' and a fixed max defined with 'max-variable-string-len'.
-* Targets for Linux, macOS, perhaps Windows...
+* Targets for Linux, macOS and Windows.
 
 ## Demo
 
 [![asciicast](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM.svg)](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM)
-
-## Future Development/Enhancements
-
-* Fully decode device class based base class and tables at [USB-IF](https://www.usb.org/defined-class-codes).
-* Open to ideas...
 
 # Install
 
