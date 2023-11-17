@@ -91,6 +91,22 @@ pub mod profiler {
         None
     }
 
+    #[allow(unused_variables)]
+    fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
+        #[cfg(feature = "udev")]
+        return udev::get_udev_driver_name(port_path);
+        #[cfg(not(feature = "udev"))]
+        return Ok(None);
+    }
+
+    #[allow(unused_variables)]
+    fn get_udev_syspath(port_path: &str) -> Result<Option<String>, Error> {
+        #[cfg(feature = "udev")]
+        return udev::get_udev_syspath(port_path);
+        #[cfg(not(feature = "udev"))]
+        return Ok(None);
+    }
+
     fn get_product_string<T: libusb::UsbContext>(
         device_desc: &libusb::DeviceDescriptor,
         handle: &mut Option<UsbDevice<T>>,
@@ -250,7 +266,6 @@ pub mod profiler {
         ret
     }
 
-    #[allow(unused_variables)]
     fn build_interfaces<T: libusb::UsbContext>(
         device: &libusb::Device<T>,
         handle: &mut Option<UsbDevice<T>>,
@@ -268,7 +283,7 @@ pub mod profiler {
                     interface_desc.interface_number(),
                 );
 
-                let mut _interface = usb::USBInterface {
+                let mut interface = usb::USBInterface {
                     name: get_sysfs_string(&path, "interface")
                         .or(get_interface_string(&interface_desc, handle))
                         .unwrap_or_default(),
@@ -285,16 +300,14 @@ pub mod profiler {
                     endpoints: build_endpoints(&interface_desc),
                 };
 
-                #[cfg(all(target_os = "linux", feature = "udev"))]
+                // flag allows us to try again without udev if it raises an error
+                // but record the error for printing
                 if with_udev {
-                    udev::get_udev_info(
-                        &mut _interface.driver,
-                        &mut _interface.syspath,
-                        &_interface.path,
-                    )?;
-                }
+                    interface.driver = get_udev_driver_name(&interface.path)?;
+                    interface.syspath = get_udev_syspath(&interface.path)?;
+                };
 
-                ret.push(_interface);
+                ret.push(interface);
             }
         }
 
@@ -368,7 +381,7 @@ pub mod profiler {
         sp_device: &system_profiler::USBDevice,
         with_udev: bool,
     ) -> error::Result<usb::USBDeviceExtra> {
-        let mut _extra = usb::USBDeviceExtra {
+        let mut extra = usb::USBDeviceExtra {
             max_packet_size: device_desc.max_packet_size(),
             string_indexes: (
                 device_desc.product_string_index().unwrap_or(0),
@@ -393,16 +406,15 @@ pub mod profiler {
             )?,
         };
 
-        #[cfg(all(target_os = "linux", feature = "udev"))]
+        // flag allows us to try again without udev if it raises an nting
+        // but record the error for printing
         if with_udev {
-            udev::get_udev_info(
-                &mut _extra.driver,
-                &mut _extra.syspath,
-                &sp_device.port_path(),
-            )?;
+            let sysfs_name = sp_device.sysfs_name();
+            extra.driver = get_udev_driver_name(&sysfs_name)?;
+            extra.syspath = get_udev_syspath(&sysfs_name)?;
         }
 
-        Ok(_extra)
+        Ok(extra)
     }
 
     /// Builds a [`system_profiler::USBDevice`] from a [`libusb::Device`] by using `device_descriptor()` and intrograting for configuration strings. Optionally with `with_extra` will gather full device information, including from udev if feature is present.
@@ -478,25 +490,26 @@ pub mod profiler {
         //    TODO (does macOS and Windows have an equivalent/similar way to retrieve this info?)
         // 3. Lookup iManufacturer and iProduct from the USB IDs list (iSerial has no alternative)
 
-        sp_device.manufacturer = get_manufacturer_string(&device_desc, &mut usb_device)
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer"))
-            .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
-                .map(|vendor| vendor.name().to_owned()));
+        sp_device.manufacturer = get_manufacturer_string(&device_desc, &mut usb_device) // descriptor
+            .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer")) // sysfs cache
+            .or(super::names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
+            .or(
+                usb_ids::Vendor::from_id(device_desc.vendor_id()) // usb-ids if no udev
+                    .map(|vendor| vendor.name().to_owned()),
+            );
 
-        sp_device.name = match get_product_string(&device_desc, &mut usb_device)
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "product"))
-        {
-            Some(n) => n,
-            None => {
-                match usb_ids::Device::from_vid_pid(
-                    device_desc.vendor_id(),
-                    device_desc.product_id(),
-                ) {
-                    Some(product) => product.name().to_owned(),
-                    None => String::new(),
-                }
-            }
-        };
+        sp_device.name = get_product_string(&device_desc, &mut usb_device) // descriptor
+            .or(get_sysfs_string(&sp_device.sysfs_name(), "product")) // sysfs cache
+            .or(super::names::product(
+                // udev, usb-ids if error
+                device_desc.vendor_id(),
+                device_desc.product_id(),
+            ))
+            .or(
+                usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
+                    .map(|device| device.name().to_owned()),
+            ) // usb-ids if no udev
+            .unwrap_or_default(); // empty
 
         sp_device.serial_num = get_serial_string(&device_desc, &mut usb_device)
             .or(get_sysfs_string(&sp_device.sysfs_name(), "serial"));
@@ -695,6 +708,141 @@ pub mod profiler {
     }
 }
 
+pub mod names {
+    //! Port of names.c in usbutils that provides name lookups for USB data using udev, falling back to USB IDs repository.
+    //!
+    //! lsusb uses udev and the bundled hwdb (based on USB IDs) for name lookups. To attempt parity with lsusb, this module uses udev_hwdb if the feature is enabled, otherwise it will fall back to the USB IDs repository. Whilst they both get data from the same source, the bundled udev hwdb might be different due to release version/customisations.
+    //!
+    //! The function names match those found in the lsusb source code.
+    //!
+    //! TODO: use extra USB IDs for full descriptor dumping
+    #[allow(unused_imports)]
+    use crate::error::{Error, ErrorKind};
+    use usb_ids::{self, FromId};
+
+    /// Get name of vendor from [`usb_ids::Vendor`] or [`hwdb_get`] if feature is enabled
+    ///
+    /// ```
+    /// use cyme::lsusb::names;
+    /// assert_eq!(names::vendor(0x1d6b), Some("Linux Foundation".to_owned()));
+    /// ```
+    pub fn vendor(vid: u16) -> Option<String> {
+        hwdb_get(&format!("usb:v{:04X}*", vid), "ID_VENDOR_FROM_DATABASE")
+            .unwrap_or(usb_ids::Vendor::from_id(vid).map(|v| v.name().to_owned()))
+    }
+
+    /// Get name of product from [`usb_ids::Device`] or [`hwdb_get`] if feature is enabled
+    ///
+    /// ```
+    /// use cyme::lsusb::names;
+    /// assert_eq!(names::product(0x1d6b, 0x0003), Some("3.0 root hub".to_owned()));
+    /// ```
+    pub fn product(vid: u16, pid: u16) -> Option<String> {
+        hwdb_get(
+            &format!("usb:v{:04X}p{:04X}*", vid, pid),
+            "ID_MODEL_FROM_DATABASE",
+        )
+        .unwrap_or(usb_ids::Device::from_vid_pid(vid, pid).map(|v| v.name().to_owned()))
+    }
+
+    /// Get name of class from [`usb_ids::Class`] or [`hwdb_get`] if feature is enabled
+    ///
+    /// ```
+    /// use cyme::lsusb::names;
+    /// assert_eq!(names::class(0x03), Some("Human Interface Device".to_owned()));
+    /// ```
+    pub fn class(id: u8) -> Option<String> {
+        hwdb_get(
+            &format!("usb:v*p*d*dc{:02X}*", id),
+            "ID_USB_CLASS_FROM_DATABASE",
+        )
+        .unwrap_or(usb_ids::Class::from_id(id).map(|v| v.name().to_owned()))
+    }
+
+    /// Get name of sub class from [`usb_ids::SubClass`] or [`hwdb_get`] if feature is enabled
+    ///
+    /// ```
+    /// use cyme::lsusb::names;
+    /// assert_eq!(names::subclass(0x02, 0x02), Some("Abstract (modem)".to_owned()));
+    /// ```
+    pub fn subclass(cid: u8, scid: u8) -> Option<String> {
+        hwdb_get(
+            &format!("usb:v*p*d*dc{:02X}dsc{:02X}*", cid, scid),
+            "ID_USB_SUBCLASS_FROM_DATABASE",
+        )
+        .unwrap_or(usb_ids::SubClass::from_cid_scid(cid, scid).map(|v| v.name().to_owned()))
+    }
+
+    /// Get name of protocol from [`usb_ids::Protocol`] or [`hwdb_get`] if feature is enabled
+    ///
+    /// ```
+    /// use cyme::lsusb::names;
+    /// assert_eq!(names::protocol(0x02, 0x02, 0x05), Some("AT-commands (3G)".to_owned()));
+    /// ```
+    pub fn protocol(cid: u8, scid: u8, pid: u8) -> Option<String> {
+        hwdb_get(
+            &format!("usb:v*p*d*dc{:02X}dsc{:02X}dp{:02X}*", cid, scid, pid),
+            "ID_USB_PROTOCOL_FROM_DATABASE",
+        )
+        .unwrap_or(
+            usb_ids::Protocol::from_cid_scid_pid(cid, scid, pid).map(|v| v.name().to_owned()),
+        )
+    }
+
+    /// Get HID descriptor type name from [`usb_ids::Hid`]
+    pub fn hid(id: u8) -> Option<String> {
+        usb_ids::Hid::from_id(id).map(|v| v.name().to_owned())
+    }
+
+    /// Get HID report tag name from [`usb_ids::HidItemType`]
+    pub fn report_tag(id: u8) -> Option<String> {
+        usb_ids::HidItemType::from_id(id).map(|v| v.name().to_owned())
+    }
+
+    /// Get name of [`usb_ids::HidUsagePage`] from id
+    pub fn huts(id: u8) -> Option<String> {
+        usb_ids::HidUsagePage::from_id(id).map(|v| v.name().to_owned())
+    }
+
+    /// Get name of [`usb_ids::HidUsage`] from page id and usage id
+    pub fn hutus(page_id: u8, id: u16) -> Option<String> {
+        usb_ids::HidUsage::from_pageid_uid(page_id, id).map(|v| v.name().to_owned())
+    }
+
+    /// Get name of [`usb_ids::Language`] from id
+    pub fn langid(id: u16) -> Option<String> {
+        usb_ids::Language::from_id(id).map(|v| v.name().to_owned())
+    }
+
+    /// Get name of [`usb_ids::Phy`] from id
+    pub fn physdes(id: u8) -> Option<String> {
+        usb_ids::Phy::from_id(id).map(|v| v.name().to_owned())
+    }
+
+    /// Get name of [`usb_ids::Bias`] from id
+    pub fn bias(id: u8) -> Option<String> {
+        usb_ids::Bias::from_id(id).map(|v| v.name().to_owned())
+    }
+
+    /// Get name of [`usb_ids::HidCountryCode`] from id
+    pub fn countrycode(id: u8) -> Option<String> {
+        usb_ids::HidCountryCode::from_id(id).map(|v| v.name().to_owned())
+    }
+
+    /// Wrapper around [`crate::udev::hwdb_get`] so that it can be 'used' without feature
+    #[allow(unused_variables)]
+    fn hwdb_get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
+        #[cfg(feature = "udev")]
+        return crate::udev::hwdb_get(modalias, key);
+
+        #[cfg(not(feature = "udev"))]
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            "hwdb_get requires 'udev' feature",
+        ));
+    }
+}
+
 pub mod display {
     //! Printing functions for lsusb style output of USB data
     use crate::display::PrintSettings;
@@ -827,23 +975,22 @@ pub mod display {
             .as_ref()
             .expect("Cannot print verbose without extra data");
 
-        // lsusb doesn't show 0x00 for defined at interface level
-        let class_name = if device.base_class_code() != Some(0) {
-            device.class_name()
-        } else {
-            None
-        };
-        // or 0x00 sub-class/protocol
-        let sub_class_name = if device.sub_class != Some(0) {
-            device.sub_class_name()
-        } else {
-            None
-        };
-        let protocol_name = if device.protocol != Some(0) {
-            device.protocol_name()
-        } else {
-            None
-        };
+        let (class_name, sub_class_name, protocol_name) =
+            match (device.base_class_code(), device.sub_class, device.protocol) {
+                (Some(bc), Some(scid), Some(pid)) => (
+                    super::names::class(bc),
+                    super::names::subclass(bc, scid),
+                    super::names::protocol(bc, scid, pid),
+                ),
+                (Some(bc), Some(scid), None) => (
+                    super::names::class(bc),
+                    super::names::subclass(bc, scid),
+                    None,
+                ),
+                (Some(bc), None, None) => (super::names::class(bc), None, None),
+                (None, None, None) => (None, None, None),
+                _ => unreachable!(),
+            };
 
         println!("Device Descriptor:");
         // These are constants - length is 18 bytes for descriptor, type is 1
@@ -942,22 +1089,19 @@ pub mod display {
             }
         }
         println!(
-            "    MaxPower           {:4}{}",
+            "    MaxPower           {:5}{}",
             config.max_power.value, config.max_power.unit
         )
     }
 
     fn print_interface(interface: &usb::USBInterface) {
-        let sub_class_name = if interface.sub_class != 0x00 {
-            interface.sub_class_name()
-        } else {
-            None
-        };
-        let protocol_name = if interface.protocol != 0x00 {
-            interface.protocol_name()
-        } else {
-            None
-        };
+        let interface_name = super::names::class(interface.class.into());
+        let sub_class_name = super::names::subclass(interface.class.into(), interface.sub_class);
+        let protocol_name = super::names::protocol(
+            interface.class.into(),
+            interface.sub_class,
+            interface.protocol,
+        );
 
         println!("    Interface Descriptor:");
         println!("      bLength              {:3}", interface.length);
@@ -968,7 +1112,7 @@ pub mod display {
         println!(
             "      bInterfaceClass      {:3} {}",
             u8::from(interface.class.to_owned()),
-            interface.class_name().unwrap_or_default()
+            interface_name.unwrap_or_default()
         );
         println!(
             "      bInterfaceSubClass   {:3} {}",

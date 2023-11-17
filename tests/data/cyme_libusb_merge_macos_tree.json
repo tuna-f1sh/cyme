@@ -53,6 +53,7 @@
                     "syspath": null,
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 130,
                           "number": 2,
@@ -65,6 +66,7 @@
                         "interval": 1
                       },
                       {
+                        "length": 7,
                         "address": {
                           "address": 2,
                           "number": 2,
@@ -76,7 +78,8 @@
                         "max_packet_size": 16,
                         "interval": 1
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -86,7 +89,9 @@
                   "value": 500,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -156,6 +161,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 130,
                               "number": 2,
@@ -167,7 +173,8 @@
                             "max_packet_size": 16,
                             "interval": 255
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "",
@@ -182,6 +189,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 1,
                               "number": 1,
@@ -194,6 +202,7 @@
                             "interval": 1
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -205,7 +214,8 @@
                             "max_packet_size": 64,
                             "interval": 1
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "Black Magic UART Port",
@@ -220,6 +230,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 132,
                               "number": 4,
@@ -231,7 +242,8 @@
                             "max_packet_size": 16,
                             "interval": 255
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "",
@@ -246,6 +258,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 3,
                               "number": 3,
@@ -258,6 +271,7 @@
                             "interval": 1
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 131,
                               "number": 3,
@@ -269,7 +283,8 @@
                             "max_packet_size": 64,
                             "interval": 1
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "Black Magic DFU",
@@ -282,7 +297,8 @@
                         "alt_setting": 0,
                         "driver": null,
                         "syspath": null,
-                        "endpoints": []
+                        "endpoints": [],
+                        "length": 9
                       },
                       {
                         "name": "Black Magic Trace Capture",
@@ -297,6 +313,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 133,
                               "number": 5,
@@ -308,7 +325,8 @@
                             "max_packet_size": 64,
                             "interval": 0
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [],
@@ -316,7 +334,9 @@
                       "value": 100,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -388,6 +408,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 129,
                                   "number": 1,
@@ -400,6 +421,7 @@
                                 "interval": 0
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 1,
                                   "number": 1,
@@ -411,7 +433,8 @@
                                 "max_packet_size": 512,
                                 "interval": 0
                               }
-                            ]
+                            ],
+                            "length": 9
                           },
                           {
                             "name": "",
@@ -426,6 +449,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 131,
                                   "number": 3,
@@ -438,6 +462,7 @@
                                 "interval": 9
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 130,
                                   "number": 2,
@@ -450,6 +475,7 @@
                                 "interval": 0
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 2,
                                   "number": 2,
@@ -461,7 +487,8 @@
                                 "max_packet_size": 512,
                                 "interval": 0
                               }
-                            ]
+                            ],
+                            "length": 9
                           },
                           {
                             "name": "",
@@ -476,6 +503,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 133,
                                   "number": 5,
@@ -488,6 +516,7 @@
                                 "interval": 9
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 132,
                                   "number": 4,
@@ -500,6 +529,7 @@
                                 "interval": 0
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 3,
                                   "number": 3,
@@ -511,7 +541,8 @@
                                 "max_packet_size": 512,
                                 "interval": 0
                               }
-                            ]
+                            ],
+                            "length": 9
                           },
                           {
                             "name": "ADB Interface",
@@ -526,6 +557,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 4,
                                   "number": 4,
@@ -538,6 +570,7 @@
                                 "interval": 0
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 134,
                                   "number": 6,
@@ -549,7 +582,8 @@
                                 "max_packet_size": 512,
                                 "interval": 0
                               }
-                            ]
+                            ],
+                            "length": 9
                           }
                         ],
                         "attributes": [],
@@ -557,7 +591,9 @@
                           "value": 500,
                           "unit": "mA",
                           "description": null
-                        }
+                        },
+                        "length": 9,
+                        "total_length": 0
                       }
                     ]
                   }
@@ -594,6 +630,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -605,7 +642,8 @@
                             "max_packet_size": 1,
                             "interval": 12
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "",
@@ -620,6 +658,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -631,7 +670,8 @@
                             "max_packet_size": 1,
                             "interval": 12
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [
@@ -642,7 +682,9 @@
                       "value": 0,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -679,6 +721,7 @@
                     "syspath": null,
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -690,7 +733,8 @@
                         "max_packet_size": 1,
                         "interval": 12
                       }
-                    ]
+                    ],
+                    "length": 9
                   },
                   {
                     "name": "",
@@ -705,6 +749,7 @@
                     "syspath": null,
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -716,7 +761,8 @@
                         "max_packet_size": 1,
                         "interval": 12
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -727,7 +773,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -815,6 +863,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -826,7 +875,8 @@
                             "max_packet_size": 2,
                             "interval": 8
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [
@@ -837,7 +887,9 @@
                       "value": 0,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -874,6 +926,7 @@
                     "syspath": null,
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -885,7 +938,8 @@
                         "max_packet_size": 2,
                         "interval": 8
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -896,7 +950,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -975,6 +1031,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -987,6 +1044,7 @@
                             "interval": 0
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 2,
                               "number": 2,
@@ -998,7 +1056,8 @@
                             "max_packet_size": 1024,
                             "interval": 0
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "",
@@ -1013,6 +1072,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -1025,6 +1085,7 @@
                             "interval": 0
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 2,
                               "number": 2,
@@ -1037,6 +1098,7 @@
                             "interval": 0
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 131,
                               "number": 3,
@@ -1049,6 +1111,7 @@
                             "interval": 0
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 4,
                               "number": 4,
@@ -1060,7 +1123,8 @@
                             "max_packet_size": 1024,
                             "interval": 0
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [],
@@ -1068,7 +1132,9 @@
                       "value": 224,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -1121,6 +1187,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -1133,6 +1200,7 @@
                             "interval": 0
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 2,
                               "number": 2,
@@ -1145,6 +1213,7 @@
                             "interval": 0
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 131,
                               "number": 3,
@@ -1156,7 +1225,8 @@
                             "max_packet_size": 2,
                             "interval": 8
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [
@@ -1166,7 +1236,9 @@
                       "value": 64,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   },
                   {
                     "name": "",
@@ -1186,6 +1258,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 131,
                               "number": 3,
@@ -1197,7 +1270,8 @@
                             "max_packet_size": 16,
                             "interval": 8
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "",
@@ -1210,7 +1284,8 @@
                         "alt_setting": 0,
                         "driver": null,
                         "syspath": null,
-                        "endpoints": []
+                        "endpoints": [],
+                        "length": 9
                       },
                       {
                         "name": "Ethernet Data",
@@ -1225,6 +1300,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -1237,6 +1313,7 @@
                             "interval": 0
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 2,
                               "number": 2,
@@ -1248,7 +1325,8 @@
                             "max_packet_size": 1024,
                             "interval": 0
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [
@@ -1258,7 +1336,9 @@
                       "value": 64,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -1329,6 +1409,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 130,
                                   "number": 2,
@@ -1340,7 +1421,8 @@
                                 "max_packet_size": 64,
                                 "interval": 1
                               }
-                            ]
+                            ],
+                            "length": 9
                           },
                           {
                             "name": "",
@@ -1353,7 +1435,8 @@
                             "alt_setting": 0,
                             "driver": null,
                             "syspath": null,
-                            "endpoints": []
+                            "endpoints": [],
+                            "length": 9
                           },
                           {
                             "name": "",
@@ -1368,6 +1451,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 131,
                                   "number": 3,
@@ -1379,7 +1463,8 @@
                                 "max_packet_size": 1024,
                                 "interval": 1
                               }
-                            ]
+                            ],
+                            "length": 9
                           },
                           {
                             "name": "",
@@ -1394,6 +1479,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 5,
                                   "number": 5,
@@ -1406,6 +1492,7 @@
                                 "interval": 1
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 133,
                                   "number": 5,
@@ -1417,7 +1504,8 @@
                                 "max_packet_size": 1024,
                                 "interval": 1
                               }
-                            ]
+                            ],
+                            "length": 9
                           }
                         ],
                         "attributes": [
@@ -1427,7 +1515,9 @@
                           "value": 24,
                           "unit": "mA",
                           "description": null
-                        }
+                        },
+                        "length": 9,
+                        "total_length": 0
                       }
                     ]
                   }
@@ -1463,6 +1553,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -1474,7 +1565,8 @@
                             "max_packet_size": 2,
                             "interval": 8
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [
@@ -1485,7 +1577,9 @@
                       "value": 0,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -1537,6 +1631,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -1548,7 +1643,8 @@
                             "max_packet_size": 2,
                             "interval": 8
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [
@@ -1559,7 +1655,9 @@
                       "value": 0,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -1595,6 +1693,7 @@
                     "syspath": null,
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 131,
                           "number": 3,
@@ -1606,7 +1705,8 @@
                         "max_packet_size": 2,
                         "interval": 8
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -1617,7 +1717,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -1705,6 +1807,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 129,
                                   "number": 1,
@@ -1717,6 +1820,7 @@
                                 "interval": 10
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 1,
                                   "number": 1,
@@ -1728,7 +1832,8 @@
                                 "max_packet_size": 64,
                                 "interval": 10
                               }
-                            ]
+                            ],
+                            "length": 9
                           }
                         ],
                         "attributes": [
@@ -1739,7 +1844,9 @@
                           "value": 500,
                           "unit": "mA",
                           "description": null
-                        }
+                        },
+                        "length": 9,
+                        "total_length": 0
                       }
                     ]
                   }
@@ -1793,6 +1900,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 129,
                                   "number": 1,
@@ -1805,6 +1913,7 @@
                                 "interval": 1
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 1,
                                   "number": 1,
@@ -1816,7 +1925,8 @@
                                 "max_packet_size": 512,
                                 "interval": 1
                               }
-                            ]
+                            ],
+                            "length": 9
                           }
                         ],
                         "attributes": [],
@@ -1824,7 +1934,9 @@
                           "value": 100,
                           "unit": "mA",
                           "description": null
-                        }
+                        },
+                        "length": 9,
+                        "total_length": 0
                       }
                     ]
                   }
@@ -1875,7 +1987,8 @@
                             "alt_setting": 0,
                             "driver": null,
                             "syspath": null,
-                            "endpoints": []
+                            "endpoints": [],
+                            "length": 9
                           }
                         ],
                         "attributes": [
@@ -1885,7 +1998,9 @@
                           "value": 100,
                           "unit": "mA",
                           "description": null
-                        }
+                        },
+                        "length": 9,
+                        "total_length": 0
                       }
                     ]
                   }
@@ -1921,6 +2036,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -1932,7 +2048,8 @@
                             "max_packet_size": 1,
                             "interval": 12
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "",
@@ -1947,6 +2064,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -1958,7 +2076,8 @@
                             "max_packet_size": 1,
                             "interval": 12
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [
@@ -1969,7 +2088,9 @@
                       "value": 0,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -2040,6 +2161,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 129,
                                   "number": 1,
@@ -2052,6 +2174,7 @@
                                 "interval": 1
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 1,
                                   "number": 1,
@@ -2063,7 +2186,8 @@
                                 "max_packet_size": 64,
                                 "interval": 1
                               }
-                            ]
+                            ],
+                            "length": 9
                           },
                           {
                             "name": "HID BRIGHTNESS",
@@ -2078,6 +2202,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 130,
                                   "number": 2,
@@ -2090,6 +2215,7 @@
                                 "interval": 9
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 2,
                                   "number": 2,
@@ -2101,7 +2227,8 @@
                                 "max_packet_size": 6,
                                 "interval": 9
                               }
-                            ]
+                            ],
+                            "length": 9
                           },
                           {
                             "name": "HID ALS",
@@ -2116,6 +2243,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 131,
                                   "number": 3,
@@ -2128,6 +2256,7 @@
                                 "interval": 100
                               },
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 3,
                                   "number": 3,
@@ -2139,7 +2268,8 @@
                                 "max_packet_size": 6,
                                 "interval": 100
                               }
-                            ]
+                            ],
+                            "length": 9
                           }
                         ],
                         "attributes": [
@@ -2149,7 +2279,9 @@
                           "value": 0,
                           "unit": "mA",
                           "description": null
-                        }
+                        },
+                        "length": 9,
+                        "total_length": 0
                       }
                     ]
                   }
@@ -2200,7 +2332,8 @@
                             "alt_setting": 0,
                             "driver": null,
                             "syspath": null,
-                            "endpoints": []
+                            "endpoints": [],
+                            "length": 9
                           },
                           {
                             "name": "",
@@ -2213,7 +2346,8 @@
                             "alt_setting": 0,
                             "driver": null,
                             "syspath": null,
-                            "endpoints": []
+                            "endpoints": [],
+                            "length": 9
                           },
                           {
                             "name": "",
@@ -2228,6 +2362,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 132,
                                   "number": 4,
@@ -2239,7 +2374,8 @@
                                 "max_packet_size": 147,
                                 "interval": 4
                               }
-                            ]
+                            ],
+                            "length": 9
                           },
                           {
                             "name": "",
@@ -2252,7 +2388,8 @@
                             "alt_setting": 0,
                             "driver": null,
                             "syspath": null,
-                            "endpoints": []
+                            "endpoints": [],
+                            "length": 9
                           },
                           {
                             "name": "",
@@ -2267,6 +2404,7 @@
                             "syspath": null,
                             "endpoints": [
                               {
+                                "length": 7,
                                 "address": {
                                   "address": 7,
                                   "number": 7,
@@ -2278,7 +2416,8 @@
                                 "max_packet_size": 294,
                                 "interval": 4
                               }
-                            ]
+                            ],
+                            "length": 9
                           }
                         ],
                         "attributes": [
@@ -2288,7 +2427,9 @@
                           "value": 0,
                           "unit": "mA",
                           "description": null
-                        }
+                        },
+                        "length": 9,
+                        "total_length": 0
                       }
                     ]
                   }
@@ -2324,6 +2465,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -2335,7 +2477,8 @@
                             "max_packet_size": 1,
                             "interval": 12
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "",
@@ -2350,6 +2493,7 @@
                         "syspath": null,
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -2361,7 +2505,8 @@
                             "max_packet_size": 1,
                             "interval": 12
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [
@@ -2372,7 +2517,9 @@
                       "value": 0,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -2408,6 +2555,7 @@
                     "syspath": null,
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -2419,7 +2567,8 @@
                         "max_packet_size": 1,
                         "interval": 12
                       }
-                    ]
+                    ],
+                    "length": 9
                   },
                   {
                     "name": "",
@@ -2434,6 +2583,7 @@
                     "syspath": null,
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -2445,7 +2595,8 @@
                         "max_packet_size": 1,
                         "interval": 12
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -2456,7 +2607,9 @@
                   "value": 100,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }

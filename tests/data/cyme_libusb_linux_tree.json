@@ -55,6 +55,7 @@
                     "syspath": "/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-6/1-6:1.0",
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 1,
                           "number": 1,
@@ -66,7 +67,8 @@
                         "max_packet_size": 512,
                         "interval": 0
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -76,7 +78,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -129,6 +133,7 @@
                     "syspath": "/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-2/1-2:1.0",
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -140,7 +145,8 @@
                         "max_packet_size": 64,
                         "interval": 4
                       }
-                    ]
+                    ],
+                    "length": 9
                   },
                   {
                     "name": "Relative Coordinate Interface",
@@ -155,6 +161,7 @@
                     "syspath": "/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-2/1-2:1.1",
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 130,
                           "number": 2,
@@ -166,7 +173,8 @@
                         "max_packet_size": 64,
                         "interval": 4
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -176,7 +184,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -228,6 +238,7 @@
                     "syspath": "/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-0:1.0",
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -239,7 +250,8 @@
                         "max_packet_size": 4,
                         "interval": 12
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -250,7 +262,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -331,6 +345,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.0",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 130,
                               "number": 2,
@@ -342,7 +357,8 @@
                             "max_packet_size": 16,
                             "interval": 255
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "",
@@ -357,6 +373,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.1",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 1,
                               "number": 1,
@@ -369,6 +386,7 @@
                             "interval": 1
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -380,7 +398,8 @@
                             "max_packet_size": 64,
                             "interval": 1
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "Black Magic UART Port",
@@ -395,6 +414,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.2",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 132,
                               "number": 4,
@@ -406,7 +426,8 @@
                             "max_packet_size": 16,
                             "interval": 255
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "",
@@ -421,6 +442,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.3",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 3,
                               "number": 3,
@@ -433,6 +455,7 @@
                             "interval": 1
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 131,
                               "number": 3,
@@ -444,7 +467,8 @@
                             "max_packet_size": 64,
                             "interval": 1
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "Black Magic DFU",
@@ -457,7 +481,8 @@
                         "alt_setting": 0,
                         "driver": null,
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.4",
-                        "endpoints": []
+                        "endpoints": [],
+                        "length": 9
                       },
                       {
                         "name": "Black Magic Trace Capture",
@@ -472,6 +497,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.5",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 133,
                               "number": 5,
@@ -483,7 +509,8 @@
                             "max_packet_size": 64,
                             "interval": 0
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [],
@@ -491,7 +518,9 @@
                       "value": 100,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -545,6 +574,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.0",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 130,
                               "number": 2,
@@ -556,7 +586,8 @@
                             "max_packet_size": 64,
                             "interval": 1
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "CDC DATA interface",
@@ -571,6 +602,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.1",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 129,
                               "number": 1,
@@ -583,6 +615,7 @@
                             "interval": 1
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 1,
                               "number": 1,
@@ -594,7 +627,8 @@
                             "max_packet_size": 64,
                             "interval": 1
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "CDC",
@@ -609,6 +643,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.2",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 132,
                               "number": 4,
@@ -620,7 +655,8 @@
                             "max_packet_size": 64,
                             "interval": 1
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "CDC DATA interface",
@@ -635,6 +671,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.3",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 131,
                               "number": 3,
@@ -647,6 +684,7 @@
                             "interval": 1
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 2,
                               "number": 2,
@@ -658,7 +696,8 @@
                             "max_packet_size": 64,
                             "interval": 1
                           }
-                        ]
+                        ],
+                        "length": 9
                       },
                       {
                         "name": "BULK interface",
@@ -673,6 +712,7 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.1/2-2.1:1.4",
                         "endpoints": [
                           {
+                            "length": 7,
                             "address": {
                               "address": 133,
                               "number": 5,
@@ -685,6 +725,7 @@
                             "interval": 1
                           },
                           {
+                            "length": 7,
                             "address": {
                               "address": 3,
                               "number": 3,
@@ -696,7 +737,8 @@
                             "max_packet_size": 64,
                             "interval": 1
                           }
-                        ]
+                        ],
+                        "length": 9
                       }
                     ],
                     "attributes": [],
@@ -704,7 +746,9 @@
                       "value": 100,
                       "unit": "mA",
                       "description": null
-                    }
+                    },
+                    "length": 9,
+                    "total_length": 0
                   }
                 ]
               }
@@ -742,6 +786,7 @@
                     "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2:1.0",
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -753,7 +798,8 @@
                         "max_packet_size": 4,
                         "interval": 255
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -763,7 +809,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -815,6 +863,7 @@
                     "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-0:1.0",
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -826,7 +875,8 @@
                         "max_packet_size": 2,
                         "interval": 255
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -837,7 +887,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -898,6 +950,7 @@
                     "syspath": "/sys/devices/pci0000:00/0000:00:1d.6/usb3/3-0:1.0",
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -909,7 +962,8 @@
                         "max_packet_size": 4,
                         "interval": 12
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -920,7 +974,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
@@ -981,6 +1037,7 @@
                     "syspath": "/sys/devices/pci0000:00/0000:00:1d.6/usb4/4-0:1.0",
                     "endpoints": [
                       {
+                        "length": 7,
                         "address": {
                           "address": 129,
                           "number": 1,
@@ -992,7 +1049,8 @@
                         "max_packet_size": 4,
                         "interval": 12
                       }
-                    ]
+                    ],
+                    "length": 9
                   }
                 ],
                 "attributes": [
@@ -1003,7 +1061,9 @@
                   "value": 0,
                   "unit": "mA",
                   "description": null
-                }
+                },
+                "length": 9,
+                "total_length": 0
               }
             ]
           }
