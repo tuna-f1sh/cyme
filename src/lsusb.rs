@@ -367,6 +367,7 @@ pub mod profiler {
                 length: config_desc.length(),
                 total_length: config_desc.total_length(),
                 interfaces: build_interfaces(device, handle, &config_desc, with_udev)?,
+                extra: Some(config_desc.extra().to_vec()),
             });
         }
 
@@ -1100,7 +1101,38 @@ pub mod display {
         println!(
             "    MaxPower           {:5}{}",
             config.max_power.value, config.max_power.unit
-        )
+        );
+
+        if let Some(extra) = &config.extra {
+            match usb::DescriptorType::try_from(extra) {
+                Ok(dt) => {
+                    match dt {
+                        usb::DescriptorType::InterfaceAssociation(iad) => {
+                            dump_interface_association(&iad);
+                        },
+                        // TODO: dump others
+                        _ => ()
+                    }
+                },
+                Err(e) => log::warn!("Failed to parse extra configuration descriptor: {}", e)
+            }
+        }
+    }
+
+    fn dump_interface_association(iad: &usb::InterfaceAssociation) {
+        println!("    Interface Association:");
+        println!("      bLength              {:3}", iad.length);
+        println!("      bDescriptorType      {:3}", iad.descriptor_type);
+        println!("      bFirstInterface      {:3}", iad.first_interface);
+        println!("      bInterfaceCount      {:3}", iad.interface_count);
+        println!("      bFunctionClass       {:3} {}", iad.function_class, super::names::class(iad.function_class).unwrap_or_default());
+        println!("      bFunctionSubClass    {:3} {}", iad.function_sub_class, super::names::subclass(iad.function_class, iad.function_sub_class).unwrap_or_default());
+        println!("      bFunctionProtocol    {:3} {}", iad.function_protocol, super::names::protocol(iad.function_class, iad.function_sub_class, iad.function_protocol).unwrap_or_default());
+        println!(
+            "      iFunction            {:3}",
+            iad.function_string_index,
+            // string requires dev to open descriptor
+        );
     }
 
     fn print_interface(interface: &usb::USBInterface) {

@@ -179,58 +179,59 @@ pub enum DescriptorUsage {
 #[derive(Debug, ValueEnum, Default, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
+#[repr(u8)]
 pub enum ClassCode {
     #[default]
     /// Device class is unspecified, interface descriptors are used to determine needed drivers
-    UseInterfaceDescriptor,
+    UseInterfaceDescriptor = 0x00,
     /// Speaker, microphone, sound card, MIDI
-    Audio,
+    Audio = 0x01,
     /// The modern serial interface; appears as a UART/RS232 port on most systems
-    CDCCommunications,
+    CDCCommunications = 0x02,
     /// Human Interface Device; game controllers, keyboards, mice etc. Also commonly used as a device data interface rather then creating something from scratch
-    HID,
+    HID = 0x03,
     /// Force feedback joystick
-    Physical,
+    Physical = 0x05,
     /// Still imaging device; scanners, cameras
-    Image,
+    Image = 0x06,
     /// Laser printer, inkjet printer, CNC machine
-    Printer,
+    Printer = 0x07,
     /// Mass storage devices (MSD): USB flash drive, memory card reader, digital audio player, digital camera, external drive
-    MassStorage,
+    MassStorage = 0x08,
     /// High speed USB hub
-    Hub,
+    Hub = 0x09,
     /// Used together with class 02h (Communications and CDC Control) above
-    CDCData,
+    CDCData = 0x0a,
     /// USB smart card reader
-    SmartCart,
+    SmartCart = 0x0b,
     /// Fingerprint reader
-    ContentSecurity,
+    ContentSecurity = 0x0d,
     /// Webcam
-    Video,
+    Video = 0x0e,
     /// Pulse monitor (watch)
-    PersonalHealthcare,
+    PersonalHealthcare = 0x0f,
     /// Webcam, TV
-    AudioVideo,
+    AudioVideo = 0x10,
     /// Describes USB-C alternate modes supported by device
-    Billboard,
+    Billboard = 0x11,
     /// An interface to expose and configure the USB Type-C capabilities of Connectors on USB Hubs or Alternate Mode Adapters
-    USBTypeCBridge,
+    USBTypeCBridge = 0x12,
     /// This base class is defined for devices that conform to the “VESA USB BDP Device Specification” found at the VESA website. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors.
-    BDP,
+    BDP = 0x13,
     /// This base class is defined for devices that conform to the “MCTP over USB” found at the DMTF website as DSP0283. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors.
-    MCTP,
+    MCTP = 0x14,
     /// An interface to expose and configure I3C function within a USB device to allow interaction between host software and the I3C device, to drive transaction on the I3C bus to/from target devices
-    I3CDevice,
+    I3CDevice = 0x3c,
     /// Trace and debugging equipment
-    Diagnostic,
+    Diagnostic = 0xdc,
     /// Wireless controllers: Bluetooth adaptors, Microsoft RNDIS
-    WirelessController,
+    WirelessController = 0xe0,
     /// This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website
-    Miscellaneous,
+    Miscellaneous = 0xef,
     /// This base class is defined for devices that conform to several class specifications found on the USB-IF website
-    ApplicationSpecificInterface,
+    ApplicationSpecificInterface = 0xfe,
     /// This base class is defined for vendors to use as they please
-    VendorSpecificClass,
+    VendorSpecificClass = 0xff,
 }
 
 impl fmt::Display for ClassCode {
@@ -274,33 +275,8 @@ impl From<u8> for ClassCode {
 
 impl From<ClassCode> for u8 {
     fn from(val: ClassCode) -> Self {
-        match val {
-            ClassCode::UseInterfaceDescriptor => 0,
-            ClassCode::Audio => 1,
-            ClassCode::CDCCommunications => 2,
-            ClassCode::HID => 3,
-            ClassCode::Physical => 5,
-            ClassCode::Image => 6,
-            ClassCode::Printer => 7,
-            ClassCode::MassStorage => 8,
-            ClassCode::Hub => 9,
-            ClassCode::CDCData => 0x0a,
-            ClassCode::SmartCart => 0x0b,
-            ClassCode::ContentSecurity => 0x0d,
-            ClassCode::Video => 0x0e,
-            ClassCode::PersonalHealthcare => 0x0f,
-            ClassCode::AudioVideo => 0x10,
-            ClassCode::Billboard => 0x11,
-            ClassCode::USBTypeCBridge => 0x12,
-            ClassCode::BDP => 0x13,
-            ClassCode::MCTP => 0x14,
-            ClassCode::I3CDevice => 0x3c,
-            ClassCode::Diagnostic => 0xdc,
-            ClassCode::WirelessController => 0xe0,
-            ClassCode::Miscellaneous => 0xef,
-            ClassCode::ApplicationSpecificInterface => 0xfe,
-            ClassCode::VendorSpecificClass => 0xff,
-        }
+        // set as repr(u8) so this will do the conversion
+        val as u8
     }
 }
 
@@ -991,6 +967,9 @@ pub struct USBConfiguration {
     /// Total length of configuration descriptor in bytes including all interfaces and endpoints
     #[serde(default)]
     pub total_length: u16,
+    /// Extra data for configuration not parsed
+    #[serde(skip)]
+    pub extra: Option<Vec<u8>>,
 }
 
 impl USBConfiguration {
@@ -1032,6 +1011,123 @@ pub struct USBDeviceExtra {
     pub string_indexes: (u8, u8, u8),
     /// USB devices can be have a number of configurations
     pub configurations: Vec<USBConfiguration>,
+}
+
+/// USB Descriptor Types
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+#[repr(u8)]
+#[allow(missing_docs)]
+// TODO structs for others
+pub enum DescriptorType {
+    DeviceQualifier = 0x06,
+    OtherSpeedConfiguration = 0x07,
+    Otg = 0x09,
+    Debug = 0x0a,
+    InterfaceAssociation(InterfaceAssociation) = 0x0b,
+    Security = 0x0c,
+    Key = 0x0d,
+    Encrypted = 0x0e,
+    Bos = 0x0f,
+    DeviceCapability = 0x10,
+    WirelessEndpointCompanion = 0x11,
+    WireAdaptor = 0x21,
+    RPipe = 0x22,
+    RcInterface = 0x23,
+    SsEndpointCompanion = 0x30,
+}
+
+impl TryFrom<&Vec<u8>> for DescriptorType {
+    type Error = Error;
+
+    fn try_from(v: &Vec<u8>) -> error::Result<Self> {
+        if v.len() < 2 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Descriptor type too short, must be at least 2 bytes",
+            ));
+        }
+
+        match v[1] {
+            0x06 => Ok(DescriptorType::DeviceQualifier),
+            0x07 => Ok(DescriptorType::OtherSpeedConfiguration),
+            0x09 => Ok(DescriptorType::Otg),
+            0x0a => Ok(DescriptorType::Debug),
+            0x0b => Ok(DescriptorType::InterfaceAssociation(InterfaceAssociation::try_from(
+                v,
+            )?)),
+            0x0c => Ok(DescriptorType::Security),
+            0x0d => Ok(DescriptorType::Key),
+            0x0e => Ok(DescriptorType::Encrypted),
+            0x0f => Ok(DescriptorType::Bos),
+            0x10 => Ok(DescriptorType::DeviceCapability),
+            0x11 => Ok(DescriptorType::WirelessEndpointCompanion),
+            0x21 => Ok(DescriptorType::WireAdaptor),
+            0x22 => Ok(DescriptorType::RPipe),
+            0x23 => Ok(DescriptorType::RcInterface),
+            0x30 => Ok(DescriptorType::SsEndpointCompanion),
+            _ => Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Invalid descriptor type: {:x}", v[1]),
+            )),
+        }
+    }
+}
+
+/// Device Capability Type Codes (Wireless USB spec and USB 3.0 bus spec)
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+#[allow(missing_docs)]
+#[repr(u8)]
+pub enum DeviceCapability {
+    WirelessUsb = 0x01,
+    Usb20Extension = 0x02,
+    Superspeed = 0x03,
+    ContainerId = 0x04,
+    Platform = 0x05,
+    SuperSpeedPlus = 0x0a,
+    BillBoard = 0x0d,
+    BillboardAltMode = 0x0f,
+    ConfigurationSummary = 0x10,
+}
+
+/// The Interface Association Descriptor is a specific type of USB descriptor used to associate a group of interfaces with a particular function or feature of a USB device
+///
+/// It helps organize and convey the relationship between different interfaces within a single device configuration.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InterfaceAssociation {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub first_interface: u8,
+    pub interface_count: u8,
+    pub function_class: u8,
+    pub function_sub_class: u8,
+    pub function_protocol: u8,
+    pub function_string_index: u8,
+}
+
+impl TryFrom<&Vec<u8>> for InterfaceAssociation {
+    type Error = Error;
+
+    fn try_from(value: &Vec<u8>) -> error::Result<Self> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Interface Association descriptor too short",
+            ));
+        }
+
+        Ok(InterfaceAssociation {
+            length: value[0],
+            descriptor_type: value[1],
+            first_interface: value[2],
+            interface_count: value[3],
+            function_class: value[4],
+            function_sub_class: value[5],
+            function_protocol: value[6],
+            function_string_index: value[7],
+        })
+    }
 }
 
 /// Builds a replica of sysfs path; excludes config.interface
