@@ -1,4 +1,11 @@
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  pull_request:
+  workflow_dispatch:
 
 name: Test, build and package
 
@@ -61,6 +68,15 @@ jobs:
         shell: bash
         if: matrix.job.use-cross == true
         run: cargo install cross
+
+      - name: Format and clippy
+        id: format
+        shell: bash
+        if: matrix.job.use-cross == false
+        run: |
+          cargo fmt -- --check
+          cargo clippy --all-targets
+          cargo clippy --all-targets --all-features
 
       - name: Test
         id: test
