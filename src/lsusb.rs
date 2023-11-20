@@ -182,6 +182,21 @@ pub mod profiler {
         })
     }
 
+    fn get_descriptor_string<T: libusb::UsbContext>(
+        string_index: u8,
+        handle: &mut Option<UsbDevice<T>>,
+    ) -> Option<String> {
+        handle.as_mut().and_then(|h| {
+            match h
+                .handle
+                .read_string_descriptor(h.language, string_index, h.timeout)
+            {
+                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
+                Err(_) => None,
+            }
+        })
+    }
+
     /// Covert to our crate speed
     impl From<libusb::Speed> for usb::Speed {
         fn from(libusb: libusb::Speed) -> Self {
@@ -244,14 +259,35 @@ pub mod profiler {
         }
     }
 
-    fn build_endpoints(interface_desc: &libusb::InterfaceDescriptor) -> Vec<usb::USBEndpoint> {
+    fn build_descriptor_extra<T: libusb::UsbContext>(
+        handle: &mut Option<UsbDevice<T>>,
+        extra_bytes: &[u8],
+    ) -> Result<usb::DescriptorType, Error> {
+        // Get any extra descriptors into a known type and add any handle data while we have it
+        let mut dt = usb::DescriptorType::try_from(extra_bytes)?;
+
+        match dt {
+            usb::DescriptorType::InterfaceAssociation(ref mut iad) => {
+                iad.function_string = get_descriptor_string(iad.function_string_index, handle);
+            },
+            _ => ()
+        }
+
+        Ok(dt)
+    }
+
+    fn build_endpoints<T: libusb::UsbContext>(
+        handle: &mut Option<UsbDevice<T>>,
+        interface_desc: &libusb::InterfaceDescriptor
+    ) -> Vec<usb::USBEndpoint> {
         let mut ret: Vec<usb::USBEndpoint> = Vec::new();
 
 
         for endpoint_desc in interface_desc.endpoint_descriptors() {
-            let extra = match endpoint_desc.extra() {
-                Some(e) => usb::DescriptorType::try_from(e).ok(),
-                None => None
+            let extra = if let Some(eb) = endpoint_desc.extra() {
+                build_descriptor_extra(handle, eb).ok()
+            } else {
+                None
             };
 
             ret.push(usb::USBEndpoint {
@@ -304,8 +340,8 @@ pub mod profiler {
                     driver: None,
                     syspath: None,
                     length: interface_desc.length(),
-                    endpoints: build_endpoints(&interface_desc),
-                    extra: usb::DescriptorType::try_from(interface_desc.extra()).ok(),
+                    endpoints: build_endpoints(handle, &interface_desc),
+                    extra: build_descriptor_extra(handle, interface_desc.extra()).ok(),
                 };
 
                 // flag allows us to try again without udev if it raises an error
@@ -375,7 +411,7 @@ pub mod profiler {
                 length: config_desc.length(),
                 total_length: config_desc.total_length(),
                 interfaces: build_interfaces(device, handle, &config_desc, with_udev)?,
-                extra: usb::DescriptorType::try_from(config_desc.extra()).ok(),
+                extra: build_descriptor_extra(handle, config_desc.extra()).ok(),
             });
         }
 
@@ -1177,9 +1213,9 @@ pub mod display {
         println!("      bFunctionSubClass    {:3} {}", iad.function_sub_class, super::names::subclass(iad.function_class, iad.function_sub_class).unwrap_or_default());
         println!("      bFunctionProtocol    {:3} {}", iad.function_protocol, super::names::protocol(iad.function_class, iad.function_sub_class, iad.function_protocol).unwrap_or_default());
         println!(
-            "      iFunction            {:3}",
+            "      iFunction            {:3} {}",
             iad.function_string_index,
-            // string requires dev to open descriptor
+            iad.function_string.as_ref().unwrap_or(&String::new())
         );
     }
 
