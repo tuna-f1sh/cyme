@@ -247,7 +247,13 @@ pub mod profiler {
     fn build_endpoints(interface_desc: &libusb::InterfaceDescriptor) -> Vec<usb::USBEndpoint> {
         let mut ret: Vec<usb::USBEndpoint> = Vec::new();
 
+
         for endpoint_desc in interface_desc.endpoint_descriptors() {
+            let extra = match endpoint_desc.extra() {
+                Some(e) => usb::DescriptorType::try_from(e).ok(),
+                None => None
+            };
+
             ret.push(usb::USBEndpoint {
                 address: usb::EndpointAddress {
                     address: endpoint_desc.address(),
@@ -260,6 +266,7 @@ pub mod profiler {
                 max_packet_size: endpoint_desc.max_packet_size(),
                 interval: endpoint_desc.interval(),
                 length: endpoint_desc.length(),
+                extra,
             });
         }
 
@@ -298,6 +305,7 @@ pub mod profiler {
                     syspath: None,
                     length: interface_desc.length(),
                     endpoints: build_endpoints(&interface_desc),
+                    extra: usb::DescriptorType::try_from(interface_desc.extra()).ok(),
                 };
 
                 // flag allows us to try again without udev if it raises an error
@@ -367,7 +375,7 @@ pub mod profiler {
                 length: config_desc.length(),
                 total_length: config_desc.total_length(),
                 interfaces: build_interfaces(device, handle, &config_desc, with_udev)?,
-                extra: Some(config_desc.extra().to_vec()),
+                extra: usb::DescriptorType::try_from(config_desc.extra()).ok(),
             });
         }
 
@@ -1103,23 +1111,63 @@ pub mod display {
             config.max_power.value, config.max_power.unit
         );
 
-        if let Some(extra) = &config.extra {
-            match usb::DescriptorType::try_from(extra) {
-                Ok(dt) => {
-                    match dt {
-                        usb::DescriptorType::InterfaceAssociation(iad) => {
-                            dump_interface_association(&iad);
-                        },
-                        // TODO: dump others
-                        _ => ()
-                    }
+        // dump extra descriptors
+        if let Some(dt) = &config.extra {
+            match dt {
+                usb::DescriptorType::InterfaceAssociation(iad) => {
+                    dump_interface_association(&iad);
                 },
-                Err(e) => log::warn!("Failed to parse extra configuration descriptor: {}", e)
+                usb::DescriptorType::Security(sec) => {
+                    dump_security(&sec);
+                },
+                usb::DescriptorType::Encrypted(enc) => {
+                    dump_encryption_type(&enc);
+                },
+                usb::DescriptorType::Unknown(junk) => {
+                    dump_unrecognised(&junk, 4);
+                }
+                usb::DescriptorType::Junk(junk) => {
+                    dump_junk(&junk, 4);
+                },
+                _ => ()
             }
         }
     }
 
-    fn dump_interface_association(iad: &usb::InterfaceAssociation) {
+    fn dump_junk(extra: &Vec<u8>, indent: usize) {
+        println!("{:^indent$}junk at descriptor end: {}", "", extra.iter().map(|b| format!("{:02x}", b)).collect::<Vec<String>>().join(" "))
+    }
+
+    fn dump_unrecognised(extra: &Vec<u8>, indent: usize) {
+        println!("{:^indent$}** UNRECOGNIZED: {}", "", extra.iter().map(|b| format!("{:02x}", b)).collect::<Vec<String>>().join(" "))
+    }
+
+    fn dump_security(sec: &usb::SecurityDescriptor) {
+        println!("    Security Descriptor:");
+        println!("      bLength              {:3}", sec.length);
+        println!("      bDescriptorType      {:3}", sec.descriptor_type);
+        println!("      wTotalLength      {:#04x}", sec.total_length);
+        println!("      bNumEncryptionTypes  {:3}", sec.encryption_types);
+    }
+
+    fn dump_encryption_type(enc: &usb::EncryptionDescriptor) {
+        let enct_string = match enc.encryption_type as u8 {
+            0 => "UNSECURE",
+            1 => "WIRED",
+            2 => "CCM_1",
+            3 => "RSA_1",
+            _ => "RESERVED",
+        };
+
+        println!("     Encryption Type:");
+        println!("      bLength              {:3}", enc.length);
+        println!("      bDescriptorType      {:3}", enc.descriptor_type);
+        println!("      bEncryptionType      {:3} {}", enc.encryption_type as u8, enct_string);
+        println!("      bEncryptionValue     {:3}", enc.encryption_value);
+        println!("      bAuthKeyIndex        {:3}", enc.auth_key_index);
+    }
+
+    fn dump_interface_association(iad: &usb::InterfaceAssociationDescriptor) {
         println!("    Interface Association:");
         println!("      bLength              {:3}", iad.length);
         println!("      bDescriptorType      {:3}", iad.descriptor_type);

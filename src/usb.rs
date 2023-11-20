@@ -850,6 +850,9 @@ pub struct USBEndpoint {
     pub max_packet_size: u16,
     /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     pub interval: u8,
+    /// Extra descriptor data based on type
+    #[serde(default)] // default for legacy json
+    pub extra: Option<DescriptorType>,
 }
 
 impl USBEndpoint {
@@ -913,6 +916,9 @@ pub struct USBInterface {
     /// Size of interface descriptor in bytes
     #[serde(default = "default_interface_desc_length")]
     pub length: u8,
+    /// Extra data for interface based on type
+    #[serde(default)] // default for legacy json
+    pub extra: Option<DescriptorType>,
 }
 
 impl USBInterface {
@@ -967,9 +973,9 @@ pub struct USBConfiguration {
     /// Total length of configuration descriptor in bytes including all interfaces and endpoints
     #[serde(default)]
     pub total_length: u16,
-    /// Extra data for configuration not parsed
-    #[serde(skip)]
-    pub extra: Option<Vec<u8>>,
+    /// Extra data for configuration based on type
+    #[serde(default)] // default for legacy json
+    pub extra: Option<DescriptorType>,
 }
 
 impl USBConfiguration {
@@ -1014,7 +1020,7 @@ pub struct USBDeviceExtra {
 }
 
 /// USB Descriptor Types
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 #[repr(u8)]
 #[allow(missing_docs)]
@@ -1024,10 +1030,10 @@ pub enum DescriptorType {
     OtherSpeedConfiguration = 0x07,
     Otg = 0x09,
     Debug = 0x0a,
-    InterfaceAssociation(InterfaceAssociation) = 0x0b,
-    Security = 0x0c,
+    InterfaceAssociation(InterfaceAssociationDescriptor) = 0x0b,
+    Security(SecurityDescriptor) = 0x0c,
     Key = 0x0d,
-    Encrypted = 0x0e,
+    Encrypted(EncryptionDescriptor) = 0x0e,
     Bos = 0x0f,
     DeviceCapability = 0x10,
     WirelessEndpointCompanion = 0x11,
@@ -1035,12 +1041,14 @@ pub enum DescriptorType {
     RPipe = 0x22,
     RcInterface = 0x23,
     SsEndpointCompanion = 0x30,
+    Unknown(Vec<u8>) = 0xfe,
+    Junk(Vec<u8>) = 0xff,
 }
 
-impl TryFrom<&Vec<u8>> for DescriptorType {
+impl TryFrom<&[u8]> for DescriptorType {
     type Error = Error;
 
-    fn try_from(v: &Vec<u8>) -> error::Result<Self> {
+    fn try_from(v: &[u8]) -> error::Result<Self> {
         if v.len() < 2 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
@@ -1048,17 +1056,22 @@ impl TryFrom<&Vec<u8>> for DescriptorType {
             ));
         }
 
+        // junk length
+        if v[0] < 2 {
+            return Ok(DescriptorType::Junk(v.to_vec()));
+        }
+
         match v[1] {
             0x06 => Ok(DescriptorType::DeviceQualifier),
             0x07 => Ok(DescriptorType::OtherSpeedConfiguration),
             0x09 => Ok(DescriptorType::Otg),
             0x0a => Ok(DescriptorType::Debug),
-            0x0b => Ok(DescriptorType::InterfaceAssociation(InterfaceAssociation::try_from(
+            0x0b => Ok(DescriptorType::InterfaceAssociation(InterfaceAssociationDescriptor::try_from(
                 v,
             )?)),
-            0x0c => Ok(DescriptorType::Security),
+            0x0c => Ok(DescriptorType::Security(SecurityDescriptor::try_from(v)?)),
             0x0d => Ok(DescriptorType::Key),
-            0x0e => Ok(DescriptorType::Encrypted),
+            0x0e => Ok(DescriptorType::Encrypted(EncryptionDescriptor::try_from(v)?)),
             0x0f => Ok(DescriptorType::Bos),
             0x10 => Ok(DescriptorType::DeviceCapability),
             0x11 => Ok(DescriptorType::WirelessEndpointCompanion),
@@ -1066,10 +1079,7 @@ impl TryFrom<&Vec<u8>> for DescriptorType {
             0x22 => Ok(DescriptorType::RPipe),
             0x23 => Ok(DescriptorType::RcInterface),
             0x30 => Ok(DescriptorType::SsEndpointCompanion),
-            _ => Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("Invalid descriptor type: {:x}", v[1]),
-            )),
+            _ => Ok(DescriptorType::Unknown(v.to_vec())),
         }
     }
 }
@@ -1091,11 +1101,16 @@ pub enum DeviceCapability {
     ConfigurationSummary = 0x10,
 }
 
+/// Extra USB device data for unknown descriptors
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DescriptorData(pub Vec<u8>);
+
 /// The Interface Association Descriptor is a specific type of USB descriptor used to associate a group of interfaces with a particular function or feature of a USB device
 ///
 /// It helps organize and convey the relationship between different interfaces within a single device configuration.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct InterfaceAssociation {
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct InterfaceAssociationDescriptor {
     pub length: u8,
     pub descriptor_type: u8,
     pub first_interface: u8,
@@ -1104,12 +1119,13 @@ pub struct InterfaceAssociation {
     pub function_sub_class: u8,
     pub function_protocol: u8,
     pub function_string_index: u8,
+    pub function_string: Option<String>,
 }
 
-impl TryFrom<&Vec<u8>> for InterfaceAssociation {
+impl TryFrom<&[u8]> for InterfaceAssociationDescriptor {
     type Error = Error;
 
-    fn try_from(value: &Vec<u8>) -> error::Result<Self> {
+    fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
@@ -1117,7 +1133,7 @@ impl TryFrom<&Vec<u8>> for InterfaceAssociation {
             ));
         }
 
-        Ok(InterfaceAssociation {
+        Ok(InterfaceAssociationDescriptor {
             length: value[0],
             descriptor_type: value[1],
             first_interface: value[2],
@@ -1126,6 +1142,91 @@ impl TryFrom<&Vec<u8>> for InterfaceAssociation {
             function_sub_class: value[5],
             function_protocol: value[6],
             function_string_index: value[7],
+            function_string: None,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct SecurityDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub total_length: u16,
+    pub encryption_types: u8,
+}
+
+impl TryFrom<&[u8]> for SecurityDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 5 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Security descriptor too short",
+            ));
+        }
+
+        Ok(SecurityDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            total_length: u16::from_le_bytes([value[2], value[3]]),
+            encryption_types: value[4],
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(u8)]
+#[non_exhaustive]
+#[allow(missing_docs)]
+pub enum EncryptionType {
+    Unsecure,
+    Wired,
+    Ccm1,
+    Rsa1,
+    Reserved
+}
+
+impl From<u8> for EncryptionType {
+    fn from(b: u8) -> Self {
+        match b {
+            0x00 => EncryptionType::Unsecure,
+            0x01 => EncryptionType::Wired,
+            0x02 => EncryptionType::Ccm1,
+            0x03 => EncryptionType::Rsa1,
+            _ => EncryptionType::Reserved,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct EncryptionDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub encryption_type: EncryptionType,
+    pub encryption_value: u8,
+    pub auth_key_index: u8,
+}
+
+impl TryFrom<&[u8]> for EncryptionDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 5 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Encryption Type descriptor too short",
+            ));
+        }
+
+        Ok(EncryptionDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            encryption_type: EncryptionType::from(value[2]),
+            encryption_value: value[3],
+            auth_key_index: value[4],
         })
     }
 }
