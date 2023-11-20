@@ -1147,6 +1147,7 @@ impl TryFrom<&[u8]> for InterfaceAssociationDescriptor {
     }
 }
 
+/// USB security descriptor
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct SecurityDescriptor {
@@ -1176,6 +1177,7 @@ impl TryFrom<&[u8]> for SecurityDescriptor {
     }
 }
 
+/// Encryption type for [`SecurityDescriptor`]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[non_exhaustive]
@@ -1200,6 +1202,7 @@ impl From<u8> for EncryptionType {
     }
 }
 
+/// USB encryption descriptor
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct EncryptionDescriptor {
