@@ -75,8 +75,8 @@ jobs:
         if: matrix.job.use-cross == false
         run: |
           cargo fmt -- --check
-          cargo clippy --all-targets
-          cargo clippy --all-targets --all-features
+          cargo clippy --all-targets -- -Dwarnings
+          cargo clippy --all-targets --all-features -- -Dwarnings
 
       - name: Test
         id: test
