@@ -129,34 +129,41 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
         .map(|s| s.to_str().unwrap_or("").to_string()))
 }
 
-/// Lookup an entry in the udev hwdb given the `modalias` and `key`.
+/// udev hwdb lookup functions
 ///
-/// Should act like https://github.com/gregkh/usbutils/blob/master/names.c#L115
-///
-/// ```
-/// use cyme::udev::hwdb_get;
-///
-/// let modalias = "usb:v1D6Bp0001";
-/// let vendor = hwdb_get(&modalias, "ID_VENDOR_FROM_DATABASE").unwrap();
-///
-/// assert_eq!(vendor, Some("Linux Foundation".into()));
-///
-/// let modalias = "usb:v*p*d*dc03dsc01dp01*";
-/// let vendor = hwdb_get(&modalias, "ID_USB_PROTOCOL_FROM_DATABASE").unwrap();
-///
-/// assert_eq!(vendor, Some("Keyboard".into()));
-/// ```
-pub fn hwdb_get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
-    let hwdb = udevlib::Hwdb::new().map_err(|e| {
-        Error::new(
-            ErrorKind::Udev,
-            &format!("Failed to get hwdb: Error({})", e.to_string()),
-        )
-    })?;
+/// Protected by the `udev_hwdb` feature because 'libudev-sys' excludes hwdb ffi bindings if native udev does not support hwdb
+#[cfg(feature = "udev_hwdb")]
+pub mod hwdb {
+    use super::*;
+    /// Lookup an entry in the udev hwdb given the `modalias` and `key`.
+    ///
+    /// Should act like https://github.com/gregkh/usbutils/blob/master/names.c#L115
+    ///
+    /// ```
+    /// use cyme::udev::hwdb_get;
+    ///
+    /// let modalias = "usb:v1D6Bp0001";
+    /// let vendor = hwdb_get(&modalias, "ID_VENDOR_FROM_DATABASE").unwrap();
+    ///
+    /// assert_eq!(vendor, Some("Linux Foundation".into()));
+    ///
+    /// let modalias = "usb:v*p*d*dc03dsc01dp01*";
+    /// let vendor = hwdb_get(&modalias, "ID_USB_PROTOCOL_FROM_DATABASE").unwrap();
+    ///
+    /// assert_eq!(vendor, Some("Keyboard".into()));
+    /// ```
+    pub fn hwdb_get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
+        let hwdb = udevlib::Hwdb::new().map_err(|e| {
+            Error::new(
+                ErrorKind::Udev,
+                &format!("Failed to get hwdb: Error({})", e.to_string()),
+            )
+        })?;
 
-    Ok(hwdb
-        .query_one(&modalias.to_string(), &key.to_string())
-        .map(|s| s.to_str().unwrap_or("").to_string()))
+        Ok(hwdb
+            .query_one(&modalias.to_string(), &key.to_string())
+            .map(|s| s.to_str().unwrap_or("").to_string()))
+    }
 }
 
 #[cfg(test)]
@@ -173,7 +180,7 @@ mod tests {
     }
 
     /// Tests can lookup bInterfaceClass of the root hub, which is always 09
-    #[cfg_attr(not(feature = "usb_test"), ignore)]
+    #[cfg_attr(not(feature = "usb_test", feature = "udev_hwdb"), ignore)]
     #[test]
     fn test_udev_attribute() {
         let interface_class = get_udev_attribute("1-0:1.0", "bInterfaceClass").unwrap();
