@@ -140,19 +140,19 @@ pub mod hwdb {
     /// Should act like https://github.com/gregkh/usbutils/blob/master/names.c#L115
     ///
     /// ```
-    /// use cyme::udev::hwdb_get;
+    /// use cyme::udev;
     ///
     /// let modalias = "usb:v1D6Bp0001";
-    /// let vendor = hwdb_get(&modalias, "ID_VENDOR_FROM_DATABASE").unwrap();
+    /// let vendor = hwdb::get(&modalias, "ID_VENDOR_FROM_DATABASE").unwrap();
     ///
     /// assert_eq!(vendor, Some("Linux Foundation".into()));
     ///
     /// let modalias = "usb:v*p*d*dc03dsc01dp01*";
-    /// let vendor = hwdb_get(&modalias, "ID_USB_PROTOCOL_FROM_DATABASE").unwrap();
+    /// let vendor = hwdb::get(&modalias, "ID_USB_PROTOCOL_FROM_DATABASE").unwrap();
     ///
     /// assert_eq!(vendor, Some("Keyboard".into()));
     /// ```
-    pub fn hwdb_get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
+    pub fn get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
         let hwdb = udevlib::Hwdb::new().map_err(|e| {
             Error::new(
                 ErrorKind::Udev,
@@ -180,7 +180,7 @@ mod tests {
     }
 
     /// Tests can lookup bInterfaceClass of the root hub, which is always 09
-    #[cfg_attr(not(feature = "usb_test", feature = "udev_hwdb"), ignore)]
+    #[cfg_attr(not(feature = "usb_test"), ignore)]
     #[test]
     fn test_udev_attribute() {
         let interface_class = get_udev_attribute("1-0:1.0", "bInterfaceClass").unwrap();

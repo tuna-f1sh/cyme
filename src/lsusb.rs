@@ -833,7 +833,7 @@ pub mod names {
     #[allow(unused_variables)]
     fn hwdb_get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
         #[cfg(all(target_os = "linux", feature = "udev_hwdb"))]
-        return crate::udev::hwdb::hwdb_get(modalias, key);
+        return crate::udev::hwdb::get(modalias, key);
 
         #[cfg(not(all(target_os = "linux", feature = "udev_hwdb")))]
         return Err(Error::new(
