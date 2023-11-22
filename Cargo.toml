@@ -16,7 +16,7 @@ clap = { version = "4.0.22", features = ["derive", "wrap_help"] }
 colored = "2.0.0"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
-rusb = { git = "https://github.com/tuna-f1sh/rusb.git", version = "0.9.1", optional = true }
+rusb = { version = "0.9.1", optional = true }
 log = "0.4.17"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.87"
@@ -32,25 +32,30 @@ terminal_size = "0.2.5"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 
+[patch.crates-io]
+libudev-sys = { git = "https://github.com/Emilgardis/libudev-sys/", branch = "fix-cross-compilation" }
+rusb = { git = "https://github.com/a1ien/rusb.git" }
+
 [dev-dependencies]
 diff = "0.1"
 assert-json-diff = "2.0.2"
 
 [target.x86_64-unknown-linux-gnu.dependencies]
-udev = { version = "^0.8.0", optional = true, features = ["hwdb"] }
-rusb = { git = "https://github.com/tuna-f1sh/rusb.git", version = "0.9.1" }
+udev = { version = "^0.8.0", optional = true }
+rusb = "0.9.1"
 
 [target.arm-unknown-linux-gnueabihf.dependencies]
-udev = { version = "^0.8.0", optional = true, features = ["hwdb"] }
-rusb = { git = "https://github.com/tuna-f1sh/rusb.git", version = "0.9.1" }
+udev = { version = "^0.8.0", optional = true }
+rusb = "0.9.1"
 
 [target.aarch64-unknown-linux-gnu.dependencies]
-udev = { version = "^0.8.0", optional = true, features = ["hwdb"] }
-rusb = { git = "https://github.com/tuna-f1sh/rusb.git", version = "0.9.1" }
+udev = { version = "^0.8.0", optional = true }
+rusb = "0.9.1"
 
 [features]
 libusb = ["dep:rusb"]
 udev = ["dep:udev"]
+udev_hwdb = ["udev/hwdb"]
 usb_test = []
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
 default = ["libusb"]
@@ -64,6 +69,9 @@ lto = true
 strip = true
 panic = "abort"
 codegen-units = 1 # quicker binary, slower build
+
+# [package.metadata.cross.build]
+# pre-build = ["dpkg --add-architecture $CROSS_DEB_ARCH && apt-get update && apt-get install --assume-yes libusb-1.0-0-dev:$CROSS_DEB_ARCH libudev-dev:$CROSS_DEB_ARCH"]
 
 [package.metadata.cross.target.arm-unknown-linux-gnueabihf]
 pre-build = ["dpkg --add-architecture armhf && apt-get update && apt-get install --assume-yes libusb-1.0-0-dev:armhf libudev-dev:armhf"]
