@@ -24,13 +24,12 @@ pub struct UdevInfo {
 /// ```
 pub fn get_udev_info(port_path: &str) -> Result<UdevInfo, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(&Path::new(&path)).map_err(|e| {
+    let device = udevlib::Device::from_syspath(Path::new(&path)).map_err(|e| {
         Error::new(
             ErrorKind::Udev,
             &format!(
                 "Failed to get udev info for device at {}: Error({})",
-                path,
-                e.to_string()
+                path, e
             ),
         )
     })?;
@@ -54,13 +53,12 @@ pub fn get_udev_info(port_path: &str) -> Result<UdevInfo, Error> {
 /// ```
 pub fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(&Path::new(&path)).map_err(|e| {
+    let device = udevlib::Device::from_syspath(Path::new(&path)).map_err(|e| {
         Error::new(
             ErrorKind::Udev,
             &format!(
                 "Failed to get udev info for device at {}: Error({})",
-                path,
-                e.to_string()
+                path, e
             ),
         )
     })?;
@@ -79,13 +77,12 @@ pub fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
 /// ```
 pub fn get_udev_syspath(port_path: &str) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(&Path::new(&path)).map_err(|e| {
+    let device = udevlib::Device::from_syspath(Path::new(&path)).map_err(|e| {
         Error::new(
             ErrorKind::Udev,
             &format!(
                 "Failed to get udev info for device at {}: Error({})",
-                path,
-                e.to_string()
+                path, e
             ),
         )
     })?;
@@ -112,14 +109,12 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
     attribute: T,
 ) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(&Path::new(&path)).map_err(|e| {
+    let device = udevlib::Device::from_syspath(Path::new(&path)).map_err(|e| {
         Error::new(
             ErrorKind::Udev,
             &format!(
                 "Failed to get udev attribute {} for device at {}: Error({})",
-                attribute,
-                path,
-                e.to_string()
+                attribute, path, e
             ),
         )
     })?;
@@ -156,7 +151,7 @@ pub mod hwdb {
         let hwdb = udevlib::Hwdb::new().map_err(|e| {
             Error::new(
                 ErrorKind::Udev,
-                &format!("Failed to get hwdb: Error({})", e.to_string()),
+                &format!("Failed to get hwdb: Error({})", e),
             )
         })?;
 
@@ -176,7 +171,7 @@ mod tests {
     fn test_udev_info() {
         let udevi = get_udev_info("1-0:1.0").unwrap();
         assert_eq!(udevi.driver, Some("hub".into()));
-        assert_eq!(udevi.syspath.unwrap().contains("usb1/1-0:1.0"), true);
+        assert!(udevi.syspath.unwrap().contains("usb1/1-0:1.0"));
     }
 
     /// Tests can lookup bInterfaceClass of the root hub, which is always 09
