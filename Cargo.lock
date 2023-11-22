@@ -484,8 +484,7 @@ dependencies = [
 [[package]]
 name = "libudev-sys"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c8469b4a23b962c1396b9b451dda50ef5b283e8dd309d69033475fa9b334324"
+source = "git+https://github.com/Emilgardis/libudev-sys/?branch=fix-cross-compilation#808a604d27d0afc1305bbcc5d27c6c083c99dfa4"
 dependencies = [
  "libc",
  "pkg-config",
@@ -494,7 +493,7 @@ dependencies = [
 [[package]]
 name = "libusb1-sys"
 version = "0.6.4"
-source = "git+https://github.com/tuna-f1sh/rusb.git#03d987373ebfced82e8c61b97a3585dd3e5eba10"
+source = "git+https://github.com/a1ien/rusb.git#c38563efeb7733f0f8b5ac01703fd2ad1d84fea2"
 dependencies = [
  "cc",
  "libc",
@@ -699,7 +698,7 @@ checksum = "b833d8d034ea094b1ea68aa6d5c740e0d04bad9d16568d08ba6f76823a114316"
 [[package]]
 name = "rusb"
 version = "0.9.3"
-source = "git+https://github.com/tuna-f1sh/rusb.git#03d987373ebfced82e8c61b97a3585dd3e5eba10"
+source = "git+https://github.com/a1ien/rusb.git#c38563efeb7733f0f8b5ac01703fd2ad1d84fea2"
 dependencies = [
  "libc",
  "libusb1-sys",
