@@ -390,13 +390,15 @@ pub mod profiler {
             ),
             driver: None,
             syspath: None,
-            // These are idProduct, idVendor in lsusb - from usb_ids
-            vendor: usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned()),
-            product_name: usb_ids::Device::from_vid_pid(
-                device_desc.vendor_id(),
-                device_desc.product_id(),
-            )
-            .map(|v| v.name().to_owned()),
+            // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids
+            vendor: super::names::vendor(device_desc.vendor_id())
+                .or(usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())),
+            product_name: super::names::product(device_desc.vendor_id(), device_desc.product_id())
+                .or(usb_ids::Device::from_vid_pid(
+                    device_desc.vendor_id(),
+                    device_desc.product_id(),
+                )
+                .map(|v| v.name().to_owned())),
             configurations: build_configurations(
                 device,
                 handle,
@@ -490,26 +492,31 @@ pub mod profiler {
         //    TODO (does macOS and Windows have an equivalent/similar way to retrieve this info?)
         // 3. Lookup iManufacturer and iProduct from the USB IDs list (iSerial has no alternative)
 
-        sp_device.manufacturer = get_manufacturer_string(&device_desc, &mut usb_device) // descriptor
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer")) // sysfs cache
-            .or(super::names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
-            .or(
-                usb_ids::Vendor::from_id(device_desc.vendor_id()) // usb-ids if no udev
-                    .map(|vendor| vendor.name().to_owned()),
-            );
+        sp_device.manufacturer =
+            get_manufacturer_string(&device_desc, &mut usb_device) // descriptor
+                // sysfs cache
+                .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer"))
+                // udev-hwdb
+                .or(super::names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
+                // usb-ids
+                .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
+                    .map(|vendor| vendor.name().to_owned()));
 
         sp_device.name = get_product_string(&device_desc, &mut usb_device) // descriptor
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "product")) // sysfs cache
+            // sysfs cache
+            .or(get_sysfs_string(&sp_device.sysfs_name(), "product"))
+            // udev-hwdb
             .or(super::names::product(
-                // udev, usb-ids if error
                 device_desc.vendor_id(),
                 device_desc.product_id(),
             ))
+            // usb-ids
             .or(
                 usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
                     .map(|device| device.name().to_owned()),
-            ) // usb-ids if no udev
-            .unwrap_or_default(); // empty
+            )
+            // empty
+            .unwrap_or_default();
 
         sp_device.serial_num = get_serial_string(&device_desc, &mut usb_device)
             .or(get_sysfs_string(&sp_device.sysfs_name(), "serial"));
