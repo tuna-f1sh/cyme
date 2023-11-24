@@ -150,8 +150,8 @@ jobs:
 
           # Binary
           cp "${{ steps.prepare.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
-          # README and LICENSE
-          cp "README.md" "LICENSE" "$ARCHIVE_DIR"
+          # README, LICENSE, CHANGELOG
+          cp "README.md" "LICENSE" "CHANGELOG.md" "$ARCHIVE_DIR"
           # Man page
           cp 'doc/${{ env.PROJECT_NAME }}.1' "$ARCHIVE_DIR"
           # Autocompletion files
