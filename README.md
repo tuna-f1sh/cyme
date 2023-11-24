@@ -14,7 +14,9 @@ o---/
 
 List system USB buses and devices; a lib and modern cross-platform `lsusb` that attempts to maintain compatibility with, but also add new features. Includes a macOS `system_profiler SPUSBDataType` parser module and libusb profiler for non-macOS systems/gathering more verbose information.
 
-The project started as a quick replacement for the barely working [lsusb script](https://github.com/jlhonora/lsusb) and is my _yearly_ Rust project to keep up to date! Like most fun projects, it quickly experienced feature creep as I developed it into a cross-platform replacement for `lsusb`. As a developer of embedded devices, I use a USB list tool on a frequent basis and developed this to cater to what I believe are the short comings of `lsusb`; verbose dump is too _verbose_, tree doesn't contain useful data on the whole, it barely works on non-Linux platforms and modern terminals support features that make glancing through the data easier.
+The project started as a quick replacement for the barely working [lsusb script](https://github.com/jlhonora/lsusb) and a Rust project to keep me up to date! Like most fun projects, it quickly experienced feature creep as I developed it into a cross-platform replacement for `lsusb`.
+
+As a developer of embedded devices, I use a USB list tool on a frequent basis and developed this to cater to what I believe are the short comings of `lsusb`: verbose dump is too _verbose_, tree doesn't contain useful data on the whole, it barely works on non-Linux platforms and modern terminals support features that make glancing through the data easier.
 
 It's not perfect as it started out as a Rust refresher but I had a lot of fun developing it and hope others will find it useful and can contribute. Reading around the [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c), USB-IF and general USB information was also a good knowledge builder.
 
@@ -121,7 +123,7 @@ For no icons at all, use the hidden `--no-icons` or `--icon never` args.
 
 # Known Issues
 
-* `sudo` is required to open and read Linux root\_hub string descriptors. The program works fine without these however, as will use 'usb-ids' like lsusb. What will be missing are 'name', 'manufacturer' and 'serial' descriptors for example. Use debugging `-z` to see what devices are missing this data. The env CYME_PRINT_NON_CRITICAL_PROFILER_STDERR can be used or 'print-non-critical-profiler-stderr' config key to print these to stderr. `--lsusb --verbose` will print a message to stderr always to match the 'lsusb' behaviour.
+* `sudo` is required to open and read Linux root\_hub string descriptors. The program works fine without these however, as will use sysfs/hwdb/'usb-ids' like lsusb. Use debugging `-z` to see what devices failed to read. The env CYME_PRINT_NON_CRITICAL_PROFILER_STDERR can be used or 'print-non-critical-profiler-stderr' config key to print these to stderr. `--lsusb --verbose` will print a message to stderr always to match the 'lsusb' behaviour.
 * Version major BCD Device difference between libusb and macOS `system_profiler`: If the major version is large, libusb seems to read a different value to macOS. I don't think it's a parsing error but open to ideas.
 * libusb cannot read special non-user Apple buses; T2 chip for example. These will still be listed by `system_profiler`. The result is that when merging for verbose data, these will not print verbose information. Use `--force-libusb` to ignore them.
 * Tested with macOS 13 ->. I'm not sure when the `-json` flag was added to `system_profiler`; whether it exists on all macOS versions.
