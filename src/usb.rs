@@ -30,7 +30,7 @@ use crate::types::NumericalUnit;
 /// assert_eq!(version.to_string(), "9b.f1");
 /// ```
 ///
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version(pub u8, pub u8, pub u8);
 
 impl Version {
@@ -1041,6 +1041,8 @@ pub enum DescriptorType {
     RPipe = 0x22,
     RcInterface = 0x23,
     SsEndpointCompanion = 0x30,
+    // these are internal
+    BaseClass(ClassDescriptor) = 0xfd,
     Unknown(Vec<u8>) = 0xfe,
     Junk(Vec<u8>) = 0xff,
 }
@@ -1230,6 +1232,133 @@ impl TryFrom<&[u8]> for EncryptionDescriptor {
             encryption_type: EncryptionType::from(value[2]),
             encryption_value: value[3],
             auth_key_index: value[4],
+        })
+    }
+}
+
+/// USB base class descriptor
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ClassDescriptor {
+    /// USB HID extra descriptor
+    Hid(HidDescriptor),
+    /// USB Audio extra descriptor
+    Audio(GenericDescriptor),
+    /// Vendor defined extra descriptor
+    Vendor(GenericDescriptor),
+}
+
+impl TryFrom<&[u8]> for ClassDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Class descriptor too short",
+            ));
+        }
+
+        match value[1] {
+            0x01 => Ok(ClassDescriptor::Audio(GenericDescriptor::try_from(value)?)),
+            0x03 => Ok(ClassDescriptor::Hid(HidDescriptor::try_from(value)?)),
+            _ => Ok(ClassDescriptor::Vendor(GenericDescriptor::try_from(value)?)),
+        }
+    }
+}
+
+/// USB HID report descriptor
+///
+/// Similar to [`GenericDescriptor`] but with a wLength rather than bLength and no sub-type
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct HidReportDescriptor {
+    pub descriptor_type: u8,
+    pub length: u16,
+    pub data: Option<Vec<u8>>,
+}
+
+impl TryFrom<&[u8]> for HidReportDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "HID report descriptor too short",
+            ));
+        }
+
+        Ok(HidReportDescriptor {
+            descriptor_type: value[0],
+            length: u16::from_le_bytes([value[2], value[1]]),
+            data: value.get(3..).map(|d| d.to_vec()),
+        })
+    }
+}
+
+/// USB generic descriptor
+///
+/// Used for most [`ClassDescriptor`]s
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct GenericDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub descriptor_subtype: u8,
+    pub data: Option<Vec<u8>>,
+}
+
+impl TryFrom<&[u8]> for GenericDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Generic descriptor too short",
+            ));
+        }
+
+        Ok(GenericDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            descriptor_subtype: value[2],
+            data: value.get(3..).map(|d| d.to_vec()),
+        })
+    }
+}
+
+/// USB HID descriptor
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct HidDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub bcd_hid: Version,
+    pub country_code: u8,
+    pub descriptors: Vec<HidReportDescriptor>,
+}
+
+impl TryFrom<&[u8]> for HidDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "HID descriptor too short",
+            ));
+        }
+
+        Ok(HidDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            bcd_hid: Version::from_bcd(u16::from_le_bytes([value[3], value[2]])),
+            country_code: value[4],
+            descriptors: value[5..]
+                .chunks_exact(3)
+                .map(|d| HidReportDescriptor::try_from(d))
+                .collect::<error::Result<Vec<_>>>()?,
         })
     }
 }

@@ -1219,6 +1219,118 @@ pub mod display {
         );
     }
 
+    fn dump_hid_device(hidd: &usb::HidDescriptor) {
+        println!("        HID Descriptor:");
+        println!("          bLength              {:3}", hidd.length);
+        println!("          bDescriptorType      {:3}", hidd.descriptor_type);
+        println!("          bcdHID               {}", hidd.bcd_hid.to_string());
+        println!("          bCountryCode         {:3} {}", hidd.country_code, super::names::countrycode(hidd.country_code).unwrap_or_default());
+        println!("          bNumDescriptors      {:3}", hidd.descriptors.len());
+        for desc in &hidd.descriptors {
+            println!("          bDescriptorType:      {:3} {}", desc.descriptor_type, super::names::hid(desc.descriptor_type).unwrap_or_default());
+            println!("          wDescriptorLength:    {:3}", desc.length);
+        }
+
+        for desc in &hidd.descriptors {
+            // only print report descriptor
+            if desc.descriptor_type != 0x22 {
+                continue;
+            }
+
+            match desc.data.as_ref() {
+                Some(d) => {
+                    dump_report_desc(d, 28);
+                },
+                None => {
+                    println!("          Report Descriptors:");
+                    println!("            ** UNAVAILABLE **");
+                }
+            }
+        }
+    }
+
+    // ported directly from lsusb - it's not pretty but works...
+    fn dump_report_desc(desc: &Vec<u8>, indent: usize) {
+        let types = |t: u8| match t {
+            0x00 => "Main",
+            0x01 => "Global",
+            0x02 => "Local",
+            _ => "reserved",
+        };
+
+        println!("          Report Descriptor: (length is {})", desc.len());
+
+        let mut i = 0;
+
+        while i < desc.len() {
+            let b = desc[i];
+            let mut data = 0xffff;
+            let mut hut = 0xff;
+            let mut bsize = (b & 0x03) as usize;
+            if bsize == 3 {
+                bsize = 4;
+            }
+            let btype = b & (0x03 << 2);
+            let btag = b & !0x03;
+            print!("            Item({:>6}): {}, data=", types(btype >> 2), super::names::report_tag(btag).unwrap_or_default());
+            if bsize > 0 {
+                print!(" [ ");
+                data = 0;
+                for j in 0..bsize {
+                    data |= (desc[i + 1 + j] as u16) << (j * 8);
+                    print!("{:02x} ", desc[i + 1 + j]);
+                }
+                println!("] {}", data);
+            } else {
+                println!("none");
+            }
+
+            match btag {
+                // usage page
+                0x04 => {
+                    hut = data as u8;
+                    println!("{:^indent$}", super::names::huts(hut).unwrap_or_default(), indent = indent);
+                },
+                // usage, usage minimum, usage maximum
+                0x08 | 0x18 | 0x28 => {
+                    println!("{:^indent$}", super::names::hutus(hut, data).unwrap_or_default(), indent = indent);
+                },
+                // unit exponent
+                0x54 => {
+                    println!("{:^indent$}: {}", "Unit Exponent", data as u8, indent = indent);
+                },
+                // unit
+                // 0x64 => {
+                //     println!("{:^indent$}" dump_unit(data, bsize), indent = indent);
+                // }
+                // collection
+                0xa0 => {
+                    match data {
+                        0x00 => println!("{:^indent$}", "Physical", indent = indent),
+                        0x01 => println!("{:^indent$}", "Application", indent = indent),
+                        0x02 => println!("{:^indent$}", "Logical", indent = indent),
+                        0x03 => println!("{:^indent$}", "Report", indent = indent),
+                        0x04 => println!("{:^indent$}", "Named Array", indent = indent),
+                        0x05 => println!("{:^indent$}", "Usage Switch", indent = indent),
+                        0x06 => println!("{:^indent$}", "Usage Modifier", indent = indent),
+                        _ => {
+                            if (data & 0x80) == 0x80 {
+                                println!("{:^indent$}", "Vendor defined", indent = indent)
+                            } else {
+                                println!("{:^indent$}", "Unknown", indent = indent)
+                            }
+                        }
+                    }
+                }
+                // input, output, feature
+                0x80 | 0x90 | 0xb0 => {
+                }
+                _ => ()
+            }
+            i += bsize;
+        }
+    }
+
     fn print_interface(interface: &usb::USBInterface) {
         let interface_name = super::names::class(interface.class.into());
         let sub_class_name = super::names::subclass(interface.class.into(), interface.sub_class);
@@ -1253,6 +1365,25 @@ pub mod display {
             "      iInterface           {:3} {}",
             interface.string_index, interface.name
         );
+
+        // dump extra descriptors
+        if let Some(dt) = &interface.extra {
+            match dt {
+                usb::DescriptorType::BaseClass(bc) => {
+                    match bc {
+                        usb::ClassDescriptor::Hid(hidd) => dump_hid_device(&hidd),
+                        _ => ()
+                    }
+                },
+                usb::DescriptorType::Unknown(junk) => {
+                    dump_unrecognised(&junk, 6);
+                }
+                usb::DescriptorType::Junk(junk) => {
+                    dump_junk(&junk, 6);
+                },
+                _ => ()
+            }
+        }
     }
 
     fn print_endpoint(endpoint: &usb::USBEndpoint) {
