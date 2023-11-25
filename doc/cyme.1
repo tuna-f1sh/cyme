@@ -1,6 +1,6 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH cyme 1  "cyme 1.5.0" 
+.TH cyme 1  "cyme 1.6.0" 
 .SH NAME
 cyme \- List system USB buses and devices; a modern cross\-platform `lsusb`
 .SH SYNOPSIS
@@ -48,7 +48,7 @@ hid: Human Interface Device; game controllers, keyboards, mice etc. Also commonl
 .IP \(bu 2
 physical: Force feedback joystick
 .IP \(bu 2
-image: Scanners, cameras
+image: Still imaging device; scanners, cameras
 .IP \(bu 2
 printer: Laser printer, inkjet printer, CNC machine
 .IP \(bu 2
@@ -71,6 +71,10 @@ audio\-video: Webcam, TV
 billboard: Describes USB\-C alternate modes supported by device
 .IP \(bu 2
 usb\-type\-c\-bridge: An interface to expose and configure the USB Type\-C capabilities of Connectors on USB Hubs or Alternate Mode Adapters
+.IP \(bu 2
+bdp: This base class is defined for devices that conform to the “VESA USB BDP Device Specification” found at the VESA website. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors
+.IP \(bu 2
+mctp: This base class is defined for devices that conform to the “MCTP over USB” found at the DMTF website as DSP0283. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors
 .IP \(bu 2
 i3c\-device: An interface to expose and configure I3C function within a USB device to allow interaction between host software and the I3C device, to drive transaction on the I3C bus to/from target devices
 .IP \(bu 2
@@ -138,11 +142,21 @@ bcd\-device: The device version
 .IP \(bu 2
 bcd\-usb: The supported USB version
 .IP \(bu 2
-class\-code: Class of interface provided by USB IF \- only available when using libusb
+class\-code: Base class enum of interface provided by USB IF \- only available when using libusb
 .IP \(bu 2
-sub\-class: Sub\-class of interface provided by USB IF \- only available when using libusb
+sub\-class: Sub\-class value of interface provided by USB IF \- only available when using libusb
 .IP \(bu 2
-protocol: Prototol code for interface provided by USB IF \- only available when using libusb
+protocol: Prototol value for interface provided by USB IF \- only available when using libusb
+.IP \(bu 2
+uid\-class: Class name from USB IDs repository
+.IP \(bu 2
+uid\-sub\-class: Sub\-class name from USB IDs repository
+.IP \(bu 2
+uid\-protocol: Protocol name from USB IDs repository
+.IP \(bu 2
+class: Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+.IP \(bu 2
+class\-value: Base class as number value
 .RE
 .TP
 \fB\-\-bus\-blocks\fR=\fIBUS_BLOCKS\fR
@@ -205,11 +219,11 @@ number: Interface number
 .IP \(bu 2
 port\-path: Interface port path, applicable to Linux
 .IP \(bu 2
-class\-code: Class of interface provided by USB IF
+class\-code: Class enum of interface provided by USB IF
 .IP \(bu 2
-sub\-class: Sub\-class of interface provided by USB IF
+sub\-class: Sub\-class value of interface provided by USB IF
 .IP \(bu 2
-protocol: Prototol code for interface provided by USB IF
+protocol: Prototol value for interface provided by USB IF
 .IP \(bu 2
 alt\-setting: Interfaces can have the same number but an alternate settings defined here
 .IP \(bu 2
@@ -220,6 +234,16 @@ sys\-path: syspath obtained from udev on Linux only
 num\-endpoints: An interface can have many endpoints
 .IP \(bu 2
 icon: Icon based on ClassCode/SubCode/Protocol
+.IP \(bu 2
+uid\-class: Class name from USB IDs repository
+.IP \(bu 2
+uid\-sub\-class: Sub\-class name from USB IDs repository
+.IP \(bu 2
+uid\-protocol: Protocol name from USB IDs repository
+.IP \(bu 2
+class: Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+.IP \(bu 2
+class\-value: Base class as number value
 .RE
 .TP
 \fB\-\-endpoint\-blocks\fR=\fIENDPOINT_BLOCKS\fR
@@ -375,6 +399,6 @@ Print help (see a summary with \*(Aq\-h\*(Aq)
 \fB\-V\fR, \fB\-\-version\fR
 Print version
 .SH VERSION
-v1.5.0
+v1.6.0
 .SH AUTHORS
 John Whittington <john@jbrengineering.co.uk>

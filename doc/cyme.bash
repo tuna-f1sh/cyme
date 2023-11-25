@@ -58,15 +58,15 @@ _cyme() {
                     return 0
                     ;;
                 --filter-class)
-                    COMPREPLY=($(compgen -W "use-interface-descriptor audio cdc-communications hid physical image printer mass-storage hub cdc-data smart-cart content-security video personal-healthcare audio-video billboard usb-type-c-bridge i3c-device diagnostic wireless-controller miscellaneous application-specific-interface vendor-specific-class" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "use-interface-descriptor audio cdc-communications hid physical image printer mass-storage hub cdc-data smart-cart content-security video personal-healthcare audio-video billboard usb-type-c-bridge bdp mctp i3c-device diagnostic wireless-controller miscellaneous application-specific-interface vendor-specific-class" -- "${cur}"))
                     return 0
                     ;;
                 --blocks)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb class-code sub-class protocol" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb class-code sub-class protocol uid-class uid-sub-class uid-protocol class class-value" -- "${cur}"))
                     return 0
                     ;;
                 -b)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb class-code sub-class protocol" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb class-code sub-class protocol uid-class uid-sub-class uid-protocol class class-value" -- "${cur}"))
                     return 0
                     ;;
                 --bus-blocks)
@@ -78,7 +78,7 @@ _cyme() {
                     return 0
                     ;;
                 --interface-blocks)
-                    COMPREPLY=($(compgen -W "name number port-path class-code sub-class protocol alt-setting driver sys-path num-endpoints icon" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "name number port-path class-code sub-class protocol alt-setting driver sys-path num-endpoints icon uid-class uid-sub-class uid-protocol class class-value" -- "${cur}"))
                     return 0
                     ;;
                 --endpoint-blocks)
@@ -131,4 +131,4 @@ _cyme() {
     esac
 }
 
-complete -F _cyme -o bashdefault -o default cyme
+complete -F _cyme -o nosort -o bashdefault -o default cyme
