@@ -1245,19 +1245,19 @@ pub mod display {
             for dt in dt_vec {
                 match dt {
                     usb::DescriptorType::InterfaceAssociation(iad) => {
-                        dump_interface_association(&iad);
+                        dump_interface_association(iad);
                     }
                     usb::DescriptorType::Security(sec) => {
-                        dump_security(&sec);
+                        dump_security(sec);
                     }
                     usb::DescriptorType::Encrypted(enc) => {
-                        dump_encryption_type(&enc);
+                        dump_encryption_type(enc);
                     }
                     usb::DescriptorType::Unknown(junk) => {
-                        dump_unrecognised(&junk, 4);
+                        dump_unrecognised(junk, 4);
                     }
                     usb::DescriptorType::Junk(junk) => {
-                        dump_junk(&junk, 4);
+                        dump_junk(junk, 4);
                     }
                     _ => (),
                 }
@@ -1306,15 +1306,15 @@ pub mod display {
                 match dt {
                     usb::DescriptorType::Device(cd) | usb::DescriptorType::Interface(cd) => {
                         match cd {
-                            usb::ClassDescriptor::Hid(hidd) => dump_hid_device(&hidd),
+                            usb::ClassDescriptor::Hid(hidd) => dump_hid_device(hidd),
                             _ => (),
                         }
                     }
                     usb::DescriptorType::Unknown(junk) => {
-                        dump_unrecognised(&junk, 6);
+                        dump_unrecognised(junk, 6);
                     }
                     usb::DescriptorType::Junk(junk) => {
-                        dump_junk(&junk, 6);
+                        dump_junk(junk, 6);
                     }
                     _ => (),
                 }
@@ -1350,11 +1350,8 @@ pub mod display {
         if let Some(dt_vec) = &endpoint.extra {
             for dt in dt_vec {
                 match dt {
-                    usb::DescriptorType::Endpoint(cd) => {
-                        match cd {
-                            // TODO audio, midi
-                            _ => (),
-                        }
+                    usb::DescriptorType::Endpoint(_cd) => {
+                        
                     }
                     // Misplaced descriptors
                     usb::DescriptorType::Device(cd) => {
@@ -1380,7 +1377,7 @@ pub mod display {
                         );
                     }
                     usb::DescriptorType::InterfaceAssociation(iad) => {
-                        dump_interface_association(&iad);
+                        dump_interface_association(iad);
                     }
                     usb::DescriptorType::SsEndpointCompanion(ss) => {
                         println!("        bMaxBurst {:>15}", ss.max_burst);
@@ -1399,10 +1396,10 @@ pub mod display {
                         }
                     }
                     usb::DescriptorType::Unknown(junk) => {
-                        dump_unrecognised(&junk, 8);
+                        dump_unrecognised(junk, 8);
                     }
                     usb::DescriptorType::Junk(junk) => {
-                        dump_junk(&junk, 8);
+                        dump_junk(junk, 8);
                     }
                     _ => (),
                 }
@@ -1410,7 +1407,7 @@ pub mod display {
         }
     }
 
-    fn dump_junk(extra: &Vec<u8>, indent: usize) {
+    fn dump_junk(extra: &[u8], indent: usize) {
         println!(
             "{:^indent$}junk at descriptor end: {}",
             "",
@@ -1422,7 +1419,7 @@ pub mod display {
         )
     }
 
-    fn dump_unrecognised(extra: &Vec<u8>, indent: usize) {
+    fn dump_unrecognised(extra: &[u8], indent: usize) {
         println!(
             "{:^indent$}** UNRECOGNIZED: {}",
             "",
@@ -1501,7 +1498,7 @@ pub mod display {
         println!("          bDescriptorType      {:3}", hidd.descriptor_type);
         println!(
             "          bcdHID               {}",
-            hidd.bcd_hid.to_string()
+            hidd.bcd_hid
         );
         println!(
             "          bCountryCode         {:3} {}",
@@ -1523,7 +1520,7 @@ pub mod display {
 
         for desc in &hidd.descriptors {
             // only print report descriptor
-            if desc.descriptor_type != (usb::DescriptorType::Report as u8) {
+            if desc.descriptor_type != 0x22 {
                 continue;
             }
 
