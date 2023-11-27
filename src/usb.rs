@@ -1492,7 +1492,7 @@ impl TryFrom<&[u8]> for HidDescriptor {
             country_code: value[4],
             descriptors: value[5..]
                 .chunks_exact(3)
-                .map(|d| HidReportDescriptor::try_from(d))
+                .map(HidReportDescriptor::try_from)
                 .collect::<error::Result<Vec<_>>>()?,
         })
     }
