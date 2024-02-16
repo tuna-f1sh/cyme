@@ -293,6 +293,11 @@ pub mod profiler {
                             cdc.string = get_descriptor_string(string_index, handle);
                         }
                     }
+                    usb::ClassDescriptor::Midi(ref mut md) => {
+                        if let Some(string_index) = md.string_index {
+                            md.string = get_descriptor_string(string_index, handle);
+                        }
+                    }
                     _ => (),
                 }
             }
@@ -989,6 +994,11 @@ pub mod names {
         usb_ids::HidCountryCode::from_id(id).map(|v| v.name().to_owned())
     }
 
+    /// Get name of [`usb_ids::VideoControl`] from id
+    pub fn videoterminal(id: u16) -> Option<String> {
+        usb_ids::VideoTerminal::from_id(id).map(|v| v.name().to_owned())
+    }
+
     /// Wrapper around [`crate::udev::hwdb_get`] so that it can be 'used' without feature
     ///
     /// Returns `Err` not `None` if feature is not enabled so that with unwrap_or hwdb can still return `None` if no match in db
@@ -1014,6 +1024,87 @@ pub mod display {
     const TREE_LSUSB_BUS: &str = "/:  ";
     const TREE_LSUSB_DEVICE: &str = "|__ ";
     const TREE_LSUSB_SPACE: &str = "    ";
+
+    const CAMCTRLNAMES: [&str; 22] = [
+        "Scanning Mode",
+        "Auto-Exposure Mode",
+        "Auto-Exposure Priority",
+        "Exposure Time (Absolute)",
+        "Exposure Time (Relative)",
+        "Focus (Absolute)",
+        "Focus (Relative)",
+        "Iris (Absolute)",
+        "Iris (Relative)",
+        "Zoom (Absolute)",
+        "Zoom (Relative)",
+        "PanTilt (Absolute)",
+        "PanTilt (Relative)",
+        "Roll (Absolute)",
+        "Roll (Relative)",
+        "Reserved",
+        "Reserved",
+        "Focus, Auto",
+        "Privacy",
+        "Focus, Simple",
+        "Window",
+        "Region of Interest",
+        ];
+
+    const CTRLNAMES: [&str; 19] = [
+        "Brightness",
+        "Contrast",
+        "Hue",
+        "Saturation",
+        "Sharpness",
+        "Gamma",
+        "White Balance Temperature",
+        "White Balance Component",
+        "Backlight Compensation",
+        "Gain",
+        "Power Line Frequency",
+        "Hue, Auto",
+        "White Balance Temperature, Auto",
+        "White Balance Component, Auto",
+        "Digital Multiplier",
+        "Digital Multiplier Limit",
+        "Analog Video Standard",
+        "Analog Video Lock Status",
+        "Contrast, Auto",
+    ];
+
+    const ENCTRLNAMES: [&str; 22] = [
+        "Scanning Mode",
+        "Auto-Exposure Mode",
+        "Auto-Exposure Priority",
+        "Exposure Time (Absolute)",
+        "Exposure Time (Relative)",
+        "Focus (Absolute)",
+        "Focus (Relative)",
+        "Iris (Absolute)",
+        "Iris (Relative)",
+        "Zoom (Absolute)",
+        "Zoom (Relative)",
+        "PanTilt (Absolute)",
+        "PanTilt (Relative)",
+        "Roll (Absolute)",
+        "Roll (Relative)",
+        "Reserved",
+        "Reserved",
+        "Focus, Auto",
+        "Privacy",
+        "Focus, Simple",
+        "Window",
+        "Region of Interest",
+        ];
+
+    const STDNAMES: [&str; 6] = [
+        "None",
+        "NTSC - 525/60",
+        "PAL - 625/50",
+        "SECAM - 625/50",
+        "NTSC - 625/50",
+        "PAL - 525/60",
+    ];
 
     /// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
     pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
@@ -1182,12 +1273,12 @@ pub mod display {
         );
         println!("  bMaxPacketSize0      {:3}", device_extra.max_packet_size);
         println!(
-            "  idVendor          {:#06x} {}",
+            "  idVendor          0x{:04x} {}",
             device.vendor_id.unwrap_or(0),
             device_extra.vendor.as_ref().unwrap_or(&String::new())
         );
         println!(
-            "  idProduct         {:#06x} {}",
+            "  idProduct         0x{:04x} {}",
             device.product_id.unwrap_or(0),
             device_extra.product_name.as_ref().unwrap_or(&String::new())
         );
@@ -1220,17 +1311,17 @@ pub mod display {
 
     fn print_config(config: &usb::USBConfiguration) {
         println!("  Configuration Descriptor:");
-        println!("    bLength              {:3}", config.length);
+        println!("    bLength              {:5}", config.length);
         println!("    bDescriptorType        2"); // type 2 for configuration
-        println!("    wTotalLength      {:#06x}", config.total_length);
-        println!("    bNumInterfaces       {:3}", config.interfaces.len());
-        println!("    bConfigurationValue  {:3}", config.number);
+        println!("    wTotalLength       0x{:04x}", config.total_length);
+        println!("    bNumInterfaces       {:5}", config.interfaces.len());
+        println!("    bConfigurationValue  {:5}", config.number);
         println!(
-            "    iConfiguration       {:3} {}",
+            "    iConfiguration       {:5} {}",
             config.string_index, config.name
         );
         println!(
-            "    bmAttributes:       0x{:02x}",
+            "    bmAttributes         0x{:02x}",
             config.attributes_value()
         );
         // no attributes is bus powered
@@ -1251,7 +1342,7 @@ pub mod display {
             }
         }
         println!(
-            "    MaxPower           {:>5}{}",
+            "    MaxPower           {:5}{}",
             config.max_power.value, config.max_power.unit
         );
 
@@ -1268,11 +1359,8 @@ pub mod display {
                     usb::DescriptorType::Encrypted(enc) => {
                         dump_encryption_type(enc);
                     }
-                    usb::DescriptorType::Unknown(junk) => {
+                    usb::DescriptorType::Unknown(junk) | usb::DescriptorType::Junk(junk) => {
                         dump_unrecognised(junk, 4);
-                    }
-                    usb::DescriptorType::Junk(junk) => {
-                        dump_junk(junk, 4);
                     }
                     _ => (),
                 }
@@ -1326,6 +1414,7 @@ pub mod display {
                             usb::ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid),
                             usb::ClassDescriptor::Printer(pd) => dump_printer_desc(pd),
                             usb::ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, 6),
+                            usb::ClassDescriptor::Midi(md) => dump_midistreaming_interface(md),
                             usb::ClassDescriptor::Generic(cc, gd) => {
                                 match cc {
                                     Some((usb::ClassCode::Audio, 1, p)) => {
@@ -1335,10 +1424,14 @@ pub mod display {
                                         dump_audiostreaming_interface(gd, *p);
                                     }
                                     Some((usb::ClassCode::Audio, 3, _)) => {
-                                        dump_midistreaming_interface(gd);
+                                        if let Ok(md) = usb::MidiDescriptor::try_from(gd.to_owned()) {
+                                            dump_midistreaming_interface(&md);
+                                        }
                                     }
-                                    Some((usb::ClassCode::Video, 1, _)) => {
-                                        dump_videocontrol_interface(gd);
+                                    Some((usb::ClassCode::Video, 1, p)) => {
+                                        if let Ok(vcd) = usb::VideoControlDescriptor::try_from(gd.to_owned()) {
+                                            dump_videocontrol_interface(&vcd, *p);
+                                        }
                                     }
                                     Some((usb::ClassCode::Video, 2, _)) => {
                                         dump_videostreaming_interface(gd);
@@ -1348,17 +1441,14 @@ pub mod display {
                                     }
                                     _ => {
                                         let junk = Vec::from(cd.to_owned());
-                                        dump_junk(&junk, 6);
+                                        dump_unrecognised(&junk, 6);
                                     }
                                 }
                             }
                         }
                     }
-                    usb::DescriptorType::Unknown(junk) => {
+                    usb::DescriptorType::Unknown(junk) | usb::DescriptorType::Junk(junk) => {
                         dump_unrecognised(junk, 6);
-                    }
-                    usb::DescriptorType::Junk(junk) => {
-                        dump_junk(junk, 6);
                     }
                     _ => (),
                 }
@@ -1371,7 +1461,7 @@ pub mod display {
         println!("        bLength              {:3}", endpoint.length);
         println!("        bDescriptorType        5"); // type 5 for endpoint
         println!(
-            "        bEndpointAddress    {:#04x} EP {} {}",
+            "        bEndpointAddress    0x{:04x} EP {} {}",
             endpoint.address.address,
             endpoint.address.number,
             endpoint.address.direction.to_string().to_uppercase()
@@ -1384,7 +1474,7 @@ pub mod display {
         println!("          Sync Type              {:?}", endpoint.sync_type);
         println!("          Usage Type             {:?}", endpoint.usage_type);
         println!(
-            "        wMaxPacketSize    {:#06x} {} bytes",
+            "        wMaxPacketSize    0x{:04x} {} bytes",
             endpoint.max_packet_size,
             endpoint.max_packet_string()
         );
@@ -1485,11 +1575,8 @@ pub mod display {
                             _ => (),
                         }
                     }
-                    usb::DescriptorType::Unknown(junk) => {
+                    usb::DescriptorType::Unknown(junk) | usb::DescriptorType::Junk(junk) => {
                         dump_unrecognised(junk, 8);
-                    }
-                    usb::DescriptorType::Junk(junk) => {
-                        dump_junk(junk, 8);
                     }
                     _ => (),
                 }
@@ -1497,16 +1584,18 @@ pub mod display {
         }
     }
 
-    fn dump_junk(extra: &[u8], indent: usize) {
-        println!(
-            "{:^indent$}junk at descriptor end: {}",
-            "",
-            extra
-                .iter()
-                .map(|b| format!("{:02x}", b))
-                .collect::<Vec<String>>()
-                .join(" ")
-        )
+    fn dump_junk(extra: &[u8], indent: usize, reported_len: usize, expected_len: usize) {
+        if reported_len > expected_len && extra.len() >= reported_len {
+            println!(
+                "{:^indent$}junk at descriptor end: {}",
+                "",
+                extra[expected_len..reported_len]
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            )
+        }
     }
 
     fn dump_unrecognised(extra: &[u8], indent: usize) {
@@ -1536,22 +1625,20 @@ pub mod display {
             _ => "Invalid",
         };
 
-        println!("    MIDIStreaming Endpoint Descriptor:");
-        println!("      bLength              {:3}", gd.length);
-        println!("      bDescriptorType      {:3}", gd.descriptor_type);
-        println!("      wDescriptorSubType   {:3} {}", gd.descriptor_subtype, subtype_string);
+        println!("        MIDIStreaming Endpoint Descriptor:");
+        println!("          bLength              {:5}", gd.length);
+        println!("          bDescriptorType      {:5}", gd.descriptor_type);
+        println!("          wDescriptorSubType   {:5} {}", gd.descriptor_subtype, subtype_string);
 
         if let Some(data) = gd.data.as_ref() {
-            if data.len() < 2 {
-                println!("      ** UNAVAILABLE **");
-            } else {
+            if data.len() >= 2 {
                 let num_jacks: usize = data[0] as usize;
-                println!("      bNumEmbMIDIJack      {:3}", num_jacks);
+                println!("          bNumEmbMIDIJack      {:5}", num_jacks);
                 for (i, jack_id) in data[1..num_jacks].iter().enumerate() {
                     println!("          baAssocJackID({:2})   {:3}", i, jack_id);
                 }
             }
-            dump_junk(&data, 8);
+            dump_junk(&data, 8, gd.expected_data_length(), 1+data[0] as usize);
         }
     }
 
@@ -1715,7 +1802,7 @@ pub mod display {
                 } else {
                     println!("            iIPPPrinterUUID       {:3}", desc.uuid_string_index);
                 }
-                print!("            wBasicCapabilities   {:#04x} ", desc.capabilities);
+                print!("            wBasicCapabilities   0x{:04x} ", desc.capabilities);
 
                 // capabilities
                 if desc.capabilities & 0x0001 != 0 {
@@ -1773,46 +1860,335 @@ pub mod display {
         // TODO dump_audio_subtype(subtype, gd);
     }
 
-    // TODO
-    fn dump_midistreaming_interface(gd: &usb::GenericDescriptor) {
+    fn dump_midistreaming_interface(md: &usb::MidiDescriptor) {
+        let jack_types = |t: u8| match t {
+            0x00 => "Undefined",
+            0x01 => "Embedded",
+            0x02 => "External",
+            _ => "Invalid",
+        };
+
         println!("    MIDIStreaming Interface Descriptor:");
-        println!("      bLength              {:3}", gd.length);
-        println!("      bDescriptorType      {:3}", gd.descriptor_type);
-        println!("      bDescriptorSubType   {:3} ", gd.descriptor_subtype);
+        println!("      bLength              {:5}", md.length);
+        println!("      bDescriptorType      {:5}", md.descriptor_type);
+        print!("      bDescriptorSubType   {:5} ", md.midi_subtype.to_owned() as u8);
+
+        match md.midi_subtype {
+            usb::MidiInterface::Header => {
+                println!("(HEADER)");
+                if md.data.len() >= 4 {
+                    let total_length = u16::from_le_bytes([md.data[2], md.data[3]]);
+                    println!("        bcdADC              {:2x}.{:02x}", md.data[1], md.data[0]);
+                    println!("        wTotalLength       0x{:04x}", total_length);
+                }
+                dump_junk(&md.data, 8, md.length as usize - 3, 4);
+            }
+            usb::MidiInterface::InputJack => {
+                println!("(MIDI_IN_JACK)");
+                if md.data.len() >= 3 {
+                    println!("        bJackType           {:5} {}", md.data[0], jack_types(md.data[0]));
+                    println!("        bJackID             {:5}", md.data[1]);
+                    println!("        iJack               {:5} {}", md.data[2], md.string.as_ref().unwrap_or(&String::new()));
+                }
+                dump_junk(&md.data, 8, md.length as usize - 3, 3);
+            }
+            usb::MidiInterface::OutputJack => {
+                println!("(MIDI_OUT_JACK)");
+                if md.data.len() >= md.length as usize - 3 {
+                    println!("        bJackType           {:5} {}", md.data[0], jack_types(md.data[0]));
+                    println!("        bJackID             {:5}", md.data[1]);
+                    println!("        bNrInputPins        {:5}", md.data[2]);
+
+                    for (i, b) in md.data[3..].chunks(2).enumerate() {
+                        if i == md.data[2] as usize {
+                            break;
+                        }
+                        println!("        baSourceID({:2})     {:5}", i, b[0]);
+                        println!("        baSourcePin({:2})    {:5}", i, b[1]);
+                    }
+
+                    println!("        iJack               {:5} {}", md.data[3+md.data[2] as usize], md.string.as_ref().unwrap_or(&String::new()));
+                    dump_junk(&md.data, 8, md.length as usize - 3, 4+md.data[2] as usize);
+                }
+            }
+            usb::MidiInterface::Element => {
+                println!("(ELEMENT)");
+                if md.data.len() >= md.length as usize - 3 {
+                    let num_inputs = md.data[1] as usize;
+                    println!("        bElementID          {:5}", md.data[0]);
+                    println!("        bNrInputPins        {:5}", num_inputs);
+                    for (i, b) in md.data[2..].chunks(2).enumerate() {
+                        if i == num_inputs as usize {
+                            break;
+                        }
+                        println!("        baSourceID({:2})     {:5}", i, b[0]);
+                        println!("        baSourcePin({:2})    {:5}", i, b[1]);
+                    }
+                    let j = 2 + num_inputs * 2;
+                    println!("        bNrOutputPins       {:5}", md.data[j]);
+                    println!("        bInTerminalLink     {:5}", md.data[j+1]);
+                    println!("        bOutTerminalLink    {:5}", md.data[j+2]);
+                    println!("        bElCapsSize         {:5}", md.data[j+3]);
+                    let capsize = md.data[j+3] as usize;
+                    let mut caps: u16 = 0;
+                    for j in 0..capsize {
+                        caps |= (md.data[j + 6 + num_inputs * 2] as u16) << (j * 8);
+                    }
+                    println!("        bmElementCaps  0x{:08x}", caps);
+                    if caps & 0x01 != 0 {
+                        println!("          Undefined");
+                    }
+                    if caps & 0x02 != 0 {
+                        println!("          MIDI Clock");
+                    }
+                    if caps & 0x04 != 0 {
+                        println!("          MTC (MIDI Time Code)");
+                    }
+                    if caps & 0x08 != 0 {
+                        println!("          MMC (MIDI Machine Control)");
+                    }
+                    if caps & 0x10 != 0 {
+                        println!("          GM1 (General MIDI v.1)");
+                    }
+                    if caps & 0x20 != 0 {
+                        println!("          GM2 (General MIDI v.2)");
+                    }
+                    if caps & 0x40 != 0 {
+                        println!("          GS MIDI Extension");
+                    }
+                    if caps & 0x80 != 0 {
+                        println!("          XG MIDI Extension");
+                    }
+                    if caps & 0x0100 != 0 {
+                        println!("          EFX");
+                    }
+                    if caps & 0x0200 != 0 {
+                        println!("          MIDI Patch Bay");
+                    }
+                    if caps & 0x0400 != 0 {
+                        println!("          DLS1 (Downloadable Sounds Level 1)");
+                    }
+                    if caps & 0x0800 != 0 {
+                        println!("          DLS2 (Downloadable Sounds Level 2)");
+                    }
+
+                    println!("        iElement            {:5} {}", md.data[2+md.data[1] as usize], md.string.as_ref().unwrap_or(&String::new()));
+                    dump_junk(&md.data, 8, md.length as usize - 3, j + 1 as usize);
+                }
+            }
+            _ => {
+                println!();
+                println!("        Invalid desc subtype: {}", md.data.iter().map(|b| format!("{:02x}", b)).collect::<Vec<String>>().join(" "));
+            }
+        }
     }
 
-    fn dump_videocontrol_interface(gd: &usb::GenericDescriptor) {
+    fn dump_videocontrol_interface(vcd: &usb::VideoControlDescriptor, protocol: u8) {
         println!("    VideoControl Interface Descriptor:");
-        println!("      bLength              {:3}", gd.length);
-        println!("      bDescriptorType      {:3}", gd.descriptor_type);
-        print!("      bDescriptorSubType   {:3} ", gd.descriptor_subtype);
+        println!("      bLength              {:3}", vcd.length);
+        println!("      bDescriptorType      {:3}", vcd.descriptor_type);
+        print!("      bDescriptorSubType   {:3} ", vcd.descriptor_subtype);
 
-        if let Some(data) = &gd.data {
-            match gd.descriptor_subtype {
-                0x01 => {
-                    println!("(HEADER)");
-                    let freq = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
-                    println!("        bcdUVC              {:x}.{:02x}", data[1], data[0]);
-                    println!("        wTotalLength      {:#04x}", u16::from_le_bytes([data[2], data[3]]));
-                    println!("        dwClockFrequency    {:5}.{:6}MHz", freq / 1000000, freq % 1000000);
-                    println!("        bInCollection       {:3}", data[8]);
-                    for (i, b) in data[9..].iter().enumerate() {
-                        println!("        baInterfaceNr({:2})   {:3}", i, b);
+        match usb::VideoControlInterface::from(vcd.descriptor_subtype) {
+            usb::VideoControlInterface::Header => {
+                println!("(HEADER)");
+                if vcd.data.len() >= 10 {
+                    let n = vcd.data[8] as usize;
+                    let freq = u32::from_le_bytes([vcd.data[4], vcd.data[5], vcd.data[6], vcd.data[7]]);
+                    println!("        bcdUVC              {:2x}.{:02x}", vcd.data[1], vcd.data[0]);
+                    println!("        wTotalLength       0x{:04x}", u16::from_le_bytes([vcd.data[2], vcd.data[3]]));
+                    println!("        dwClockFrequency    {:5}.{:06}MHz", freq / 1000000, freq % 1000000);
+                    println!("        bInCollection       {:5}", n);
+                    for (i, b) in vcd.data[9..].iter().enumerate() {
+                        if i == n as usize {
+                            break;
+                        }
+                        println!("        baInterfaceNr({:2})   {:5}", i, b);
                     }
-                    dump_junk(&data, 8);
+
+                    dump_junk(&vcd.data, 8, vcd.length as usize - 3, 9+n);
                 }
-                0x02 => {
-                    println!("(INPUT_TERMINAL)");
-                    println!("        bTerminalID         {:3}", data[0]);
-                    println!("        wTerminalType     {:#04x}", u16::from_le_bytes([data[1], data[2]]));
-                    println!("        bAssocTerminal      {:3}", data[3]);
-                    println!("        iTerminal           {:3}", data[4]);
-                    dump_junk(&data, 8);
+            }
+            usb::VideoControlInterface::InputTerminal => {
+                println!("(INPUT_TERMINAL)");
+                if vcd.data.len() >= 10 {
+                    let term_type = u16::from_le_bytes([vcd.data[1], vcd.data[2]]);
+                    let mut n = if term_type == 0x0201 { 7 } else { 0 };
+                    println!("        bTerminalID         {:5}", vcd.data[0]);
+                    println!("        wTerminalType      0x{:04x} {}", term_type, super::names::videoterminal(term_type).unwrap_or(String::new()));
+                    println!("        bAssocTerminal      {:5}", vcd.data[3]);
+                    println!("        iTerminal           {:5} {}", vcd.data[4], vcd.string.as_ref().unwrap_or(&String::new()));
+
+                    if term_type == 0x0201 {
+                        n += vcd.data[11] as usize;
+                        println!("        wObjectiveFocalLengthMin  {:5}", u16::from_le_bytes([vcd.data[5], vcd.data[6]]));
+                        println!("        wObjectiveFocalLengthMax  {:5}", u16::from_le_bytes([vcd.data[7], vcd.data[8]]));
+                        println!("        wOcularFocalLength        {:5}", u16::from_le_bytes([vcd.data[9], vcd.data[10]]));
+                        println!("        bControlSize              {:5}", vcd.data[11]);
+
+                        let mut controls: u32 = 0;
+                        for i in 0..3 {
+                            if i < vcd.data[11] as usize {
+                                controls = (controls << 8) | vcd.data[5+n-i-1] as u32; 
+                            }
+                        }
+                        println!("        bmControls           0x{:08x}", controls);
+
+                        if protocol == 0x01 {
+                            for i in 0..22 {
+                                if (controls >> i) & 1 != 0 {
+                                    println!("         {}", CAMCTRLNAMES[i]); // Replace with your Rust lookup approach
+                                }
+                            }
+                        } else {
+                            for i in 0..19 {
+                                if (controls >> i) & 1 != 0 {
+                                    println!("         {}", CAMCTRLNAMES[i]); // Replace with your Rust lookup approach
+                                }
+                            }
+                        }
+                    }
+
+                    dump_junk(&vcd.data, 8, vcd.length as usize - 3, 5+n);
+                } else {
+                    println!("      Warning: Descriptor too short");
                 }
-                _ => {
-                    println!("(unknown)");
-                    println!("        Invalid desc subtype: {}", data.iter().map(|b| format!("{:02x}", b)).collect::<Vec<String>>().join(" "));
+            }
+            usb::VideoControlInterface::OutputTerminal => {
+                println!("(OUTPUT_TERMINAL)");
+                if vcd.data.len() >= 6 {
+                    let term_type = u16::from_le_bytes([vcd.data[1], vcd.data[2]]);
+                    println!("        bTerminalID         {:5}", vcd.data[0]);
+                    println!("        wTerminalType      0x{:04x} {}", term_type, super::names::videoterminal(term_type).unwrap_or(String::new()));
+                    println!("        bAssocTerminal      {:5}", vcd.data[3]);
+                    println!("        bSourceID           {:5}", vcd.data[4]);
+                    println!("        iTerminal           {:5} {}", vcd.data[5], vcd.string.as_ref().unwrap_or(&String::new()));
+                } else {
+                    println!("      Warning: Descriptor too short");
                 }
+
+                dump_junk(&vcd.data, 8, vcd.length as usize - 3, 6);
+            }
+            usb::VideoControlInterface::SelectorUnit => {
+                println!("(SELECTOR_UNIT)");
+                if vcd.data.len() >= 4 {
+                    let pins = vcd.data[1] as usize;
+                    println!("        bUnitID             {:5}", vcd.data[0]);
+                    println!("        bNrInPins           {:5}", pins);
+                    for (i, b) in vcd.data[2..].iter().enumerate() {
+                        if i == pins as usize {
+                            break;
+                        }
+                        println!("        baSourceID({:2})        {:5}", i, b);
+                    }
+                    println!("        iSelector           {:5} {}", vcd.data[2+pins], vcd.string.as_ref().unwrap_or(&String::new()));
+
+                    dump_junk(&vcd.data, 8, vcd.length as usize - 3, 3 + pins);
+                } else {
+                    println!("      Warning: Descriptor too short");
+                }
+            }
+            usb::VideoControlInterface::ProcessingUnit => {
+                println!("(PROCESSING_UNIT)");
+                if vcd.data.len() >= 9 {
+                    let n = vcd.data[4] as usize;
+                    println!("        bUnitID             {:5}", vcd.data[0]);
+                    println!("        bSourceID           {:5}", vcd.data[1]);
+                    println!("        wMaxMultiplier      {:5}", u16::from_le_bytes([vcd.data[2], vcd.data[3]]));
+                    println!("        bControlSize        {:5}", n);
+
+                    let mut controls: u32 = 0;
+                    for i in 0..3 {
+                        if i < n as usize {
+                            controls = (controls << 8) | vcd.data[5 + n - i - 1] as u32; 
+                        }
+                    }
+                    println!("        bmControls     0x{:08x}", controls);
+                    if protocol == 0x01 {
+                        for i in 0..19 {
+                            if (controls >> i) & 1 != 0 {
+                                println!("         {}", CTRLNAMES[i]); // Replace with your Rust lookup approach
+                            }
+                        }
+                    } else {
+                        for i in 0..18 {
+                            if (controls >> i) & 1 != 0 {
+                                println!("         {}", CTRLNAMES[i]); // Replace with your Rust lookup approach
+                            }
+                        }
+                    }
+                    let stds = vcd.data[6 + n] as usize;
+                    println!("        iProcessing         {:5} {}", vcd.data[5 + n], vcd.string.as_ref().unwrap_or(&String::new()));
+                    println!("        bmVideoStandards     0x{:02x}", stds);
+                    for i in 0..6 {
+                        if (stds >> i) & 1 != 0 {
+                            println!("         {}", STDNAMES[i]); // Replace with your Rust lookup approach
+                        }
+                    }
+                } else {
+                    println!("      Warning: Descriptor too short");
+                }
+            }
+            usb::VideoControlInterface::ExtensionUnit => {
+                println!("(EXTENSION_UNIT)");
+                if vcd.data.len() >= 21 {
+                    let p = vcd.data[18] as usize;
+                    let n = vcd.data[19 + p] as usize;
+                    println!("        bUnitID             {:5}", vcd.data[0]);
+                    println!("        guidExtensionCode         {}", get_guid(&vcd.data[1..17]));
+                    println!("        bNumControls        {:5}", vcd.data[17]);
+                    println!("        bNrInPins           {:5}", vcd.data[18]);
+
+                    if vcd.data.len() >= 21 + p + n {
+                        for (i, b) in vcd.data[19..19+p].iter().enumerate() {
+                            println!("        baSourceID({:2})      {:5}", i, b);
+                        }
+                        println!("        bControlSize        {:5}", vcd.data[19+p]);
+                        for (i, b) in vcd.data[20+p..20+p+n].iter().enumerate() {
+                            println!("        bmControls({:2})       0x{:02x}", i, b);
+                        }
+                        println!("        iExtension          {:5} {}", vcd.data[20 + p + n], vcd.string.as_ref().unwrap_or(&String::new()));
+                    }
+
+                    dump_junk(&vcd.data, 8, vcd.length as usize - 3, 21 + p + n);
+                } else {
+                    println!("      Warning: Descriptor too short");
+                }
+            }
+            usb::VideoControlInterface::EncodingUnit => {
+                println!("(ENCODING_UNIT)");
+                if vcd.data.len() >= 10 {
+                    println!("        bUnitID             {:5}", vcd.data[0]);
+                    println!("        bSourceID           {:5}", vcd.data[1]);
+                    println!("        iEncoding           {:5} {}", vcd.data[2], vcd.string.as_ref().unwrap_or(&String::new()));
+                    println!("        bControlSize        {:5}", vcd.data[3]);
+
+                    let mut controls: u32 = 0;
+                    for i in 0..3 {
+                        controls = (controls << 8) | vcd.data[6 - i] as u32; 
+                    }
+                    println!("        bmControls              0x{:08x}", controls);
+                    for i in 0..20 {
+                        if (controls >> i) & 1 != 0 {
+                            println!("         {}", ENCTRLNAMES[i]); // Replace with your Rust lookup approach
+                        }
+                    }
+                    for i in 0..3 {
+                        controls = (controls << 8) | vcd.data[9 - i] as u32;
+                    }
+                    println!("        bmControlsRuntime       0x{:08x}", controls);
+                    for i in 0..20 {
+                        if (controls >> i) & 1 != 0 {
+                            println!("         {}", ENCTRLNAMES[i]);
+                        }
+                    }
+                } else {
+                    println!("      Warning: Descriptor too short");
+                }
+            }
+            _ => {
+                println!("(unknown)");
+                println!("        Invalid desc subtype: {}", vcd.data.iter().map(|b| format!("{:02x}", b)).collect::<Vec<String>>().join(" "));
             }
         }
     }
@@ -1823,23 +2199,264 @@ pub mod display {
         println!("      bDescriptorType      {:3}", gd.descriptor_type);
         print!("      bDescriptorSubType   {:3} ", gd.descriptor_subtype);
 
+        let color_primatives = |c: u8| match c {
+            1 => "BT.709,sRGB",
+            2 => "BT.470-2 (M)",
+            3 => "BT.470-2 (B,G)",
+            4 => "SMPTE 170M",
+            5 => "SMPTE 240M",
+            _ => "Unspecified",
+        };
+
+        let transfer_characteristics = |c: u8| match c {
+            1 => "BT.709",
+            2 => "BT.470-2 (M)",
+            3 => "BT.470-2 (B,G)",
+            4 => "SMPTE 170M",
+            5 => "SMPTE 240M",
+            6 => "Linear",
+            7 => "sRGB",
+            _ => "Unspecified",
+        };
+
+         let matrix_coefficients = |c: u8| match c {
+            1 => "BT.709",
+            2 => "FCC",
+            3 => "BT.470-2 (B,G)",
+            4 => "SMPTE 170M (BT.601)",
+            5 => "SMPTE 240M",
+            _ => "Unspecified",
+         };
+
+         let field_pattern = |f: u8| match f {
+             0 => "Field 1 only",
+             1 => "Field 2 only",
+             2 => "Regular pattern of fields 1 and 2",
+             3 => "Random pattern of fields 1 and 2",
+             _ => "Invalid",
+         };
+
         if let Some(data) = &gd.data {
             match gd.descriptor_subtype {
                 0x01 => {
                     println!("(INPUT_HEADER)");
-                    println!("        bNumFormats                     {:3}", data[0]);
-                    println!("        wTotalLength                  {:#04x}", u16::from_le_bytes([data[1], data[2]]));
-                    println!("        bEndpointAddress              {:#02x}  EP {} {}", data[3], data[3] & 0x0f, if data[3] & 0x80 != 0 { "IN" } else { "OUT" });
-                    println!("        bmInfo                          {:3}", data[4]);
-                    println!("        bTerminalLink                   {:3}", data[5]);
-                    println!("        bStillCaptureMethod             {:3}", data[6]);
-                    println!("        bTriggerSupport                 {:3}", data[7]);
-                    println!("        bTriggerUsage                   {:3}", data[8]);
-                    println!("        bControlSize                    {:3}", data[9]);
-                    for (i, b) in data[10..].iter().enumerate() {
-                        println!("        bmaControls({:2})               {:3}", i, b);
+                    if data.len() >= 11 {
+                        let formats = data[0];
+                        let control_size = data[9];
+                        println!("        bNumFormats                     {:5}", formats);
+                        println!("        wTotalLength                   0x{:04x}", u16::from_le_bytes([data[1], data[2]]));
+                        println!("        bEndpointAddress                 0x{:02x}  EP {} {}", data[3], data[3] & 0x0f, if data[3] & 0x80 != 0 { "IN" } else { "OUT" });
+                        println!("        bmInfo                          {:5}", data[4]);
+                        println!("        bTerminalLink                   {:5}", data[5]);
+                        println!("        bStillCaptureMethod             {:5}", data[6]);
+                        println!("        bTriggerSupport                 {:5}", data[7]);
+                        println!("        bTriggerUsage                   {:5}", data[8]);
+                        println!("        bControlSize                    {:5}", control_size);
+                        for (i, b) in data[10..].chunks(control_size as usize).enumerate() {
+                            if i == formats as usize {
+                                break;
+                            }
+                            println!("        bmaControls({:2})                 {:5}", i, b[0]);
+                        }
+
+                        dump_junk(&data, 8, gd.expected_data_length(), 10 + formats as usize * control_size as usize);
                     }
-                    dump_junk(&data, 8);
+                }
+                0x02 => {
+                    println!("(OUTPUT_HEADER)");
+                    if data.len() >= 7 {
+                        let formats = data[0];
+                        let control_size = data[8];
+                        println!("        bNumFormats                     {:5}", formats);
+                        println!("        wTotalLength                  0x{:04x}", u16::from_le_bytes([data[1], data[2]]));
+                        println!("        bEndpointAddress                0x{:02x}  EP {} {}", data[3], data[3] & 0x0f, if data[3] & 0x80 != 0 { "IN" } else { "OUT" });
+                        println!("        bTerminalLink                   {:5}", data[4]);
+                        println!("        bControlSize                    {:5}", control_size);
+                        for (i, b) in data[6..].chunks(control_size as usize).enumerate() {
+                            if i == formats as usize {
+                                break;
+                            }
+                            println!("        bmaControls({:2})                 {:5}", i, b[0]);
+                        }
+
+                        dump_junk(&data, 8, gd.expected_data_length(), 6 + formats as usize * control_size as usize);
+                    }
+                }
+                0x03 => {
+                    println!("(STILL_IMAGE_FRAME)");
+                    if data.len() >= 3 {
+                        let image_num = data[1] as usize;
+                        let compression_num = data[2 + image_num * 4];
+                        println!("        bEndpointAddress              0x{:02x}  EP {} {}", data[0], data[0] & 0x0f, if data[0] & 0x80 != 0 { "IN" } else { "OUT" });
+                        println!("        bNumImageSizePatterns          {:3}", image_num);
+                        for (i, b) in data[2..].chunks(4).enumerate() {
+                            if i == image_num {
+                                break;
+                            }
+                            println!("        wWidth({:2})                   {:5}", i, u16::from_le_bytes([b[0], b[1]]));
+                            println!("        wHeight({:2})                  {:5}", i, u16::from_le_bytes([b[2], b[3]]));
+                        }
+                        println!("        bNumCompressionPatterns        {:3}", compression_num);
+                        if data.len() >= 3 + image_num * 4 + compression_num as usize {
+                            for (i, b) in data[3 + image_num * 4..].iter().enumerate() {
+                                if i == compression_num as usize {
+                                    break;
+                                }
+                                println!("        bCompression({:2})             {:5}", i, b);
+                            }
+                        }
+
+                        dump_junk(&data, 8, gd.expected_data_length(), 3 + image_num * 4 + compression_num as usize);
+                    }
+                }
+                0x04 | 0x010 => {
+                    let len = if gd.descriptor_subtype == 0x04 {
+                        println!("(FORMAT_UNCOMPRESSED)");
+                        24
+                    } else {
+                        println!("(FORMAT_FRAME_BASED)");
+                        25
+                    };
+
+                    if data.len() >= len {
+                        let flags = data[22];
+                        println!("        bFormatIndex                    {:3}", data[0]);
+                        println!("        bNumFrameDescriptors            {:3}", data[1]);
+                        println!("        guidFormat                      {}", get_guid(&data[2..18]));
+                        println!("        bBitsPerPixel                   {:3}", data[18]);
+                        println!("        bDefaultFrameIndex              {:3}", data[19]);
+                        println!("        bAspectRatioX                   {:3}", data[20]);
+                        println!("        bAspectRatioY                   {:3}", data[21]);
+                        println!("        bmInterlaceFlags                0x{:02x}", flags);
+                        println!("        bCopyProtect                    {:3}", data[23]);
+                        println!("          Interlaced stream or variable: {}", if flags & 0x01 != 0 { "Yes" } else { "No" });
+                        println!("          Fields per frame: {}", if flags & 0x02 != 0 { "1" } else { "2" });
+                        println!("          Field 1 first: {}", if flags & 0x04 != 0 { "Yes" } else { "No" });
+                        println!("          Field pattern: {}", field_pattern((flags >> 4) & 0x03));
+                        if gd.descriptor_subtype == 0x10 {
+                            println!("        bVariableSize                  {:3}", data.get(24).unwrap_or(&0));
+                        }
+                    }
+
+                    dump_junk(&data, 8, gd.expected_data_length(), len);
+                }
+                0x05 | 0x07 | 0x11 => {
+                    let n = if gd.descriptor_subtype == 0x05 {
+                        println!("(FRAME_UNCOMPRESSED)");
+                        22
+                    } else if gd.descriptor_subtype == 0x07 {
+                        println!("(FRAME_MJPEG)");
+                        22
+                    } else {
+                        println!("(FRAME_FRAME_BASED)");
+                        18
+                    };
+
+                    if data.len() >= 23 {
+                        let flags = data[1];
+                        let len = if data[n] != 0 {
+                            23 + data[n] as usize * 4
+                        } else {
+                            35
+                        };
+                        println!("        bFrameIndex                     {:5}", data[0]);
+                        println!("        bmCapabilities                   0x{:02x}", flags);
+                        if flags & 0x01 != 0 {
+                            println!("          Still image supported");
+                        } else {
+                            println!("          Still image unsupported");
+                        }
+                        if flags & 0x02 != 0 {
+                            println!("          Fixed frame-rate");
+                        }
+                        println!("        wWidth                          {:5}", u16::from_le_bytes([data[2], data[3]]));
+                        println!("        wHeight                         {:5}", u16::from_le_bytes([data[4], data[5]]));
+                        println!("        dwMinBitRate                {:9}", u32::from_le_bytes([data[6], data[7], data[8], data[9]]));
+                        println!("        dwMaxBitRate                {:9}", u32::from_le_bytes([data[10], data[11], data[12], data[13]]));
+                        if gd.descriptor_subtype == 0x11 {
+                            println!("        dwDefaultFrameInterval      {:9}", u32::from_le_bytes([data[14], data[15], data[16], data[17]]));
+                            println!("        bFrameIntervalType              {:5}", data[18]);
+                            println!("        dwBytesPerLine              {:9}", u32::from_le_bytes([data[19], data[20], data[21], data[22]]));
+                        } else {
+                            println!("        dwMaxVideoFrameBufferSize   {:9}", u32::from_le_bytes([data[14], data[15], data[16], data[17]]));
+                            println!("        dwDefaultFrameInterval      {:9}", u32::from_le_bytes([data[18], data[19], data[20], data[21]]));
+                            println!("        bFrameIntervalType              {:5}", data[22]);
+                        }
+                        if data[n] == 0 && data.len() >= 35 {
+                            println!("        dwMinFrameInterval          {:9}", u32::from_le_bytes([data[23], data[24], data[25], data[26]]));
+                            println!("        dwMaxFrameInterval          {:9}", u32::from_le_bytes([data[27], data[28], data[29], data[30]]));
+                            println!("        dwFrameIntervalStep         {:9}", u32::from_le_bytes([data[31], data[32], data[33], data[34]]));
+                        } else {
+                            for (i, b) in data[n..].chunks(4).enumerate() {
+                                if i == data[n] as usize {
+                                    break;
+                                }
+                                println!("        dwFrameInterval({:2})         {:9}", i, u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
+                            }
+                        }
+
+                        dump_junk(&data, 8, gd.expected_data_length(), len);
+                    }
+                }
+                0x06 => {
+                    let mut flags = data[2];
+                    println!("(FORMAT_MJPEG)");
+                    if data.len() >= 8 {
+                        println!("        bFormatIndex                    {:3}", data[0]);
+                        println!("        bNumFrameDescriptors            {:3}", data[1]);
+                        println!("        bFlags                          {:3}", flags);
+                        println!("          Fixed-sized samples: {}", if flags & 0x01 != 0 { "Yes" } else { "No" });
+                        flags = data[6];
+                        println!("        bDefaultFrameIndex              {:3}", data[3]);
+                        println!("        bAspectRatioX                   {:3}", data[4]);
+                        println!("        bAspectRatioY                   {:3}", data[5]);
+                        println!("        bmInterlaceFlags               0x{:02x}", flags);
+                        println!("          Interlaced stream or variable: {}", if flags & 0x01 != 0 { "Yes" } else { "No" });
+                        println!("          Fields per frame: {}", if flags & 0x02 != 0 { "1" } else { "2" });
+                        println!("          Field 1 first: {}", if flags & 0x04 != 0 { "Yes" } else { "No" });
+                        println!("          Field pattern: {}", field_pattern((flags >> 4) & 0x03));
+                        println!("        bCopyProtect                    {:3}", data[7]);
+                    }
+
+                    dump_junk(&data, 8, gd.expected_data_length(), 8);
+                }
+                0x0a => {
+                    println!("(FORMAT_MPEG2TS)");
+                    if data.len() >= 4 {
+                        println!("        bFormatIndex                    {:3}", data[0]);
+                        println!("        bDataOffset                     {:3}", data[1]);
+                        println!("        bPacketLength                   {:3}", data[2]);
+                        println!("        bStrideLength                   {:3}", data[3]);
+                        if data.len() >= 20 {
+                            println!("        guidStrideFormat                      {}", get_guid(&data[4..20]));
+                        }
+                    }
+
+                    if gd.len() < 23 {
+                        dump_junk(&data, 8, gd.expected_data_length(), 4);
+                    } else {
+                        dump_junk(&data, 8, gd.expected_data_length(), 20);
+                    }
+                }
+                0x0d => {
+                    println!("(COLORFORMAT)");
+                    if data.len() >= 3 {
+                        println!("        bColorPrimaries                 {:3} ({})", data[0], color_primatives(data[0]));
+                        println!("        bTransferCharacteristics        {:3} ({})", data[1], transfer_characteristics(data[1]));
+                        println!("        bMatrixCoefficients             {:3} ({})", data[2], matrix_coefficients(data[2]));
+                    }
+
+                    dump_junk(&data, 8, gd.expected_data_length(), 3);
+                }
+                0x12 => {
+                    println!("(FORMAT_STREAM_BASED)");
+                    if data.len() >= 18 {
+                        println!("        bFormatIndex                    {:3}", data[0]);
+                        println!("        guidFormat                            {}", get_guid(&data[1..17]));
+                        println!("        dwPacketLength                {:5}", data[17]);
+                    }
+
+                    dump_junk(&data, 8, gd.expected_data_length(), 21);
                 }
                 _ => {
                     println!("(unknown)");
@@ -1908,7 +2525,7 @@ pub mod display {
             usb::CdcType::CallManagement => {
                 if cd.data.len() >= 2 {
                     println!("{:^indent$}CDC Call Management:", "");
-                    println!("{:^indent$}  bmCapabilities       {:#02x}", "", cd.data[0]);
+                    println!("{:^indent$}  bmCapabilities       0x{:02x}", "", cd.data[0]);
                     if cd.data[0] & 0x01 != 0x00 {
                         println!("{:^indent$}    call management", "");
                     }
@@ -1922,7 +2539,7 @@ pub mod display {
             usb::CdcType::AbstractControlManagement => {
                 if cd.data.len() >= 1 {
                     println!("{:^indent$}CDC ACM:", "");
-                    println!("{:^indent$}  bmCapabilities       {:#02x}", "", cd.data[0]);
+                    println!("{:^indent$}  bmCapabilities       0x{:02x}", "", cd.data[0]);
                     if cd.data[0] & 0x08 != 0x00 {
                         println!("{:^indent$}    connection notifications", "");
                     }
@@ -1968,7 +2585,7 @@ pub mod display {
             usb::CdcType::TelephoneOperationalModes => {
                 if cd.data.len() >= 1 {
                     println!("{:^indent$}CDC Telephone operations:", "");
-                    println!("{:^indent$}  bmCapabilities       {:#02x}", "", cd.data[0]);
+                    println!("{:^indent$}  bmCapabilities       0x{:02x}", "", cd.data[0]);
                     if cd.data[0] & 0x04 != 0x00 {
                         println!("{:^indent$}    computer centric mode", "");
                     }
@@ -1996,11 +2613,11 @@ pub mod display {
             usb::CdcType::EthernetNetworking => {
                 if cd.data.len() >= 13 - 3 {
                     println!("{:^indent$}CDC Ethernet:", "");
-                    println!("{:^indent$}  iMacAddress           {:3} {}", "", cd.string_index.unwrap_or_default(), cd.string.as_ref().unwrap_or(&String::from("(?)")));
-                    println!("{:^indent$}  bmEthernetStatistics  {:#08x}", "", u32::from_le_bytes([cd.data[1], cd.data[2], cd.data[3], cd.data[4]]));
-                    println!("{:^indent$}  wMaxSegmentSize       {:3}", "", u16::from_le_bytes([cd.data[5], cd.data[6]]));
-                    println!("{:^indent$}  wNumberMCFilters      {:#04x}", "", u16::from_le_bytes([cd.data[7], cd.data[8]]));
-                    println!("{:^indent$}  bNumberPowerFilters   {:3}", "", cd.data[9]);
+                    println!("{:^indent$}  iMacAddress             {:10} {}", "", cd.string_index.unwrap_or_default(), cd.string.as_ref().unwrap_or(&String::from("(?)")));
+                    println!("{:^indent$}  bmEthernetStatistics    0x{:08x}", "", u32::from_le_bytes([cd.data[1], cd.data[2], cd.data[3], cd.data[4]]));
+                    println!("{:^indent$}  wMaxSegmentSize         {:10}", "", u16::from_le_bytes([cd.data[5], cd.data[6]]));
+                    println!("{:^indent$}  wNumberMCFilters            0x{:04x}", "", u16::from_le_bytes([cd.data[7], cd.data[8]]));
+                    println!("{:^indent$}  bNumberPowerFilters     {:10}", "", cd.data[9]);
                 } else {
                     dump_bad_comm(cd, indent);
                 }
@@ -2058,7 +2675,7 @@ pub mod display {
                 if cd.data.len() >= 19 {
                     println!("{:^indent$}CDC Command Set:", "");
                     println!("{:^indent$}  bcdVersion           {:x}.{:02x}", "", cd.data[1], cd.data[0]);
-                    println!("{:^indent$}  iCommandSet          {:3} {}", "", cd.string_index.unwrap_or_default(), cd.string.as_ref().unwrap_or(&String::from("(?)")));
+                    println!("{:^indent$}  iCommandSet          {:4} {}", "", cd.string_index.unwrap_or_default(), cd.string.as_ref().unwrap_or(&String::from("(?)")));
                     println!("{:^indent$}  bGUID               {}", "", get_guid(&cd.data[3..19]));
                 } else {
                     dump_bad_comm(cd, indent);
@@ -2068,7 +2685,7 @@ pub mod display {
                 if cd.data.len() >= 6 - 3 {
                     println!("{:^indent$}CDC NCM:", "");
                     println!("{:^indent$}  bcdNcmVersion        {:x}.{:02x}", "", cd.data[1], cd.data[0]);
-                    println!("{:^indent$}  bmNetworkCapabilities {:#02x}", "", cd.data[2]);
+                    println!("{:^indent$}  bmNetworkCapabilities 0x{:02x}", "", cd.data[2]);
                     if cd.data[2] & (1<<5) != 0 {
                         println!("{:^indent$}    8-byte ntb input size", "");
                     }
@@ -2095,11 +2712,11 @@ pub mod display {
                 if cd.data.len() >= 9 {
                     println!("{:^indent$}CDC MBIM:", "");
                     println!("{:^indent$}  bcdMBIMVersion       {:x}.{:02x}", "", cd.data[1], cd.data[0]);
-                    println!("{:^indent$}  wMaxControlMessage   {:3}", "", u16::from_le_bytes([cd.data[2], cd.data[3]]));
-                    println!("{:^indent$}  bNumberFilters       {:3}", "", cd.data[4]);
-                    println!("{:^indent$}  bMaxFilterSize       {:3}", "", cd.data[5]);
-                    println!("{:^indent$}  wMaxSegmentSize      {:3}", "", u16::from_le_bytes([cd.data[6], cd.data[7]]));
-                    println!("{:^indent$}  bmNetworkCapabilities {:#02x}", "", cd.data[8]);
+                    println!("{:^indent$}  wMaxControlMessage   {}", "", u16::from_le_bytes([cd.data[2], cd.data[3]]));
+                    println!("{:^indent$}  bNumberFilters       {}", "", cd.data[4]);
+                    println!("{:^indent$}  bMaxFilterSize       {}", "", cd.data[5]);
+                    println!("{:^indent$}  wMaxSegmentSize      {}", "", u16::from_le_bytes([cd.data[6], cd.data[7]]));
+                    println!("{:^indent$}  bmNetworkCapabilities 0x{:02x}", "", cd.data[8]);
                     if cd.data[8] & 0x20 != 0x00 {
                         println!("{:^indent$}    8-byte ntb input size", "");
                     }
@@ -2130,16 +2747,12 @@ pub mod display {
     }
 
     fn dump_dfu_interface(gd: &usb::GenericDescriptor) {
-        println!("    DFU Interface Descriptor:");
-        println!("      bLength              {:3}", gd.length);
-        println!("      bDescriptorType      {:3}", gd.descriptor_type);
-        println!("      bcdDFU               {:3}", gd.descriptor_subtype);
+        println!("      Device Firmware Upgrade Interface Descriptor:");
+        println!("        bLength                         {:3}", gd.length);
+        println!("        bDescriptorType                 {:3}", gd.descriptor_type);
+        println!("        bcdDFU                          {:3}", gd.descriptor_subtype);
 
         if gd.descriptor_subtype & 0xf0 != 0 {
-            println!("          (unknown attributes!)");
-        }
-
-        if gd.descriptor_subtype & 0x0f != 0 {
             println!("          (unknown attributes!)");
         }
         if gd.descriptor_subtype & 0x08 != 0 {
@@ -2166,12 +2779,12 @@ pub mod display {
         if let Some(data) = &gd.data {
             if data.len() >= 4 {
                 let detach_timeout = u16::from_le_bytes([data[0], data[1]]);
-                println!("      wDetachTimeout                  {:3} milliseconds", detach_timeout);
+                println!("        wDetachTimeout                  {:5} milliseconds", detach_timeout);
                 let transfer_size = u16::from_le_bytes([data[2], data[3]]);
-                println!("      wTransferSize                   {:3} bytes", transfer_size);
+                println!("        wTransferSize                   {:5} bytes", transfer_size);
             }
             if data.len() >= 6 {
-                println!("      bcdDFUVersion                   {:02x}.{:02x}", data[4], data[5]);
+                println!("        bcdDFUVersion                   {:x}.{:02x}", data[4], data[5]);
             }
         }
     }
@@ -2187,7 +2800,7 @@ pub mod display {
                 0xe0 ..=0xef => "Vendor-specific",
             };
 
-            println!("        {} ({:#02x})", subtype_string, gd.descriptor_subtype);
+            println!("        {} (0x{:02x})", subtype_string, gd.descriptor_subtype);
         } else {
             println!(
                 "        INTERFACE CLASS: {}",
@@ -2202,10 +2815,10 @@ pub mod display {
 
     fn dump_security(sec: &usb::SecurityDescriptor) {
         println!("    Security Descriptor:");
-        println!("      bLength              {:3}", sec.length);
-        println!("      bDescriptorType      {:3}", sec.descriptor_type);
-        println!("      wTotalLength      {:#04x}", sec.total_length);
-        println!("      bNumEncryptionTypes  {:3}", sec.encryption_types);
+        println!("      bLength              {:5}", sec.length);
+        println!("      bDescriptorType      {:5}", sec.descriptor_type);
+        println!("      wTotalLength        0x{:04x}", sec.total_length);
+        println!("      bNumEncryptionTypes  {:5}", sec.encryption_types);
     }
 
     fn dump_encryption_type(enc: &usb::EncryptionDescriptor) {
