@@ -1027,6 +1027,8 @@ pub struct USBDeviceExtra {
 }
 
 /// USB Descriptor Types
+///
+/// Can enclose struct of descriptor data
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 #[repr(u8)]
@@ -1040,6 +1042,8 @@ pub enum DescriptorType {
     Endpoint(ClassDescriptor) = 0x05,
     DeviceQualifier = 0x06,
     OtherSpeedConfiguration = 0x07,
+    InterfacePower = 0x08,
+    // TODO do_otg
     Otg = 0x09,
     Debug = 0x0a,
     InterfaceAssociation(InterfaceAssociationDescriptor) = 0x0b,
@@ -1050,12 +1054,14 @@ pub enum DescriptorType {
     DeviceCapability = 0x10,
     WirelessEndpointCompanion = 0x11,
     WireAdaptor = 0x21,
-    // TODO use this in HidDescriptor vec
     Report(HidReportDescriptor) = 0x22,
     Physical = 0x23,
+    Pipe = 0x24,
+    // TODO do_hub
     Hub = 0x29,
     SuperSpeedHub = 0x2a,
     SsEndpointCompanion(SsEndpointCompanionDescriptor) = 0x30,
+    SsIsocEndpointCompanion = 0x31,
     // these are internal
     Unknown(Vec<u8>) = 0xfe,
     Junk(Vec<u8>) = 0xff,
@@ -1087,6 +1093,7 @@ impl TryFrom<&[u8]> for DescriptorType {
             0x05 => Ok(DescriptorType::Endpoint(ClassDescriptor::try_from(v)?)),
             0x06 => Ok(DescriptorType::DeviceQualifier),
             0x07 => Ok(DescriptorType::OtherSpeedConfiguration),
+            0x08 => Ok(DescriptorType::InterfacePower),
             0x09 => Ok(DescriptorType::Otg),
             0x0a => Ok(DescriptorType::Debug),
             0x0b => Ok(DescriptorType::InterfaceAssociation(
@@ -1103,11 +1110,13 @@ impl TryFrom<&[u8]> for DescriptorType {
             0x21 => Ok(DescriptorType::WireAdaptor),
             0x22 => Ok(DescriptorType::Report(HidReportDescriptor::try_from(v)?)),
             0x23 => Ok(DescriptorType::Physical),
+            0x24 => Ok(DescriptorType::Pipe),
             0x29 => Ok(DescriptorType::Hub),
             0x2a => Ok(DescriptorType::SuperSpeedHub),
             0x30 => Ok(DescriptorType::SsEndpointCompanion(
                 SsEndpointCompanionDescriptor::try_from(v)?,
             )),
+            0x31 => Ok(DescriptorType::SsIsocEndpointCompanion),
             _ => Ok(DescriptorType::Unknown(v.to_vec())),
         }
     }
@@ -1314,6 +1323,12 @@ impl TryFrom<&[u8]> for EncryptionDescriptor {
 pub enum ClassDescriptor {
     /// USB HID extra descriptor
     Hid(HidDescriptor),
+    /// USB Communication extra descriptor
+    Communication(CommunicationDescriptor),
+    /// USB CCID (Smart Card) extra descriptor
+    Ccid(CcidDescriptor),
+    /// USB Printer extra descriptor
+    Printer(PrinterDescriptor),
     /// Generic descriptor with Option<ClassCode>
     ///
     /// Used for most descriptors and allows for TryFrom without knowing the [`ClassCode`]
@@ -1343,6 +1358,9 @@ impl From<ClassDescriptor> for Vec<u8> {
         match cd {
             ClassDescriptor::Generic(_, gd) => gd.into(),
             ClassDescriptor::Hid(hd) => hd.into(),
+            ClassDescriptor::Ccid(cd) => cd.into(),
+            ClassDescriptor::Printer(pd) => pd.into(),
+            _ => Vec::new(),
         }
     }
 }
@@ -1357,6 +1375,15 @@ impl ClassDescriptor {
             ClassDescriptor::Generic(None, gd) => match (triplet.0.into(), triplet.1, triplet.2) {
                 (ClassCode::HID, _, _) => {
                     *self = ClassDescriptor::Hid(HidDescriptor::try_from(gd.to_owned())?)
+                }
+                (ClassCode::SmartCart, _, _) => {
+                    *self = ClassDescriptor::Ccid(CcidDescriptor::try_from(gd.to_owned())?)
+                }
+                (ClassCode::Printer, _, _) => {
+                    *self = ClassDescriptor::Printer(PrinterDescriptor::try_from(gd.to_owned())?)
+                }
+                (ClassCode::CDCCommunications, _, _) | (ClassCode::CDCData, _, _) => {
+                    *self = ClassDescriptor::Communication(CommunicationDescriptor::try_from(gd.to_owned())?)
                 }
                 ct => *self = ClassDescriptor::Generic(Some(ct), gd.to_owned()),
             },
@@ -1398,7 +1425,7 @@ impl TryFrom<&[u8]> for HidReportDescriptor {
 
         Ok(HidReportDescriptor {
             descriptor_type: value[0],
-            length: u16::from_le_bytes([value[2], value[1]]),
+            length: u16::from_le_bytes([value[1], value[2]]),
             data: value.get(3..).map(|d| d.to_vec()),
         })
     }
@@ -1485,15 +1512,36 @@ impl TryFrom<&[u8]> for HidDescriptor {
             ));
         }
 
+        let num_descriptors = value[5] as usize;
+        let mut descriptors_vec = value[6..].to_vec();
+        let mut descriptors = Vec::<HidReportDescriptor>::with_capacity(num_descriptors);
+
+        for _ in 0..num_descriptors {
+            if descriptors_vec.len() < 2 {
+                return Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "HID report descriptor too short",
+                ));
+            }
+
+            let len = u16::from_le_bytes([descriptors_vec[1], descriptors_vec[2]]) as usize;
+
+            if len > descriptors_vec.len()  {
+                return Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "HID report descriptor too long for available data!",
+                ));
+            }
+
+            descriptors.push(descriptors_vec.drain(..len).as_slice().try_into()?);
+        }
+
         Ok(HidDescriptor {
             length: value[0],
             descriptor_type: value[1],
-            bcd_hid: Version::from_bcd(u16::from_le_bytes([value[3], value[2]])),
+            bcd_hid: Version::from_bcd(u16::from_le_bytes([value[2], value[3]])),
             country_code: value[4],
-            descriptors: value[5..]
-                .chunks_exact(3)
-                .map(HidReportDescriptor::try_from)
-                .collect::<error::Result<Vec<_>>>()?,
+            descriptors,
         })
     }
 }
@@ -1519,6 +1567,477 @@ impl From<HidDescriptor> for Vec<u8> {
         }
 
         ret
+    }
+}
+
+/// USB CCID (Smart Card) descriptor
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct CcidDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub version: Version,
+    pub max_slot_index: u8,
+    pub voltage_support: u8,
+    pub protocols: u32,
+    pub default_clock: u32,
+    pub max_clock: u32,
+    pub num_clock_supported: u8,
+    pub data_rate: u32,
+    pub max_data_rate: u32,
+    pub num_data_rates_supp: u8,
+    pub max_ifsd: u32,
+    pub sync_protocols: u32,
+    pub mechanical: u32,
+    pub features: u32,
+    pub max_ccid_msg_len: u32,
+    pub class_get_response: u8,
+    pub class_envelope: u8,
+    pub lcd_layout: (u8, u8),
+    pub pin_support: u8,
+    pub max_ccid_busy_slots: u8,
+}
+
+impl TryFrom<&[u8]> for CcidDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 54 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "CCID descriptor too short",
+            ));
+        }
+
+        let lcd_layout = (value[50], value[51]);
+
+        Ok(CcidDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            version: Version::from_bcd(u16::from_le_bytes([value[2], value[3]])),
+            max_slot_index: value[4],
+            voltage_support: value[5],
+            protocols: u32::from_le_bytes([value[6], value[7], value[8], value[9]]),
+            default_clock: u32::from_le_bytes([value[10], value[11], value[12], value[13]]),
+            max_clock: u32::from_le_bytes([value[14], value[15], value[16], value[17]]),
+            num_clock_supported: value[18],
+            data_rate: u32::from_le_bytes([value[19], value[20], value[21], value[22]]),
+            max_data_rate: u32::from_le_bytes([value[23], value[24], value[25], value[26]]),
+            num_data_rates_supp: value[27],
+            max_ifsd: u32::from_le_bytes([value[28], value[29], value[30], value[31]]),
+            sync_protocols: u32::from_le_bytes([value[32], value[33], value[34], value[35]]),
+            mechanical: u32::from_le_bytes([value[36], value[37], value[38], value[39]]),
+            features: u32::from_le_bytes([value[40], value[41], value[42], value[43]]),
+            max_ccid_msg_len: u32::from_le_bytes([value[44], value[45], value[46], value[47]]),
+            class_get_response: value[48],
+            class_envelope: value[49],
+            lcd_layout,
+            pin_support: value[52],
+            max_ccid_busy_slots: value[53],
+        })
+    }
+}
+
+impl TryFrom<GenericDescriptor> for CcidDescriptor {
+    type Error = Error;
+
+    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
+        let gd_vec: Vec<u8> = gd.into();
+        CcidDescriptor::try_from(&gd_vec[..])
+    }
+}
+
+impl From<CcidDescriptor> for Vec<u8> {
+    fn from(cd: CcidDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(cd.length);
+        ret.push(cd.descriptor_type);
+        ret.extend(u16::from(cd.version).to_le_bytes());
+        ret.push(cd.max_slot_index);
+        ret.push(cd.voltage_support);
+        ret.extend(cd.protocols.to_le_bytes());
+        ret.extend(cd.default_clock.to_le_bytes());
+        ret.extend(cd.max_clock.to_le_bytes());
+        ret.push(cd.num_clock_supported);
+        ret.extend(cd.data_rate.to_le_bytes());
+        ret.extend(cd.max_data_rate.to_le_bytes());
+        ret.push(cd.num_data_rates_supp);
+        ret.extend(cd.max_ifsd.to_le_bytes());
+        ret.extend(cd.sync_protocols.to_le_bytes());
+        ret.extend(cd.mechanical.to_le_bytes());
+        ret.extend(cd.features.to_le_bytes());
+        ret.extend(cd.max_ccid_msg_len.to_le_bytes());
+        ret.push(cd.class_get_response);
+        ret.push(cd.class_envelope);
+        ret.push(cd.lcd_layout.0);
+        ret.push(cd.lcd_layout.1);
+        ret.push(cd.pin_support);
+        ret.push(cd.max_ccid_busy_slots);
+
+        ret
+    }
+}
+
+/// USB printer descriptor
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct PrinterDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub release_number: u8,
+    pub descriptors: Vec<PrinterReportDescriptor>,
+}
+
+impl TryFrom<&[u8]> for PrinterDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Printer descriptor too short",
+            ));
+        }
+
+        let num_descriptors = value[3] as usize;
+        let mut descriptors_vec = value[4..].to_vec();
+        let mut descriptors = Vec::<PrinterReportDescriptor>::with_capacity(num_descriptors);
+
+        for _ in 0..num_descriptors {
+            if descriptors_vec.len() < 2 {
+                return Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Printer report descriptor too short",
+                ));
+            }
+
+            // +2 for length and descriptor type
+            let len = descriptors_vec[1] as usize + 2;
+
+            if descriptors_vec.len() < len {
+                break;
+            }
+
+            descriptors.push(descriptors_vec.drain(..len).as_slice().try_into()?);
+        }
+
+        Ok(PrinterDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            release_number: value[2],
+            descriptors,
+        })
+    }
+}
+
+impl TryFrom<GenericDescriptor> for PrinterDescriptor {
+    type Error = Error;
+
+    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
+        let gd_vec: Vec<u8> = gd.into();
+        PrinterDescriptor::try_from(&gd_vec[..])
+    }
+}
+
+impl From<PrinterDescriptor> for Vec<u8> {
+    fn from(pd: PrinterDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(pd.length);
+        ret.push(pd.descriptor_type);
+        ret.push(pd.release_number);
+        for desc in pd.descriptors {
+            ret.extend(Vec::<u8>::from(desc));
+        }
+
+        ret
+    }
+}
+
+/// USB printer report descriptor
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct PrinterReportDescriptor {
+    pub descriptor_type: u8,
+    pub length: u8,
+    pub capabilities: u16,
+    pub versions_supported: u8,
+    pub uuid_string_index: u8,
+    pub uuid_string: Option<String>,
+    pub data: Option<Vec<u8>>,
+}
+
+impl TryFrom<&[u8]> for PrinterReportDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Printer report descriptor too short",
+            ));
+        }
+
+        Ok(PrinterReportDescriptor {
+            descriptor_type: value[0],
+            length: value[1],
+            capabilities: u16::from_le_bytes([value[2], value[3]]),
+            versions_supported: value[4],
+            uuid_string_index: value[5],
+            uuid_string: None,
+            data: value.get(6..).map(|d| d.to_vec()),
+        })
+    }
+}
+
+impl From<PrinterReportDescriptor> for Vec<u8> {
+    fn from(prd: PrinterReportDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(prd.descriptor_type);
+        ret.push(prd.length);
+        ret.extend(prd.capabilities.to_le_bytes());
+        ret.push(prd.versions_supported);
+        ret.push(prd.uuid_string_index);
+
+        ret
+    }
+}
+
+/// USB Communication Device Class (CDC) types
+///
+/// Used to differentiate between different CDC descriptors
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(u8)]
+#[non_exhaustive]
+#[allow(missing_docs)]
+pub enum CdcType {
+    Header = 0x00,
+    CallManagement = 0x01,
+    AbstractControlManagement = 0x02,
+    DirectLineManagement = 0x03,
+    TelephoneRinger = 0x04,
+    TelephoneCall = 0x05,
+    Union = 0x06,
+    CountrySelection = 0x07,
+    TelephoneOperationalModes = 0x08,
+    UsbTerminal = 0x09,
+    NetworkChannel = 0x0a,
+    ProtocolUnit = 0x0b,
+    ExtensionUnit = 0x0c,
+    MultiChannel = 0x0d,
+    CapiControl = 0x0e,
+    EthernetNetworking = 0x0f,
+    AtmNetworking = 0x10,
+    WirelessHandsetControlModel = 0x11,
+    MobileDirectLineModelFunctional = 0x12,
+    MobileDirectLineModelDetail = 0x13,
+    DeviceManagement = 0x14,
+    Obex = 0x15,
+    CommandSet = 0x16,
+    CommandSetDetail = 0x17,
+    TelephoneControlModel = 0x18,
+    ObexCommandSet = 0x19,
+    Ncm = 0x1a,
+    Mbim = 0x1b,
+    MbimExtended = 0x1c,
+    Unknown = 0xff,
+}
+
+impl From<u8> for CdcType {
+    fn from(b: u8) -> Self {
+        match b {
+            0x00 => CdcType::Header,
+            0x01 => CdcType::CallManagement,
+            0x02 => CdcType::AbstractControlManagement,
+            0x03 => CdcType::DirectLineManagement,
+            0x04 => CdcType::TelephoneRinger,
+            0x05 => CdcType::TelephoneCall,
+            0x06 => CdcType::Union,
+            0x07 => CdcType::CountrySelection,
+            0x08 => CdcType::TelephoneOperationalModes,
+            0x09 => CdcType::UsbTerminal,
+            0x0a => CdcType::NetworkChannel,
+            0x0b => CdcType::ProtocolUnit,
+            0x0c => CdcType::ExtensionUnit,
+            0x0d => CdcType::MultiChannel,
+            0x0e => CdcType::CapiControl,
+            0x0f => CdcType::EthernetNetworking,
+            0x10 => CdcType::AtmNetworking,
+            0x11 => CdcType::WirelessHandsetControlModel,
+            0x12 => CdcType::MobileDirectLineModelFunctional,
+            0x13 => CdcType::MobileDirectLineModelDetail,
+            0x14 => CdcType::DeviceManagement,
+            0x15 => CdcType::Obex,
+            0x16 => CdcType::CommandSet,
+            0x17 => CdcType::CommandSetDetail,
+            0x18 => CdcType::TelephoneControlModel,
+            0x19 => CdcType::ObexCommandSet,
+            0x1a => CdcType::Ncm,
+            0x1b => CdcType::Mbim,
+            0x1c => CdcType::MbimExtended,
+            _ => CdcType::Unknown,
+        }
+    }
+}
+
+/// USB Communication Device Class (CDC) descriptor
+///
+/// Can be used by CDCData and CDCCommunications
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct CommunicationDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub communication_type: CdcType,
+    pub string_index: Option<u8>,
+    pub string: Option<String>,
+    pub data: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for CommunicationDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Communication descriptor too short",
+            ));
+        }
+
+        let length = value[0];
+        if length as usize > value.len() {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Communication descriptor reported length too long for buffer",
+            ));
+        }
+
+        let communication_type = CdcType::from(value[2]);
+        // some CDC types have descriptor strings with index in the data
+        let string_index = match communication_type {
+            CdcType::EthernetNetworking | CdcType::CountrySelection => value.get(3).map(|v| v.to_owned()),
+            CdcType::NetworkChannel => value.get(4).map(|v| v.to_owned()),
+            CdcType::CommandSet => value.get(5).map(|v| v.to_owned()),
+            _ => None
+        };
+
+        Ok(CommunicationDescriptor {
+            length,
+            descriptor_type: value[1],
+            communication_type,
+            string_index,
+            string: None,
+            data: value[3..].to_vec(),
+        })
+    }
+}
+
+impl From<CommunicationDescriptor> for Vec<u8> {
+    fn from(cd: CommunicationDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(cd.length);
+        ret.push(cd.descriptor_type);
+        ret.push(cd.communication_type as u8);
+        ret.extend(cd.data);
+
+        ret
+    }
+}
+
+impl TryFrom<GenericDescriptor> for CommunicationDescriptor {
+    type Error = Error;
+
+    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
+        let gd_vec: Vec<u8> = gd.into();
+        CommunicationDescriptor::try_from(&gd_vec[..])
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(u8)]
+#[allow(missing_docs)]
+pub enum UacInterface {
+    Undefined = 0x00,
+    Header = 0x01,
+    InputTerminal = 0x02,
+    OutputTerminal = 0x03,
+    ExtendedTerminal = 0x04,
+    MixerUnit = 0x05,
+    SelectorUnit = 0x06,
+    FeatureUnit = 0x07,
+    EffectUnit = 0x08,
+    ProcessingUnit = 0x09,
+    ExtensionUnit = 0x0a,
+    ClockSource = 0x0b,
+    ClockSelector = 0x0c,
+    ClockMultiplier = 0x0d,
+    SampleRateConverter = 0x0e,
+    Connectors = 0x0f,
+    PowerDomain = 0x10,
+}
+
+impl From<u8> for UacInterface {
+    fn from(b: u8) -> Self {
+        match b {
+            0x00 => UacInterface::Undefined,
+            0x01 => UacInterface::Header,
+            0x02 => UacInterface::InputTerminal,
+            0x03 => UacInterface::OutputTerminal,
+            0x04 => UacInterface::ExtendedTerminal,
+            0x05 => UacInterface::MixerUnit,
+            0x06 => UacInterface::SelectorUnit,
+            0x07 => UacInterface::FeatureUnit,
+            0x08 => UacInterface::EffectUnit,
+            0x09 => UacInterface::ProcessingUnit,
+            0x0a => UacInterface::ExtensionUnit,
+            0x0b => UacInterface::ClockSource,
+            0x0c => UacInterface::ClockSelector,
+            0x0d => UacInterface::ClockMultiplier,
+            0x0e => UacInterface::SampleRateConverter,
+            0x0f => UacInterface::Connectors,
+            0x10 => UacInterface::PowerDomain,
+            _ => UacInterface::Undefined,
+        }
+    }
+}
+
+impl UacInterface {
+    /// UAC1, UAC2, and UAC3 define bDescriptorSubtype differently for the
+    /// AudioControl interface, so we need to do some ugly remapping:
+    pub fn get_uac_subtype(subtype: u8, protocol: u8) -> Self {
+        match protocol {
+            // UAC1
+            0x00 => {
+                match subtype {
+                    0x04 => UacInterface::MixerUnit,
+                    0x05 => UacInterface::SelectorUnit,
+                    0x06 => UacInterface::FeatureUnit,
+                    0x07 => UacInterface::ProcessingUnit,
+                    0x08 => UacInterface::ExtensionUnit,
+                    _ => Self::from(subtype),
+                }
+            },
+            // UAC2
+            0x20 => {
+                match subtype {
+                    0x04 => UacInterface::MixerUnit,
+                    0x05 => UacInterface::SelectorUnit,
+                    0x06 => UacInterface::FeatureUnit,
+                    0x07 => UacInterface::EffectUnit,
+                    0x08 => UacInterface::ProcessingUnit,
+                    0x09 => UacInterface::ExtensionUnit,
+                    0x0a => UacInterface::ClockSource,
+                    0x0b => UacInterface::ClockSelector,
+                    0x0c => UacInterface::ClockMultiplier,
+                    0x0d => UacInterface::SampleRateConverter,
+                    _ => Self::from(subtype),
+                }
+            },
+            // no re-map for UAC3..
+            _ => {
+                Self::from(subtype)
+            }
+        }
     }
 }
 
