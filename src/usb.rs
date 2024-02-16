@@ -1385,7 +1385,9 @@ impl ClassDescriptor {
                     *self = ClassDescriptor::Printer(PrinterDescriptor::try_from(gd.to_owned())?)
                 }
                 (ClassCode::CDCCommunications, _, _) | (ClassCode::CDCData, _, _) => {
-                    *self = ClassDescriptor::Communication(CommunicationDescriptor::try_from(gd.to_owned())?)
+                    *self = ClassDescriptor::Communication(CommunicationDescriptor::try_from(
+                        gd.to_owned(),
+                    )?)
                 }
                 (ClassCode::Audio, 3, _) => {
                     *self = ClassDescriptor::Midi(MidiDescriptor::try_from(gd.to_owned())?)
@@ -1501,6 +1503,11 @@ impl GenericDescriptor {
         self.length as usize
     }
 
+    /// Returns true if the reported length of the data is 0
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Returns the expected length of the data based on the length field minus the bytes taken by struct fields
     pub fn expected_data_length(&self) -> usize {
         if self.len() < 3 {
@@ -1552,7 +1559,7 @@ impl TryFrom<&[u8]> for HidDescriptor {
 
             let len = u16::from_le_bytes([descriptors_vec[1], descriptors_vec[2]]) as usize;
 
-            if len > descriptors_vec.len()  {
+            if len > descriptors_vec.len() {
                 return Err(Error::new(
                     ErrorKind::InvalidArg,
                     "HID report descriptor too long for available data!",
@@ -1941,10 +1948,12 @@ impl TryFrom<&[u8]> for CommunicationDescriptor {
         let communication_type = CdcType::from(value[2]);
         // some CDC types have descriptor strings with index in the data
         let string_index = match communication_type {
-            CdcType::EthernetNetworking | CdcType::CountrySelection => value.get(3).map(|v| v.to_owned()),
+            CdcType::EthernetNetworking | CdcType::CountrySelection => {
+                value.get(3).map(|v| v.to_owned())
+            }
             CdcType::NetworkChannel => value.get(4).map(|v| v.to_owned()),
             CdcType::CommandSet => value.get(5).map(|v| v.to_owned()),
-            _ => None
+            _ => None,
         };
 
         Ok(CommunicationDescriptor {
@@ -2033,36 +2042,30 @@ impl UacInterface {
     pub fn get_uac_subtype(subtype: u8, protocol: u8) -> Self {
         match protocol {
             // UAC1
-            0x00 => {
-                match subtype {
-                    0x04 => UacInterface::MixerUnit,
-                    0x05 => UacInterface::SelectorUnit,
-                    0x06 => UacInterface::FeatureUnit,
-                    0x07 => UacInterface::ProcessingUnit,
-                    0x08 => UacInterface::ExtensionUnit,
-                    _ => Self::from(subtype),
-                }
+            0x00 => match subtype {
+                0x04 => UacInterface::MixerUnit,
+                0x05 => UacInterface::SelectorUnit,
+                0x06 => UacInterface::FeatureUnit,
+                0x07 => UacInterface::ProcessingUnit,
+                0x08 => UacInterface::ExtensionUnit,
+                _ => Self::from(subtype),
             },
             // UAC2
-            0x20 => {
-                match subtype {
-                    0x04 => UacInterface::MixerUnit,
-                    0x05 => UacInterface::SelectorUnit,
-                    0x06 => UacInterface::FeatureUnit,
-                    0x07 => UacInterface::EffectUnit,
-                    0x08 => UacInterface::ProcessingUnit,
-                    0x09 => UacInterface::ExtensionUnit,
-                    0x0a => UacInterface::ClockSource,
-                    0x0b => UacInterface::ClockSelector,
-                    0x0c => UacInterface::ClockMultiplier,
-                    0x0d => UacInterface::SampleRateConverter,
-                    _ => Self::from(subtype),
-                }
+            0x20 => match subtype {
+                0x04 => UacInterface::MixerUnit,
+                0x05 => UacInterface::SelectorUnit,
+                0x06 => UacInterface::FeatureUnit,
+                0x07 => UacInterface::EffectUnit,
+                0x08 => UacInterface::ProcessingUnit,
+                0x09 => UacInterface::ExtensionUnit,
+                0x0a => UacInterface::ClockSource,
+                0x0b => UacInterface::ClockSelector,
+                0x0c => UacInterface::ClockMultiplier,
+                0x0d => UacInterface::SampleRateConverter,
+                _ => Self::from(subtype),
             },
             // no re-map for UAC3..
-            _ => {
-                Self::from(subtype)
-            }
+            _ => Self::from(subtype),
         }
     }
 }
@@ -2131,18 +2134,18 @@ impl TryFrom<&[u8]> for VideoControlDescriptor {
         let video_control_subtype = VideoControlInterface::from(value[2]);
 
         let string_index = match video_control_subtype {
-            VideoControlInterface::InputTerminal => value.get(7).map(|v| *v),
-            VideoControlInterface::OutputTerminal => value.get(8).map(|v| *v),
+            VideoControlInterface::InputTerminal => value.get(7).copied(),
+            VideoControlInterface::OutputTerminal => value.get(8).copied(),
             VideoControlInterface::SelectorUnit => {
                 if let Some(p) = value.get(4) {
-                    value.get(5 + *p as usize).map(|v| *v)
+                    value.get(5 + *p as usize).copied()
                 } else {
                     None
                 }
             }
             VideoControlInterface::ProcessingUnit => {
                 if let Some(n) = value.get(7) {
-                    value.get(8 + *n as usize).map(|v| *v)
+                    value.get(8 + *n as usize).copied()
                 } else {
                     None
                 }
@@ -2150,7 +2153,7 @@ impl TryFrom<&[u8]> for VideoControlDescriptor {
             VideoControlInterface::ExtensionUnit => {
                 if let Some(p) = value.get(21) {
                     if let Some(n) = value.get(22 + *p as usize) {
-                        value.get(23 + *n as usize + *p as usize).map(|v| *v)
+                        value.get(23 + *n as usize + *p as usize).copied()
                     } else {
                         None
                     }
@@ -2158,8 +2161,8 @@ impl TryFrom<&[u8]> for VideoControlDescriptor {
                     None
                 }
             }
-            VideoControlInterface::EncodingUnit => value.get(5).map(|v| *v),
-            _ => None
+            VideoControlInterface::EncodingUnit => value.get(5).copied(),
+            _ => None,
         };
 
         Ok(VideoControlDescriptor {
@@ -2252,13 +2255,13 @@ impl TryFrom<&[u8]> for MidiDescriptor {
         let midi_subtype = MidiInterface::from(value[2]);
 
         let string_index = match midi_subtype {
-            MidiInterface::InputJack => value.get(5).map(|v| *v),
+            MidiInterface::InputJack => value.get(5).copied(),
             MidiInterface::OutputJack => value.get(5).map(|v| 6 + *v * 2),
             MidiInterface::Element => {
                 // don't ask...
                 if let Some(j) = value.get(4) {
                     if let Some(capsize) = value.get((5 + *j as usize * 2) + 3) {
-                        value.get(9 + 2 * *j as usize + *capsize as usize).map(|v| *v)
+                        value.get(9 + 2 * *j as usize + *capsize as usize).copied()
                     } else {
                         None
                     }
@@ -2266,7 +2269,7 @@ impl TryFrom<&[u8]> for MidiDescriptor {
                     None
                 }
             }
-            _ => None
+            _ => None,
         };
 
         Ok(MidiDescriptor {
