@@ -1321,8 +1321,8 @@ pub mod display {
     fn print_config(config: &usb::USBConfiguration) {
         println!("  Configuration Descriptor:");
         println!("    bLength              {:5}", config.length);
-        println!("    bDescriptorType        2"); // type 2 for configuration
-        println!("    wTotalLength       0x{:04x}", config.total_length);
+        println!("    bDescriptorType      {:5}", 2); // type 2 for configuration
+        println!("    wTotalLength        0x{:04x}", config.total_length);
         println!("    bNumInterfaces       {:5}", config.interfaces.len());
         println!("    bConfigurationValue  {:5}", config.number);
         println!(
@@ -1330,7 +1330,7 @@ pub mod display {
             config.string_index, config.name
         );
         println!(
-            "    bmAttributes         0x{:02x}",
+            "    bmAttributes          0x{:02x}",
             config.attributes_value()
         );
         // no attributes is bus powered
@@ -2489,18 +2489,18 @@ pub mod display {
 
                     if data.len() >= len {
                         let flags = data[22];
-                        println!("        bFormatIndex                    {:3}", data[0]);
-                        println!("        bNumFrameDescriptors            {:3}", data[1]);
+                        println!("        bFormatIndex                    {:5}", data[0]);
+                        println!("        bNumFrameDescriptors            {:5}", data[1]);
                         println!(
-                            "        guidFormat                      {}",
+                            "        guidFormat                            {}",
                             get_guid(&data[2..18])
                         );
-                        println!("        bBitsPerPixel                   {:3}", data[18]);
-                        println!("        bDefaultFrameIndex              {:3}", data[19]);
-                        println!("        bAspectRatioX                   {:3}", data[20]);
-                        println!("        bAspectRatioY                   {:3}", data[21]);
-                        println!("        bmInterlaceFlags                0x{:02x}", flags);
-                        println!("        bCopyProtect                    {:3}", data[23]);
+                        println!("        bBitsPerPixel                   {:5}", data[18]);
+                        println!("        bDefaultFrameIndex              {:5}", data[19]);
+                        println!("        bAspectRatioX                   {:5}", data[20]);
+                        println!("        bAspectRatioY                   {:5}", data[21]);
+                        println!("        bmInterlaceFlags                 0x{:02x}", flags);
+                        println!("        bCopyProtect                    {:5}", data[23]);
                         println!(
                             "          Interlaced stream or variable: {}",
                             if flags & 0x01 != 0 { "Yes" } else { "No" }
@@ -2519,7 +2519,7 @@ pub mod display {
                         );
                         if gd.descriptor_subtype == 0x10 {
                             println!(
-                                "        bVariableSize                  {:3}",
+                                "        bVariableSize                  {:5}",
                                 data.get(24).unwrap_or(&0)
                             );
                         }
