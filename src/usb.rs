@@ -751,6 +751,7 @@ impl fmt::Display for Direction {
 
 /// Transfer type  for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[repr(u8)]
 pub enum TransferType {
     /// Control endpoint.
     Control,
@@ -770,6 +771,7 @@ impl fmt::Display for TransferType {
 
 /// Isochronous synchronization mode for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[repr(u8)]
 pub enum SyncType {
     /// No synchronisation.
     None,
@@ -789,6 +791,7 @@ impl fmt::Display for SyncType {
 
 /// Isochronous usage type for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[repr(u8)]
 #[non_exhaustive]
 pub enum UsageType {
     /// Data endpoint.
@@ -891,6 +894,13 @@ impl USBEndpoint {
             ((self.max_packet_size >> 11) & 3) + 1,
             self.max_packet_size & 0x7ff
         )
+    }
+
+    /// Returns the attributes byte for the endpoint
+    pub fn attributes(&self) -> u8 {
+        self.transfer_type.to_owned() as u8
+            | (self.sync_type.to_owned() as u8) << 2
+            | (self.usage_type.to_owned() as u8) << 4
     }
 }
 
@@ -1330,7 +1340,9 @@ pub enum ClassDescriptor {
     /// USB Printer extra descriptor
     Printer(PrinterDescriptor),
     /// USB MIDI extra descriptor (AudioVideoAVDataAudio)
-    Midi(MidiDescriptor),
+    Midi(MidiDescriptor, u8),
+    /// USB Video extra descriptor
+    Video(UvcDescriptor, u8),
     /// Generic descriptor with Option<ClassCode>
     ///
     /// Used for most descriptors and allows for TryFrom without knowing the [`ClassCode`]
@@ -1362,7 +1374,9 @@ impl From<ClassDescriptor> for Vec<u8> {
             ClassDescriptor::Hid(hd) => hd.into(),
             ClassDescriptor::Ccid(cd) => cd.into(),
             ClassDescriptor::Printer(pd) => pd.into(),
-            _ => Vec::new(),
+            ClassDescriptor::Communication(cd) => cd.into(),
+            ClassDescriptor::Midi(md, _) => md.into(),
+            ClassDescriptor::Video(vd, _) => vd.into(),
         }
     }
 }
@@ -1389,8 +1403,11 @@ impl ClassDescriptor {
                         gd.to_owned(),
                     )?)
                 }
-                (ClassCode::Audio, 3, _) => {
-                    *self = ClassDescriptor::Midi(MidiDescriptor::try_from(gd.to_owned())?)
+                (ClassCode::Audio, 3, p) => {
+                    *self = ClassDescriptor::Midi(MidiDescriptor::try_from(gd.to_owned())?, p)
+                }
+                (ClassCode::Video, 1, p) => {
+                    *self = ClassDescriptor::Video(UvcDescriptor::try_from(gd.to_owned())?, p)
                 }
                 ct => *self = ClassDescriptor::Generic(Some(ct), gd.to_owned()),
             },
@@ -1474,8 +1491,16 @@ impl TryFrom<&[u8]> for GenericDescriptor {
             ));
         }
 
+        let length = value[0];
+        if length as usize > value.len() {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Generic descriptor reported length too long for data returned",
+            ));
+        }
+
         Ok(GenericDescriptor {
-            length: value[0],
+            length,
             descriptor_type: value[1],
             descriptor_subtype: value[2],
             data: value.get(3..).map(|d| d.to_vec()),
@@ -1989,6 +2014,241 @@ impl TryFrom<GenericDescriptor> for CommunicationDescriptor {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+#[repr(u8)]
+#[non_exhaustive]
+pub enum UvcInterface {
+    Undefined = 0x00,
+    Header = 0x01,
+    InputTerminal = 0x02,
+    OutputTerminal = 0x03,
+    SelectorUnit = 0x04,
+    ProcessingUnit = 0x05,
+    ExtensionUnit = 0x06,
+    EncodingUnit = 0x07,
+}
+
+impl From<u8> for UvcInterface {
+    fn from(b: u8) -> Self {
+        match b {
+            0x00 => UvcInterface::Undefined,
+            0x01 => UvcInterface::Header,
+            0x02 => UvcInterface::InputTerminal,
+            0x03 => UvcInterface::OutputTerminal,
+            0x04 => UvcInterface::SelectorUnit,
+            0x05 => UvcInterface::ProcessingUnit,
+            0x06 => UvcInterface::ExtensionUnit,
+            0x07 => UvcInterface::EncodingUnit,
+            _ => UvcInterface::Undefined,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct UvcDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub descriptor_subtype: u8,
+    pub string_index: Option<u8>,
+    pub string: Option<String>,
+    pub data: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for UvcDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Video Control descriptor too short",
+            ));
+        }
+
+        let length = value[0];
+        if length as usize > value.len() {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Video Control descriptor reported length too long for buffer",
+            ));
+        }
+
+        let video_control_subtype = UvcInterface::from(value[2]);
+
+        let string_index = match video_control_subtype {
+            UvcInterface::InputTerminal => value.get(7).copied(),
+            UvcInterface::OutputTerminal => value.get(8).copied(),
+            UvcInterface::SelectorUnit => {
+                if let Some(p) = value.get(4) {
+                    value.get(5 + *p as usize).copied()
+                } else {
+                    None
+                }
+            }
+            UvcInterface::ProcessingUnit => {
+                if let Some(n) = value.get(7) {
+                    value.get(8 + *n as usize).copied()
+                } else {
+                    None
+                }
+            }
+            UvcInterface::ExtensionUnit => {
+                if let Some(p) = value.get(21) {
+                    if let Some(n) = value.get(22 + *p as usize) {
+                        value.get(23 + *n as usize + *p as usize).copied()
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            UvcInterface::EncodingUnit => value.get(5).copied(),
+            _ => None,
+        };
+
+        Ok(UvcDescriptor {
+            length,
+            descriptor_type: value[1],
+            descriptor_subtype: value[2],
+            string_index,
+            string: None,
+            data: value[3..].to_vec(),
+        })
+    }
+}
+
+impl From<UvcDescriptor> for Vec<u8> {
+    fn from(vcd: UvcDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(vcd.length);
+        ret.push(vcd.descriptor_type);
+        ret.push(vcd.descriptor_subtype);
+        ret.extend(vcd.data);
+
+        ret
+    }
+}
+
+impl TryFrom<GenericDescriptor> for UvcDescriptor {
+    type Error = Error;
+
+    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
+        let gd_vec: Vec<u8> = gd.into();
+        UvcDescriptor::try_from(&gd_vec[..])
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+#[repr(u8)]
+#[non_exhaustive]
+pub enum MidiInterface {
+    Undefined = 0x00,
+    Header = 0x01,
+    InputJack = 0x02,
+    OutputJack = 0x03,
+    Element = 0x04,
+}
+
+impl From<u8> for MidiInterface {
+    fn from(b: u8) -> Self {
+        match b {
+            0x00 => MidiInterface::Undefined,
+            0x01 => MidiInterface::Header,
+            0x02 => MidiInterface::InputJack,
+            0x03 => MidiInterface::OutputJack,
+            0x04 => MidiInterface::Element,
+            _ => MidiInterface::Undefined,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct MidiDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub midi_type: MidiInterface,
+    pub string_index: Option<u8>,
+    pub string: Option<String>,
+    pub data: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for MidiDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "MidiDescriptor descriptor too short",
+            ));
+        }
+
+        let length = value[0];
+        if length as usize > value.len() {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "MidiDescriptor descriptor reported length too long for buffer",
+            ));
+        }
+
+        let midi_type = MidiInterface::from(value[2]);
+
+        let string_index = match midi_type {
+            MidiInterface::InputJack => value.get(5).copied(),
+            MidiInterface::OutputJack => value.get(5).map(|v| 6 + *v * 2),
+            MidiInterface::Element => {
+                // don't ask...
+                if let Some(j) = value.get(4) {
+                    if let Some(capsize) = value.get((5 + *j as usize * 2) + 3) {
+                        value.get(9 + 2 * *j as usize + *capsize as usize).copied()
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        Ok(MidiDescriptor {
+            length,
+            descriptor_type: value[1],
+            midi_type,
+            string_index,
+            string: None,
+            data: value[3..].to_vec(),
+        })
+    }
+}
+
+impl From<MidiDescriptor> for Vec<u8> {
+    fn from(md: MidiDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(md.length);
+        ret.push(md.descriptor_type);
+        ret.push(md.midi_type as u8);
+        ret.extend(md.data);
+
+        ret
+    }
+}
+
+impl TryFrom<GenericDescriptor> for MidiDescriptor {
+    type Error = Error;
+
+    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
+        let gd_vec: Vec<u8> = gd.into();
+        MidiDescriptor::try_from(&gd_vec[..])
+    }
+}
+
+/// USB Audio Class (UAC) interface types based on bDescriptorSubtype
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
 pub enum UacInterface {
@@ -2009,6 +2269,53 @@ pub enum UacInterface {
     SampleRateConverter = 0x0e,
     Connectors = 0x0f,
     PowerDomain = 0x10,
+}
+
+impl std::fmt::Display for UacInterface {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            // uppercase with _ instead of space for lsusb dump
+            match self {
+                UacInterface::Undefined => write!(f, "UNDEFINED"),
+                UacInterface::Header => write!(f, "HEADER"),
+                UacInterface::InputTerminal => write!(f, "INPUT_TERMINAL"),
+                UacInterface::OutputTerminal => write!(f, "OUTPUT_TERMINAL"),
+                UacInterface::ExtendedTerminal => write!(f, "EXTENDED_TERMINAL"),
+                UacInterface::MixerUnit => write!(f, "MIXER_UNIT"),
+                UacInterface::SelectorUnit => write!(f, "SELECTOR_UNIT"),
+                UacInterface::FeatureUnit => write!(f, "FEATURE_UNIT"),
+                UacInterface::EffectUnit => write!(f, "EFFECT_UNIT"),
+                UacInterface::ProcessingUnit => write!(f, "PROCESSING_UNIT"),
+                UacInterface::ExtensionUnit => write!(f, "EXTENSION_UNIT"),
+                UacInterface::ClockSource => write!(f, "CLOCK_SOURCE"),
+                UacInterface::ClockSelector => write!(f, "CLOCK_SELECTOR"),
+                UacInterface::ClockMultiplier => write!(f, "CLOCK_MULTIPLIER"),
+                UacInterface::SampleRateConverter => write!(f, "SAMPLE_RATE_CONVERTER"),
+                UacInterface::Connectors => write!(f, "CONNECTORS"),
+                UacInterface::PowerDomain => write!(f, "POWER_DOMAIN"),
+            }
+        } else {
+            match self {
+                UacInterface::Undefined => write!(f, "Undefined"),
+                UacInterface::Header => write!(f, "Header"),
+                UacInterface::InputTerminal => write!(f, "Input Terminal"),
+                UacInterface::OutputTerminal => write!(f, "Output Terminal"),
+                UacInterface::ExtendedTerminal => write!(f, "Extended Terminal"),
+                UacInterface::MixerUnit => write!(f, "Mixer Unit"),
+                UacInterface::SelectorUnit => write!(f, "Selector Unit"),
+                UacInterface::FeatureUnit => write!(f, "Feature Unit"),
+                UacInterface::EffectUnit => write!(f, "Effect Unit"),
+                UacInterface::ProcessingUnit => write!(f, "Processing Unit"),
+                UacInterface::ExtensionUnit => write!(f, "Extension Unit"),
+                UacInterface::ClockSource => write!(f, "Clock Source"),
+                UacInterface::ClockSelector => write!(f, "Clock Selector"),
+                UacInterface::ClockMultiplier => write!(f, "Clock Multiplier"),
+                UacInterface::SampleRateConverter => write!(f, "Sample Rate Converter"),
+                UacInterface::Connectors => write!(f, "Connectors"),
+                UacInterface::PowerDomain => write!(f, "Power Domain"),
+            }
+        }
+    }
 }
 
 impl From<u8> for UacInterface {
@@ -2068,239 +2375,212 @@ impl UacInterface {
             _ => Self::from(subtype),
         }
     }
+
+    /// Get the UAC interface descriptor from the UAC interface
+    pub fn get_descriptor(&self, protocol: &UacProtocol, data: &[u8]) -> Result<UacInterfaceDescriptor, Error> {
+        UacInterfaceDescriptor::from_uac_interface(self, protocol, data)
+    }
 }
 
+/// USB Audio Class (UAC) interface descriptors
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-#[repr(u8)]
-#[non_exhaustive]
-pub enum VideoControlInterface {
-    Undefined = 0x00,
-    Header = 0x01,
-    InputTerminal = 0x02,
-    OutputTerminal = 0x03,
-    SelectorUnit = 0x04,
-    ProcessingUnit = 0x05,
-    ExtensionUnit = 0x06,
-    EncodingUnit = 0x07,
+pub enum UacInterfaceDescriptor {
+    AudioHeader1(AudioHeader1),
+    AudioHeader2(AudioHeader2),
+    AudioHeader3(AudioHeader3),
 }
 
-impl From<u8> for VideoControlInterface {
-    fn from(b: u8) -> Self {
-        match b {
-            0x00 => VideoControlInterface::Undefined,
-            0x01 => VideoControlInterface::Header,
-            0x02 => VideoControlInterface::InputTerminal,
-            0x03 => VideoControlInterface::OutputTerminal,
-            0x04 => VideoControlInterface::SelectorUnit,
-            0x05 => VideoControlInterface::ProcessingUnit,
-            0x06 => VideoControlInterface::ExtensionUnit,
-            0x07 => VideoControlInterface::EncodingUnit,
-            _ => VideoControlInterface::Undefined,
+impl UacInterfaceDescriptor {
+    /// Get the UAC interface descriptor from the UAC interface
+    pub fn from_uac_interface(
+        uac_interface: &UacInterface,
+        protocol: &UacProtocol,
+        data: &[u8],
+    ) -> Result<Self, Error> {
+        match uac_interface {
+            UacInterface::Header => match protocol {
+                UacProtocol::Uac1 => AudioHeader1::try_from(data).map(UacInterfaceDescriptor::AudioHeader1),
+                UacProtocol::Uac2 => AudioHeader2::try_from(data).map(UacInterfaceDescriptor::AudioHeader2),
+                UacProtocol::Uac3 => AudioHeader3::try_from(data).map(UacInterfaceDescriptor::AudioHeader3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            _ => Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Interface not supported for this descriptor",
+            )),
         }
     }
 }
 
+/// USB Audio Class (UAC) protocol byte defines the version of the UAC
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(u8)]
 #[allow(missing_docs)]
-pub struct VideoControlDescriptor {
-    pub length: u8,
-    pub descriptor_type: u8,
-    pub descriptor_subtype: u8,
-    pub string_index: Option<u8>,
-    pub string: Option<String>,
-    pub data: Vec<u8>,
+pub enum UacProtocol {
+    Uac1 = 0x00,
+    Uac2 = 0x20,
+    Uac3 = 0x30,
+    Unknown,
 }
 
-impl TryFrom<&[u8]> for VideoControlDescriptor {
+impl From<u8> for UacProtocol {
+    fn from(b: u8) -> Self {
+        match b {
+            0x00 => UacProtocol::Uac1,
+            0x20 => UacProtocol::Uac2,
+            0x30 => UacProtocol::Uac3,
+            _ => UacProtocol::Unknown,
+        }
+    }
+}
+
+impl std::fmt::Display for UacProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UacProtocol::Uac1 => write!(f, "UAC1"),
+            UacProtocol::Uac2 => write!(f, "UAC2"),
+            UacProtocol::Uac3 => write!(f, "UAC3"),
+            UacProtocol::Unknown => write!(f, "Unknown"),
+        }
+    }
+}
+
+/// The control setting for a UAC bmControls byte
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(u8)]
+#[allow(missing_docs)]
+pub enum ControlSetting {
+    ReadOnly = 0b01,
+    IllegalValue = 0b10,
+    ReadWrite = 0b11,
+}
+
+impl From<u8> for ControlSetting {
+    fn from(b: u8) -> Self {
+        match b {
+            0b01 => ControlSetting::ReadOnly,
+            0b10 => ControlSetting::IllegalValue,
+            0b11 => ControlSetting::ReadWrite,
+            _ => ControlSetting::IllegalValue,
+        }
+    }
+}
+
+impl fmt::Display for ControlSetting {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ControlSetting::ReadOnly => write!(f, "read-only"),
+            ControlSetting::IllegalValue => write!(f, "ILLEGAL VALUE (0b10)"),
+            ControlSetting::ReadWrite => write!(f, "read/write"),
+        }
+    }
+}
+
+/// UAC bmControl can be 1 bit for just the control type or 2 bits for control type and whether it's read-only
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub enum ControlType {
+    BmControl1,
+    BmControl2,
+}
+
+/// UAC1 Header
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioHeader1 {
+    pub version: Version,
+    pub total_length: u16,
+    pub collection_bytes: u8,
+    pub interfaces: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for AudioHeader1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 4 {
+        if value.len() < 6 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "Video Control descriptor too short",
+                "Audio Header 1 descriptor too short",
             ));
         }
 
-        let length = value[0];
-        if length as usize > value.len() {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Video Control descriptor reported length too long for buffer",
-            ));
-        }
+        let total_length = u16::from_le_bytes([value[2], value[3]]);
+        let collection_bytes = value[4];
+        let interfaces = value[5..].to_vec();
 
-        let video_control_subtype = VideoControlInterface::from(value[2]);
-
-        let string_index = match video_control_subtype {
-            VideoControlInterface::InputTerminal => value.get(7).copied(),
-            VideoControlInterface::OutputTerminal => value.get(8).copied(),
-            VideoControlInterface::SelectorUnit => {
-                if let Some(p) = value.get(4) {
-                    value.get(5 + *p as usize).copied()
-                } else {
-                    None
-                }
-            }
-            VideoControlInterface::ProcessingUnit => {
-                if let Some(n) = value.get(7) {
-                    value.get(8 + *n as usize).copied()
-                } else {
-                    None
-                }
-            }
-            VideoControlInterface::ExtensionUnit => {
-                if let Some(p) = value.get(21) {
-                    if let Some(n) = value.get(22 + *p as usize) {
-                        value.get(23 + *n as usize + *p as usize).copied()
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            VideoControlInterface::EncodingUnit => value.get(5).copied(),
-            _ => None,
-        };
-
-        Ok(VideoControlDescriptor {
-            length,
-            descriptor_type: value[1],
-            descriptor_subtype: value[2],
-            string_index,
-            string: None,
-            data: value[3..].to_vec(),
+        Ok(AudioHeader1 {
+            version: Version::from_bcd(u16::from_le_bytes([value[0], value[1]])),
+            total_length,
+            collection_bytes,
+            interfaces,
         })
     }
 }
 
-impl From<VideoControlDescriptor> for Vec<u8> {
-    fn from(vcd: VideoControlDescriptor) -> Self {
-        let mut ret = Vec::new();
-        ret.push(vcd.length);
-        ret.push(vcd.descriptor_type);
-        ret.push(vcd.descriptor_subtype);
-        ret.extend(vcd.data);
-
-        ret
-    }
-}
-
-impl TryFrom<GenericDescriptor> for VideoControlDescriptor {
-    type Error = Error;
-
-    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
-        let gd_vec: Vec<u8> = gd.into();
-        VideoControlDescriptor::try_from(&gd_vec[..])
-    }
-}
-
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-#[repr(u8)]
-#[non_exhaustive]
-pub enum MidiInterface {
-    Undefined = 0x00,
-    Header = 0x01,
-    InputJack = 0x02,
-    OutputJack = 0x03,
-    Element = 0x04,
+pub struct AudioHeader2 {
+    pub version: Version,
+    pub category: u8,
+    pub total_length: u16,
+    pub controls: u8,
 }
 
-impl From<u8> for MidiInterface {
-    fn from(b: u8) -> Self {
-        match b {
-            0x00 => MidiInterface::Undefined,
-            0x01 => MidiInterface::Header,
-            0x02 => MidiInterface::InputJack,
-            0x03 => MidiInterface::OutputJack,
-            0x04 => MidiInterface::Element,
-            _ => MidiInterface::Undefined,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct MidiDescriptor {
-    pub length: u8,
-    pub descriptor_type: u8,
-    pub midi_subtype: MidiInterface,
-    pub string_index: Option<u8>,
-    pub string: Option<String>,
-    pub data: Vec<u8>,
-}
-
-impl TryFrom<&[u8]> for MidiDescriptor {
+impl TryFrom<&[u8]> for AudioHeader2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 4 {
+        if value.len() < 6 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "MidiDescriptor descriptor too short",
+                "Audio Header 2 descriptor too short",
             ));
         }
 
-        let length = value[0];
-        if length as usize > value.len() {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "MidiDescriptor descriptor reported length too long for buffer",
-            ));
-        }
+        let total_length = u16::from_le_bytes([value[3], value[4]]);
+        let controls = value[5];
 
-        let midi_subtype = MidiInterface::from(value[2]);
-
-        let string_index = match midi_subtype {
-            MidiInterface::InputJack => value.get(5).copied(),
-            MidiInterface::OutputJack => value.get(5).map(|v| 6 + *v * 2),
-            MidiInterface::Element => {
-                // don't ask...
-                if let Some(j) = value.get(4) {
-                    if let Some(capsize) = value.get((5 + *j as usize * 2) + 3) {
-                        value.get(9 + 2 * *j as usize + *capsize as usize).copied()
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-
-        Ok(MidiDescriptor {
-            length,
-            descriptor_type: value[1],
-            midi_subtype,
-            string_index,
-            string: None,
-            data: value[3..].to_vec(),
+        Ok(AudioHeader2 {
+            version: Version::from_bcd(u16::from_le_bytes([value[0], value[1]])),
+            category: value[2],
+            total_length,
+            controls,
         })
     }
 }
 
-impl From<MidiDescriptor> for Vec<u8> {
-    fn from(md: MidiDescriptor) -> Self {
-        let mut ret = Vec::new();
-        ret.push(md.length);
-        ret.push(md.descriptor_type);
-        ret.push(md.midi_subtype as u8);
-        ret.extend(md.data);
-
-        ret
-    }
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioHeader3 {
+    pub category: u8,
+    pub total_length: u16,
+    pub controls: u32,
 }
 
-impl TryFrom<GenericDescriptor> for MidiDescriptor {
+impl TryFrom<&[u8]> for AudioHeader3 {
     type Error = Error;
 
-    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
-        let gd_vec: Vec<u8> = gd.into();
-        MidiDescriptor::try_from(&gd_vec[..])
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 7 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Header 3 descriptor too short",
+            ));
+        }
+
+        let total_length = u16::from_le_bytes([value[1], value[2]]);
+        let controls = u32::from_le_bytes([value[3], value[4], value[5], value[6]]);
+
+        Ok(AudioHeader3 {
+            category: value[0],
+            total_length,
+            controls,
+        })
     }
 }
 

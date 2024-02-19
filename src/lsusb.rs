@@ -294,9 +294,14 @@ pub mod profiler {
                         cdc.string = get_descriptor_string(string_index, handle);
                     }
                 }
-                usb::ClassDescriptor::Midi(ref mut md) => {
+                usb::ClassDescriptor::Midi(ref mut md, _) => {
                     if let Some(string_index) = md.string_index {
                         md.string = get_descriptor_string(string_index, handle);
+                    }
+                }
+                usb::ClassDescriptor::Video(ref mut vd, _) => {
+                    if let Some(string_index) = vd.string_index {
+                        vd.string = get_descriptor_string(string_index, handle);
                     }
                 }
                 _ => (),
@@ -1034,7 +1039,7 @@ pub mod display {
     const TREE_LSUSB_DEVICE: &str = "|__ ";
     const TREE_LSUSB_SPACE: &str = "    ";
 
-    const CAMCTRLNAMES: [&str; 22] = [
+    const CAM_CTRL_NAMES: [&str; 22] = [
         "Scanning Mode",
         "Auto-Exposure Mode",
         "Auto-Exposure Priority",
@@ -1059,7 +1064,7 @@ pub mod display {
         "Region of Interest",
     ];
 
-    const CTRLNAMES: [&str; 19] = [
+    const CTRL_NAMES: [&str; 19] = [
         "Brightness",
         "Contrast",
         "Hue",
@@ -1081,7 +1086,7 @@ pub mod display {
         "Contrast, Auto",
     ];
 
-    const ENCTRLNAMES: [&str; 22] = [
+    const EN_CTRL_NAMES: [&str; 22] = [
         "Scanning Mode",
         "Auto-Exposure Mode",
         "Auto-Exposure Priority",
@@ -1106,7 +1111,7 @@ pub mod display {
         "Region of Interest",
     ];
 
-    const STDNAMES: [&str; 6] = [
+    const STD_NAMES: [&str; 6] = [
         "None",
         "NTSC - 525/60",
         "PAL - 625/50",
@@ -1114,6 +1119,8 @@ pub mod display {
         "NTSC - 625/50",
         "PAL - 525/60",
     ];
+
+    const UAC2_INTERFACE_HEADER: [&str; 1] = ["Legacy"];
 
     /// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
     pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
@@ -1423,7 +1430,10 @@ pub mod display {
                             usb::ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid),
                             usb::ClassDescriptor::Printer(pd) => dump_printer_desc(pd),
                             usb::ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, 6),
-                            usb::ClassDescriptor::Midi(md) => dump_midistreaming_interface(md),
+                            usb::ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md),
+                            usb::ClassDescriptor::Video(vcd, p) => {
+                                dump_videocontrol_interface(vcd, *p)
+                            }
                             usb::ClassDescriptor::Generic(cc, gd) => match cc {
                                 Some((usb::ClassCode::Audio, 1, p)) => {
                                     dump_audiocontrol_interface(gd, *p);
@@ -1438,7 +1448,7 @@ pub mod display {
                                 }
                                 Some((usb::ClassCode::Video, 1, p)) => {
                                     if let Ok(vcd) =
-                                        usb::VideoControlDescriptor::try_from(gd.to_owned())
+                                        usb::UvcDescriptor::try_from(gd.to_owned())
                                     {
                                         dump_videocontrol_interface(&vcd, *p);
                                     }
@@ -1470,12 +1480,12 @@ pub mod display {
         println!("        bLength              {:3}", endpoint.length);
         println!("        bDescriptorType        5"); // type 5 for endpoint
         println!(
-            "        bEndpointAddress    0x{:04x} EP {} {}",
+            "        bEndpointAddress    0x{:02x} EP {} {}",
             endpoint.address.address,
             endpoint.address.number,
             endpoint.address.direction.to_string().to_uppercase()
         );
-        println!("        bmAttributes:");
+        println!("        bmAttributes:        {:3}", endpoint.attributes());
         println!(
             "          Transfer Type          {:?}",
             endpoint.transfer_type
@@ -1496,8 +1506,8 @@ pub mod display {
                 match dt {
                     usb::DescriptorType::Endpoint(_cd) => match _cd {
                         usb::ClassDescriptor::Generic(cc, gd) => match cc {
-                            Some((usb::ClassCode::Audio, 2, _)) => {
-                                dump_audiostreaming_endpoint(gd);
+                            Some((usb::ClassCode::Audio, 2, p)) => {
+                                dump_audiostreaming_endpoint(gd, *p);
                             }
                             Some((usb::ClassCode::Audio, 3, _)) => {
                                 dump_midistreaming_endpoint(gd);
@@ -1610,13 +1620,17 @@ pub mod display {
         )
     }
 
-    fn dump_audiostreaming_endpoint(gd: &usb::GenericDescriptor) {
+    fn dump_audiostreaming_endpoint(gd: &usb::GenericDescriptor, protocol: u8) {
         println!("    AudioStreaming Endpoint Descriptor:");
         println!("      bLength              {:3}", gd.length);
         println!("      bDescriptorType      {:3}", gd.descriptor_type);
         println!("      bDescriptorSubType   {:3}", gd.descriptor_subtype);
 
-        // TODO dump_audio_subtype
+        if let Some(data) = gd.data.as_ref() {
+            let subtype = usb::UacInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
+            // TODO fixed EP_GENERAL
+            // dump_audio_subtype(&subtype, protocol, data);
+        }
     }
 
     fn dump_midistreaming_endpoint(gd: &usb::GenericDescriptor) {
@@ -1861,8 +1875,49 @@ pub mod display {
         }
     }
 
-    // fn dump_audio_subtype(subtype: &usb::UacInterface, gd: &usb::GenericDescriptor) {
-    // }
+    fn dump_uac_controls(controls: u32, control_descriptions: &[&'static str], desc_type: usb::ControlType, indent: usize) {
+        for (index, control) in control_descriptions.iter().enumerate() {
+            match desc_type {
+                usb::ControlType::BmControl1 => {
+                    if (controls >> index) & 0x1 != 0 {
+                        println!("{:indent$}{} Control", "", control, indent = indent * 2);
+                    }
+                },
+                usb::ControlType::BmControl2 => {
+                    println!("{:indent$}{} Control ({})", "", control, usb::ControlSetting::from(((controls >> (index * 2)) & 0x3) as u8), indent = indent * 2)
+                },
+            }
+        }
+    }
+
+    fn dump_audio_subtype(uac: &usb::UacInterface, uac_protocol: &usb::UacProtocol, data: &[u8], indent: usize) {
+        if let Ok(sub_desc) = uac.get_descriptor(uac_protocol, data) {
+            match sub_desc {
+                usb::UacInterfaceDescriptor::AudioHeader1(ach) => {
+                    println!("{:indent$}bcdADC              {}", "", ach.version, indent = indent + 2);
+                    println!("{:indent$}wTotalLength       {:5}", "", ach.total_length, indent = indent + 2);
+                    println!("{:indent$}bInCollection      {:5}", "", ach.collection_bytes, indent = indent + 2);
+                    for (i, interface) in ach.interfaces.iter().enumerate() {
+                        println!("{:indent$}baInterfaceNr({})  {:5}", "", i, interface, indent = indent + 2);
+                    }
+                },
+                usb::UacInterfaceDescriptor::AudioHeader2(ach) => {
+                    println!("{:indent$}bcdADC              {}", "", ach.version, indent = indent + 2);
+                    println!("{:indent$}wTotalLength       {:5}", "", ach.total_length, indent = indent + 2);
+                    println!("{:indent$}bmControls         {:5}", "", ach.controls, indent = indent + 2);
+                    dump_uac_controls(ach.controls as u32, &UAC2_INTERFACE_HEADER, usb::ControlType::BmControl2, indent);
+                },
+                usb::UacInterfaceDescriptor::AudioHeader3(ach) => {
+                    println!("{:indent$}bCategory          {:5}", "", ach.category, indent = indent + 2);
+                    println!("{:indent$}wTotalLength       {:5}", "", ach.total_length, indent = indent + 2);
+                    println!("{:indent$}bmControls         {:5}", "", ach.controls, indent = indent + 2);
+                    dump_uac_controls(ach.controls as u32, &UAC2_INTERFACE_HEADER, usb::ControlType::BmControl2, indent);
+                },
+            }
+        } else {
+            println!("{:indent$}Warning: {:#} descriptors are illegal for {}", "", uac, uac_protocol, indent = indent);
+        }
+    }
 
     fn dump_audiocontrol_interface(gd: &usb::GenericDescriptor, protocol: u8) {
         println!("    AudioControl Interface Descriptor:");
@@ -1870,18 +1925,22 @@ pub mod display {
         println!("      bDescriptorType      {:3}", gd.descriptor_type);
         println!("      bDescriptorSubType   {:3} ", gd.descriptor_subtype);
 
-        let _subtype = usb::UacInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
-        // TODO dump_audio_subtype(subtype, gd);
+        if let Some(data) = gd.data.as_ref() {
+            let subtype = usb::UacInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
+            dump_audio_subtype(&subtype, &usb::UacProtocol::from(protocol), data, 4);
+        }
     }
 
-    fn dump_audiostreaming_interface(gd: &usb::GenericDescriptor, protocol: u8) {
+    fn dump_audiostreaming_interface(gd: &usb::GenericDescriptor, _protocol: u8) {
         println!("    AudioControl Interface Descriptor:");
         println!("      bLength              {:3}", gd.length);
         println!("      bDescriptorType      {:3}", gd.descriptor_type);
         println!("      bDescriptorSubType   {:3} ", gd.descriptor_subtype);
 
-        let _subtype = usb::UacInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
-        // TODO dump_audio_subtype(subtype, gd);
+        // if let Some(data) = gd.data.as_ref() {
+        //     let subtype = usb::UacInterface::get_uac_subtype(UacInterface::AsInterface, protocol);
+        //     dump_audio_subtype(&subtype, protocol, data);
+        // }
     }
 
     fn dump_midistreaming_interface(md: &usb::MidiDescriptor) {
@@ -1897,10 +1956,10 @@ pub mod display {
         println!("      bDescriptorType      {:5}", md.descriptor_type);
         print!(
             "      bDescriptorSubType   {:5} ",
-            md.midi_subtype.to_owned() as u8
+            md.midi_type.to_owned() as u8
         );
 
-        match md.midi_subtype {
+        match md.midi_type {
             usb::MidiInterface::Header => {
                 println!("(HEADER)");
                 if md.data.len() >= 4 {
@@ -2040,14 +2099,14 @@ pub mod display {
         }
     }
 
-    fn dump_videocontrol_interface(vcd: &usb::VideoControlDescriptor, protocol: u8) {
+    fn dump_videocontrol_interface(vcd: &usb::UvcDescriptor, protocol: u8) {
         println!("    VideoControl Interface Descriptor:");
         println!("      bLength              {:3}", vcd.length);
         println!("      bDescriptorType      {:3}", vcd.descriptor_type);
         print!("      bDescriptorSubType   {:3} ", vcd.descriptor_subtype);
 
-        match usb::VideoControlInterface::from(vcd.descriptor_subtype) {
-            usb::VideoControlInterface::Header => {
+        match usb::UvcInterface::from(vcd.descriptor_subtype) {
+            usb::UvcInterface::Header => {
                 println!("(HEADER)");
                 if vcd.data.len() >= 10 {
                     let n = vcd.data[8] as usize;
@@ -2077,7 +2136,7 @@ pub mod display {
                     dump_junk(&vcd.data, 8, vcd.length as usize - 3, 9 + n);
                 }
             }
-            usb::VideoControlInterface::InputTerminal => {
+            usb::UvcInterface::InputTerminal => {
                 println!("(INPUT_TERMINAL)");
                 if vcd.data.len() >= 10 {
                     let term_type = u16::from_le_bytes([vcd.data[1], vcd.data[2]]);
@@ -2120,13 +2179,13 @@ pub mod display {
                         println!("        bmControls           0x{:08x}", controls);
 
                         if protocol == 0x01 {
-                            for (i, n) in CAMCTRLNAMES.iter().enumerate().take(22) {
+                            for (i, n) in CAM_CTRL_NAMES.iter().enumerate().take(22) {
                                 if (controls >> i) & 1 != 0 {
                                     println!("         {}", n);
                                 }
                             }
                         } else {
-                            for (i, n) in CAMCTRLNAMES.iter().enumerate().take(19) {
+                            for (i, n) in CAM_CTRL_NAMES.iter().enumerate().take(19) {
                                 if (controls >> i) & 1 != 0 {
                                     println!("         {}", n);
                                 }
@@ -2139,7 +2198,7 @@ pub mod display {
                     println!("      Warning: Descriptor too short");
                 }
             }
-            usb::VideoControlInterface::OutputTerminal => {
+            usb::UvcInterface::OutputTerminal => {
                 println!("(OUTPUT_TERMINAL)");
                 if vcd.data.len() >= 6 {
                     let term_type = u16::from_le_bytes([vcd.data[1], vcd.data[2]]);
@@ -2162,7 +2221,7 @@ pub mod display {
 
                 dump_junk(&vcd.data, 8, vcd.length as usize - 3, 6);
             }
-            usb::VideoControlInterface::SelectorUnit => {
+            usb::UvcInterface::SelectorUnit => {
                 println!("(SELECTOR_UNIT)");
                 if vcd.data.len() >= 4 {
                     let pins = vcd.data[1] as usize;
@@ -2185,7 +2244,7 @@ pub mod display {
                     println!("      Warning: Descriptor too short");
                 }
             }
-            usb::VideoControlInterface::ProcessingUnit => {
+            usb::UvcInterface::ProcessingUnit => {
                 println!("(PROCESSING_UNIT)");
                 if vcd.data.len() >= 9 {
                     let n = vcd.data[4] as usize;
@@ -2205,13 +2264,13 @@ pub mod display {
                     }
                     println!("        bmControls     0x{:08x}", controls);
                     if protocol == 0x01 {
-                        for (i, n) in CTRLNAMES.iter().enumerate().take(19) {
+                        for (i, n) in CTRL_NAMES.iter().enumerate().take(19) {
                             if (controls >> i) & 1 != 0 {
                                 println!("         {}", n);
                             }
                         }
                     } else {
-                        for (i, n) in CTRLNAMES.iter().enumerate().take(18) {
+                        for (i, n) in CTRL_NAMES.iter().enumerate().take(18) {
                             if (controls >> i) & 1 != 0 {
                                 println!("         {}", n);
                             }
@@ -2224,7 +2283,7 @@ pub mod display {
                         vcd.string.as_ref().unwrap_or(&String::new())
                     );
                     println!("        bmVideoStandards     0x{:02x}", stds);
-                    for (i, n) in STDNAMES.iter().enumerate().take(6) {
+                    for (i, n) in STD_NAMES.iter().enumerate().take(6) {
                         if (stds >> i) & 1 != 0 {
                             println!("         {}", n);
                         }
@@ -2233,7 +2292,7 @@ pub mod display {
                     println!("      Warning: Descriptor too short");
                 }
             }
-            usb::VideoControlInterface::ExtensionUnit => {
+            usb::UvcInterface::ExtensionUnit => {
                 println!("(EXTENSION_UNIT)");
                 if vcd.data.len() >= 21 {
                     let p = vcd.data[18] as usize;
@@ -2266,7 +2325,7 @@ pub mod display {
                     println!("      Warning: Descriptor too short");
                 }
             }
-            usb::VideoControlInterface::EncodingUnit => {
+            usb::UvcInterface::EncodingUnit => {
                 println!("(ENCODING_UNIT)");
                 if vcd.data.len() >= 10 {
                     println!("        bUnitID             {:5}", vcd.data[0]);
@@ -2283,7 +2342,7 @@ pub mod display {
                         controls = (controls << 8) | vcd.data[6 - i] as u32;
                     }
                     println!("        bmControls              0x{:08x}", controls);
-                    for (i, n) in ENCTRLNAMES.iter().enumerate().take(20) {
+                    for (i, n) in EN_CTRL_NAMES.iter().enumerate().take(20) {
                         if (controls >> i) & 1 != 0 {
                             println!("         {}", n); // Replace with your Rust lookup approach
                         }
@@ -2292,7 +2351,7 @@ pub mod display {
                         controls = (controls << 8) | vcd.data[9 - i] as u32;
                     }
                     println!("        bmControlsRuntime       0x{:08x}", controls);
-                    for (i, n) in ENCTRLNAMES.iter().enumerate().take(20) {
+                    for (i, n) in EN_CTRL_NAMES.iter().enumerate().take(20) {
                         if (controls >> i) & 1 != 0 {
                             println!("         {}", n);
                         }
@@ -2782,7 +2841,7 @@ pub mod display {
                 if cd.data.len() >= 2 {
                     println!("{:^indent$}CDC Header:", "");
                     println!(
-                        "{:^indent$}  bcdCDC               {:x}.{:02x}",
+                        "{:^indent$}  bcdCDC              {:x}.{:02x}",
                         "", cd.data[1], cd.data[0]
                     );
                 } else {
@@ -2792,7 +2851,7 @@ pub mod display {
             usb::CdcType::CallManagement => {
                 if cd.data.len() >= 2 {
                     println!("{:^indent$}CDC Call Management:", "");
-                    println!("{:^indent$}  bmCapabilities       0x{:02x}", "", cd.data[0]);
+                    println!("{:^indent$}  bmCapabilities      0x{:02x}", "", cd.data[0]);
                     if cd.data[0] & 0x01 != 0x00 {
                         println!("{:^indent$}    call management", "");
                     }
@@ -2806,7 +2865,7 @@ pub mod display {
             usb::CdcType::AbstractControlManagement => {
                 if !cd.data.is_empty() {
                     println!("{:^indent$}CDC ACM:", "");
-                    println!("{:^indent$}  bmCapabilities       0x{:02x}", "", cd.data[0]);
+                    println!("{:^indent$}  bmCapabilities      0x{:02x}", "", cd.data[0]);
                     if cd.data[0] & 0x08 != 0x00 {
                         println!("{:^indent$}    connection notifications", "");
                     }
@@ -2826,9 +2885,9 @@ pub mod display {
             usb::CdcType::Union => {
                 if cd.data.len() >= 2 {
                     println!("{:^indent$}CDC Union:", "");
-                    println!("{:^indent$}  bMasterInterface      {:3}", "", cd.data[0]);
+                    println!("{:^indent$}  bMasterInterface     {:3}", "", cd.data[0]);
                     println!(
-                        "{:^indent$}  bSlaveInterface       {}",
+                        "{:^indent$}  bSlaveInterface      {}",
                         "",
                         cd.data[1..]
                             .iter()
