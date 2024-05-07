@@ -613,12 +613,12 @@ pub mod profiler {
             };
 
             if let Some(root_hub) = root {
-                new_bus.name = root_hub.name.to_owned();
-                new_bus.host_controller = root_hub
+                root_hub.name.clone_into(&mut new_bus.name);
+                root_hub
                     .manufacturer
                     .as_ref()
                     .unwrap_or(&String::new())
-                    .to_owned();
+                    .clone_into(&mut new_bus.host_controller);
                 new_bus.pci_vendor = root_hub.vendor_id;
                 new_bus.pci_device = root_hub.product_id;
             }

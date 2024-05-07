@@ -1668,7 +1668,7 @@ pub fn truncate_string(s: &mut String, len: usize) {
 pub fn auto_max_string_len<B: Eq + Hash, T>(
     blocks: &[impl Block<B, T>],
     offset: usize,
-    variable_lens: &Vec<usize>,
+    #[allow(clippy::ptr_arg)] variable_lens: &Vec<usize>,
     settings: &PrintSettings,
 ) -> Option<usize> {
     if variable_lens.is_empty() {
