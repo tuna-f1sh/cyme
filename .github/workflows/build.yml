@@ -226,7 +226,7 @@ jobs:
         run: sleep 5 # sleep to ensure package is uploaded before homebrew
 
       - name: Bump Homebrew formula
-        uses: mislav/bump-homebrew-formula-action@v2
+        uses: mislav/bump-homebrew-formula-action@v3
         if: steps.is-release.outputs.IS_RELEASE && startsWith(matrix.job.target, 'universal-apple')
         with:
           formula-name: cyme
