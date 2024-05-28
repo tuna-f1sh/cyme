@@ -242,9 +242,9 @@ lazy_static! {
             (Icon::Vid(0x18d1), "\u{f1a0}"), // google 
             (Icon::Vid(0x1D6B), "\u{f17c}"), // linux foundation 
             (Icon::Vid(0x1d50), "\u{e771}"), // open source VID 
-            (Icon::VidPid((0x1915, 0x520c)), "\u{f5a2}"), // specialized 
-            (Icon::VidPid((0x1915, 0x520d)), "\u{f5a2}"), // specialized 
-            (Icon::VidPid((0x0483, 0x572B)), "\u{f5a2}"), // specialized 
+            (Icon::VidPid((0x1915, 0x520c)), "\u{f00a3}"), // specialized 󰂣
+            (Icon::VidPid((0x1915, 0x520d)), "\u{f00a3}"), // specialized 󰂣
+            (Icon::VidPid((0x0483, 0x572B)), "\u{f00a3}"), // specialized 󰂣
             (Icon::Vid(0x046d), "\u{f87c}"), // logitech 
             (Icon::Vid(0x091e), "\u{e2a6}"), // garmin 
             (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}"), // black magic probe 
@@ -264,19 +264,18 @@ lazy_static! {
             (Icon::Vid(0x1050), "\u{f805}"), // yubikey 
             (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"), // android dev 
             (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
-            (Icon::VidPid((0x1d50, 0x606f)), "\u{f5e6}"), // candlelight_fw gs_can 
+            (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
             (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f878}"), // lg monitor 
             (Icon::VidPid((0x0781, 0xf7c9)), "\u{f878}"), // sandisk external disk 
             (Icon::Classifier(ClassCode::Audio), "\u{f001}"), // 
             (Icon::Classifier(ClassCode::Image), "\u{f03e}"), // 
             (Icon::Classifier(ClassCode::Video), "\u{f03d}"), // 
-            (Icon::Classifier(ClassCode::Printer), "\u{fc05}"), // ﰅ
+            (Icon::Classifier(ClassCode::Printer), "\u{f02f}"), // 
             // (Icon::Classifier(ClassCode::MassStorage), "\u{fc05}".into()),
             (Icon::Classifier(ClassCode::Hub), "\u{f126}"), // 
             (Icon::Classifier(ClassCode::ContentSecurity), "\u{f805}"), // 
             (Icon::Classifier(ClassCode::SmartCart), "\u{f805}"), // 
-            (Icon::Classifier(ClassCode::PersonalHealthcare), "\u{fbeb}"), // ﯭ
-            (Icon::Classifier(ClassCode::Physical), "\u{f5cd}"), // 
+            (Icon::Classifier(ClassCode::PersonalHealthcare), "\u{f21e}"), // 
             (Icon::Classifier(ClassCode::AudioVideo), "\u{fd3f}"), // ﴿
             (Icon::Classifier(ClassCode::Billboard), "\u{f05a}"), // 
             (Icon::Classifier(ClassCode::I3CDevice), "\u{f493}"), // 

@@ -69,9 +69,6 @@ strip = true
 panic = "abort"
 codegen-units = 1 # quicker binary, slower build
 
-# [package.metadata.cross.build]
-# pre-build = ["dpkg --add-architecture $CROSS_DEB_ARCH && apt-get update && apt-get install --assume-yes libusb-1.0-0-dev:$CROSS_DEB_ARCH libudev-dev:$CROSS_DEB_ARCH"]
-
 [package.metadata.cross.target.arm-unknown-linux-gnueabihf]
 pre-build = ["dpkg --add-architecture armhf && apt-get update && apt-get install --assume-yes libusb-1.0-0-dev:armhf libudev-dev:armhf"]
 
