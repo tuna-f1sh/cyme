@@ -1,6 +1,5 @@
 //! Utilities to get device information using udev - only supported on Linux. Requires 'udev' feature.
-use std::path::Path;
-use udev as udevlib;
+use udevrs::{udev_new, UdevDevice, UdevHwdb};
 
 use crate::error::{Error, ErrorKind};
 
@@ -24,7 +23,7 @@ pub struct UdevInfo {
 /// ```
 pub fn get_udev_info(port_path: &str) -> Result<UdevInfo, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(Path::new(&path)).map_err(|e| {
+    let device = UdevDevice::new_from_syspath(udev_new(), &path).map_err(|e| {
         Error::new(
             ErrorKind::Udev,
             &format!(
@@ -36,10 +35,8 @@ pub fn get_udev_info(port_path: &str) -> Result<UdevInfo, Error> {
 
     Ok({
         UdevInfo {
-            driver: device
-                .driver()
-                .map(|s| s.to_str().unwrap_or("").to_string()),
-            syspath: device.syspath().to_str().map(|s| s.to_string()),
+            driver: Some(device.driver().to_string()),
+            syspath: Some(device.syspath().to_string()),
         }
     })
 }
@@ -53,7 +50,7 @@ pub fn get_udev_info(port_path: &str) -> Result<UdevInfo, Error> {
 /// ```
 pub fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(Path::new(&path)).map_err(|e| {
+    let device = UdevDevice::new_from_syspath(udev_new(), &path).map_err(|e| {
         Error::new(
             ErrorKind::Udev,
             &format!(
@@ -63,9 +60,7 @@ pub fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
         )
     })?;
 
-    Ok(device
-        .driver()
-        .map(|s| s.to_str().unwrap_or("").to_string()))
+    Ok(Some(device.driver().to_owned()))
 }
 
 /// Lookup the syspath for a device given the `port_path`.
@@ -77,7 +72,7 @@ pub fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
 /// ```
 pub fn get_udev_syspath(port_path: &str) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(Path::new(&path)).map_err(|e| {
+    let device = UdevDevice::new_from_syspath(udev_new(), &path).map_err(|e| {
         Error::new(
             ErrorKind::Udev,
             &format!(
@@ -87,7 +82,7 @@ pub fn get_udev_syspath(port_path: &str) -> Result<Option<String>, Error> {
         )
     })?;
 
-    Ok(device.syspath().to_str().map(|s| s.to_string()))
+    Ok(Some(device.syspath().to_owned()))
 }
 
 /// Lookup a udev attribute given the `port_path` and `attribute`.
@@ -104,12 +99,12 @@ pub fn get_udev_syspath(port_path: &str) -> Result<Option<String>, Error> {
 /// let interface_class = get_udev_attribute("1-0:1.0", "bInterfaceClass").unwrap();
 /// assert_eq!(interface_class, Some("09".into()));
 /// ```
-pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
+pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display + Into<String>>(
     port_path: &str,
     attribute: T,
 ) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    let device = udevlib::Device::from_syspath(Path::new(&path)).map_err(|e| {
+    let mut device = UdevDevice::new_from_syspath(udev_new(), &path).map_err(|e| {
         Error::new(
             ErrorKind::Udev,
             &format!(
@@ -119,15 +114,13 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
         )
     })?;
 
-    Ok(device
-        .attribute_value(attribute)
-        .map(|s| s.to_str().unwrap_or("").to_string()))
+    Ok(device.get_sysattr_value(&attribute.into()))
 }
 
 /// udev hwdb lookup functions
 ///
 /// Protected by the `udev_hwdb` feature because 'libudev-sys' excludes hwdb ffi bindings if native udev does not support hwdb
-#[cfg(feature = "udev_hwdb")]
+//#[cfg(feature = "udev_hwdb")]
 pub mod hwdb {
     use super::*;
     /// Lookup an entry in the udev hwdb given the `modalias` and `key`.
@@ -138,17 +131,17 @@ pub mod hwdb {
     /// use cyme::udev;
     ///
     /// let modalias = "usb:v1D6Bp0001";
-    /// let vendor = hwdb::get(&modalias, "ID_VENDOR_FROM_DATABASE").unwrap();
+    /// let vendor = udev::hwdb::get(&modalias, "ID_VENDOR_FROM_DATABASE").unwrap();
     ///
     /// assert_eq!(vendor, Some("Linux Foundation".into()));
     ///
     /// let modalias = "usb:v*p*d*dc03dsc01dp01*";
-    /// let vendor = hwdb::get(&modalias, "ID_USB_PROTOCOL_FROM_DATABASE").unwrap();
+    /// let vendor = udev::hwdb::get(&modalias, "ID_USB_PROTOCOL_FROM_DATABASE").unwrap();
     ///
     /// assert_eq!(vendor, Some("Keyboard".into()));
     /// ```
-    pub fn get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
-        let hwdb = udevlib::Hwdb::new().map_err(|e| {
+    pub fn get(modalias: &str, _key: &'static str) -> Result<Option<String>, Error> {
+        let mut hwdb = UdevHwdb::new(udev_new()).map_err(|e| {
             Error::new(
                 ErrorKind::Udev,
                 &format!("Failed to get hwdb: Error({})", e),
@@ -156,8 +149,8 @@ pub mod hwdb {
         })?;
 
         Ok(hwdb
-            .query_one(&modalias.to_string(), &key.to_string())
-            .map(|s| s.to_str().unwrap_or("").to_string()))
+            .get_properties_list_entry(&modalias.to_string(), 0)
+            .map(|entry| entry.value().to_owned()))
     }
 }
 
