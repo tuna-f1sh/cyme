@@ -4,6 +4,12 @@
 
 - Working on full dumps of device descriptors ([#15](https://github.com/tuna-f1sh/cyme/issues/15))
 
+## [1.6.1] - 2024-13-06
+
+### Fixes
+
+- Replace font-awesome icons in default look-up that have been deprecated.
+
 ## [1.6.0] - 2023-11-23
 
 _A release of patches, PRs and merges :), thanks to support_
