@@ -261,6 +261,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "terminal_size 0.2.6",
+ "udev",
  "udevrs",
  "usb-ids",
 ]
@@ -528,6 +529,16 @@ dependencies = [
  "bitflags 2.4.1",
  "libc",
  "redox_syscall",
+]
+
+[[package]]
+name = "libudev-sys"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c8469b4a23b962c1396b9b451dda50ef5b283e8dd309d69033475fa9b334324"
+dependencies = [
+ "libc",
+ "pkg-config",
 ]
 
 [[package]]
@@ -1038,8 +1049,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "udev"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50051c6e22be28ee6f217d50014f3bc29e81c20dc66ff7ca0d5c5226e1dcc5a1"
+dependencies = [
+ "io-lifetimes",
+ "libc",
+ "libudev-sys",
+ "pkg-config",
+]
+
+[[package]]
 name = "udevrs"
 version = "0.2.0"
+source = "git+https://github.com/tuna-f1sh/udev/?branch=main#2f43f007ed9cb0f6b813b4b2a1d089e0d09745f5"
 dependencies = [
  "bitflags 2.4.1",
  "glob",
