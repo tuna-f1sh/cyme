@@ -33,7 +33,7 @@ strum = "0.24.1"
 strum_macros = "0.24.3"
 
 [patch.crates-io]
-udevrs = { git = "https://github.com/tuna-f1sh/udev/", branch = "main" }
+udevrs = { git = "https://github.com/tuna-f1sh/udev/", branch = "query" }
 
 [dev-dependencies]
 diff = "0.1"

@@ -1063,7 +1063,7 @@ dependencies = [
 [[package]]
 name = "udevrs"
 version = "0.2.0"
-source = "git+https://github.com/tuna-f1sh/udev/?branch=main#2f43f007ed9cb0f6b813b4b2a1d089e0d09745f5"
+source = "git+https://github.com/tuna-f1sh/udev/?branch=query#d27ba56a4c229aa4b89c016f392f0966012a6969"
 dependencies = [
  "bitflags 2.4.1",
  "glob",
