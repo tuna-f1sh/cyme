@@ -1387,8 +1387,8 @@ impl ClassDescriptor {
         &mut self,
         triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
-        match self {
-            ClassDescriptor::Generic(None, gd) => match (triplet.0.into(), triplet.1, triplet.2) {
+        if let ClassDescriptor::Generic(_, gd) = self {
+            match (triplet.0.into(), triplet.1, triplet.2) {
                 (ClassCode::HID, _, _) => {
                     *self = ClassDescriptor::Hid(HidDescriptor::try_from(gd.to_owned())?)
                 }
@@ -1410,8 +1410,7 @@ impl ClassDescriptor {
                     *self = ClassDescriptor::Video(UvcDescriptor::try_from(gd.to_owned())?, p)
                 }
                 ct => *self = ClassDescriptor::Generic(Some(ct), gd.to_owned()),
-            },
-            _ => (),
+            }
         }
 
         Ok(())
@@ -2377,7 +2376,11 @@ impl UacInterface {
     }
 
     /// Get the UAC interface descriptor from the UAC interface
-    pub fn get_descriptor(&self, protocol: &UacProtocol, data: &[u8]) -> Result<UacInterfaceDescriptor, Error> {
+    pub fn get_descriptor(
+        &self,
+        protocol: &UacProtocol,
+        data: &[u8],
+    ) -> Result<UacInterfaceDescriptor, Error> {
         UacInterfaceDescriptor::from_uac_interface(self, protocol, data)
     }
 }
@@ -2400,9 +2403,15 @@ impl UacInterfaceDescriptor {
     ) -> Result<Self, Error> {
         match uac_interface {
             UacInterface::Header => match protocol {
-                UacProtocol::Uac1 => AudioHeader1::try_from(data).map(UacInterfaceDescriptor::AudioHeader1),
-                UacProtocol::Uac2 => AudioHeader2::try_from(data).map(UacInterfaceDescriptor::AudioHeader2),
-                UacProtocol::Uac3 => AudioHeader3::try_from(data).map(UacInterfaceDescriptor::AudioHeader3),
+                UacProtocol::Uac1 => {
+                    AudioHeader1::try_from(data).map(UacInterfaceDescriptor::AudioHeader1)
+                }
+                UacProtocol::Uac2 => {
+                    AudioHeader2::try_from(data).map(UacInterfaceDescriptor::AudioHeader2)
+                }
+                UacProtocol::Uac3 => {
+                    AudioHeader3::try_from(data).map(UacInterfaceDescriptor::AudioHeader3)
+                }
                 _ => Err(Error::new(
                     ErrorKind::InvalidArg,
                     "Protocol not supported for this interface",

@@ -1447,9 +1447,7 @@ pub mod display {
                                     }
                                 }
                                 Some((usb::ClassCode::Video, 1, p)) => {
-                                    if let Ok(vcd) =
-                                        usb::UvcDescriptor::try_from(gd.to_owned())
-                                    {
+                                    if let Ok(vcd) = usb::UvcDescriptor::try_from(gd.to_owned()) {
                                         dump_videocontrol_interface(&vcd, *p);
                                     }
                                 }
@@ -1504,16 +1502,13 @@ pub mod display {
         if let Some(dt_vec) = &endpoint.extra {
             for dt in dt_vec {
                 match dt {
-                    usb::DescriptorType::Endpoint(_cd) => match _cd {
-                        usb::ClassDescriptor::Generic(cc, gd) => match cc {
-                            Some((usb::ClassCode::Audio, 2, p)) => {
-                                dump_audiostreaming_endpoint(gd, *p);
-                            }
-                            Some((usb::ClassCode::Audio, 3, _)) => {
-                                dump_midistreaming_endpoint(gd);
-                            }
-                            _ => (),
-                        },
+                    usb::DescriptorType::Endpoint(usb::ClassDescriptor::Generic(cc, gd)) => match cc {
+                        Some((usb::ClassCode::Audio, 2, p)) => {
+                            dump_audiostreaming_endpoint(gd, *p);
+                        }
+                        Some((usb::ClassCode::Audio, 3, _)) => {
+                            dump_midistreaming_endpoint(gd);
+                        }
                         _ => (),
                     },
                     // Misplaced descriptors
@@ -1620,17 +1615,17 @@ pub mod display {
         )
     }
 
-    fn dump_audiostreaming_endpoint(gd: &usb::GenericDescriptor, protocol: u8) {
+    fn dump_audiostreaming_endpoint(gd: &usb::GenericDescriptor, _protocol: u8) {
         println!("    AudioStreaming Endpoint Descriptor:");
         println!("      bLength              {:3}", gd.length);
         println!("      bDescriptorType      {:3}", gd.descriptor_type);
         println!("      bDescriptorSubType   {:3}", gd.descriptor_subtype);
 
-        if let Some(data) = gd.data.as_ref() {
-            let subtype = usb::UacInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
-            // TODO fixed EP_GENERAL
-            // dump_audio_subtype(&subtype, protocol, data);
-        }
+        //if let Some(data) = gd.data.as_ref() {
+        //    let subtype = usb::UacInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
+        //    // TODO fixed EP_GENERAL
+        //    // dump_audio_subtype(&subtype, protocol, data);
+        //}
     }
 
     fn dump_midistreaming_endpoint(gd: &usb::GenericDescriptor) {
@@ -1875,47 +1870,130 @@ pub mod display {
         }
     }
 
-    fn dump_uac_controls(controls: u32, control_descriptions: &[&'static str], desc_type: usb::ControlType, indent: usize) {
+    fn dump_uac_controls(
+        controls: u32,
+        control_descriptions: &[&'static str],
+        desc_type: usb::ControlType,
+        indent: usize,
+    ) {
         for (index, control) in control_descriptions.iter().enumerate() {
             match desc_type {
                 usb::ControlType::BmControl1 => {
                     if (controls >> index) & 0x1 != 0 {
                         println!("{:indent$}{} Control", "", control, indent = indent * 2);
                     }
-                },
+                }
                 usb::ControlType::BmControl2 => {
-                    println!("{:indent$}{} Control ({})", "", control, usb::ControlSetting::from(((controls >> (index * 2)) & 0x3) as u8), indent = indent * 2)
-                },
+                    println!(
+                        "{:indent$}{} Control ({})",
+                        "",
+                        control,
+                        usb::ControlSetting::from(((controls >> (index * 2)) & 0x3) as u8),
+                        indent = indent * 2
+                    )
+                }
             }
         }
     }
 
-    fn dump_audio_subtype(uac: &usb::UacInterface, uac_protocol: &usb::UacProtocol, data: &[u8], indent: usize) {
+    fn dump_audio_subtype(
+        uac: &usb::UacInterface,
+        uac_protocol: &usb::UacProtocol,
+        data: &[u8],
+        indent: usize,
+    ) {
         if let Ok(sub_desc) = uac.get_descriptor(uac_protocol, data) {
             match sub_desc {
                 usb::UacInterfaceDescriptor::AudioHeader1(ach) => {
-                    println!("{:indent$}bcdADC              {}", "", ach.version, indent = indent + 2);
-                    println!("{:indent$}wTotalLength       {:5}", "", ach.total_length, indent = indent + 2);
-                    println!("{:indent$}bInCollection      {:5}", "", ach.collection_bytes, indent = indent + 2);
+                    println!(
+                        "{:indent$}bcdADC              {}",
+                        "",
+                        ach.version,
+                        indent = indent + 2
+                    );
+                    println!(
+                        "{:indent$}wTotalLength       {:5}",
+                        "",
+                        ach.total_length,
+                        indent = indent + 2
+                    );
+                    println!(
+                        "{:indent$}bInCollection      {:5}",
+                        "",
+                        ach.collection_bytes,
+                        indent = indent + 2
+                    );
                     for (i, interface) in ach.interfaces.iter().enumerate() {
-                        println!("{:indent$}baInterfaceNr({})  {:5}", "", i, interface, indent = indent + 2);
+                        println!(
+                            "{:indent$}baInterfaceNr({})  {:5}",
+                            "",
+                            i,
+                            interface,
+                            indent = indent + 2
+                        );
                     }
-                },
+                }
                 usb::UacInterfaceDescriptor::AudioHeader2(ach) => {
-                    println!("{:indent$}bcdADC              {}", "", ach.version, indent = indent + 2);
-                    println!("{:indent$}wTotalLength       {:5}", "", ach.total_length, indent = indent + 2);
-                    println!("{:indent$}bmControls         {:5}", "", ach.controls, indent = indent + 2);
-                    dump_uac_controls(ach.controls as u32, &UAC2_INTERFACE_HEADER, usb::ControlType::BmControl2, indent);
-                },
+                    println!(
+                        "{:indent$}bcdADC              {}",
+                        "",
+                        ach.version,
+                        indent = indent + 2
+                    );
+                    println!(
+                        "{:indent$}wTotalLength       {:5}",
+                        "",
+                        ach.total_length,
+                        indent = indent + 2
+                    );
+                    println!(
+                        "{:indent$}bmControls         {:5}",
+                        "",
+                        ach.controls,
+                        indent = indent + 2
+                    );
+                    dump_uac_controls(
+                        ach.controls as u32,
+                        &UAC2_INTERFACE_HEADER,
+                        usb::ControlType::BmControl2,
+                        indent,
+                    );
+                }
                 usb::UacInterfaceDescriptor::AudioHeader3(ach) => {
-                    println!("{:indent$}bCategory          {:5}", "", ach.category, indent = indent + 2);
-                    println!("{:indent$}wTotalLength       {:5}", "", ach.total_length, indent = indent + 2);
-                    println!("{:indent$}bmControls         {:5}", "", ach.controls, indent = indent + 2);
-                    dump_uac_controls(ach.controls as u32, &UAC2_INTERFACE_HEADER, usb::ControlType::BmControl2, indent);
-                },
+                    println!(
+                        "{:indent$}bCategory          {:5}",
+                        "",
+                        ach.category,
+                        indent = indent + 2
+                    );
+                    println!(
+                        "{:indent$}wTotalLength       {:5}",
+                        "",
+                        ach.total_length,
+                        indent = indent + 2
+                    );
+                    println!(
+                        "{:indent$}bmControls         {:5}",
+                        "",
+                        ach.controls,
+                        indent = indent + 2
+                    );
+                    dump_uac_controls(
+                        ach.controls,
+                        &UAC2_INTERFACE_HEADER,
+                        usb::ControlType::BmControl2,
+                        indent,
+                    );
+                }
             }
         } else {
-            println!("{:indent$}Warning: {:#} descriptors are illegal for {}", "", uac, uac_protocol, indent = indent);
+            println!(
+                "{:indent$}Warning: {:#} descriptors are illegal for {}",
+                "",
+                uac,
+                uac_protocol,
+                indent = indent
+            );
         }
     }
 
@@ -3432,7 +3510,7 @@ pub mod display {
     }
 
     // ported directly from lsusb - it's not pretty but works...
-    fn dump_report_desc(desc: &Vec<u8>, indent: usize) {
+    fn dump_report_desc(desc: &[u8], indent: usize) {
         let types = |t: u8| match t {
             0x00 => "Main",
             0x01 => "Global",
