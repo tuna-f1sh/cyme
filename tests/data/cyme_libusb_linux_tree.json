@@ -65,10 +65,12 @@
                         "sync_type": "None",
                         "usage_type": "Data",
                         "max_packet_size": 512,
-                        "interval": 0
+                        "interval": 0,
+                        "extra": null
                       }
                     ],
-                    "length": 9
+                    "length": 9,
+                    "extra": null
                   }
                 ],
                 "attributes": [
@@ -80,7 +82,8 @@
                   "description": null
                 },
                 "length": 9,
-                "total_length": 0
+                "total_length": 0,
+                "extra": null
               }
             ]
           }
@@ -143,10 +146,12 @@
                         "sync_type": "None",
                         "usage_type": "Data",
                         "max_packet_size": 64,
-                        "interval": 4
+                        "interval": 4,
+                        "extra": null
                       }
                     ],
-                    "length": 9
+                    "length": 9,
+                    "extra": null
                   },
                   {
                     "name": "Relative Coordinate Interface",
@@ -171,10 +176,12 @@
                         "sync_type": "None",
                         "usage_type": "Data",
                         "max_packet_size": 64,
-                        "interval": 4
+                        "interval": 4,
+                        "extra": null
                       }
                     ],
-                    "length": 9
+                    "length": 9,
+                    "extra": null
                   }
                 ],
                 "attributes": [
@@ -186,7 +193,8 @@
                   "description": null
                 },
                 "length": 9,
-                "total_length": 0
+                "total_length": 0,
+                "extra": null
               }
             ]
           }
@@ -248,10 +256,12 @@
                         "sync_type": "None",
                         "usage_type": "Data",
                         "max_packet_size": 4,
-                        "interval": 12
+                        "interval": 12,
+                        "extra": null
                       }
                     ],
-                    "length": 9
+                    "length": 9,
+                    "extra": null
                   }
                 ],
                 "attributes": [
@@ -264,7 +274,8 @@
                   "description": null
                 },
                 "length": 9,
-                "total_length": 0
+                "total_length": 0,
+                "extra": null
               }
             ]
           }
@@ -355,10 +366,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 16,
-                            "interval": 255
+                            "interval": 255,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       },
                       {
                         "name": "",
@@ -383,7 +396,8 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           },
                           {
                             "length": 7,
@@ -396,10 +410,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       },
                       {
                         "name": "Black Magic UART Port",
@@ -424,10 +440,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 16,
-                            "interval": 255
+                            "interval": 255,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       },
                       {
                         "name": "",
@@ -452,7 +470,8 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 32,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           },
                           {
                             "length": 7,
@@ -465,10 +484,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       },
                       {
                         "name": "Black Magic DFU",
@@ -482,7 +503,8 @@
                         "driver": null,
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.4",
                         "endpoints": [],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       },
                       {
                         "name": "Black Magic Trace Capture",
@@ -507,10 +529,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 0
+                            "interval": 0,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       }
                     ],
                     "attributes": [],
@@ -520,7 +544,8 @@
                       "description": null
                     },
                     "length": 9,
-                    "total_length": 0
+                    "total_length": 0,
+                    "extra": null
                   }
                 ]
               }
@@ -584,10 +609,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       },
                       {
                         "name": "CDC DATA interface",
@@ -612,7 +639,8 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           },
                           {
                             "length": 7,
@@ -625,10 +653,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       },
                       {
                         "name": "CDC",
@@ -653,10 +683,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       },
                       {
                         "name": "CDC DATA interface",
@@ -681,7 +713,8 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           },
                           {
                             "length": 7,
@@ -694,10 +727,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       },
                       {
                         "name": "BULK interface",
@@ -722,7 +757,8 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           },
                           {
                             "length": 7,
@@ -735,10 +771,12 @@
                             "sync_type": "None",
                             "usage_type": "Data",
                             "max_packet_size": 64,
-                            "interval": 1
+                            "interval": 1,
+                            "extra": null
                           }
                         ],
-                        "length": 9
+                        "length": 9,
+                        "extra": null
                       }
                     ],
                     "attributes": [],
@@ -748,7 +786,8 @@
                       "description": null
                     },
                     "length": 9,
-                    "total_length": 0
+                    "total_length": 0,
+                    "extra": null
                   }
                 ]
               }
@@ -796,10 +835,12 @@
                         "sync_type": "None",
                         "usage_type": "Data",
                         "max_packet_size": 4,
-                        "interval": 255
+                        "interval": 255,
+                        "extra": null
                       }
                     ],
-                    "length": 9
+                    "length": 9,
+                    "extra": null
                   }
                 ],
                 "attributes": [
@@ -811,7 +852,8 @@
                   "description": null
                 },
                 "length": 9,
-                "total_length": 0
+                "total_length": 0,
+                "extra": null
               }
             ]
           }
@@ -873,10 +915,12 @@
                         "sync_type": "None",
                         "usage_type": "Data",
                         "max_packet_size": 2,
-                        "interval": 255
+                        "interval": 255,
+                        "extra": null
                       }
                     ],
-                    "length": 9
+                    "length": 9,
+                    "extra": null
                   }
                 ],
                 "attributes": [
@@ -889,7 +933,8 @@
                   "description": null
                 },
                 "length": 9,
-                "total_length": 0
+                "total_length": 0,
+                "extra": null
               }
             ]
           }
@@ -960,10 +1005,12 @@
                         "sync_type": "None",
                         "usage_type": "Data",
                         "max_packet_size": 4,
-                        "interval": 12
+                        "interval": 12,
+                        "extra": null
                       }
                     ],
-                    "length": 9
+                    "length": 9,
+                    "extra": null
                   }
                 ],
                 "attributes": [
@@ -976,7 +1023,8 @@
                   "description": null
                 },
                 "length": 9,
-                "total_length": 0
+                "total_length": 0,
+                "extra": null
               }
             ]
           }
@@ -1047,10 +1095,12 @@
                         "sync_type": "None",
                         "usage_type": "Data",
                         "max_packet_size": 4,
-                        "interval": 12
+                        "interval": 12,
+                        "extra": null
                       }
                     ],
-                    "length": 9
+                    "length": 9,
+                    "extra": null
                   }
                 ],
                 "attributes": [
@@ -1063,7 +1113,8 @@
                   "description": null
                 },
                 "length": 9,
-                "total_length": 0
+                "total_length": 0,
+                "extra": null
               }
             ]
           }
