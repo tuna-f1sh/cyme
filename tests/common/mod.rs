@@ -9,6 +9,7 @@ use std::process;
 // #[cfg(windows)]
 // use std::os::windows;
 
+// if changing content of USBDeviceX structs, update the tests data with `--from-json TEST_DUMP --json TEST_ARGS > file.json`
 /// Dump from the `system_profiler` command on macOS
 pub const SYSTEM_PROFILER_DUMP_PATH: &str = "./tests/data/system_profiler_dump.json";
 /// Dump using macOS system_profiler so no [`USBDeviceExtra`]

@@ -878,6 +878,7 @@ impl USBEndpoint {
     /// # use cyme::usb::*;
     ///
     /// let mut ep = USBEndpoint {
+    ///     length: 7,
     ///     address: EndpointAddress {
     ///         address: 0,
     ///         number: 0,
@@ -888,7 +889,7 @@ impl USBEndpoint {
     ///     usage_type: UsageType::Data,
     ///     max_packet_size: 0xfff1,
     ///     interval: 3,
-    ///     length: 7,
+    ///     extra: None,
     /// };
     /// assert_eq!(ep.max_packet_string(), "4x 2033");
     /// ep.max_packet_size = 0x0064;
