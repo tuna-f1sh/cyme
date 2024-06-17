@@ -239,7 +239,13 @@ checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
 
 [[package]]
 name = "cyme"
+<<<<<<< HEAD
 version = "1.7.0"
+||||||| parent of 6bdc860 (descriptors to mod file; profiler to usb)
+version = "1.6.0"
+=======
+version = "1.6.1"
+>>>>>>> 6bdc860 (descriptors to mod file; profiler to usb)
 dependencies = [
  "assert-json-diff",
  "clap",

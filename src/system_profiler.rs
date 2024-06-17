@@ -1455,7 +1455,7 @@ pub fn get_spusb() -> Result<SPUSBDataType, Error> {
 #[cfg(feature = "libusb")]
 pub fn get_spusb_with_extra() -> Result<SPUSBDataType, Error> {
     get_spusb().and_then(|mut spusb| {
-        crate::lsusb::profiler::fill_spusb(&mut spusb)?;
+        crate::usb::profiler::fill_spusb(&mut spusb)?;
         Ok(spusb)
     })
 }

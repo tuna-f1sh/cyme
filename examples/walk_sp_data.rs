@@ -1,4 +1,4 @@
-use cyme::lsusb::profiler;
+use cyme::usb::profiler;
 use cyme::system_profiler::USBDevice;
 
 fn recusive_map_devices(device: &USBDevice) {

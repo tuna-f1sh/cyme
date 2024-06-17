@@ -10,6 +10,7 @@ use cyme::config::Config;
 use cyme::display;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
+use cyme::usb;
 use cyme::system_profiler;
 use cyme::usb::ClassCode;
 
@@ -319,7 +320,7 @@ fn get_libusb_spusb(args: &Args, print_stderr: bool) -> Result<system_profiler::
         || args.filter_class.is_none()
     // class filter requires extra
     {
-        lsusb::profiler::get_spusb_with_extra(print_stderr).map_err(|e| {
+        usb::profiler::get_spusb_with_extra(print_stderr).map_err(|e| {
             Error::new(
                 ErrorKind::LibUSB,
                 &format!(
@@ -329,7 +330,7 @@ fn get_libusb_spusb(args: &Args, print_stderr: bool) -> Result<system_profiler::
             )
         })
     } else {
-        lsusb::profiler::get_spusb(print_stderr).map_err(|e| {
+        usb::profiler::get_spusb(print_stderr).map_err(|e| {
             Error::new(
                 ErrorKind::LibUSB,
                 &format!("Failed to gather system USB data from libusb, Error({})", e),
@@ -426,7 +427,7 @@ fn cyme() -> Result<()> {
     cyme::set_log_level(args.debug)?;
 
     #[cfg(feature = "libusb")]
-    lsusb::profiler::set_log_level(args.debug);
+    usb::profiler::set_log_level(args.debug);
 
     let mut config = if let Some(path) = args.config.as_ref() {
         let config = Config::from_file(path)?;

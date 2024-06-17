@@ -1,4 +1,4 @@
-use cyme::lsusb::profiler;
+use cyme::usb::profiler;
 
 fn main() -> Result<(), String> {
     // get all system devices - this time with extra data which contain the USBConfiguration, driver data (with udev)
