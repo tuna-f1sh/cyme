@@ -1864,7 +1864,7 @@ pub mod display {
                                     break;
                                 }
                                 println!(
-                                    "        dwFrameInterval({:2})         {:9}",
+                                    "        dwFrameInterval({:2})       {:11}",
                                     i,
                                     u32::from_le_bytes([b[0], b[1], b[2], b[3]])
                                 );
