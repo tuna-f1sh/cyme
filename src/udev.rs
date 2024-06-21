@@ -114,7 +114,9 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display + Into<S
         )
     })?;
 
-    Ok(device.get_sysattr_value(&attribute.into()).map(|s| s.trim().to_string()))
+    Ok(device
+        .get_sysattr_value(&attribute.into())
+        .map(|s| s.trim().to_string()))
 }
 
 /// Utilities to get device information using udev hwdb - only supported on Linux. Requires 'udev' feature.
@@ -146,16 +148,7 @@ pub mod hwdb {
             )
         })?;
 
-        hwdb.get_properties_list_entry(&modalias.to_string(), 0)
-            .map(|mut entry| entry
-                .find(|entry| entry.name() == key)
-                .map(|entry| entry.value().to_owned())
-            ).map_err(|e| {
-                Error::new(
-                    ErrorKind::Udev,
-                    &format!("Failed to get hwdb modalias/key {}/{}: Error({})", modalias, key, e),
-                )
-            })
+        Ok(udevrs::udev_hwdb_query_one(&mut hwdb, modalias, key).map(|s| s.trim().to_string()))
     }
 }
 
