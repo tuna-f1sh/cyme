@@ -1356,15 +1356,41 @@ impl UacInterface {
 }
 
 /// USB Audio Class (UAC) interface descriptors
+///
+/// Ported from https://github.com/gregkh/usbutils/blob/master/desc-defs.c
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 #[allow(missing_docs)]
 pub enum UacInterfaceDescriptor {
     AudioHeader1(AudioHeader1),
     AudioHeader2(AudioHeader2),
     AudioHeader3(AudioHeader3),
+    AudioInputTerminal1(AudioInputTerminal1),
+    AudioInputTerminal2(AudioInputTerminal2),
+    AudioInputTerminal3(AudioInputTerminal3),
 }
 
 impl UacInterfaceDescriptor {
+    const UAC1_CHANNEL_NAMES: [&'static str; 12] = [
+        "Left Front (L)", "Right Front (R)", "Center Front (C)",
+        "Low Frequency Enhancement (LFE)", "Left Surround (LS)",
+        "Right Surround (RS)", "Left of Center (LC)", "Right of Center (RC)",
+        "Surround (S)", "Side Left (SL)", "Side Right (SR)", "Top (T)"
+    ];
+
+    const UAC2_CHANNEL_NAMES: [&'static str; 27] = [
+        "Front Left (FL)", "Front Right (FR)", "Front Center (FC)",
+        "Low Frequency Effects (LFE)", "Back Left (BL)", "Back Right (BR)",
+        "Front Left of Center (FLC)", "Front Right of Center (FRC)",
+        "Back Center (BC)", "Side Left (SL)", "Side Right (SR)",
+        "Top Center (TC)", "Top Front Left (TFL)", "Top Front Center (TFC)",
+        "Top Front Right (TFR)", "Top Back Left (TBL)", "Top Back Center (TBC)",
+        "Top Back Right (TBR)", "Top Front Left of Center (TFLC)",
+        "Top Front Right of Center (TFRC)", "Left Low Frequency Effects (LLFE)",
+        "Right Low Frequency Effects (RLFE)", "Top Side Left (TSL)",
+        "Top Side Right (TSR)", "Bottom Center (BC)",
+        "Back Left of Center (BLC)", "Back Right of Center (BRC)"
+    ];
     /// Get the UAC interface descriptor from the UAC interface
     pub fn from_uac_interface(
         uac_interface: &UacInterface,
@@ -1387,10 +1413,50 @@ impl UacInterfaceDescriptor {
                     "Protocol not supported for this interface",
                 )),
             },
+            UacInterface::InputTerminal => match protocol {
+                UacProtocol::Uac1 => {
+                    AudioInputTerminal1::try_from(data).map(UacInterfaceDescriptor::AudioInputTerminal1)
+                }
+                UacProtocol::Uac2 => {
+                    AudioInputTerminal2::try_from(data).map(UacInterfaceDescriptor::AudioInputTerminal2)
+                }
+                UacProtocol::Uac3 => {
+                    AudioInputTerminal3::try_from(data).map(UacInterfaceDescriptor::AudioInputTerminal3)
+                }
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
             _ => Err(Error::new(
                 ErrorKind::InvalidArg,
                 "Interface not supported for this descriptor",
             )),
+        }
+    }
+
+    /// Get channel configuration from the descriptor "wChannelConfig" field bitmap string
+    pub fn get_channel_names<T: Into<u32> + Copy>(protocol: &UacProtocol, channel_config: T) -> Vec<String> {
+        match protocol {
+            UacProtocol::Uac1 => {
+                let mut channels = Vec::new();
+                for (i, name) in Self::UAC1_CHANNEL_NAMES.iter().enumerate() {
+                    if channel_config.into() & (1 << i) != 0 {
+                        channels.push(name.to_string());
+                    }
+                }
+                channels
+            },
+            UacProtocol::Uac2 => {
+                let mut channels = Vec::new();
+                for (i, name) in Self::UAC2_CHANNEL_NAMES.iter().enumerate() {
+                    if channel_config.into() & (1 << i) != 0 {
+                        channels.push(name.to_string());
+                    }
+                }
+                channels
+            },
+            _ => Vec::new(),
         }
     }
 }
@@ -1562,3 +1628,129 @@ impl TryFrom<&[u8]> for AudioHeader3 {
         })
     }
 }
+
+/// UAC1 Input Terminal
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioInputTerminal1 {
+    pub terminal_id: u8,
+    pub terminal_type: u16,
+    pub assoc_terminal: u8,
+    pub nr_channels: u8,
+    pub channel_config: u16,
+    pub channel_names_index: u8,
+    pub channel_names: Option<String>,
+    pub terminal_index: u8,
+    pub terminal: Option<String>,
+}
+
+impl TryFrom<&[u8]> for AudioInputTerminal1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 9 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Input Terminal 1 descriptor too short",
+            ));
+        }
+
+
+        Ok(AudioInputTerminal1 {
+            terminal_id: value[0],
+            terminal_type: u16::from_le_bytes([value[1], value[2]]),
+            assoc_terminal: value[3],
+            nr_channels: value[4],
+            channel_config: u16::from_le_bytes([value[5], value[6]]),
+            channel_names_index: value[7],
+            channel_names: None,
+            terminal_index: value[8],
+            terminal: None,
+        })
+    }
+}
+
+/// UAC2 Input Terminal
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioInputTerminal2 {
+    pub terminal_id: u8,
+    pub terminal_type: u16,
+    pub assoc_terminal: u8,
+    pub csource_id: u8,
+    pub nr_channels: u8,
+    pub channel_config: u32,
+    pub channel_names_index: u8,
+    pub channel_names: Option<String>,
+    pub controls: u16,
+    pub terminal_index: u8,
+    pub terminal: Option<String>,
+}
+
+impl TryFrom<&[u8]> for AudioInputTerminal2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 13 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Input Terminal 2 descriptor too short",
+            ));
+        }
+
+        Ok(AudioInputTerminal2 {
+            terminal_id: value[0],
+            terminal_type: u16::from_le_bytes([value[1], value[2]]),
+            assoc_terminal: value[3],
+            csource_id: value[4],
+            nr_channels: value[5],
+            channel_config: u32::from_le_bytes([value[6], value[7], value[8], value[9]]),
+            channel_names_index: value[10],
+            channel_names: None,
+            controls: u16::from_le_bytes([value[11], value[12]]),
+            terminal_index: value[13],
+            terminal :None,
+        })
+    }
+}
+
+/// UAC3 Input Terminal
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioInputTerminal3 {
+    pub terminal_id: u8,
+    pub terminal_type: u16,
+    pub assoc_terminal: u8,
+    pub csource_id: u8,
+    pub controls: u32,
+    pub cluster_descr_id: u16,
+    pub ex_terminal_descr_id: u16,
+    pub connectors_descr_id: u16,
+    pub terminal_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioInputTerminal3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 15 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Input Terminal 3 descriptor too short",
+            ));
+        }
+
+        Ok(AudioInputTerminal3 {
+            terminal_id: value[0],
+            terminal_type: u16::from_le_bytes([value[1], value[2]]),
+            assoc_terminal: value[3],
+            csource_id: value[4],
+            controls: u32::from_le_bytes([value[5], value[6], value[7], value[8]]),
+            cluster_descr_id: u16::from_le_bytes([value[9], value[10]]),
+            ex_terminal_descr_id: u16::from_le_bytes([value[11], value[12]]),
+            connectors_descr_id: u16::from_le_bytes([value[13], value[14]]),
+            terminal_descr_str: u16::from_le_bytes([value[15], value[16]]),
+        })
+    }
+}
+

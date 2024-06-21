@@ -233,7 +233,23 @@ pub mod display {
         "PAL - 525/60",
     ];
 
-    const UAC2_INTERFACE_HEADER: [&str; 1] = ["Legacy"];
+    const UAC2_INTERFACE_HEADER_BMCONTROLS: [&str; 1] = ["Legacy"];
+    const UAC2_INPUT_TERMINAL_BMCONTROLS: [&str; 6] = [
+        "Copy Protect",
+        "Connector",
+        "Overload",
+        "Cluster",
+        "Underflow",
+        "Overflow",
+    ];
+    const UAC3_INPUT_TERMINAL_BMCONTROLS: [&str; 5] = [
+        "Intertion",
+        "Overload",
+        "Underflow",
+        "Overflow",
+        "Underflow",
+    ];
+
 
     /// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
     pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
@@ -734,10 +750,11 @@ pub mod display {
         println!("      bDescriptorType      {:3}", gd.descriptor_type);
         println!("      bDescriptorSubType   {:3}", gd.descriptor_subtype);
 
-        //if let Some(data) = gd.data.as_ref() {
-        //    let subtype = usb::UacInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
-        //    // TODO fixed EP_GENERAL
-        //    // dump_audio_subtype(&subtype, protocol, data);
+        // TODO print EP_GENERAL only
+        //if let some(data) = gd.data.as_ref() {
+        //    let subtype = usb::uacinterface::get_uac_subtype(gd.descriptor_subtype, protocol);
+        //    if matches!(subtype, Some(usb::uacinterface::UACSubtype::EP_GENERAL)) {
+        //    }
         //}
     }
 
@@ -1022,19 +1039,19 @@ pub mod display {
                         "{:indent$}bcdADC              {}",
                         "",
                         ach.version,
-                        indent = indent + 2
+                        indent = indent * 2
                     );
                     println!(
                         "{:indent$}wTotalLength       {:5}",
                         "",
                         ach.total_length,
-                        indent = indent + 2
+                        indent = indent * 2
                     );
                     println!(
                         "{:indent$}bInCollection      {:5}",
                         "",
                         ach.collection_bytes,
-                        indent = indent + 2
+                        indent = indent * 2
                     );
                     for (i, interface) in ach.interfaces.iter().enumerate() {
                         println!(
@@ -1042,7 +1059,7 @@ pub mod display {
                             "",
                             i,
                             interface,
-                            indent = indent + 2
+                            indent = (indent + 1) * 2
                         );
                     }
                 }
@@ -1051,25 +1068,25 @@ pub mod display {
                         "{:indent$}bcdADC              {}",
                         "",
                         ach.version,
-                        indent = indent + 2
+                        indent = indent * 2
                     );
                     println!(
                         "{:indent$}wTotalLength       {:5}",
                         "",
                         ach.total_length,
-                        indent = indent + 2
+                        indent = indent * 2
                     );
                     println!(
                         "{:indent$}bmControls         {:5}",
                         "",
                         ach.controls,
-                        indent = indent + 2
+                        indent = indent * 2
                     );
                     dump_uac_controls(
                         ach.controls as u32,
-                        &UAC2_INTERFACE_HEADER,
+                        &UAC2_INTERFACE_HEADER_BMCONTROLS,
                         usb::ControlType::BmControl2,
-                        indent,
+                        indent + 1,
                     );
                 }
                 usb::UacInterfaceDescriptor::AudioHeader3(ach) => {
@@ -1077,27 +1094,213 @@ pub mod display {
                         "{:indent$}bCategory          {:5}",
                         "",
                         ach.category,
-                        indent = indent + 2
+                        indent = indent * 2
                     );
                     println!(
                         "{:indent$}wTotalLength       {:5}",
                         "",
                         ach.total_length,
-                        indent = indent + 2
+                        indent = indent * 2
                     );
                     println!(
                         "{:indent$}bmControls         {:5}",
                         "",
                         ach.controls,
-                        indent = indent + 2
+                        indent = indent * 2
                     );
                     dump_uac_controls(
                         ach.controls,
-                        &UAC2_INTERFACE_HEADER,
+                        &UAC2_INTERFACE_HEADER_BMCONTROLS,
+                        usb::ControlType::BmControl2,
+                        indent + 1,
+                    );
+                }
+                usb::UacInterfaceDescriptor::AudioInputTerminal1(ait) => {
+                    let channel_names = usb::UacInterfaceDescriptor::get_channel_names(uac_protocol, ait.channel_config as u32);
+                    println!(
+                        "{:indent$}bTerminalID        {:5}",
+                        "",
+                        ait.terminal_id,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}wTerminalType      {:5} {}",
+                        "",
+                        ait.terminal_type,
+                        super::names::videoterminal(ait.terminal_type).unwrap_or_default(),
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}bAssocTerminal     {:5}",
+                        "",
+                        ait.assoc_terminal,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}bNrChannels        {:5}",
+                        "",
+                        ait.nr_channels,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}wChannelConfig         {:x}",
+                        "",
+                        ait.channel_config,
+                        indent = indent * 2
+                    );
+                    for name in channel_names.iter() {
+                        println!(
+                            "{:indent$}{}",
+                            "",
+                            name,
+                            indent = (indent + 1) * 2
+                        );
+                    }
+                    println!(
+                        "{:indent$}iChannelNames      {:5} {}",
+                        "",
+                        ait.channel_names_index,
+                        // TODO get descriptor string
+                        "",
+                        indent = indent * 2
+                    );
+                }
+                usb::UacInterfaceDescriptor::AudioInputTerminal2(ait) => {
+                    let channel_names = usb::UacInterfaceDescriptor::get_channel_names(uac_protocol, ait.channel_config);
+                    println!(
+                        "{:indent$}bTerminalID        {:5}",
+                        "",
+                        ait.terminal_id,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}wTerminalType      {:5} {}",
+                        "",
+                        ait.terminal_type,
+                        super::names::videoterminal(ait.terminal_type).unwrap_or_default(),
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}bAssocTerminal     {:5}",
+                        "",
+                        ait.assoc_terminal,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}bNrChannels        {:5}",
+                        "",
+                        ait.nr_channels,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}wChannelConfig         {:x}",
+                        "",
+                        ait.channel_config,
+                        indent = indent * 2
+                    );
+                    for name in channel_names.iter() {
+                        println!(
+                            "{:indent$}{}",
+                            "",
+                            name,
+                            indent = (indent + 1) * 2
+                        );
+                    }
+                    println!(
+                        "{:indent$}iChannelNames      {:5} {}",
+                        "",
+                        ait.channel_names_index,
+                        // TODO get descriptor string
+                        "",
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}bmControls         {:5}",
+                        "",
+                        ait.controls,
+                        indent = indent * 2
+                    );
+                    dump_uac_controls(
+                        ait.controls.into(),
+                        &UAC2_INPUT_TERMINAL_BMCONTROLS,
+                        usb::ControlType::BmControl2,
+                        indent + 1,
+                    );
+                    println!(
+                        "{:indent$}iTerminal          {:5} {}",
+                        "",
+                        ait.terminal_index,
+                        // TODO get descriptor string
+                        "",
+                        indent = indent * 2
+                    );
+                }
+                usb::UacInterfaceDescriptor::AudioInputTerminal3(ait) => {
+                    println!(
+                        "{:indent$}bTerminalID        {:5}",
+                        "",
+                        ait.terminal_id,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}wTerminalType      {:5} {}",
+                        "",
+                        ait.terminal_type,
+                        super::names::videoterminal(ait.terminal_type).unwrap_or_default(),
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}bAssocTerminal     {:5}",
+                        "",
+                        ait.assoc_terminal,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}bCSourceID         {:5}",
+                        "",
+                        ait.csource_id,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}bmControls         {:5}",
+                        "",
+                        ait.controls,
+                        indent = indent + 1
+                    );
+                    dump_uac_controls(
+                        ait.controls.into(),
+                        &UAC3_INPUT_TERMINAL_BMCONTROLS,
                         usb::ControlType::BmControl2,
                         indent,
                     );
+                    println!(
+                        "{:indent$}wClusterDescrID    {:5}",
+                        "",
+                        ait.cluster_descr_id,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}wExTerminalDescrID {:5}",
+                        "",
+                        ait.cluster_descr_id,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}wConnectorDescrId  {:5}",
+                        "",
+                        ait.ex_terminal_descr_id,
+                        indent = indent * 2
+                    );
+                    println!(
+                        "{:indent$}wTerminalDescrStr  {:5} {}",
+                        "",
+                        ait.terminal_descr_str,
+                        // TODO get descriptor string
+                        "",
+                        indent = indent * 2
+                    );
                 }
+                //_ => ()
             }
         } else {
             println!(
@@ -1105,35 +1308,34 @@ pub mod display {
                 "",
                 uac,
                 uac_protocol,
-                indent = indent
+                indent = (indent - 1) * 2
             );
         }
     }
 
-    fn dump_audiocontrol_interface(gd: &usb::GenericDescriptor, _protocol: u8) {
-        println!("    AudioControl Interface Descriptor:");
-        println!("      bLength              {:3}", gd.length);
-        println!("      bDescriptorType      {:3}", gd.descriptor_type);
-        println!("      bDescriptorSubType   {:3} ", gd.descriptor_subtype);
+    fn dump_audiocontrol_interface(gd: &usb::GenericDescriptor, protocol: u8) {
+        println!("      AudioControl Interface Descriptor:");
+        println!("        bLength              {:3}", gd.length);
+        println!("        bDescriptorType      {:3}", gd.descriptor_type);
+        println!("        bDescriptorSubType   {:3} ", gd.descriptor_subtype);
 
-        // TODO implement all these
-        //if let Some(data) = gd.data.as_ref() {
-        //    let subtype = usb::UacInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
-        //    dump_audio_subtype(&subtype, &usb::UacProtocol::from(protocol), data, 4);
-        //}
+        if let Some(data) = gd.data.as_ref() {
+            let subtype = usb::UacInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
+            let uac_protocol = usb::UacProtocol::from(protocol);
+            // TODO implement all these but filter for now
+            if subtype.get_descriptor(&uac_protocol, data).is_ok() {
+                dump_audio_subtype(&subtype, &usb::UacProtocol::from(protocol), data, 4);
+            }
+        }
     }
 
     fn dump_audiostreaming_interface(gd: &usb::GenericDescriptor, _protocol: u8) {
-        println!("    AudioControl Interface Descriptor:");
-        println!("      bLength              {:3}", gd.length);
-        println!("      bDescriptorType      {:3}", gd.descriptor_type);
-        println!("      bDescriptorSubType   {:3} ", gd.descriptor_subtype);
+        println!("      AudioStreaming Interface Descriptor:");
+        println!("        bLength              {:3}", gd.length);
+        println!("        bDescriptorType      {:3}", gd.descriptor_type);
+        println!("        bDescriptorSubType   {:3} ", gd.descriptor_subtype);
 
-        // TODO implement all these
-        // if let Some(data) = gd.data.as_ref() {
-        //     let subtype = usb::UacInterface::get_uac_subtype(UacInterface::AsInterface, protocol);
-        //     dump_audio_subtype(&subtype, protocol, data);
-        // }
+        // TODO implement: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L1062
     }
 
     fn dump_midistreaming_interface(md: &usb::MidiDescriptor) {
@@ -1144,9 +1346,9 @@ pub mod display {
             _ => "Invalid",
         };
 
-        println!("    MIDIStreaming Interface Descriptor:");
-        println!("      bLength              {:5}", md.length);
-        println!("      bDescriptorType      {:5}", md.descriptor_type);
+        println!("      MIDIStreaming Interface Descriptor:");
+        println!("        bLength              {:5}", md.length);
+        println!("        bDescriptorType      {:5}", md.descriptor_type);
         print!(
             "      bDescriptorSubType   {:5} ",
             md.midi_type.to_owned() as u8
