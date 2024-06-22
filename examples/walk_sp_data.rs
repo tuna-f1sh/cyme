@@ -1,5 +1,5 @@
-use cyme::usb::profiler;
 use cyme::system_profiler::USBDevice;
+use cyme::usb::profiler;
 
 fn recusive_map_devices(device: &USBDevice) {
     // the alternate format will print with colour

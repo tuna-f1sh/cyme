@@ -19,10 +19,10 @@ use std::collections::HashMap;
 use std::time::Duration;
 use usb_ids::{self, FromId};
 
+use crate::lsusb::names;
 #[cfg(all(target_os = "linux", feature = "udev"))]
 use crate::udev;
 use crate::{system_profiler, types::NumericalUnit, usb};
-use crate::lsusb::names;
 
 impl From<libusb::Error> for Error {
     fn from(error: libusb::Error) -> Self {
@@ -564,19 +564,11 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
         // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids
         vendor: names::vendor(device_desc.vendor_id())
             .or(usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())),
-        product_name: names::product(device_desc.vendor_id(), device_desc.product_id())
-            .or(usb_ids::Device::from_vid_pid(
-                device_desc.vendor_id(),
-                device_desc.product_id(),
-            )
-            .map(|v| v.name().to_owned())),
-        configurations: build_configurations(
-            device,
-            handle,
-            device_desc,
-            sp_device,
-            with_udev,
-        )?,
+        product_name: names::product(device_desc.vendor_id(), device_desc.product_id()).or(
+            usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
+                .map(|v| v.name().to_owned()),
+        ),
+        configurations: build_configurations(device, handle, device_desc, sp_device, with_udev)?,
     };
 
     // flag allows us to try again without udev if it raises an nting
@@ -662,15 +654,14 @@ pub fn build_spdevice<T: libusb::UsbContext>(
     // 2. (on Linux) Read from sysfs, which is a cached copy of the device descriptor
     //    TODO (does macOS and Windows have an equivalent/similar way to retrieve this info?)
     // 3. Lookup iManufacturer and iProduct from the USB IDs list (iSerial has no alternative)
-    sp_device.manufacturer =
-        get_manufacturer_string(&device_desc, &mut usb_device) // descriptor
-            // sysfs cache
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer"))
-            // udev-hwdb
-            .or(names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
-            // usb-ids
-            .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
-                .map(|vendor| vendor.name().to_owned()));
+    sp_device.manufacturer = get_manufacturer_string(&device_desc, &mut usb_device) // descriptor
+        // sysfs cache
+        .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer"))
+        // udev-hwdb
+        .or(names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
+        // usb-ids
+        .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
+            .map(|vendor| vendor.name().to_owned()));
 
     sp_device.name = get_product_string(&device_desc, &mut usb_device) // descriptor
         // sysfs cache
@@ -707,7 +698,10 @@ pub fn build_spdevice<T: libusb::UsbContext>(
                         &sp_device,
                         false,
                     )?);
-                    Some(format!( "Failed to get udev data for {}, probably requires elevated permissions", sp_device ))
+                    Some(format!(
+                        "Failed to get udev data for {}, probably requires elevated permissions",
+                        sp_device
+                    ))
                 } else {
                     Some(format!( "Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e ))
                 }
@@ -855,9 +849,7 @@ pub fn get_spusb(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, E
 /// Get [`system_profiler::SPUSBDataType`] using `libusb` including [`usb::USBDeviceExtra`] - the main function to use for most use cases unless one does not want verbose data.
 ///
 /// Like `get_spusb`, runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. On Linux and with the 'udev' feature enabled, the syspath and driver will attempt to be obtained.
-pub fn get_spusb_with_extra(
-    print_stderr: bool,
-) -> Result<system_profiler::SPUSBDataType, Error> {
+pub fn get_spusb_with_extra(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, Error> {
     _get_spusb(true, print_stderr)
 }
 
