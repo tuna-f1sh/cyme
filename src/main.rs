@@ -10,8 +10,8 @@ use cyme::config::Config;
 use cyme::display;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
-use cyme::usb;
 use cyme::system_profiler;
+use cyme::usb;
 use cyme::usb::ClassCode;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]

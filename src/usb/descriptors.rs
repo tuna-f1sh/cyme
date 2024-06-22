@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::usb::*;
 use crate::error::{self, Error, ErrorKind};
+use crate::usb::*;
 
 /// USB Descriptor Types
 ///
@@ -1216,11 +1216,11 @@ impl TryFrom<GenericDescriptor> for MidiDescriptor {
     }
 }
 
-/// USB Audio Class (UAC) interface types based on bDescriptorSubtype
+/// USB Audio Class (UAC) interface Audio Control (AC) types based on bDescriptorSubtype
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
-pub enum UacInterface {
+pub enum UacAcInterface {
     Undefined = 0x00,
     Header = 0x01,
     InputTerminal = 0x02,
@@ -1240,104 +1240,104 @@ pub enum UacInterface {
     PowerDomain = 0x10,
 }
 
-impl std::fmt::Display for UacInterface {
+impl std::fmt::Display for UacAcInterface {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             // uppercase with _ instead of space for lsusb dump
             match self {
-                UacInterface::Undefined => write!(f, "UNDEFINED"),
-                UacInterface::Header => write!(f, "HEADER"),
-                UacInterface::InputTerminal => write!(f, "INPUT_TERMINAL"),
-                UacInterface::OutputTerminal => write!(f, "OUTPUT_TERMINAL"),
-                UacInterface::ExtendedTerminal => write!(f, "EXTENDED_TERMINAL"),
-                UacInterface::MixerUnit => write!(f, "MIXER_UNIT"),
-                UacInterface::SelectorUnit => write!(f, "SELECTOR_UNIT"),
-                UacInterface::FeatureUnit => write!(f, "FEATURE_UNIT"),
-                UacInterface::EffectUnit => write!(f, "EFFECT_UNIT"),
-                UacInterface::ProcessingUnit => write!(f, "PROCESSING_UNIT"),
-                UacInterface::ExtensionUnit => write!(f, "EXTENSION_UNIT"),
-                UacInterface::ClockSource => write!(f, "CLOCK_SOURCE"),
-                UacInterface::ClockSelector => write!(f, "CLOCK_SELECTOR"),
-                UacInterface::ClockMultiplier => write!(f, "CLOCK_MULTIPLIER"),
-                UacInterface::SampleRateConverter => write!(f, "SAMPLE_RATE_CONVERTER"),
-                UacInterface::Connectors => write!(f, "CONNECTORS"),
-                UacInterface::PowerDomain => write!(f, "POWER_DOMAIN"),
+                UacAcInterface::Undefined => write!(f, "unknown"),
+                UacAcInterface::Header => write!(f, "HEADER"),
+                UacAcInterface::InputTerminal => write!(f, "INPUT_TERMINAL"),
+                UacAcInterface::OutputTerminal => write!(f, "OUTPUT_TERMINAL"),
+                UacAcInterface::ExtendedTerminal => write!(f, "EXTENDED_TERMINAL"),
+                UacAcInterface::MixerUnit => write!(f, "MIXER_UNIT"),
+                UacAcInterface::SelectorUnit => write!(f, "SELECTOR_UNIT"),
+                UacAcInterface::FeatureUnit => write!(f, "FEATURE_UNIT"),
+                UacAcInterface::EffectUnit => write!(f, "EFFECT_UNIT"),
+                UacAcInterface::ProcessingUnit => write!(f, "PROCESSING_UNIT"),
+                UacAcInterface::ExtensionUnit => write!(f, "EXTENSION_UNIT"),
+                UacAcInterface::ClockSource => write!(f, "CLOCK_SOURCE"),
+                UacAcInterface::ClockSelector => write!(f, "CLOCK_SELECTOR"),
+                UacAcInterface::ClockMultiplier => write!(f, "CLOCK_MULTIPLIER"),
+                UacAcInterface::SampleRateConverter => write!(f, "SAMPLE_RATE_CONVERTER"),
+                UacAcInterface::Connectors => write!(f, "CONNECTORS"),
+                UacAcInterface::PowerDomain => write!(f, "POWER_DOMAIN"),
             }
         } else {
             match self {
-                UacInterface::Undefined => write!(f, "Undefined"),
-                UacInterface::Header => write!(f, "Header"),
-                UacInterface::InputTerminal => write!(f, "Input Terminal"),
-                UacInterface::OutputTerminal => write!(f, "Output Terminal"),
-                UacInterface::ExtendedTerminal => write!(f, "Extended Terminal"),
-                UacInterface::MixerUnit => write!(f, "Mixer Unit"),
-                UacInterface::SelectorUnit => write!(f, "Selector Unit"),
-                UacInterface::FeatureUnit => write!(f, "Feature Unit"),
-                UacInterface::EffectUnit => write!(f, "Effect Unit"),
-                UacInterface::ProcessingUnit => write!(f, "Processing Unit"),
-                UacInterface::ExtensionUnit => write!(f, "Extension Unit"),
-                UacInterface::ClockSource => write!(f, "Clock Source"),
-                UacInterface::ClockSelector => write!(f, "Clock Selector"),
-                UacInterface::ClockMultiplier => write!(f, "Clock Multiplier"),
-                UacInterface::SampleRateConverter => write!(f, "Sample Rate Converter"),
-                UacInterface::Connectors => write!(f, "Connectors"),
-                UacInterface::PowerDomain => write!(f, "Power Domain"),
+                UacAcInterface::Undefined => write!(f, "Undefined"),
+                UacAcInterface::Header => write!(f, "Header"),
+                UacAcInterface::InputTerminal => write!(f, "Input Terminal"),
+                UacAcInterface::OutputTerminal => write!(f, "Output Terminal"),
+                UacAcInterface::ExtendedTerminal => write!(f, "Extended Terminal"),
+                UacAcInterface::MixerUnit => write!(f, "Mixer Unit"),
+                UacAcInterface::SelectorUnit => write!(f, "Selector Unit"),
+                UacAcInterface::FeatureUnit => write!(f, "Feature Unit"),
+                UacAcInterface::EffectUnit => write!(f, "Effect Unit"),
+                UacAcInterface::ProcessingUnit => write!(f, "Processing Unit"),
+                UacAcInterface::ExtensionUnit => write!(f, "Extension Unit"),
+                UacAcInterface::ClockSource => write!(f, "Clock Source"),
+                UacAcInterface::ClockSelector => write!(f, "Clock Selector"),
+                UacAcInterface::ClockMultiplier => write!(f, "Clock Multiplier"),
+                UacAcInterface::SampleRateConverter => write!(f, "Sample Rate Converter"),
+                UacAcInterface::Connectors => write!(f, "Connectors"),
+                UacAcInterface::PowerDomain => write!(f, "Power Domain"),
             }
         }
     }
 }
 
-impl From<u8> for UacInterface {
+impl From<u8> for UacAcInterface {
     fn from(b: u8) -> Self {
         match b {
-            0x00 => UacInterface::Undefined,
-            0x01 => UacInterface::Header,
-            0x02 => UacInterface::InputTerminal,
-            0x03 => UacInterface::OutputTerminal,
-            0x04 => UacInterface::ExtendedTerminal,
-            0x05 => UacInterface::MixerUnit,
-            0x06 => UacInterface::SelectorUnit,
-            0x07 => UacInterface::FeatureUnit,
-            0x08 => UacInterface::EffectUnit,
-            0x09 => UacInterface::ProcessingUnit,
-            0x0a => UacInterface::ExtensionUnit,
-            0x0b => UacInterface::ClockSource,
-            0x0c => UacInterface::ClockSelector,
-            0x0d => UacInterface::ClockMultiplier,
-            0x0e => UacInterface::SampleRateConverter,
-            0x0f => UacInterface::Connectors,
-            0x10 => UacInterface::PowerDomain,
-            _ => UacInterface::Undefined,
+            0x00 => UacAcInterface::Undefined,
+            0x01 => UacAcInterface::Header,
+            0x02 => UacAcInterface::InputTerminal,
+            0x03 => UacAcInterface::OutputTerminal,
+            0x04 => UacAcInterface::ExtendedTerminal,
+            0x05 => UacAcInterface::MixerUnit,
+            0x06 => UacAcInterface::SelectorUnit,
+            0x07 => UacAcInterface::FeatureUnit,
+            0x08 => UacAcInterface::EffectUnit,
+            0x09 => UacAcInterface::ProcessingUnit,
+            0x0a => UacAcInterface::ExtensionUnit,
+            0x0b => UacAcInterface::ClockSource,
+            0x0c => UacAcInterface::ClockSelector,
+            0x0d => UacAcInterface::ClockMultiplier,
+            0x0e => UacAcInterface::SampleRateConverter,
+            0x0f => UacAcInterface::Connectors,
+            0x10 => UacAcInterface::PowerDomain,
+            _ => UacAcInterface::Undefined,
         }
     }
 }
 
-impl UacInterface {
+impl UacAcInterface {
     /// UAC1, UAC2, and UAC3 define bDescriptorSubtype differently for the
     /// AudioControl interface, so we need to do some ugly remapping:
     pub fn get_uac_subtype(subtype: u8, protocol: u8) -> Self {
         match protocol {
             // UAC1
             0x00 => match subtype {
-                0x04 => UacInterface::MixerUnit,
-                0x05 => UacInterface::SelectorUnit,
-                0x06 => UacInterface::FeatureUnit,
-                0x07 => UacInterface::ProcessingUnit,
-                0x08 => UacInterface::ExtensionUnit,
+                0x04 => UacAcInterface::MixerUnit,
+                0x05 => UacAcInterface::SelectorUnit,
+                0x06 => UacAcInterface::FeatureUnit,
+                0x07 => UacAcInterface::ProcessingUnit,
+                0x08 => UacAcInterface::ExtensionUnit,
                 _ => Self::from(subtype),
             },
             // UAC2
             0x20 => match subtype {
-                0x04 => UacInterface::MixerUnit,
-                0x05 => UacInterface::SelectorUnit,
-                0x06 => UacInterface::FeatureUnit,
-                0x07 => UacInterface::EffectUnit,
-                0x08 => UacInterface::ProcessingUnit,
-                0x09 => UacInterface::ExtensionUnit,
-                0x0a => UacInterface::ClockSource,
-                0x0b => UacInterface::ClockSelector,
-                0x0c => UacInterface::ClockMultiplier,
-                0x0d => UacInterface::SampleRateConverter,
+                0x04 => UacAcInterface::MixerUnit,
+                0x05 => UacAcInterface::SelectorUnit,
+                0x06 => UacAcInterface::FeatureUnit,
+                0x07 => UacAcInterface::EffectUnit,
+                0x08 => UacAcInterface::ProcessingUnit,
+                0x09 => UacAcInterface::ExtensionUnit,
+                0x0a => UacAcInterface::ClockSource,
+                0x0b => UacAcInterface::ClockSelector,
+                0x0c => UacAcInterface::ClockMultiplier,
+                0x0d => UacAcInterface::SampleRateConverter,
                 _ => Self::from(subtype),
             },
             // no re-map for UAC3..
@@ -1351,7 +1351,62 @@ impl UacInterface {
         protocol: &UacProtocol,
         data: &[u8],
     ) -> Result<UacInterfaceDescriptor, Error> {
-        UacInterfaceDescriptor::from_uac_interface(self, protocol, data)
+        UacInterfaceDescriptor::from_uac_ac_interface(self, protocol, data)
+    }
+}
+
+/// USB Audio Class (UAC) interface Audio Streaming (AS) types based on bDescriptorSubtype
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(u8)]
+#[allow(missing_docs)]
+pub enum UacAsInterface {
+    Undefined = 0x00,
+    General = 0x01,
+    FormatType = 0x02,
+    FormatSpecific = 0x03,
+}
+
+impl From<u8> for UacAsInterface {
+    fn from(b: u8) -> Self {
+        match b {
+            0x00 => UacAsInterface::Undefined,
+            0x01 => UacAsInterface::General,
+            0x02 => UacAsInterface::FormatType,
+            0x03 => UacAsInterface::FormatSpecific,
+            _ => UacAsInterface::Undefined,
+        }
+    }
+}
+
+impl fmt::Display for UacAsInterface {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if f.alternate() {
+            // uppercase with _ instead of space for lsusb dump
+            match self {
+                UacAsInterface::Undefined => write!(f, "UNDEFINED"),
+                UacAsInterface::General => write!(f, "GENERAL"),
+                UacAsInterface::FormatType => write!(f, "FORMAT_TYPE"),
+                UacAsInterface::FormatSpecific => write!(f, "FORMAT_SPECIFIC"),
+            }
+        } else {
+            match self {
+                UacAsInterface::Undefined => write!(f, "Undefined"),
+                UacAsInterface::General => write!(f, "General"),
+                UacAsInterface::FormatType => write!(f, "Format Type"),
+                UacAsInterface::FormatSpecific => write!(f, "Format Specific"),
+            }
+        }
+    }
+}
+
+impl UacAsInterface {
+    /// Get the UAC interface descriptor from the UAC interface
+    pub fn get_descriptor(
+        &self,
+        protocol: &UacProtocol,
+        data: &[u8],
+    ) -> Result<UacInterfaceDescriptor, Error> {
+        UacInterfaceDescriptor::from_uac_as_interface(self, protocol, data)
     }
 }
 
@@ -1362,43 +1417,81 @@ impl UacInterface {
 #[non_exhaustive]
 #[allow(missing_docs)]
 pub enum UacInterfaceDescriptor {
+    // Audio Controls bSubClass
     AudioHeader1(AudioHeader1),
     AudioHeader2(AudioHeader2),
     AudioHeader3(AudioHeader3),
     AudioInputTerminal1(AudioInputTerminal1),
     AudioInputTerminal2(AudioInputTerminal2),
     AudioInputTerminal3(AudioInputTerminal3),
+    // Audio Streaming bSubClass
+    AudioStreamingInterface1(AudioStreamingInterface1),
+    AudioStreamingInterface2(AudioStreamingInterface2),
+    AudioStreamingInterface3(AudioStreamingInterface3),
+    // Isochronous Audio Data Stream Endpoint
+    AudioDataStreamingEndpoint1(AudioDataStreamingEndpoint1),
+    AudioDataStreamingEndpoint2(AudioDataStreamingEndpoint2),
+    AudioDataStreamingEndpoint3(AudioDataStreamingEndpoint3),
+    /// Generic descriptor for unsupported descriptors
+    Generic(Vec<u8>),
+    /// Undefined descriptor
+    Undefined(Vec<u8>),
 }
 
 impl UacInterfaceDescriptor {
     const UAC1_CHANNEL_NAMES: [&'static str; 12] = [
-        "Left Front (L)", "Right Front (R)", "Center Front (C)",
-        "Low Frequency Enhancement (LFE)", "Left Surround (LS)",
-        "Right Surround (RS)", "Left of Center (LC)", "Right of Center (RC)",
-        "Surround (S)", "Side Left (SL)", "Side Right (SR)", "Top (T)"
+        "Left Front (L)",
+        "Right Front (R)",
+        "Center Front (C)",
+        "Low Frequency Enhancement (LFE)",
+        "Left Surround (LS)",
+        "Right Surround (RS)",
+        "Left of Center (LC)",
+        "Right of Center (RC)",
+        "Surround (S)",
+        "Side Left (SL)",
+        "Side Right (SR)",
+        "Top (T)",
     ];
 
     const UAC2_CHANNEL_NAMES: [&'static str; 27] = [
-        "Front Left (FL)", "Front Right (FR)", "Front Center (FC)",
-        "Low Frequency Effects (LFE)", "Back Left (BL)", "Back Right (BR)",
-        "Front Left of Center (FLC)", "Front Right of Center (FRC)",
-        "Back Center (BC)", "Side Left (SL)", "Side Right (SR)",
-        "Top Center (TC)", "Top Front Left (TFL)", "Top Front Center (TFC)",
-        "Top Front Right (TFR)", "Top Back Left (TBL)", "Top Back Center (TBC)",
-        "Top Back Right (TBR)", "Top Front Left of Center (TFLC)",
-        "Top Front Right of Center (TFRC)", "Left Low Frequency Effects (LLFE)",
-        "Right Low Frequency Effects (RLFE)", "Top Side Left (TSL)",
-        "Top Side Right (TSR)", "Bottom Center (BC)",
-        "Back Left of Center (BLC)", "Back Right of Center (BRC)"
+        "Front Left (FL)",
+        "Front Right (FR)",
+        "Front Center (FC)",
+        "Low Frequency Effects (LFE)",
+        "Back Left (BL)",
+        "Back Right (BR)",
+        "Front Left of Center (FLC)",
+        "Front Right of Center (FRC)",
+        "Back Center (BC)",
+        "Side Left (SL)",
+        "Side Right (SR)",
+        "Top Center (TC)",
+        "Top Front Left (TFL)",
+        "Top Front Center (TFC)",
+        "Top Front Right (TFR)",
+        "Top Back Left (TBL)",
+        "Top Back Center (TBC)",
+        "Top Back Right (TBR)",
+        "Top Front Left of Center (TFLC)",
+        "Top Front Right of Center (TFRC)",
+        "Left Low Frequency Effects (LLFE)",
+        "Right Low Frequency Effects (RLFE)",
+        "Top Side Left (TSL)",
+        "Top Side Right (TSR)",
+        "Bottom Center (BC)",
+        "Back Left of Center (BLC)",
+        "Back Right of Center (BRC)",
     ];
-    /// Get the UAC interface descriptor from the UAC interface
-    pub fn from_uac_interface(
-        uac_interface: &UacInterface,
+
+    /// Get the UAC AC interface descriptor from the UAC AC interface
+    pub fn from_uac_ac_interface(
+        uac_interface: &UacAcInterface,
         protocol: &UacProtocol,
         data: &[u8],
     ) -> Result<Self, Error> {
         match uac_interface {
-            UacInterface::Header => match protocol {
+            UacAcInterface::Header => match protocol {
                 UacProtocol::Uac1 => {
                     AudioHeader1::try_from(data).map(UacInterfaceDescriptor::AudioHeader1)
                 }
@@ -1413,50 +1506,106 @@ impl UacInterfaceDescriptor {
                     "Protocol not supported for this interface",
                 )),
             },
-            UacInterface::InputTerminal => match protocol {
-                UacProtocol::Uac1 => {
-                    AudioInputTerminal1::try_from(data).map(UacInterfaceDescriptor::AudioInputTerminal1)
-                }
-                UacProtocol::Uac2 => {
-                    AudioInputTerminal2::try_from(data).map(UacInterfaceDescriptor::AudioInputTerminal2)
-                }
-                UacProtocol::Uac3 => {
-                    AudioInputTerminal3::try_from(data).map(UacInterfaceDescriptor::AudioInputTerminal3)
-                }
+            UacAcInterface::InputTerminal => match protocol {
+                UacProtocol::Uac1 => AudioInputTerminal1::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioInputTerminal1),
+                UacProtocol::Uac2 => AudioInputTerminal2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioInputTerminal2),
+                UacProtocol::Uac3 => AudioInputTerminal3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioInputTerminal3),
                 _ => Err(Error::new(
                     ErrorKind::InvalidArg,
                     "Protocol not supported for this interface",
                 )),
             },
+            UacAcInterface::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
+            _ => Ok(UacInterfaceDescriptor::Generic(data.to_vec())),
+            //_ => Err(Error::new(
+            //    ErrorKind::InvalidArg,
+            //    "Interface not supported for this descriptor",
+            //)),
+        }
+    }
+
+    /// Get the UAC AS interface descriptor from the UAC AS interface
+    pub fn from_uac_as_interface(
+        uac_interface: &UacAsInterface,
+        protocol: &UacProtocol,
+        data: &[u8],
+    ) -> Result<Self, Error> {
+        match uac_interface {
+            UacAsInterface::General => match protocol {
+                UacProtocol::Uac1 => AudioStreamingInterface1::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioStreamingInterface1),
+                UacProtocol::Uac2 => AudioStreamingInterface2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioStreamingInterface2),
+                UacProtocol::Uac3 => AudioStreamingInterface3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioStreamingInterface3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAsInterface::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
+            _ => Ok(UacInterfaceDescriptor::Generic(data.to_vec())),
+        }
+    }
+
+    /// Get the UAC Audio Data Endpoint descriptor from the UAC AS interface
+    pub fn from_uac_as_iso_data_endpoint(
+        protocol: &UacProtocol,
+        data: &[u8],
+    ) -> Result<Self, Error> {
+        match protocol {
+            UacProtocol::Uac1 => AudioDataStreamingEndpoint1::try_from(data)
+                .map(UacInterfaceDescriptor::AudioDataStreamingEndpoint1),
+            UacProtocol::Uac2 => AudioDataStreamingEndpoint2::try_from(data)
+                .map(UacInterfaceDescriptor::AudioDataStreamingEndpoint2),
+            UacProtocol::Uac3 => AudioDataStreamingEndpoint3::try_from(data)
+                .map(UacInterfaceDescriptor::AudioDataStreamingEndpoint3),
             _ => Err(Error::new(
                 ErrorKind::InvalidArg,
-                "Interface not supported for this descriptor",
+                "Protocol not supported for this interface",
             )),
         }
     }
 
+    /// Get bitmap string from the descriptor bit field; each bit corresponds to a string in the array
+    pub fn get_bitmap_string<T: Into<u32> + Copy>(bitmap: T, strings: &[&str]) -> Vec<String> {
+        let mut ret = Vec::new();
+        for (i, s) in strings.iter().enumerate() {
+            if bitmap.into() & (1 << i) != 0 {
+                ret.push(s.to_string());
+            }
+        }
+        ret
+    }
+
     /// Get channel configuration from the descriptor "wChannelConfig" field bitmap string
-    pub fn get_channel_names<T: Into<u32> + Copy>(protocol: &UacProtocol, channel_config: T) -> Vec<String> {
+    pub fn get_channel_names<T: Into<u32> + Copy>(
+        protocol: &UacProtocol,
+        channel_config: T,
+    ) -> Vec<String> {
         match protocol {
-            UacProtocol::Uac1 => {
-                let mut channels = Vec::new();
-                for (i, name) in Self::UAC1_CHANNEL_NAMES.iter().enumerate() {
-                    if channel_config.into() & (1 << i) != 0 {
-                        channels.push(name.to_string());
-                    }
-                }
-                channels
-            },
-            UacProtocol::Uac2 => {
-                let mut channels = Vec::new();
-                for (i, name) in Self::UAC2_CHANNEL_NAMES.iter().enumerate() {
-                    if channel_config.into() & (1 << i) != 0 {
-                        channels.push(name.to_string());
-                    }
-                }
-                channels
-            },
+            UacProtocol::Uac1 => Self::get_bitmap_string(channel_config, &Self::UAC1_CHANNEL_NAMES),
+            UacProtocol::Uac2 => Self::get_bitmap_string(channel_config, &Self::UAC2_CHANNEL_NAMES),
             _ => Vec::new(),
+        }
+    }
+
+    /// Get the lock delay units from the descriptor
+    pub fn get_lock_delay_units(&self) -> Option<LockDelayUnits> {
+        match self {
+            UacInterfaceDescriptor::AudioDataStreamingEndpoint1(ep) => {
+                Some(LockDelayUnits::from(ep.lock_delay_units))
+            }
+            UacInterfaceDescriptor::AudioDataStreamingEndpoint2(ep) => {
+                Some(LockDelayUnits::from(ep.lock_delay_units))
+            }
+            UacInterfaceDescriptor::AudioDataStreamingEndpoint3(ep) => {
+                Some(LockDelayUnits::from(ep.lock_delay_units))
+            }
+            _ => None,
         }
     }
 }
@@ -1655,7 +1804,6 @@ impl TryFrom<&[u8]> for AudioInputTerminal1 {
             ));
         }
 
-
         Ok(AudioInputTerminal1 {
             terminal_id: value[0],
             terminal_type: u16::from_le_bytes([value[1], value[2]]),
@@ -1691,7 +1839,7 @@ impl TryFrom<&[u8]> for AudioInputTerminal2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 13 {
+        if value.len() < 14 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
                 "Audio Input Terminal 2 descriptor too short",
@@ -1709,7 +1857,7 @@ impl TryFrom<&[u8]> for AudioInputTerminal2 {
             channel_names: None,
             controls: u16::from_le_bytes([value[11], value[12]]),
             terminal_index: value[13],
-            terminal :None,
+            terminal: None,
         })
     }
 }
@@ -1733,7 +1881,7 @@ impl TryFrom<&[u8]> for AudioInputTerminal3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 15 {
+        if value.len() < 17 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
                 "Audio Input Terminal 3 descriptor too short",
@@ -1754,3 +1902,221 @@ impl TryFrom<&[u8]> for AudioInputTerminal3 {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioStreamingInterface1 {
+    pub terminal_link: u8,
+    pub delay: u8,
+    pub format_tag: u16,
+}
+
+impl TryFrom<&[u8]> for AudioStreamingInterface1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Streaming Interface 1 descriptor too short",
+            ));
+        }
+
+        Ok(AudioStreamingInterface1 {
+            terminal_link: value[0],
+            delay: value[1],
+            format_tag: u16::from_le_bytes([value[2], value[3]]),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioStreamingInterface2 {
+    pub terminal_link: u8,
+    pub controls: u8, // BmControl2
+    pub format_type: u8,
+    pub formats: u32,
+    pub nr_channels: u8,
+    pub channel_config: u32,
+    pub channel_names_index: u8,
+    pub channel_names: Option<String>,
+}
+
+impl TryFrom<&[u8]> for AudioStreamingInterface2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 13 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Streaming Interface 2 descriptor too short",
+            ));
+        }
+
+        Ok(AudioStreamingInterface2 {
+            terminal_link: value[0],
+            controls: value[1],
+            format_type: value[2],
+            formats: u32::from_le_bytes([value[3], value[4], value[5], value[6]]),
+            nr_channels: value[7],
+            channel_config: u32::from_le_bytes([value[8], value[9], value[10], value[11]]),
+            channel_names_index: value[12],
+            channel_names: None,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioStreamingInterface3 {
+    pub terminal_link: u8,
+    pub controls: u32, // BmControl2
+    pub cluster_descr_id: u16,
+    pub formats: u64,
+    pub sub_slot_size: u8,
+    pub bit_resolution: u8,
+    pub aux_protocols: u16,
+    pub control_size: u8,
+}
+
+impl TryFrom<&[u8]> for AudioStreamingInterface3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 20 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Streaming Interface 3 descriptor too short",
+            ));
+        }
+
+        Ok(AudioStreamingInterface3 {
+            terminal_link: value[0],
+            controls: u32::from_le_bytes([value[1], value[2], value[3], value[4]]),
+            cluster_descr_id: u16::from_le_bytes([value[5], value[6]]),
+            formats: u64::from_le_bytes([
+                value[7], value[8], value[9], value[10], value[11], value[12], value[13], value[14],
+            ]),
+            sub_slot_size: value[15],
+            bit_resolution: value[16],
+            aux_protocols: u16::from_le_bytes([value[17], value[18]]),
+            control_size: value[19],
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(u8)]
+#[allow(missing_docs)]
+pub enum LockDelayUnits {
+    Undefined,
+    Milliseconds,
+    DecodedPcmSamples,
+}
+
+impl From<u8> for LockDelayUnits {
+    fn from(b: u8) -> Self {
+        match b {
+            0 => LockDelayUnits::Undefined,
+            1 => LockDelayUnits::Milliseconds,
+            2 => LockDelayUnits::DecodedPcmSamples,
+            _ => LockDelayUnits::Undefined,
+        }
+    }
+}
+
+impl fmt::Display for LockDelayUnits {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            LockDelayUnits::Undefined => write!(f, "Undefined"),
+            LockDelayUnits::Milliseconds => write!(f, "Milliseconds"),
+            LockDelayUnits::DecodedPcmSamples => write!(f, "Decoded PCM samples"),
+        }
+    }
+}
+
+/// Isochronous Audio Data Stream Endpoint for UAC1
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioDataStreamingEndpoint1 {
+    pub attributes: u8,
+    pub lock_delay_units: u8,
+    pub lock_delay: u16,
+}
+
+impl TryFrom<&[u8]> for AudioDataStreamingEndpoint1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Data Streaming Endpoint 1 descriptor too short",
+            ));
+        }
+
+        Ok(AudioDataStreamingEndpoint1 {
+            attributes: value[0],
+            lock_delay_units: value[1],
+            lock_delay: u16::from_le_bytes([value[2], value[3]]),
+        })
+    }
+}
+
+/// Isochronous Audio Data Stream Endpoint for UAC2
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioDataStreamingEndpoint2 {
+    pub attributes: u8,
+    pub controls: u8,
+    pub lock_delay_units: u8,
+    pub lock_delay: u16,
+}
+
+impl TryFrom<&[u8]> for AudioDataStreamingEndpoint2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Data Streaming Endpoint 2 descriptor too short",
+            ));
+        }
+
+        Ok(AudioDataStreamingEndpoint2 {
+            attributes: value[0],
+            controls: value[1],
+            lock_delay_units: value[2],
+            lock_delay: u16::from_le_bytes([value[3], value[4]]),
+        })
+    }
+}
+
+/// Isochronous Audio Data Stream Endpoint for UAC3
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioDataStreamingEndpoint3 {
+    pub controls: u32,
+    pub lock_delay_units: u8,
+    pub lock_delay: u16,
+}
+
+impl TryFrom<&[u8]> for AudioDataStreamingEndpoint3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 7 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Data Streaming Endpoint 3 descriptor too short",
+            ));
+        }
+
+        Ok(AudioDataStreamingEndpoint3 {
+            controls: u32::from_le_bytes([value[0], value[1], value[2], value[3]]),
+            lock_delay_units: value[4],
+            lock_delay: u16::from_le_bytes([value[5], value[6]]),
+        })
+    }
+}
