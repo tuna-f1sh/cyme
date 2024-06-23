@@ -144,6 +144,7 @@ pub mod display {
     //! Printing functions for lsusb style output of USB data
     //!
     //! The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for a lot of the styling and content of the display module
+
     use crate::display::PrintSettings;
     use crate::error::{Error, ErrorKind};
     use crate::{system_profiler, usb};
@@ -243,12 +244,21 @@ pub mod display {
         "Overflow",
     ];
     const UAC3_INPUT_TERMINAL_BMCONTROLS: [&str; 5] = [
-        "Intertion",
+        "Insertion",
         "Overload",
         "Underflow",
         "Overflow",
         "Underflow",
     ];
+    const UAC2_OUTPUT_TERMINAL_BMCONTROLS: [&str; 5] = [
+        "Copy Protect",
+        "Connector",
+        "Overload",
+        "Underflow",
+        "Overflow",
+    ];
+    const UAC3_OUTPUT_TERMINAL_BMCONTROLS: [&str; 4] =
+        ["Insertion", "Overload", "Underflow", "Overflow"];
     const UAC2_AS_INTERFACE_BMCONTROLS: [&str; 2] =
         ["Active Alternate Setting", "Valid Alternate Setting"];
     const UAC3_AS_INTERFACE_BMCONTROLS: [&str; 3] = [
@@ -257,6 +267,15 @@ pub mod display {
         "Audio Data Format Control",
     ];
     const UAC2_AS_ISO_ENDPOINT_BMCONTROLS: [&str; 3] = ["Pitch", "Data Overrun", "Data Underrun"];
+    const UAC2_MIXER_UNIT_BMCONTROLS: [&str; 4] = ["Cluster", "Underflow", "Overflow", "Overflow"];
+    const UAC3_MIXER_UNIT_BMCONTROLS: [&str; 2] = ["Underflow", "Overflow"];
+    const UAC2_SELECTOR_UNIT_BMCONTROLS: [&str; 1] = ["Selector"];
+    const UAC2_EXTENSION_UNIT_BMCONTROLS: [&str; 4] =
+        ["Enable", "Cluster", "Underflow", "Overflow"];
+    const UAC3_EXTENSION_UNIT_BMCONTROLS: [&str; 2] = ["Underflow", "Overflow"];
+    const UAC2_CLOCK_SOURCE_BMCONTROLS: [&str; 2] = ["Clock Frequency", "Clock Validity"];
+    const UAC2_CLOCK_SELECTOR_BMCONTROLS: [&str; 1] = ["Clock Selector"];
+    const UAC2_CLOCK_MULTIPLIER_BMCONTROLS: [&str; 2] = ["Clock Numerator", "Clock Denominator"];
 
     /// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
     pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
@@ -1020,7 +1039,95 @@ pub mod display {
         }
     }
 
-    fn dump_uac_controls(
+    fn dump_array<T: std::fmt::Display>(
+        array: &[T],
+        field_name: &str,
+        indent: usize,
+        width: usize,
+    ) {
+        for (i, b) in array.iter().enumerate() {
+            dump_value(b, &format!("{}({:2})", field_name, i), indent, width);
+        }
+    }
+
+    fn dump_value<T: std::fmt::Display>(value: T, field_name: &str, indent: usize, width: usize) {
+        let value = value.to_string();
+        let spaces = " ".repeat(
+            (width - value.len())
+                .saturating_sub(field_name.len())
+                .max(1),
+        );
+        println!(
+            "{:indent$}{}{}{}",
+            "",
+            field_name,
+            spaces,
+            value,
+            indent = indent
+        );
+    }
+
+    fn dump_hex<T: std::fmt::LowerHex + Into<u64>>(
+        value: T,
+        field_name: &str,
+        indent: usize,
+        width: usize,
+    ) {
+        let value_as_u64: u64 = value.into();
+        let hex_value = format!(
+            "0x{:0width$x}",
+            value_as_u64,
+            width = (std::mem::size_of::<T>() * 2)
+        );
+        dump_value(&hex_value, field_name, indent, width);
+    }
+
+    fn dump_name<T: std::fmt::Display>(
+        value: T,
+        names_f: fn(T) -> Option<String>,
+        field_name: &str,
+        indent: usize,
+        width: usize,
+    ) {
+        let value_string = value.to_string();
+        let spaces = " ".repeat(
+            (width - value_string.len())
+                .saturating_sub(field_name.len())
+                .max(1),
+        );
+        let dump = format!(
+            "{:indent$}{}{}{}",
+            "",
+            field_name,
+            spaces,
+            value_string,
+            indent = indent
+        );
+        if let Some(name) = names_f(value) {
+            println!("{} {}", dump, name);
+        }
+    }
+
+    /// Dumps strings matching the bits set in `bitmap` using `strings_f` function
+    fn dump_bitmap_strings<T>(
+        bitmap: T,
+        strings_f: fn(usize) -> Option<&'static str>,
+        indent: usize,
+    ) where
+        T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
+    {
+        let bitmap_u64: u64 = bitmap.into();
+        let num_bits = std::mem::size_of::<T>() * 8;
+        for index in 0..num_bits {
+            if (bitmap_u64 >> index) & 0x1 != 0 {
+                if let Some(string) = strings_f(index) {
+                    println!("{:indent$}{}", "", string, indent = indent * 2);
+                }
+            }
+        }
+    }
+
+    fn dump_bmcontrols(
         controls: u32,
         control_descriptions: &[&'static str],
         desc_type: usb::ControlType,
@@ -1046,17 +1153,423 @@ pub mod display {
         }
     }
 
-    fn dump_bitmap_strings_u8(bitmap: u8, strings_f: fn(u8) -> &'static str, indent: usize) {
-        for index in 0..8 {
-            if (bitmap >> index) & 0x1 != 0 {
-                println!(
-                    "{:indent$}{}",
-                    "",
-                    strings_f(index as u8),
-                    indent = indent * 2
-                );
-            }
+    fn dump_audio_mixer_unit1(mixer_unit: &usb::AudioMixerUnit1, indent: usize, width: usize) {
+        dump_value(mixer_unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(mixer_unit.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&mixer_unit.source_ids, "baSourceID", indent * 2, width);
+        dump_value(mixer_unit.nr_channels, "bNrChannels", indent * 2, width);
+        dump_hex(
+            mixer_unit.channel_config,
+            "wChannelConfig",
+            indent * 2,
+            width,
+        );
+        let channel_names = usb::UacInterfaceDescriptor::get_channel_names(
+            &usb::UacProtocol::Uac1,
+            mixer_unit.channel_config as u32,
+        );
+        for name in channel_names.iter() {
+            println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
         }
+        dump_value(mixer_unit.channel_names, "iChannelNames", indent * 2, width);
+        dump_array(&mixer_unit.controls, "bmControls", indent * 2, width);
+        dump_value(mixer_unit.mixer, "iMixer", indent * 2, width);
+    }
+
+    fn dump_audio_mixer_unit2(mixer_unit: &usb::AudioMixerUnit2, indent: usize, width: usize) {
+        dump_value(mixer_unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(mixer_unit.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&mixer_unit.source_ids, "baSourceID", indent * 2, width);
+        dump_value(mixer_unit.nr_channels, "bNrChannels", indent * 2, width);
+        dump_hex(
+            mixer_unit.channel_config,
+            "bmChannelConfig",
+            indent * 2,
+            width,
+        );
+        let channel_names = usb::UacInterfaceDescriptor::get_channel_names(
+            &usb::UacProtocol::Uac2,
+            mixer_unit.channel_config,
+        );
+        for name in channel_names.iter() {
+            println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
+        }
+        dump_value(mixer_unit.channel_names, "iChannelNames", indent * 2, width);
+        dump_array(
+            &mixer_unit.mixer_controls,
+            "bmMixerControls",
+            indent * 2,
+            width,
+        );
+        dump_hex(mixer_unit.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            mixer_unit.controls as u32,
+            &UAC2_MIXER_UNIT_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(mixer_unit.mixer, "iMixer", indent * 2, width);
+    }
+
+    fn dump_audio_mixer_unit3(mixer_unit: &usb::AudioMixerUnit3, indent: usize, width: usize) {
+        dump_value(mixer_unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(mixer_unit.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&mixer_unit.source_ids, "baSourceID", indent * 2, width);
+        dump_value(
+            mixer_unit.cluster_descr_id,
+            "wClusterDescrID",
+            indent * 2,
+            width,
+        );
+        dump_array(
+            &mixer_unit.mixer_controls,
+            "bmMixerControls",
+            indent * 2,
+            width,
+        );
+        dump_hex(mixer_unit.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            mixer_unit.controls,
+            &UAC3_MIXER_UNIT_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(
+            mixer_unit.mixer_descr_str,
+            "wMixerDescrStr",
+            indent * 2,
+            width,
+        );
+    }
+
+    fn dump_audio_power_domain(power_domain: &usb::AudioPowerDomain, indent: usize, width: usize) {
+        dump_value(
+            power_domain.power_domain_id,
+            "bPowerDomainID",
+            indent * 2,
+            width,
+        );
+        dump_value(
+            power_domain.recovery_time_1,
+            "waRecoveryTime(1)",
+            indent * 2,
+            width,
+        );
+        dump_value(
+            power_domain.recovery_time_2,
+            "waRecoveryTime(2)",
+            indent * 2,
+            width,
+        );
+        dump_value(power_domain.nr_entities, "bNrEntities", indent * 2, width);
+        dump_array(&power_domain.entity_ids, "baEntityID", indent * 2, width);
+        dump_value(
+            power_domain.domain_descr_str,
+            "wPDomainDescrStr",
+            indent * 2,
+            width,
+        );
+    }
+
+    fn dump_audio_selector_unit1(
+        selector_unit: &usb::AudioSelectorUnit1,
+        indent: usize,
+        width: usize,
+    ) {
+        dump_value(selector_unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(selector_unit.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&selector_unit.source_ids, "baSourceID", indent * 2, width);
+        dump_value(selector_unit.selector_index, "iSelector", indent * 2, width);
+    }
+
+    fn dump_audio_selector_unit2(
+        selector_unit: &usb::AudioSelectorUnit2,
+        indent: usize,
+        width: usize,
+    ) {
+        dump_value(selector_unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(selector_unit.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&selector_unit.source_ids, "baSourceID", indent * 2, width);
+        dump_hex(selector_unit.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            selector_unit.controls.into(),
+            &UAC2_SELECTOR_UNIT_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(selector_unit.selector_index, "iSelector", indent * 2, width);
+    }
+
+    fn dump_audio_selector_unit3(
+        selector_unit: &usb::AudioSelectorUnit3,
+        indent: usize,
+        width: usize,
+    ) {
+        dump_value(selector_unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(selector_unit.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&selector_unit.source_ids, "baSourceID", indent * 2, width);
+        dump_hex(selector_unit.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            selector_unit.controls,
+            &UAC2_SELECTOR_UNIT_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(
+            selector_unit.selector_descr_str,
+            "wSelectorDescrStr",
+            indent * 2,
+            width,
+        );
+    }
+
+    /// Dumps the contents of a UAC1 Extension Unit Descriptor
+    fn dump_audio_extension_unit1(unit: &usb::AudioExtensionUnit1, indent: usize, width: usize) {
+        dump_value(unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(unit.extension_code, "wExtensionCode", indent * 2, width);
+        dump_value(unit.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&unit.source_ids, "baSourceID", indent * 2, width);
+        dump_value(unit.nr_channels, "bNrChannels", indent * 2, width);
+        dump_hex(unit.channel_config, "wChannelConfig", indent * 2, width);
+        let channel_names = usb::UacInterfaceDescriptor::get_channel_names(
+            &usb::UacProtocol::Uac1,
+            unit.channel_config as u32,
+        );
+        for name in channel_names.iter() {
+            println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
+        }
+        dump_value(unit.channel_names_index, "iChannelNames", indent * 2, width);
+        dump_value(unit.control_size, "bControlSize", indent * 2, width);
+        dump_array(&unit.controls, "bmControls", indent * 2, width);
+        dump_value(unit.extension_index, "iExtension", indent * 2, width);
+    }
+
+    /// Dumps the contents of a UAC2 Extension Unit Descriptor
+    fn dump_audio_extension_unit2(unit: &usb::AudioExtensionUnit2, indent: usize, width: usize) {
+        dump_value(unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(unit.extension_code, "wExtensionCode", indent * 2, width);
+        dump_value(unit.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&unit.source_ids, "baSourceID", indent * 2, width);
+        dump_value(unit.nr_channels, "bNrChannels", indent * 2, width);
+        dump_hex(unit.channel_config, "bmChannelConfig", indent * 2, width);
+        let channel_names = usb::UacInterfaceDescriptor::get_channel_names(
+            &usb::UacProtocol::Uac2,
+            unit.channel_config,
+        );
+        for name in channel_names.iter() {
+            println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
+        }
+        dump_value(unit.channel_names_index, "iChannelNames", indent * 2, width);
+        dump_hex(unit.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            unit.controls.into(),
+            &UAC2_EXTENSION_UNIT_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(unit.extension_index, "iExtension", indent * 2, width);
+    }
+
+    /// Dumps the contents of a UAC3 Extension Unit Descriptor
+    fn dump_audio_extension_unit3(unit: &usb::AudioExtensionUnit3, indent: usize, width: usize) {
+        dump_value(unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(unit.extension_code, "wExtensionCode", indent * 2, width);
+        dump_value(unit.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&unit.source_ids, "baSourceID", indent * 2, width);
+        dump_value(
+            unit.extension_descr_str,
+            "wExtensionDescrStr",
+            indent * 2,
+            width,
+        );
+        dump_hex(unit.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            unit.controls,
+            &UAC3_EXTENSION_UNIT_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(unit.cluster_descr_id, "wClusterDescrID", indent * 2, width);
+    }
+
+    /// Dumps the contents of a UAC2 Clock Source Descriptor
+    fn dump_audio_clock_source2(source: &usb::AudioClockSource2, indent: usize, width: usize) {
+        let uac2_clk_src_bmattr = |index: usize| -> Option<&'static str> {
+            match index {
+                0 => Some("External"),
+                1 => Some("Internal fixed"),
+                2 => Some("Internal variable"),
+                3 => Some("Internal programmable"),
+                _ => None,
+            }
+        };
+
+        dump_value(source.clock_id, "bClockID", indent * 2, width);
+        dump_hex(source.attributes, "bmAttributes", indent * 2, width);
+        dump_bitmap_strings(source.attributes, uac2_clk_src_bmattr, indent + 1);
+        dump_hex(source.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            source.controls.into(),
+            &UAC2_CLOCK_SOURCE_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(source.assoc_terminal, "bAssocTerminal", indent * 2, width);
+        dump_value(source.clock_source_index, "iClockSource", indent * 2, width);
+    }
+
+    /// Dumps the contents of a UAC3 Clock Source Descriptor
+    fn dump_audio_clock_source3(source: &usb::AudioClockSource3, indent: usize, width: usize) {
+        let uac3_clk_src_bmattr = |index: usize| -> Option<&'static str> {
+            match index {
+                0 => Some("External"),
+                1 => Some("Internal"),
+                2 => Some("(asynchronous)"),
+                3 => Some("(synchronized to SOF)"),
+                _ => None,
+            }
+        };
+
+        dump_value(source.clock_id, "bClockID", indent * 2, width);
+        dump_hex(source.attributes, "bmAttributes", indent * 2, width);
+        dump_bitmap_strings(source.attributes, uac3_clk_src_bmattr, indent + 1);
+        dump_hex(source.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            source.controls,
+            &UAC2_CLOCK_SOURCE_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(
+            source.reference_terminal,
+            "bReferenceTerminal",
+            indent * 2,
+            width,
+        );
+        dump_value(
+            source.clock_source_str,
+            "wClockSourceStr",
+            indent * 2,
+            width,
+        );
+    }
+
+    /// Dumps the contents of a UAC2 Clock Selector Descriptor
+    fn dump_audio_clock_selector2(
+        selector: &usb::AudioClockSelector2,
+        indent: usize,
+        width: usize,
+    ) {
+        dump_value(selector.clock_id, "bClockID", indent * 2, width);
+        dump_value(selector.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&selector.csource_ids, "baCSourceID", indent * 2, width);
+        dump_hex(selector.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            selector.controls.into(),
+            &UAC2_CLOCK_SELECTOR_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(
+            selector.clock_selector_index,
+            "iClockSelector",
+            indent * 2,
+            width,
+        );
+    }
+
+    /// Dumps the contents of a UAC3 Clock Selector Descriptor
+    fn dump_audio_clock_selector3(
+        selector: &usb::AudioClockSelector3,
+        indent: usize,
+        width: usize,
+    ) {
+        dump_value(selector.clock_id, "bClockID", indent * 2, width);
+        dump_value(selector.nr_in_pins, "bNrInPins", indent * 2, width);
+        dump_array(&selector.csource_ids, "baCSourceID", indent * 2, width);
+        dump_hex(selector.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            selector.controls,
+            &UAC2_CLOCK_SELECTOR_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(
+            selector.cselector_descr_str,
+            "wCSelectorDescrStr",
+            indent * 2,
+            width,
+        );
+    }
+
+    /// Dumps the contents of a UAC2 Clock Multiplier Descriptor
+    fn dump_audio_clock_multiplier2(
+        multiplier: &usb::AudioClockMultiplier2,
+        indent: usize,
+        width: usize,
+    ) {
+        dump_value(multiplier.clock_id, "bClockID", indent * 2, width);
+        dump_value(multiplier.csource_id, "bCSourceID", indent * 2, width);
+        dump_hex(multiplier.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            multiplier.controls.into(),
+            &UAC2_CLOCK_MULTIPLIER_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(
+            multiplier.clock_multiplier_index,
+            "iClockMultiplier",
+            indent * 2,
+            width,
+        );
+    }
+
+    /// Dumps the contents of a UAC3 Clock Multiplier Descriptor
+    fn dump_audio_clock_multiplier3(
+        multiplier: &usb::AudioClockMultiplier3,
+        indent: usize,
+        width: usize,
+    ) {
+        dump_value(multiplier.clock_id, "bClockID", indent * 2, width);
+        dump_value(multiplier.csource_id, "bCSourceID", indent * 2, width);
+        dump_hex(multiplier.controls, "bmControls", indent * 2, width);
+        dump_bmcontrols(
+            multiplier.controls,
+            &UAC2_CLOCK_MULTIPLIER_BMCONTROLS,
+            usb::ControlType::BmControl2,
+            indent + 1,
+        );
+        dump_value(
+            multiplier.cmultiplier_descr_str,
+            "wCMultiplierDescrStr",
+            indent * 2,
+            width,
+        );
+    }
+
+    fn dump_audio_sample_rate_converter2(
+        converter: &usb::AudioSampleRateConverter2,
+        indent: usize,
+        width: usize,
+    ) {
+        dump_value(converter.unit_id, "bUnitID", indent * 2, width);
+        dump_value(converter.source_id, "bSourceID", indent * 2, width);
+        dump_value(converter.csource_in_id, "bCSourceInID", indent * 2, width);
+        dump_value(converter.csource_out_id, "bCSourceOutID", indent * 2, width);
+        dump_value(converter.src_index, "iSRC", indent * 2, width);
+    }
+
+    fn dump_audio_sample_rate_converter3(
+        converter: &usb::AudioSampleRateConverter3,
+        indent: usize,
+        width: usize,
+    ) {
+        dump_value(converter.unit_id, "bUnitID", indent * 2, width);
+        dump_value(converter.source_id, "bSourceID", indent * 2, width);
+        dump_value(converter.csource_in_id, "bCSourceInID", indent * 2, width);
+        dump_value(converter.csource_out_id, "bCSourceOutID", indent * 2, width);
+        dump_value(converter.src_descr_str, "wSRCDescrStr", indent * 2, width);
     }
 
     fn dump_audio_subtype(
@@ -1066,54 +1579,16 @@ pub mod display {
     ) {
         match uacid {
             usb::UacInterfaceDescriptor::AudioHeader1(ach) => {
-                println!(
-                    "{:indent$}bcdADC              {}",
-                    "",
-                    ach.version,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wTotalLength       {:5}",
-                    "",
-                    ach.total_length,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bInCollection      {:5}",
-                    "",
-                    ach.collection_bytes,
-                    indent = indent * 2
-                );
-                for (i, interface) in ach.interfaces.iter().enumerate() {
-                    println!(
-                        "{:indent$}baInterfaceNr({})  {:5}",
-                        "",
-                        i,
-                        interface,
-                        indent = (indent + 1) * 2
-                    );
-                }
+                dump_value(&ach.version, "bcdADC", indent * 2, 24);
+                dump_value(ach.total_length, "wTotalLength", indent * 2, 24);
+                dump_value(ach.collection_bytes, "bInCollection", indent * 2, 24);
+                dump_array(&ach.interfaces, "baInterfaceNr", indent * 2, 24);
             }
             usb::UacInterfaceDescriptor::AudioHeader2(ach) => {
-                println!(
-                    "{:indent$}bcdADC              {}",
-                    "",
-                    ach.version,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wTotalLength       {:5}",
-                    "",
-                    ach.total_length,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bmControls          0x{:02x}",
-                    "",
-                    ach.controls,
-                    indent = indent * 2
-                );
-                dump_uac_controls(
+                dump_value(&ach.version, "bcdADC", indent * 2, 24);
+                dump_value(ach.total_length, "wTotalLength", indent * 2, 24);
+                dump_hex(ach.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
                     ach.controls as u32,
                     &UAC2_INTERFACE_HEADER_BMCONTROLS,
                     usb::ControlType::BmControl2,
@@ -1121,25 +1596,10 @@ pub mod display {
                 );
             }
             usb::UacInterfaceDescriptor::AudioHeader3(ach) => {
-                println!(
-                    "{:indent$}bCategory          {:5}",
-                    "",
-                    ach.category,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wTotalLength       {:5}",
-                    "",
-                    ach.total_length,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bmControls          0x{:02x}",
-                    "",
-                    ach.controls,
-                    indent = indent * 2
-                );
-                dump_uac_controls(
+                dump_value(ach.category, "bCategory", indent * 2, 24);
+                dump_value(ach.total_length, "wTotalLength", indent * 2, 24);
+                dump_hex(ach.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
                     ach.controls,
                     &UAC2_INTERFACE_HEADER_BMCONTROLS,
                     usb::ControlType::BmControl2,
@@ -1147,60 +1607,26 @@ pub mod display {
                 );
             }
             usb::UacInterfaceDescriptor::AudioInputTerminal1(ait) => {
+                dump_value(ait.terminal_id, "bTerminalID", indent * 2, 24);
+                println!(
+                    "{:indent$}wTerminalType      {:5} {}",
+                    "",
+                    ait.terminal_type,
+                    super::names::videoterminal(ait.terminal_type).unwrap_or_default(),
+                    indent = indent * 2
+                );
+                dump_value(ait.assoc_terminal, "bAssocTerminal", indent * 2, 24);
+                dump_value(ait.nr_channels, "bNrChannels", indent * 2, 24);
+                dump_hex(ait.channel_config, "wChannelConfig", indent * 2, 24);
                 let channel_names =
                     usb::UacInterfaceDescriptor::get_channel_names(uacp, ait.channel_config as u32);
-                println!(
-                    "{:indent$}bTerminalID        {:5}",
-                    "",
-                    ait.terminal_id,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wTerminalType      {:5} {}",
-                    "",
-                    ait.terminal_type,
-                    super::names::videoterminal(ait.terminal_type).unwrap_or_default(),
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bAssocTerminal     {:5}",
-                    "",
-                    ait.assoc_terminal,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bNrChannels        {:5}",
-                    "",
-                    ait.nr_channels,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wChannelConfig     {:5x}",
-                    "",
-                    ait.channel_config,
-                    indent = indent * 2
-                );
                 for name in channel_names.iter() {
                     println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
                 }
-                println!(
-                    "{:indent$}iChannelNames      {:5} {}",
-                    "",
-                    ait.channel_names_index,
-                    // TODO get descriptor string
-                    "",
-                    indent = indent * 2
-                );
+                dump_value(ait.channel_names_index, "iChannelNames", indent * 2, 24);
             }
             usb::UacInterfaceDescriptor::AudioInputTerminal2(ait) => {
-                let channel_names =
-                    usb::UacInterfaceDescriptor::get_channel_names(uacp, ait.channel_config);
-                println!(
-                    "{:indent$}bTerminalID        {:5}",
-                    "",
-                    ait.terminal_id,
-                    indent = indent * 2
-                );
+                dump_value(ait.terminal_id, "bTerminalID", indent * 2, 24);
                 println!(
                     "{:indent$}wTerminalType      {:5} {}",
                     "",
@@ -1208,348 +1634,247 @@ pub mod display {
                     super::names::videoterminal(ait.terminal_type).unwrap_or_default(),
                     indent = indent * 2
                 );
-                println!(
-                    "{:indent$}bAssocTerminal     {:5}",
-                    "",
-                    ait.assoc_terminal,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bNrChannels        {:5}",
-                    "",
-                    ait.nr_channels,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wChannelConfig     {:5x}",
-                    "",
-                    ait.channel_config,
-                    indent = indent * 2
-                );
+                dump_value(ait.assoc_terminal, "bAssocTerminal", indent * 2, 24);
+                dump_value(ait.nr_channels, "bNrChannels", indent * 2, 24);
+                dump_hex(ait.channel_config, "wChannelConfig", indent * 2, 24);
+                let channel_names =
+                    usb::UacInterfaceDescriptor::get_channel_names(uacp, ait.channel_config);
                 for name in channel_names.iter() {
                     println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
                 }
-                println!(
-                    "{:indent$}iChannelNames      {:5} {}",
-                    "",
-                    ait.channel_names_index,
-                    // TODO get descriptor string
-                    "",
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bmControls          0x{:02x}",
-                    "",
-                    ait.controls,
-                    indent = indent * 2
-                );
-                dump_uac_controls(
+                dump_value(ait.channel_names_index, "iChannelNames", indent * 2, 24);
+                dump_hex(ait.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
                     ait.controls.into(),
                     &UAC2_INPUT_TERMINAL_BMCONTROLS,
                     usb::ControlType::BmControl2,
                     indent + 1,
                 );
-                println!(
-                    "{:indent$}iTerminal          {:5} {}",
-                    "",
-                    ait.terminal_index,
-                    // TODO get descriptor string
-                    "",
-                    indent = indent * 2
-                );
+                dump_value(ait.terminal_index, "iTerminal", indent * 2, 24);
             }
             usb::UacInterfaceDescriptor::AudioInputTerminal3(ait) => {
-                println!(
-                    "{:indent$}bTerminalID        {:5}",
-                    "",
-                    ait.terminal_id,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wTerminalType      {:5} {}",
-                    "",
+                dump_value(ait.terminal_id, "bTerminalID", indent * 2, 24);
+                dump_name(
                     ait.terminal_type,
-                    super::names::videoterminal(ait.terminal_type).unwrap_or_default(),
-                    indent = indent * 2
+                    super::names::videoterminal,
+                    "wTerminalType",
+                    indent * 2,
+                    24,
                 );
-                println!(
-                    "{:indent$}bAssocTerminal     {:5}",
-                    "",
-                    ait.assoc_terminal,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bCSourceID         {:5}",
-                    "",
-                    ait.csource_id,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bmControls          0x{:02x}",
-                    "",
-                    ait.controls,
-                    indent = indent + 1
-                );
-                dump_uac_controls(
+                dump_value(ait.assoc_terminal, "bAssocTerminal", indent * 2, 24);
+                dump_value(ait.csource_id, "bCSourceID", indent * 2, 24);
+                dump_hex(ait.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
                     ait.controls.into(),
                     &UAC3_INPUT_TERMINAL_BMCONTROLS,
                     usb::ControlType::BmControl2,
                     indent + 1,
                 );
-                println!(
-                    "{:indent$}wClusterDescrID    {:5}",
-                    "",
-                    ait.cluster_descr_id,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wExTerminalDescrID {:5}",
-                    "",
-                    ait.cluster_descr_id,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wConnectorDescrId  {:5}",
-                    "",
+                dump_value(ait.cluster_descr_id, "wClusterDescrID", indent * 2, 24);
+                dump_value(
                     ait.ex_terminal_descr_id,
-                    indent = indent * 2
+                    "wExTerminalDescrID",
+                    indent * 2,
+                    24,
                 );
-                println!(
-                    "{:indent$}wTerminalDescrStr  {:5} {}",
-                    "",
-                    ait.terminal_descr_str,
-                    // TODO get descriptor string
-                    "",
-                    indent = indent * 2
-                );
+                dump_value(ait.connectors_descr_id, "wConnectorDescrId", indent * 2, 24);
+                dump_value(ait.terminal_descr_str, "wTerminalDescrStr", indent * 2, 24);
             }
+            usb::UacInterfaceDescriptor::AudioOutputTerminal1(a) => {
+                dump_value(a.terminal_id, "bTerminalID", indent * 2, 24);
+                dump_name(
+                    a.terminal_type,
+                    super::names::videoterminal,
+                    "wTerminalType",
+                    indent * 2,
+                    24,
+                );
+                dump_value(a.assoc_terminal, "bAssocTerminal", indent * 2, 24);
+                dump_value(a.source_id, "bSourceID", indent * 2, 24);
+                dump_value(a.terminal_index, "iTerminal", indent * 2, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioOutputTerminal2(a) => {
+                dump_value(a.terminal_id, "bTerminalID", indent * 2, 24);
+                dump_name(
+                    a.terminal_type,
+                    super::names::videoterminal,
+                    "wTerminalType",
+                    indent * 2,
+                    24,
+                );
+                dump_value(a.assoc_terminal, "bAssocTerminal", indent * 2, 24);
+                dump_value(a.source_id, "bSourceID", indent * 2, 24);
+                dump_hex(a.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
+                    a.controls.into(),
+                    &UAC2_OUTPUT_TERMINAL_BMCONTROLS,
+                    usb::ControlType::BmControl2,
+                    indent + 1,
+                );
+                dump_value(a.terminal_index, "iTerminal", indent * 2, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioOutputTerminal3(a) => {
+                dump_value(a.terminal_id, "bTerminalID", indent * 2, 24);
+                dump_name(
+                    a.terminal_type,
+                    super::names::videoterminal,
+                    "wTerminalType",
+                    indent * 2,
+                    24,
+                );
+                dump_value(a.assoc_terminal, "bAssocTerminal", indent * 2, 24);
+                dump_value(a.c_source_id, "bCSourceID", indent * 2, 24);
+                dump_hex(a.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
+                    a.controls.into(),
+                    &UAC3_OUTPUT_TERMINAL_BMCONTROLS,
+                    usb::ControlType::BmControl2,
+                    indent + 1,
+                );
+                dump_value(a.ex_terminal_descr_id, "wExTerminalDescrID", indent * 2, 24);
+                dump_value(a.connectors_descr_id, "wConnectorDescrId", indent * 2, 24);
+                dump_value(a.terminal_descr_str, "wTerminalDescrStr", indent * 2, 24);
+            }
+            usb::UacInterfaceDescriptor::ExtendedTerminalHeader(d) => {
+                dump_value(d.descriptor_id, "wDescriptorID", indent * 2, 24);
+                dump_value(d.nr_channels, "bNrChannels", indent * 2, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioPowerDomain(power_domain) => {
+                dump_audio_power_domain(power_domain, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioMixerUnit1(mixer_unit) => {
+                dump_audio_mixer_unit1(mixer_unit, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioMixerUnit2(mixer_unit) => {
+                dump_audio_mixer_unit2(mixer_unit, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioMixerUnit3(mixer_unit) => {
+                dump_audio_mixer_unit3(mixer_unit, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioSelectorUnit1(selector_unit) => {
+                dump_audio_selector_unit1(selector_unit, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioSelectorUnit2(selector_unit) => {
+                dump_audio_selector_unit2(selector_unit, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioSelectorUnit3(selector_unit) => {
+                dump_audio_selector_unit3(selector_unit, indent, 24);
+            }
+
+            usb::UacInterfaceDescriptor::AudioExtensionUnit1(unit) => {
+                dump_audio_extension_unit1(unit, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioExtensionUnit2(unit) => {
+                dump_audio_extension_unit2(unit, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioExtensionUnit3(unit) => {
+                dump_audio_extension_unit3(unit, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioClockSource2(source) => {
+                dump_audio_clock_source2(source, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioClockSource3(source) => {
+                dump_audio_clock_source3(source, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioClockSelector2(selector) => {
+                dump_audio_clock_selector2(selector, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioClockSelector3(selector) => {
+                dump_audio_clock_selector3(selector, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioClockMultiplier2(multiplier) => {
+                dump_audio_clock_multiplier2(multiplier, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioClockMultiplier3(multiplier) => {
+                dump_audio_clock_multiplier3(multiplier, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioSampleRateConverter2(converter) => {
+                dump_audio_sample_rate_converter2(converter, indent, 24);
+            }
+            usb::UacInterfaceDescriptor::AudioSampleRateConverter3(converter) => {
+                dump_audio_sample_rate_converter3(converter, indent, 24);
+            }
+
             usb::UacInterfaceDescriptor::AudioStreamingInterface1(asi) => {
-                println!(
-                    "{:indent$}bTerminalLink      {:5}",
-                    "",
-                    asi.terminal_link,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bDelay             {:5} frames",
-                    "",
-                    asi.delay,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wFormatTag         {:5}",
-                    "",
-                    asi.format_tag,
-                    indent = indent * 2
-                );
+                dump_value(asi.terminal_link, "bTerminalLink", indent * 2, 24);
+                dump_value(asi.delay, "bDelay", indent * 2, 24);
+                dump_value(asi.format_tag, "wFormatTag", indent * 2, 24);
             }
             usb::UacInterfaceDescriptor::AudioStreamingInterface2(asi) => {
-                let channel_names =
-                    usb::UacInterfaceDescriptor::get_channel_names(uacp, asi.channel_config as u32);
-                println!(
-                    "{:indent$}bTerminalLink      {:5}",
-                    "",
-                    asi.terminal_link,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bmControls          0x{:02x}",
-                    "",
-                    asi.controls,
-                    indent = indent * 2
-                );
-                dump_uac_controls(
+                dump_value(asi.terminal_link, "bTerminalLink", indent * 2, 24);
+                dump_hex(asi.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
                     asi.controls.into(),
                     &UAC2_AS_INTERFACE_BMCONTROLS,
                     usb::ControlType::BmControl2,
                     indent + 1,
                 );
-                println!(
-                    "{:indent$}bFormatType        {:5}",
-                    "",
-                    asi.format_type,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bNrChannels        {:5}",
-                    "",
-                    asi.nr_channels,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bmChannelConfig    {:x}",
-                    "",
-                    asi.channel_config,
-                    indent = indent * 2
-                );
+                dump_value(asi.format_type, "bFormatType", indent * 2, 24);
+                dump_value(asi.nr_channels, "bNrChannels", indent * 2, 24);
+                dump_hex(asi.channel_config, "bmChannelConfig", indent * 2, 24);
+                let channel_names =
+                    usb::UacInterfaceDescriptor::get_channel_names(uacp, asi.channel_config as u32);
                 for name in channel_names.iter() {
                     println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
                 }
-                println!(
-                    "{:indent$}iChannelNames      {:5} {}",
-                    "",
-                    asi.channel_names_index,
-                    // TODO get descriptor string
-                    "",
-                    indent = indent * 2
-                );
+                dump_value(asi.channel_names_index, "iChannelNames", indent * 2, 24);
             }
             usb::UacInterfaceDescriptor::AudioStreamingInterface3(asi) => {
-                println!(
-                    "{:indent$}bTerminalLink      {:5}",
-                    "",
-                    asi.terminal_link,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bmControls          0x{:02x}",
-                    "",
-                    asi.controls,
-                    indent = indent * 2
-                );
-                dump_uac_controls(
+                dump_value(asi.terminal_link, "bTerminalLink", indent * 2, 24);
+                dump_hex(asi.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
                     asi.controls.into(),
                     &UAC3_AS_INTERFACE_BMCONTROLS,
                     usb::ControlType::BmControl2,
                     indent + 1,
                 );
-                println!(
-                    "{:indent$}wClusterDescrID    {:5}",
-                    "",
-                    asi.cluster_descr_id,
-                    indent = indent * 2
-                );
-                // formats
-                println!(
-                    "{:indent$}bmFormats       0x{:08x}",
-                    "",
-                    asi.formats,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bSubslotSize       {:5}",
-                    "",
-                    asi.sub_slot_size,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bBitResolution     {:5}",
-                    "",
-                    asi.bit_resolution,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bmAuxProtocols    0x{:04x}",
-                    "",
-                    asi.aux_protocols,
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}bControlSize       {:5}",
-                    "",
-                    asi.control_size,
-                    indent = indent * 2
-                );
+                dump_value(asi.cluster_descr_id, "wClusterDescrID", indent * 2, 24);
+                dump_hex(asi.formats, "bmFormats", indent * 2, 24);
+                dump_value(asi.sub_slot_size, "bSubslotSize", indent * 2, 24);
+                dump_value(asi.bit_resolution, "bBitResolution", indent * 2, 24);
+                dump_hex(asi.aux_protocols, "bmAuxProtocols", indent * 2, 24);
+                dump_value(asi.control_size, "bControlSize", indent * 2, 24);
             }
             usb::UacInterfaceDescriptor::AudioDataStreamingEndpoint1(ads) => {
-                let uac1_attrs = |a: u8| match a {
-                    0x00 => "Sampling Frequency",
-                    0x01 => "Pitch",
-                    0x02 => "Audio Data Format Control",
-                    0x07 => "MaxPacketsOnly",
-                    _ => "",
+                let uac1_attrs = |a: usize| match a {
+                    0x00 => Some("Sampling Frequency"),
+                    0x01 => Some("Pitch"),
+                    0x02 => Some("Audio Data Format Control"),
+                    0x07 => Some("MaxPacketsOnly"),
+                    _ => None,
                 };
-                println!(
-                    "{:indent$}bmAttributes        0x{:02x}",
-                    "",
-                    ads.attributes,
-                    indent = indent * 2
-                );
-                dump_bitmap_strings_u8(ads.attributes, uac1_attrs, indent + 1);
-                println!(
-                    "{:indent$}bLockDelayUnits    {:5} {}",
-                    "",
-                    ads.lock_delay_units,
-                    uacid
-                        .get_lock_delay_units()
-                        .unwrap_or(usb::LockDelayUnits::Undefined),
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wLockDelay         {:5}",
-                    "",
-                    ads.lock_delay,
-                    indent = indent * 2
-                );
+                dump_hex(ads.attributes, "bmAttributes", indent * 2, 24);
+                dump_bitmap_strings(ads.attributes, uac1_attrs, indent + 1);
+                dump_value(ads.lock_delay_units, "bLockDelayUnits", indent * 2, 24);
+                dump_value(ads.lock_delay, "wLockDelay", indent * 2, 24);
             }
             usb::UacInterfaceDescriptor::AudioDataStreamingEndpoint2(ads) => {
-                let uac2_attrs = |attr: u8| match attr {
-                    0x07 => "MaxPacketsOnly",
-                    _ => "",
+                let uac2_attrs = |attr: usize| match attr {
+                    0x07 => Some("MaxPacketsOnly"),
+                    _ => None,
                 };
-                println!(
-                    "{:indent$}bmAttributes        0x{:02x}",
-                    "",
-                    ads.attributes,
-                    indent = indent * 2
-                );
-                dump_bitmap_strings_u8(ads.attributes, uac2_attrs, indent + 1);
-                println!(
-                    "{:indent$}bmControls          0x{:02x}",
-                    "",
-                    ads.controls,
-                    indent = indent * 2
-                );
-                dump_uac_controls(
+                dump_hex(ads.attributes, "bmAttributes", indent * 2, 24);
+                dump_bitmap_strings(ads.attributes, uac2_attrs, indent + 1);
+                dump_hex(ads.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
                     ads.controls.into(),
                     &UAC2_AS_ISO_ENDPOINT_BMCONTROLS,
                     usb::ControlType::BmControl2,
                     indent + 1,
                 );
-                println!(
-                    "{:indent$}bLockDelayUnits    {:5} {}",
-                    "",
-                    ads.lock_delay_units,
-                    uacid
-                        .get_lock_delay_units()
-                        .unwrap_or(usb::LockDelayUnits::Undefined),
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wLockDelay         {:5}",
-                    "",
-                    ads.lock_delay,
-                    indent = indent * 2
-                );
+                dump_value(ads.lock_delay_units, "bLockDelayUnits", indent * 2, 24);
+                dump_value(ads.lock_delay, "wLockDelay", indent * 2, 24);
             }
             usb::UacInterfaceDescriptor::AudioDataStreamingEndpoint3(ads) => {
-                println!(
-                    "{:indent$}bmControls         0x{:02x}",
-                    "",
-                    ads.controls,
-                    indent = indent * 2
-                );
-                dump_uac_controls(
+                dump_hex(ads.controls, "bmControls", indent * 2, 24);
+                dump_bmcontrols(
                     ads.controls.into(),
                     &UAC2_AS_ISO_ENDPOINT_BMCONTROLS,
                     usb::ControlType::BmControl2,
                     indent + 1,
                 );
-                println!(
-                    "{:indent$}bLockDelayUnits    {:5} {}",
-                    "",
-                    ads.lock_delay_units,
-                    uacid
-                        .get_lock_delay_units()
-                        .unwrap_or(usb::LockDelayUnits::Undefined),
-                    indent = indent * 2
-                );
-                println!(
-                    "{:indent$}wLockDelay         {:5}",
-                    "",
-                    ads.lock_delay,
-                    indent = indent * 2
-                );
+                dump_value(ads.lock_delay_units, "bLockDelayUnits", indent * 2, 24);
+                dump_value(ads.lock_delay, "wLockDelay", indent * 2, 24);
             }
             usb::UacInterfaceDescriptor::Undefined(data) => {
                 println!(

@@ -1413,6 +1413,8 @@ impl UacAsInterface {
 /// USB Audio Class (UAC) interface descriptors
 ///
 /// Ported from https://github.com/gregkh/usbutils/blob/master/desc-defs.c
+///
+/// I think there is a much nicer way to define all these for more generic printing; enum types like desc-def.c wrapping the int values so they can be acted on in a more generic way
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 #[allow(missing_docs)]
@@ -1424,6 +1426,31 @@ pub enum UacInterfaceDescriptor {
     AudioInputTerminal1(AudioInputTerminal1),
     AudioInputTerminal2(AudioInputTerminal2),
     AudioInputTerminal3(AudioInputTerminal3),
+    AudioOutputTerminal1(AudioOutputTerminal1),
+    AudioOutputTerminal2(AudioOutputTerminal2),
+    AudioOutputTerminal3(AudioOutputTerminal3),
+    ExtendedTerminalHeader(ExtendedTerminalHeader),
+    AudioPowerDomain(AudioPowerDomain),
+    AudioMixerUnit1(AudioMixerUnit1),
+    AudioMixerUnit2(AudioMixerUnit2),
+    AudioMixerUnit3(AudioMixerUnit3),
+    AudioSelectorUnit1(AudioSelectorUnit1),
+    AudioSelectorUnit2(AudioSelectorUnit2),
+    AudioSelectorUnit3(AudioSelectorUnit3),
+    // TODO EffectUnit
+    // TODO ProcessingUnit
+    // TODO FeatureUnit
+    AudioExtensionUnit1(AudioExtensionUnit1),
+    AudioExtensionUnit2(AudioExtensionUnit2),
+    AudioExtensionUnit3(AudioExtensionUnit3),
+    AudioClockSource2(AudioClockSource2),
+    AudioClockSource3(AudioClockSource3),
+    AudioClockSelector2(AudioClockSelector2),
+    AudioClockSelector3(AudioClockSelector3),
+    AudioClockMultiplier2(AudioClockMultiplier2),
+    AudioClockMultiplier3(AudioClockMultiplier3),
+    AudioSampleRateConverter2(AudioSampleRateConverter2),
+    AudioSampleRateConverter3(AudioSampleRateConverter3),
     // Audio Streaming bSubClass
     AudioStreamingInterface1(AudioStreamingInterface1),
     AudioStreamingInterface2(AudioStreamingInterface2),
@@ -1518,6 +1545,116 @@ impl UacInterfaceDescriptor {
                     "Protocol not supported for this interface",
                 )),
             },
+            UacAcInterface::OutputTerminal => match protocol {
+                UacProtocol::Uac1 => AudioOutputTerminal1::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioOutputTerminal1),
+                UacProtocol::Uac2 => AudioOutputTerminal2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioOutputTerminal2),
+                UacProtocol::Uac3 => AudioOutputTerminal3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioOutputTerminal3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::ExtendedTerminal => match protocol {
+                UacProtocol::Uac3 => ExtendedTerminalHeader::try_from(data)
+                    .map(UacInterfaceDescriptor::ExtendedTerminalHeader),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::PowerDomain => match protocol {
+                UacProtocol::Uac3 => {
+                    AudioPowerDomain::try_from(data).map(UacInterfaceDescriptor::AudioPowerDomain)
+                }
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::MixerUnit => match protocol {
+                UacProtocol::Uac1 => {
+                    AudioMixerUnit1::try_from(data).map(UacInterfaceDescriptor::AudioMixerUnit1)
+                }
+                UacProtocol::Uac2 => {
+                    AudioMixerUnit2::try_from(data).map(UacInterfaceDescriptor::AudioMixerUnit2)
+                }
+                UacProtocol::Uac3 => {
+                    AudioMixerUnit3::try_from(data).map(UacInterfaceDescriptor::AudioMixerUnit3)
+                }
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::SelectorUnit => match protocol {
+                UacProtocol::Uac1 => AudioSelectorUnit1::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioSelectorUnit1),
+                UacProtocol::Uac2 => AudioSelectorUnit2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioSelectorUnit2),
+                UacProtocol::Uac3 => AudioSelectorUnit3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioSelectorUnit3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::ExtensionUnit => match protocol {
+                UacProtocol::Uac1 => AudioExtensionUnit1::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioExtensionUnit1),
+                UacProtocol::Uac2 => AudioExtensionUnit2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioExtensionUnit2),
+                UacProtocol::Uac3 => AudioExtensionUnit3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioExtensionUnit3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::ClockSource => {
+                match protocol {
+                    UacProtocol::Uac2 => AudioClockSource2::try_from(data)
+                        .map(UacInterfaceDescriptor::AudioClockSource2),
+                    UacProtocol::Uac3 => AudioClockSource3::try_from(data)
+                        .map(UacInterfaceDescriptor::AudioClockSource3),
+                    _ => Err(Error::new(
+                        ErrorKind::InvalidArg,
+                        "Protocol not supported for this interface",
+                    )),
+                }
+            }
+            UacAcInterface::ClockSelector => match protocol {
+                UacProtocol::Uac2 => AudioClockSelector2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioClockSelector2),
+                UacProtocol::Uac3 => AudioClockSelector3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioClockSelector3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::ClockMultiplier => match protocol {
+                UacProtocol::Uac2 => AudioClockMultiplier2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioClockMultiplier2),
+                UacProtocol::Uac3 => AudioClockMultiplier3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioClockMultiplier3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::SampleRateConverter => match protocol {
+                UacProtocol::Uac2 => AudioSampleRateConverter2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioSampleRateConverter2),
+                UacProtocol::Uac3 => AudioSampleRateConverter3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioSampleRateConverter3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
             UacAcInterface::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
             _ => Ok(UacInterfaceDescriptor::Generic(data.to_vec())),
             //_ => Err(Error::new(
@@ -1581,7 +1718,7 @@ impl UacInterfaceDescriptor {
         ret
     }
 
-    /// Get channel configuration from the descriptor "wChannelConfig" field bitmap string
+    /// Get USB Audio Device Class channel names from the descriptor "wChannelConfig" field bitmap string based on the protocol
     pub fn get_channel_names<T: Into<u32> + Copy>(
         protocol: &UacProtocol,
         channel_config: T,
@@ -1682,7 +1819,7 @@ pub enum ControlType {
     BmControl2,
 }
 
-/// UAC1 Header
+/// UAC1: 4.3.2 Class-Specific AC Interface Descriptor; Table 4-2.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct AudioHeader1 {
@@ -1716,6 +1853,7 @@ impl TryFrom<&[u8]> for AudioHeader1 {
     }
 }
 
+/// UAC2: 4.7.2 Class-Specific AC Interface Descriptor; Table 4-5.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct AudioHeader2 {
@@ -1748,6 +1886,7 @@ impl TryFrom<&[u8]> for AudioHeader2 {
     }
 }
 
+/// UAC3: 4.5.2 Class-Specific AC Interface Descriptor; Table 4-15.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct AudioHeader3 {
@@ -1778,7 +1917,7 @@ impl TryFrom<&[u8]> for AudioHeader3 {
     }
 }
 
-/// UAC1 Input Terminal
+/// UAC1: 4.3.2.1 Input Terminal Descriptor; Table 4-3.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct AudioInputTerminal1 {
@@ -1818,7 +1957,7 @@ impl TryFrom<&[u8]> for AudioInputTerminal1 {
     }
 }
 
-/// UAC2 Input Terminal
+/// UAC2: 4.7.2.4 Input Terminal Descriptor; Table 4-9.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct AudioInputTerminal2 {
@@ -1862,7 +2001,7 @@ impl TryFrom<&[u8]> for AudioInputTerminal2 {
     }
 }
 
-/// UAC3 Input Terminal
+/// UAC3: 4.5.2.1 Input Terminal Descriptor; Table 4-16.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct AudioInputTerminal3 {
@@ -1898,6 +2037,340 @@ impl TryFrom<&[u8]> for AudioInputTerminal3 {
             ex_terminal_descr_id: u16::from_le_bytes([value[11], value[12]]),
             connectors_descr_id: u16::from_le_bytes([value[13], value[14]]),
             terminal_descr_str: u16::from_le_bytes([value[15], value[16]]),
+        })
+    }
+}
+
+/// UAC1: 4.3.2.2 Output Terminal Descriptor; Table 4-4.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioOutputTerminal1 {
+    pub terminal_id: u8,
+    pub terminal_type: u16,
+    pub assoc_terminal: u8,
+    pub source_id: u8,
+    pub terminal_index: u8,
+    pub terminal: Option<String>,
+}
+
+impl TryFrom<&[u8]> for AudioOutputTerminal1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Output Terminal 1 descriptor too short",
+            ));
+        }
+
+        Ok(AudioOutputTerminal1 {
+            terminal_id: value[0],
+            terminal_type: u16::from_le_bytes([value[1], value[2]]),
+            assoc_terminal: value[3],
+            source_id: value[4],
+            terminal_index: value[5],
+            terminal: None,
+        })
+    }
+}
+
+/// UAC2: 4.7.2.5 Output Terminal Descriptor; Table 4-10.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioOutputTerminal2 {
+    pub terminal_id: u8,
+    pub terminal_type: u16,
+    pub assoc_terminal: u8,
+    pub source_id: u8,
+    pub c_source_id: u8,
+    pub controls: u16,
+    pub terminal_index: u8,
+    pub terminal: Option<String>,
+}
+
+impl TryFrom<&[u8]> for AudioOutputTerminal2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 9 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Output Terminal 2 descriptor too short",
+            ));
+        }
+
+        Ok(AudioOutputTerminal2 {
+            terminal_id: value[0],
+            terminal_type: u16::from_le_bytes([value[1], value[2]]),
+            assoc_terminal: value[3],
+            source_id: value[4],
+            c_source_id: value[5],
+            controls: u16::from_le_bytes([value[6], value[7]]),
+            terminal_index: value[8],
+            terminal: None,
+        })
+    }
+}
+
+/// UAC3: 4.5.2.2 Output Terminal Descriptor; Table 4-17.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioOutputTerminal3 {
+    pub terminal_id: u8,
+    pub terminal_type: u16,
+    pub assoc_terminal: u8,
+    pub source_id: u8,
+    pub c_source_id: u8,
+    pub controls: u32,
+    pub ex_terminal_descr_id: u16,
+    pub connectors_descr_id: u16,
+    pub terminal_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioOutputTerminal3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 17 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Output Terminal 3 descriptor too short",
+            ));
+        }
+
+        Ok(AudioOutputTerminal3 {
+            terminal_id: value[0],
+            terminal_type: u16::from_le_bytes([value[1], value[2]]),
+            assoc_terminal: value[3],
+            source_id: value[4],
+            c_source_id: value[5],
+            controls: u32::from_le_bytes([value[6], value[7], value[8], value[9]]),
+            ex_terminal_descr_id: u16::from_le_bytes([value[10], value[11]]),
+            connectors_descr_id: u16::from_le_bytes([value[12], value[13]]),
+            terminal_descr_str: u16::from_le_bytes([value[14], value[15]]),
+        })
+    }
+}
+
+/// UAC3: 4.5.2.3.1 Extended Terminal Header Descriptor; Table 4-18.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct ExtendedTerminalHeader {
+    pub descriptor_id: u8,
+    pub nr_channels: u8,
+}
+
+impl TryFrom<&[u8]> for ExtendedTerminalHeader {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 2 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Extended Terminal Header descriptor too short",
+            ));
+        }
+
+        Ok(ExtendedTerminalHeader {
+            descriptor_id: value[0],
+            nr_channels: value[1],
+        })
+    }
+}
+
+/// UAC3: 4.5.2.15 Power Domain Descriptor; Table 4-46. */
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioPowerDomain {
+    pub power_domain_id: u8,
+    pub recovery_time_1: u16,
+    pub recovery_time_2: u16,
+    pub nr_entities: u8,
+    pub entity_ids: Vec<u8>,
+    pub domain_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioPowerDomain {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Power Domain 3 descriptor too short",
+            ));
+        }
+
+        let nr_entities = value[5] as usize;
+        let expected_len = 8 + nr_entities;
+        if value.len() < expected_len {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Power Domain 3 descriptor too short for the number of entities",
+            ));
+        }
+
+        Ok(AudioPowerDomain {
+            power_domain_id: value[0],
+            recovery_time_1: u16::from_le_bytes([value[1], value[2]]),
+            recovery_time_2: u16::from_le_bytes([value[3], value[4]]),
+            nr_entities: value[5],
+            entity_ids: value[6..6 + nr_entities].to_vec(),
+            domain_descr_str: u16::from_le_bytes([value[6 + nr_entities], value[7 + nr_entities]]),
+        })
+    }
+}
+
+/// UAC1: 4.3.2.3 Mixer Unit Descriptor; Table 4-5.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioMixerUnit1 {
+    pub unit_id: u8,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub nr_channels: u8,
+    pub channel_config: u16,
+    pub channel_names: u8,
+    pub controls: Vec<u8>,
+    pub mixer: u8,
+}
+
+impl TryFrom<&[u8]> for AudioMixerUnit1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Mixer Unit 1 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[1] as usize;
+        let nr_channels = value[3] as usize;
+        let expected_len = 6 + nr_in_pins + nr_channels;
+        if value.len() < expected_len {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Mixer Unit 1 descriptor too short for the number of pins and channels",
+            ));
+        }
+
+        Ok(AudioMixerUnit1 {
+            unit_id: value[0],
+            nr_in_pins: value[1],
+            source_ids: value[2..2 + nr_in_pins].to_vec(),
+            nr_channels: value[2 + nr_in_pins],
+            channel_config: u16::from_le_bytes([value[3 + nr_in_pins], value[4 + nr_in_pins]]),
+            channel_names: value[5 + nr_in_pins],
+            controls: value[6 + nr_in_pins..6 + nr_in_pins + nr_channels].to_vec(),
+            mixer: value[6 + nr_in_pins + nr_channels],
+        })
+    }
+}
+
+/// UAC2: 4.7.2.6 Mixer Unit Descriptor; Table 4-11.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioMixerUnit2 {
+    pub unit_id: u8,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub nr_channels: u8,
+    pub channel_config: u32,
+    pub channel_names: u8,
+    pub mixer_controls: Vec<u8>,
+    pub controls: u8,
+    pub mixer: u8,
+}
+
+impl TryFrom<&[u8]> for AudioMixerUnit2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 10 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Mixer Unit 2 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[1] as usize;
+        let nr_channels = value[3] as usize;
+        let expected_len = 10 + nr_in_pins + nr_channels;
+        if value.len() < expected_len {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Mixer Unit 2 descriptor too short for the number of pins and channels",
+            ));
+        }
+
+        Ok(AudioMixerUnit2 {
+            unit_id: value[0],
+            nr_in_pins: value[1],
+            source_ids: value[2..2 + nr_in_pins].to_vec(),
+            nr_channels: value[2 + nr_in_pins],
+            channel_config: u32::from_le_bytes([
+                value[3 + nr_in_pins],
+                value[4 + nr_in_pins],
+                value[5 + nr_in_pins],
+                value[6 + nr_in_pins],
+            ]),
+            channel_names: value[7 + nr_in_pins],
+            mixer_controls: value[8 + nr_in_pins..8 + nr_in_pins + nr_channels].to_vec(),
+            controls: value[8 + nr_in_pins + nr_channels],
+            mixer: value[9 + nr_in_pins + nr_channels],
+        })
+    }
+}
+
+/// UAC3: 4.5.2.5 Mixer Unit Descriptor; Table 4-29.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioMixerUnit3 {
+    pub unit_id: u8,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub cluster_descr_id: u16,
+    pub mixer_controls: Vec<u8>,
+    pub controls: u32,
+    pub mixer_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioMixerUnit3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Mixer Unit 3 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[1] as usize;
+        let expected_len = 8 + nr_in_pins;
+        if value.len() < expected_len {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Mixer Unit 3 descriptor too short for the number of pins",
+            ));
+        }
+
+        Ok(AudioMixerUnit3 {
+            unit_id: value[0],
+            nr_in_pins: value[1],
+            source_ids: value[2..2 + nr_in_pins].to_vec(),
+            cluster_descr_id: u16::from_le_bytes([value[2 + nr_in_pins], value[3 + nr_in_pins]]),
+            mixer_controls: value[4 + nr_in_pins..4 + nr_in_pins + 1].to_vec(),
+            controls: u32::from_le_bytes([
+                value[5 + nr_in_pins],
+                value[6 + nr_in_pins],
+                value[7 + nr_in_pins],
+                value[8 + nr_in_pins],
+            ]),
+            mixer_descr_str: u16::from_le_bytes([value[9 + nr_in_pins], value[10 + nr_in_pins]]),
         })
     }
 }
@@ -2117,6 +2590,585 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint3 {
             controls: u32::from_le_bytes([value[0], value[1], value[2], value[3]]),
             lock_delay_units: value[4],
             lock_delay: u16::from_le_bytes([value[5], value[6]]),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioSelectorUnit1 {
+    pub unit_id: u8,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub selector_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioSelectorUnit1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Selector Unit 1 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[1] as usize;
+        let expected_length = 3 + nr_in_pins;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Selector Unit 1 descriptor too short",
+            ));
+        }
+
+        let source_ids = value[2..(2 + nr_in_pins)].to_vec();
+
+        Ok(AudioSelectorUnit1 {
+            unit_id: value[0],
+            nr_in_pins: value[1],
+            source_ids,
+            selector_index: value[expected_length - 1],
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioSelectorUnit2 {
+    pub unit_id: u8,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub controls: u8,
+    pub selector_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioSelectorUnit2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 5 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Selector Unit 2 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[1] as usize;
+        let expected_length = 4 + nr_in_pins;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Selector Unit 2 descriptor too short",
+            ));
+        }
+
+        let source_ids = value[2..(2 + nr_in_pins)].to_vec();
+
+        Ok(AudioSelectorUnit2 {
+            unit_id: value[0],
+            nr_in_pins: value[1],
+            source_ids,
+            controls: value[2 + nr_in_pins],
+            selector_index: value[expected_length - 1],
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioSelectorUnit3 {
+    pub unit_id: u8,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub controls: u32,
+    pub selector_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioSelectorUnit3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Selector Unit 3 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[1] as usize;
+        let expected_length = 6 + nr_in_pins;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Selector Unit 3 descriptor too short",
+            ));
+        }
+
+        let source_ids = value[2..(2 + nr_in_pins)].to_vec();
+        let controls = u32::from_le_bytes([
+            value[2 + nr_in_pins],
+            value[3 + nr_in_pins],
+            value[4 + nr_in_pins],
+            value[5 + nr_in_pins],
+        ]);
+
+        Ok(AudioSelectorUnit3 {
+            unit_id: value[0],
+            nr_in_pins: value[1],
+            source_ids,
+            controls,
+            selector_descr_str: u16::from_le_bytes([
+                value[expected_length - 2],
+                value[expected_length - 1],
+            ]),
+        })
+    }
+}
+
+/// UAC1: 4.3.2.7 Extension Unit Descriptor; Table 4-15.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioExtensionUnit1 {
+    pub unit_id: u8,
+    pub extension_code: u16,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub nr_channels: u8,
+    pub channel_config: u16,
+    pub channel_names_index: u8,
+    pub control_size: u8,
+    pub controls: Vec<u8>,
+    pub extension_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioExtensionUnit1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 10 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Extension Unit 1 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[3] as usize;
+        let control_size = value[8 + nr_in_pins];
+        let expected_length = 10 + nr_in_pins + control_size as usize;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Extension Unit 1 descriptor too short",
+            ));
+        }
+
+        let source_ids = value[4..(4 + nr_in_pins)].to_vec();
+        let controls = value[(9 + nr_in_pins)..(9 + nr_in_pins + control_size as usize)].to_vec();
+
+        Ok(AudioExtensionUnit1 {
+            unit_id: value[0],
+            extension_code: u16::from_le_bytes([value[1], value[2]]),
+            nr_in_pins: value[3],
+            source_ids,
+            nr_channels: value[4 + nr_in_pins],
+            channel_config: u16::from_le_bytes([value[5 + nr_in_pins], value[6 + nr_in_pins]]),
+            channel_names_index: value[7 + nr_in_pins],
+            control_size,
+            controls,
+            extension_index: value[expected_length - 1],
+        })
+    }
+}
+
+/// UAC2: 4.7.2.12 Extension Unit Descriptor; Table 4-24.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioExtensionUnit2 {
+    pub unit_id: u8,
+    pub extension_code: u16,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub nr_channels: u8,
+    pub channel_config: u32,
+    pub channel_names_index: u8,
+    pub controls: u8,
+    pub extension_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioExtensionUnit2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 11 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Extension Unit 2 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[3] as usize;
+        let expected_length = 10 + nr_in_pins;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Extension Unit 2 descriptor too short",
+            ));
+        }
+
+        let source_ids = value[4..(4 + nr_in_pins)].to_vec();
+
+        Ok(AudioExtensionUnit2 {
+            unit_id: value[0],
+            extension_code: u16::from_le_bytes([value[1], value[2]]),
+            nr_in_pins: value[3],
+            source_ids,
+            nr_channels: value[4 + nr_in_pins],
+            channel_config: u32::from_le_bytes([
+                value[5 + nr_in_pins],
+                value[6 + nr_in_pins],
+                value[7 + nr_in_pins],
+                value[8 + nr_in_pins],
+            ]),
+            channel_names_index: value[9 + nr_in_pins],
+            controls: value[10 + nr_in_pins],
+            extension_index: value[11 + nr_in_pins],
+        })
+    }
+}
+
+/// UAC3: 4.5.2.11 Extension Unit Descriptor; Table 4-42.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioExtensionUnit3 {
+    pub unit_id: u8,
+    pub extension_code: u16,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub extension_descr_str: u16,
+    pub controls: u32,
+    pub cluster_descr_id: u16,
+}
+
+impl TryFrom<&[u8]> for AudioExtensionUnit3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 10 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Extension Unit 3 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[3] as usize;
+        let expected_length = 9 + nr_in_pins;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Extension Unit 3 descriptor too short",
+            ));
+        }
+
+        let source_ids = value[4..(4 + nr_in_pins)].to_vec();
+
+        Ok(AudioExtensionUnit3 {
+            unit_id: value[0],
+            extension_code: u16::from_le_bytes([value[1], value[2]]),
+            nr_in_pins: value[3],
+            source_ids,
+            extension_descr_str: u16::from_le_bytes([value[4 + nr_in_pins], value[5 + nr_in_pins]]),
+            controls: u32::from_le_bytes([
+                value[6 + nr_in_pins],
+                value[7 + nr_in_pins],
+                value[8 + nr_in_pins],
+                value[9 + nr_in_pins],
+            ]),
+            cluster_descr_id: u16::from_le_bytes([value[10 + nr_in_pins], value[11 + nr_in_pins]]),
+        })
+    }
+}
+
+/// UAC2: 4.7.2.1 Clock Source Descriptor; Table 4-6.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioClockSource2 {
+    pub clock_id: u8,
+    pub attributes: u8,
+    pub controls: u8,
+    pub assoc_terminal: u8,
+    pub clock_source_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioClockSource2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 5 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Clock Source 2 descriptor too short",
+            ));
+        }
+
+        Ok(AudioClockSource2 {
+            clock_id: value[0],
+            attributes: value[1],
+            controls: value[2],
+            assoc_terminal: value[3],
+            clock_source_index: value[4],
+        })
+    }
+}
+
+/// UAC3: 4.5.2.12 Clock Source Descriptor; Table 4-43.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioClockSource3 {
+    pub clock_id: u8,
+    pub attributes: u8,
+    pub controls: u32,
+    pub reference_terminal: u8,
+    pub clock_source_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioClockSource3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Clock Source 3 descriptor too short",
+            ));
+        }
+
+        Ok(AudioClockSource3 {
+            clock_id: value[0],
+            attributes: value[1],
+            controls: u32::from_le_bytes([value[2], value[3], value[4], value[5]]),
+            reference_terminal: value[6],
+            clock_source_str: u16::from_le_bytes([value[7], value[8]]),
+        })
+    }
+}
+
+/// UAC2: 4.7.2.2 Clock Selector Descriptor; Table 4-7.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioClockSelector2 {
+    pub clock_id: u8,
+    pub nr_in_pins: u8,
+    pub csource_ids: Vec<u8>,
+    pub controls: u8,
+    pub clock_selector_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioClockSelector2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Clock Selector 2 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[1] as usize;
+        let expected_length = 3 + nr_in_pins;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Clock Selector 2 descriptor too short",
+            ));
+        }
+
+        let csource_ids = value[2..(2 + nr_in_pins)].to_vec();
+
+        Ok(AudioClockSelector2 {
+            clock_id: value[0],
+            nr_in_pins: value[1],
+            csource_ids,
+            controls: value[2 + nr_in_pins],
+            clock_selector_index: value[expected_length - 1],
+        })
+    }
+}
+
+/// UAC3: 4.5.2.13 Clock Selector Descriptor; Table 4-44.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioClockSelector3 {
+    pub clock_id: u8,
+    pub nr_in_pins: u8,
+    pub csource_ids: Vec<u8>,
+    pub controls: u32,
+    pub cselector_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioClockSelector3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Clock Selector 3 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[1] as usize;
+        let expected_length = 5 + nr_in_pins;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Clock Selector 3 descriptor too short",
+            ));
+        }
+
+        let csource_ids = value[2..(2 + nr_in_pins)].to_vec();
+        let controls = u32::from_le_bytes([
+            value[2 + nr_in_pins],
+            value[3 + nr_in_pins],
+            value[4 + nr_in_pins],
+            value[5 + nr_in_pins],
+        ]);
+
+        Ok(AudioClockSelector3 {
+            clock_id: value[0],
+            nr_in_pins: value[1],
+            csource_ids,
+            controls,
+            cselector_descr_str: u16::from_le_bytes([
+                value[expected_length - 2],
+                value[expected_length - 1],
+            ]),
+        })
+    }
+}
+
+/// UAC2: 4.7.2.3 Clock Multiplier Descriptor; Table 4-8.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioClockMultiplier2 {
+    pub clock_id: u8,
+    pub csource_id: u8,
+    pub controls: u8,
+    pub clock_multiplier_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioClockMultiplier2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Clock Multiplier 2 descriptor too short",
+            ));
+        }
+
+        Ok(AudioClockMultiplier2 {
+            clock_id: value[0],
+            csource_id: value[1],
+            controls: value[2],
+            clock_multiplier_index: value[3],
+        })
+    }
+}
+
+/// UAC3: 4.5.2.14 Clock Multiplier Descriptor; Table 4-45.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioClockMultiplier3 {
+    pub clock_id: u8,
+    pub csource_id: u8,
+    pub controls: u32,
+    pub cmultiplier_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioClockMultiplier3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Clock Multiplier 3 descriptor too short",
+            ));
+        }
+
+        Ok(AudioClockMultiplier3 {
+            clock_id: value[0],
+            csource_id: value[1],
+            controls: u32::from_le_bytes([value[2], value[3], value[4], value[5]]),
+            cmultiplier_descr_str: u16::from_le_bytes([value[6], value[7]]),
+        })
+    }
+}
+
+/// UAC2: 4.7.2.9 Sampling Rate Converter Descriptor; Table 4-14.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioSampleRateConverter2 {
+    pub unit_id: u8,
+    pub source_id: u8,
+    pub csource_in_id: u8,
+    pub csource_out_id: u8,
+    pub src_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioSampleRateConverter2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 5 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Sample Rate Converter 2 descriptor too short",
+            ));
+        }
+
+        Ok(AudioSampleRateConverter2 {
+            unit_id: value[0],
+            source_id: value[1],
+            csource_in_id: value[2],
+            csource_out_id: value[3],
+            src_index: value[4],
+        })
+    }
+}
+
+/// UAC3: 4.5.2.8 Sampling Rate Converter Descriptor; Table 4-32.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioSampleRateConverter3 {
+    pub unit_id: u8,
+    pub source_id: u8,
+    pub csource_in_id: u8,
+    pub csource_out_id: u8,
+    pub src_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioSampleRateConverter3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Sample Rate Converter 3 descriptor too short",
+            ));
+        }
+
+        Ok(AudioSampleRateConverter3 {
+            unit_id: value[0],
+            source_id: value[1],
+            csource_in_id: value[2],
+            csource_out_id: value[3],
+            src_descr_str: u16::from_le_bytes([value[4], value[5]]),
         })
     }
 }
