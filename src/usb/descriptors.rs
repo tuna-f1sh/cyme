@@ -1618,28 +1618,32 @@ impl UacInterfaceDescriptor {
                     "Protocol not supported for this interface",
                 )),
             },
-            UacAcInterface::EffectUnit => match protocol {
-                UacProtocol::Uac2 => AudioEffectUnit2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioEffectUnit2),
-                UacProtocol::Uac3 => AudioEffectUnit3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioEffectUnit3),
-                _ => Err(Error::new(
-                    ErrorKind::InvalidArg,
-                    "Protocol not supported for this interface",
-                )),
-            },
-            UacAcInterface::FeatureUnit => match protocol {
-                UacProtocol::Uac1 => AudioFeatureUnit1::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioFeatureUnit1),
-                UacProtocol::Uac2 => AudioFeatureUnit2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioFeatureUnit2),
-                UacProtocol::Uac3 => AudioFeatureUnit3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioFeatureUnit3),
-                _ => Err(Error::new(
-                    ErrorKind::InvalidArg,
-                    "Protocol not supported for this interface",
-                )),
-            },
+            UacAcInterface::EffectUnit => {
+                match protocol {
+                    UacProtocol::Uac2 => AudioEffectUnit2::try_from(data)
+                        .map(UacInterfaceDescriptor::AudioEffectUnit2),
+                    UacProtocol::Uac3 => AudioEffectUnit3::try_from(data)
+                        .map(UacInterfaceDescriptor::AudioEffectUnit3),
+                    _ => Err(Error::new(
+                        ErrorKind::InvalidArg,
+                        "Protocol not supported for this interface",
+                    )),
+                }
+            }
+            UacAcInterface::FeatureUnit => {
+                match protocol {
+                    UacProtocol::Uac1 => AudioFeatureUnit1::try_from(data)
+                        .map(UacInterfaceDescriptor::AudioFeatureUnit1),
+                    UacProtocol::Uac2 => AudioFeatureUnit2::try_from(data)
+                        .map(UacInterfaceDescriptor::AudioFeatureUnit2),
+                    UacProtocol::Uac3 => AudioFeatureUnit3::try_from(data)
+                        .map(UacInterfaceDescriptor::AudioFeatureUnit3),
+                    _ => Err(Error::new(
+                        ErrorKind::InvalidArg,
+                        "Protocol not supported for this interface",
+                    )),
+                }
+            }
             UacAcInterface::ExtensionUnit => match protocol {
                 UacProtocol::Uac1 => AudioExtensionUnit1::try_from(data)
                     .map(UacInterfaceDescriptor::AudioExtensionUnit1),
@@ -1789,45 +1793,42 @@ impl UacInterfaceDescriptor {
     pub fn get_protocol(&self) -> UacProtocol {
         match self {
             UacInterfaceDescriptor::AudioHeader1(_)
-                | UacInterfaceDescriptor::AudioInputTerminal1(_)
-                | UacInterfaceDescriptor::AudioOutputTerminal1(_)
-                | UacInterfaceDescriptor::AudioMixerUnit1(_)
-                | UacInterfaceDescriptor::AudioSelectorUnit1(_)
-                | UacInterfaceDescriptor::AudioFeatureUnit1(_)
-                | UacInterfaceDescriptor::AudioExtensionUnit1(_)
-                => UacProtocol::Uac1,
+            | UacInterfaceDescriptor::AudioInputTerminal1(_)
+            | UacInterfaceDescriptor::AudioOutputTerminal1(_)
+            | UacInterfaceDescriptor::AudioMixerUnit1(_)
+            | UacInterfaceDescriptor::AudioSelectorUnit1(_)
+            | UacInterfaceDescriptor::AudioFeatureUnit1(_)
+            | UacInterfaceDescriptor::AudioExtensionUnit1(_) => UacProtocol::Uac1,
             UacInterfaceDescriptor::AudioHeader2(_)
-                | UacInterfaceDescriptor::AudioInputTerminal2(_)
-                | UacInterfaceDescriptor::AudioOutputTerminal2(_)
-                | UacInterfaceDescriptor::AudioMixerUnit2(_)
-                | UacInterfaceDescriptor::AudioSelectorUnit2(_)
-                | UacInterfaceDescriptor::AudioEffectUnit2(_)
-                | UacInterfaceDescriptor::AudioFeatureUnit2(_)
-                | UacInterfaceDescriptor::AudioExtensionUnit2(_)
-                | UacInterfaceDescriptor::AudioClockSource2(_)
-                | UacInterfaceDescriptor::AudioClockSelector2(_)
-                | UacInterfaceDescriptor::AudioClockMultiplier2(_)
-                | UacInterfaceDescriptor::AudioSampleRateConverter2(_)
-                | UacInterfaceDescriptor::AudioStreamingInterface2(_)
-                | UacInterfaceDescriptor::AudioDataStreamingEndpoint2(_)
-                => UacProtocol::Uac2,
-            UacInterfaceDescriptor::AudioHeader3(_) 
-                | UacInterfaceDescriptor::AudioInputTerminal3(_)
-                | UacInterfaceDescriptor::AudioOutputTerminal3(_)
-                | UacInterfaceDescriptor::AudioMixerUnit3(_)
-                | UacInterfaceDescriptor::AudioSelectorUnit3(_)
-                | UacInterfaceDescriptor::AudioEffectUnit3(_)
-                | UacInterfaceDescriptor::AudioFeatureUnit3(_)
-                | UacInterfaceDescriptor::AudioExtensionUnit3(_)
-                | UacInterfaceDescriptor::AudioClockSource3(_)
-                | UacInterfaceDescriptor::AudioClockSelector3(_)
-                | UacInterfaceDescriptor::AudioClockMultiplier3(_)
-                | UacInterfaceDescriptor::AudioSampleRateConverter3(_)
-                | UacInterfaceDescriptor::AudioStreamingInterface3(_)
-                | UacInterfaceDescriptor::AudioDataStreamingEndpoint3(_)
-                | UacInterfaceDescriptor::ExtendedTerminalHeader(_)
-                | UacInterfaceDescriptor::AudioPowerDomain(_)
-                => UacProtocol::Uac3,
+            | UacInterfaceDescriptor::AudioInputTerminal2(_)
+            | UacInterfaceDescriptor::AudioOutputTerminal2(_)
+            | UacInterfaceDescriptor::AudioMixerUnit2(_)
+            | UacInterfaceDescriptor::AudioSelectorUnit2(_)
+            | UacInterfaceDescriptor::AudioEffectUnit2(_)
+            | UacInterfaceDescriptor::AudioFeatureUnit2(_)
+            | UacInterfaceDescriptor::AudioExtensionUnit2(_)
+            | UacInterfaceDescriptor::AudioClockSource2(_)
+            | UacInterfaceDescriptor::AudioClockSelector2(_)
+            | UacInterfaceDescriptor::AudioClockMultiplier2(_)
+            | UacInterfaceDescriptor::AudioSampleRateConverter2(_)
+            | UacInterfaceDescriptor::AudioStreamingInterface2(_)
+            | UacInterfaceDescriptor::AudioDataStreamingEndpoint2(_) => UacProtocol::Uac2,
+            UacInterfaceDescriptor::AudioHeader3(_)
+            | UacInterfaceDescriptor::AudioInputTerminal3(_)
+            | UacInterfaceDescriptor::AudioOutputTerminal3(_)
+            | UacInterfaceDescriptor::AudioMixerUnit3(_)
+            | UacInterfaceDescriptor::AudioSelectorUnit3(_)
+            | UacInterfaceDescriptor::AudioEffectUnit3(_)
+            | UacInterfaceDescriptor::AudioFeatureUnit3(_)
+            | UacInterfaceDescriptor::AudioExtensionUnit3(_)
+            | UacInterfaceDescriptor::AudioClockSource3(_)
+            | UacInterfaceDescriptor::AudioClockSelector3(_)
+            | UacInterfaceDescriptor::AudioClockMultiplier3(_)
+            | UacInterfaceDescriptor::AudioSampleRateConverter3(_)
+            | UacInterfaceDescriptor::AudioStreamingInterface3(_)
+            | UacInterfaceDescriptor::AudioDataStreamingEndpoint3(_)
+            | UacInterfaceDescriptor::ExtendedTerminalHeader(_)
+            | UacInterfaceDescriptor::AudioPowerDomain(_) => UacProtocol::Uac3,
             _ => UacProtocol::Unknown,
         }
     }
@@ -2900,10 +2901,7 @@ impl TryFrom<&[u8]> for AudioProcessingUnitExtended1 {
             .map(|i| u16::from_le_bytes([value[i], value[i + 1]]))
             .collect();
 
-        Ok(AudioProcessingUnitExtended1 {
-            nr_modes,
-            modes,
-        })
+        Ok(AudioProcessingUnitExtended1 { nr_modes, modes })
     }
 }
 
@@ -2946,7 +2944,9 @@ impl TryFrom<&[u8]> for AudioProcessingUnit1 {
         }
 
         let specific = match value[1] {
-            1 | 2 => Some(AudioProcessingUnitExtended1::try_from(&value[expected_length..])?),
+            1 | 2 => Some(AudioProcessingUnitExtended1::try_from(
+                &value[expected_length..],
+            )?),
             _ => None,
         };
 
@@ -2956,10 +2956,15 @@ impl TryFrom<&[u8]> for AudioProcessingUnit1 {
             nr_in_pins,
             source_ids: value[4..4 + nr_in_pins as usize].to_vec(),
             nr_channels: value[4 + nr_in_pins as usize],
-            channel_config: u16::from_le_bytes([value[5 + nr_in_pins as usize], value[6 + nr_in_pins as usize]]),
+            channel_config: u16::from_le_bytes([
+                value[5 + nr_in_pins as usize],
+                value[6 + nr_in_pins as usize],
+            ]),
             channel_names_index: value[7 + nr_in_pins as usize],
             control_size,
-            controls: value[10 + nr_in_pins as usize..10 + nr_in_pins as usize + control_size as usize].to_vec(),
+            controls: value
+                [10 + nr_in_pins as usize..10 + nr_in_pins as usize + control_size as usize]
+                .to_vec(),
             processing_index: value[expected_length - 1],
             specific,
         })
@@ -2998,10 +3003,7 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2UpDownMix {
             .map(|i| u32::from_le_bytes([value[i], value[i + 1], value[i + 2], value[i + 3]]))
             .collect();
 
-        Ok(AudioProcessingUnit2UpDownMix {
-            nr_modes,
-            modes,
-        })
+        Ok(AudioProcessingUnit2UpDownMix { nr_modes, modes })
     }
 }
 
@@ -3030,10 +3032,7 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2DolbyPrologic {
             .map(|i| u32::from_le_bytes([value[i], value[i + 1], value[i + 2], value[i + 3]]))
             .collect();
 
-        Ok(AudioProcessingUnit2DolbyPrologic {
-            nr_modes,
-            modes,
-        })
+        Ok(AudioProcessingUnit2DolbyPrologic { nr_modes, modes })
     }
 }
 
@@ -3175,8 +3174,12 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2 {
         }
 
         let specific = match value[1] {
-            1 => Some(AudioProcessingUnit2Specific::UpDownMix(AudioProcessingUnit2UpDownMix::try_from(&value[expected_length..])?)),
-            2 => Some(AudioProcessingUnit2Specific::DolbyPrologic(AudioProcessingUnit2DolbyPrologic::try_from(&value[expected_length..])?)),
+            1 => Some(AudioProcessingUnit2Specific::UpDownMix(
+                AudioProcessingUnit2UpDownMix::try_from(&value[expected_length..])?,
+            )),
+            2 => Some(AudioProcessingUnit2Specific::DolbyPrologic(
+                AudioProcessingUnit2DolbyPrologic::try_from(&value[expected_length..])?,
+            )),
             _ => None,
         };
 
@@ -3186,9 +3189,17 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2 {
             nr_in_pins,
             source_ids: value[4..4 + nr_in_pins as usize].to_vec(),
             nr_channels: value[4 + nr_in_pins as usize],
-            channel_config: u32::from_le_bytes([value[5 + nr_in_pins as usize], value[6 + nr_in_pins as usize], value[7 + nr_in_pins as usize], value[8 + nr_in_pins as usize]]),
+            channel_config: u32::from_le_bytes([
+                value[5 + nr_in_pins as usize],
+                value[6 + nr_in_pins as usize],
+                value[7 + nr_in_pins as usize],
+                value[8 + nr_in_pins as usize],
+            ]),
             channel_names_index: value[9 + nr_in_pins as usize],
-            controls: u16::from_le_bytes([value[10 + nr_in_pins as usize], value[11 + nr_in_pins as usize]]),
+            controls: u16::from_le_bytes([
+                value[10 + nr_in_pins as usize],
+                value[11 + nr_in_pins as usize],
+            ]),
             processing_index: value[expected_length - 1],
             specific,
         })
@@ -3217,21 +3228,41 @@ impl std::fmt::Display for AudioProcessingMultiFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if f.alternate() {
             match self {
-                AudioProcessingMultiFunction::AlgorithmUndefined => write!(f, "Algorithm Undefined."),
+                AudioProcessingMultiFunction::AlgorithmUndefined => {
+                    write!(f, "Algorithm Undefined.")
+                }
                 AudioProcessingMultiFunction::BeamForming => write!(f, "Beam Forming."),
-                AudioProcessingMultiFunction::AcousticEchoCancellation => write!(f, "Acoustic Echo Cancellation."),
-                AudioProcessingMultiFunction::ActiveNoiseCancellation => write!(f, "Active Noise Cancellation."),
-                AudioProcessingMultiFunction::BlindSourceSeparation => write!(f, "Blind Source Separation."),
-                AudioProcessingMultiFunction::NoiseSuppression => write!(f, "Noise Suppression/Reduction."),
+                AudioProcessingMultiFunction::AcousticEchoCancellation => {
+                    write!(f, "Acoustic Echo Cancellation.")
+                }
+                AudioProcessingMultiFunction::ActiveNoiseCancellation => {
+                    write!(f, "Active Noise Cancellation.")
+                }
+                AudioProcessingMultiFunction::BlindSourceSeparation => {
+                    write!(f, "Blind Source Separation.")
+                }
+                AudioProcessingMultiFunction::NoiseSuppression => {
+                    write!(f, "Noise Suppression/Reduction.")
+                }
             }
         } else {
             match self {
-                AudioProcessingMultiFunction::AlgorithmUndefined => write!(f, "Algorithm Undefined"),
+                AudioProcessingMultiFunction::AlgorithmUndefined => {
+                    write!(f, "Algorithm Undefined")
+                }
                 AudioProcessingMultiFunction::BeamForming => write!(f, "Beam Forming"),
-                AudioProcessingMultiFunction::AcousticEchoCancellation => write!(f, "Acoustic Echo Cancellation"),
-                AudioProcessingMultiFunction::ActiveNoiseCancellation => write!(f, "Active Noise Cancellation"),
-                AudioProcessingMultiFunction::BlindSourceSeparation => write!(f, "Blind Source Separation"),
-                AudioProcessingMultiFunction::NoiseSuppression => write!(f, "Noise Suppression/Reduction"),
+                AudioProcessingMultiFunction::AcousticEchoCancellation => {
+                    write!(f, "Acoustic Echo Cancellation")
+                }
+                AudioProcessingMultiFunction::ActiveNoiseCancellation => {
+                    write!(f, "Active Noise Cancellation")
+                }
+                AudioProcessingMultiFunction::BlindSourceSeparation => {
+                    write!(f, "Blind Source Separation")
+                }
+                AudioProcessingMultiFunction::NoiseSuppression => {
+                    write!(f, "Noise Suppression/Reduction")
+                }
             }
         }
     }
@@ -3296,9 +3327,15 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3 {
         }
 
         let specific = match value[1] {
-            1 => Some(AudioProcessingUnit3Specific::UpDownMix(AudioProcessingUnit3UpDownMix::try_from(&value[expected_length..])?)),
-            2 => Some(AudioProcessingUnit3Specific::StereoExtender(AudioProcessingUnit3StereoExtender::try_from(&value[expected_length..])?)),
-            3 => Some(AudioProcessingUnit3Specific::MultiFunction(AudioProcessingUnit3MultiFunction::try_from(&value[expected_length..])?)),
+            1 => Some(AudioProcessingUnit3Specific::UpDownMix(
+                AudioProcessingUnit3UpDownMix::try_from(&value[expected_length..])?,
+            )),
+            2 => Some(AudioProcessingUnit3Specific::StereoExtender(
+                AudioProcessingUnit3StereoExtender::try_from(&value[expected_length..])?,
+            )),
+            3 => Some(AudioProcessingUnit3Specific::MultiFunction(
+                AudioProcessingUnit3MultiFunction::try_from(&value[expected_length..])?,
+            )),
             _ => None,
         };
 
@@ -3307,7 +3344,10 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3 {
             process_type: u16::from_le_bytes([value[1], value[2]]),
             nr_in_pins,
             source_ids: value[4..4 + nr_in_pins as usize].to_vec(),
-            processing_descr_str: u16::from_le_bytes([value[5 + nr_in_pins as usize], value[6 + nr_in_pins as usize]]),
+            processing_descr_str: u16::from_le_bytes([
+                value[5 + nr_in_pins as usize],
+                value[6 + nr_in_pins as usize],
+            ]),
             specific,
         })
     }
@@ -3322,9 +3362,11 @@ impl AudioProcessingUnit3 {
     /// Returns the [`AudioProcessingMultiFunction`] supported by the processing unit.
     pub fn algorithms(&self) -> Option<Vec<AudioProcessingMultiFunction>> {
         match &self.specific {
-            Some(AudioProcessingUnit3Specific::MultiFunction(AudioProcessingUnit3MultiFunction { algorithms, .. })) => {
-                Some(AudioProcessingMultiFunction::functions_from_bitmap(*algorithms))
-            }
+            Some(AudioProcessingUnit3Specific::MultiFunction(
+                AudioProcessingUnit3MultiFunction { algorithms, .. },
+            )) => Some(AudioProcessingMultiFunction::functions_from_bitmap(
+                *algorithms,
+            )),
             _ => None,
         }
     }

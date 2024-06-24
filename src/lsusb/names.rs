@@ -71,9 +71,7 @@ pub fn protocol(cid: u8, scid: u8, pid: u8) -> Option<String> {
         &format!("usb:v*p*d*dc{:02X}dsc{:02X}dp{:02X}*", cid, scid, pid),
         "ID_USB_PROTOCOL_FROM_DATABASE",
     )
-    .unwrap_or(
-        usb_ids::Protocol::from_cid_scid_pid(cid, scid, pid).map(|v| v.name().to_owned()),
-    )
+    .unwrap_or(usb_ids::Protocol::from_cid_scid_pid(cid, scid, pid).map(|v| v.name().to_owned()))
 }
 
 /// Get HID descriptor type name from [`usb_ids::Hid`]

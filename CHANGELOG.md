@@ -5,6 +5,7 @@
 ### Addded
 
 - Full dumps of device descriptors for matching `--lsusb --verbose` ([#15](https://github.com/tuna-f1sh/cyme/issues/15))
+- Update `--lsusb` mode to match updated lsusb behaviour if driver/names missing (print '[none]'/'[unknown]').
 
 ## [1.7.0] - 2024-25-06
 

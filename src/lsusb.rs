@@ -144,14 +144,14 @@ const UAC1_FEATURE_UNIT_BMCONTROLS: [&str; 13] = [
     "Input gain pad",
     "Phase invert",
 ];
-const UAC2_EXTENSION_UNIT_BMCONTROLS: [&str; 4] =
-    ["Enable", "Cluster", "Underflow", "Overflow"];
+const UAC2_EXTENSION_UNIT_BMCONTROLS: [&str; 4] = ["Enable", "Cluster", "Underflow", "Overflow"];
 const UAC3_EXTENSION_UNIT_BMCONTROLS: [&str; 2] = ["Underflow", "Overflow"];
 const UAC2_CLOCK_SOURCE_BMCONTROLS: [&str; 2] = ["Clock Frequency", "Clock Validity"];
 const UAC2_CLOCK_SELECTOR_BMCONTROLS: [&str; 1] = ["Clock Selector"];
 const UAC2_CLOCK_MULTIPLIER_BMCONTROLS: [&str; 2] = ["Clock Numerator", "Clock Denominator"];
 const UAC3_PROCESSING_UNIT_UP_DOWN_BMCONTROLS: [&str; 3] = ["Mode Select", "Underflow", "Overflow"];
-const UAC3_PROCESSING_UNIT_STEREO_EXTENDER_BMCONTROLS: [&str; 3] = ["Width", "Underflow", "Overflow"];
+const UAC3_PROCESSING_UNIT_STEREO_EXTENDER_BMCONTROLS: [&str; 3] =
+    ["Width", "Underflow", "Overflow"];
 const UAC3_PROCESSING_UNIT_MULTI_FUNC_BMCONTROLS: [&str; 2] = ["Underflow", "Overflow"];
 
 /// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
@@ -165,10 +165,8 @@ pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettin
                 continue;
             }
             // the const len should get compiled to const...
-            let spaces =
-                (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
-            let device_tree_strings: Vec<(String, String, String)> =
-                device.to_lsusb_tree_string();
+            let spaces = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
+            let device_tree_strings: Vec<(String, String, String)> = device.to_lsusb_tree_string();
 
             for strings in device_tree_strings {
                 println!("{:>spaces$}{}", TREE_LSUSB_DEVICE, strings.0);
@@ -243,7 +241,10 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
     } else {
         for device in devices {
             match device.extra.as_ref() {
-                None => log::warn!("Skipping {} because it does not contain extra data required for verbose print", device),
+                None => log::warn!(
+                    "Skipping {} because it does not contain extra data required for verbose print",
+                    device
+                ),
                 Some(device_extra) => {
                     println!(); // new lines separate in verbose lsusb
                     println!("{}", device.to_lsusb_string());
@@ -283,11 +284,7 @@ fn print_device(device: &system_profiler::USBDevice) {
                 names::subclass(bc, scid),
                 names::protocol(bc, scid, pid),
             ),
-            (Some(bc), Some(scid), None) => (
-                names::class(bc),
-                names::subclass(bc, scid),
-                None,
-            ),
+            (Some(bc), Some(scid), None) => (names::class(bc), names::subclass(bc, scid), None),
             (Some(bc), None, None) => (names::class(bc), None, None),
             (None, None, None) => (None, None, None),
             _ => unreachable!(),
@@ -323,12 +320,18 @@ fn print_device(device: &system_profiler::USBDevice) {
     println!(
         "  idVendor          0x{:04x} {}",
         device.vendor_id.unwrap_or(0),
-        device_extra.vendor.as_ref().unwrap_or(&String::from("[unknown]"))
+        device_extra
+            .vendor
+            .as_ref()
+            .unwrap_or(&String::from("[unknown]"))
     );
     println!(
         "  idProduct         0x{:04x} {}",
         device.product_id.unwrap_or(0),
-        device_extra.product_name.as_ref().unwrap_or(&String::from("[unknown]"))
+        device_extra
+            .product_name
+            .as_ref()
+            .unwrap_or(&String::from("[unknown]"))
     );
     println!(
         "  bcdDevice           {}",
@@ -340,7 +343,10 @@ fn print_device(device: &system_profiler::USBDevice) {
     println!(
         "  iManufacturer        {:3} {}",
         device_extra.string_indexes.0,
-        device.manufacturer.as_ref().unwrap_or(&String::from("[unknown]"))
+        device
+            .manufacturer
+            .as_ref()
+            .unwrap_or(&String::from("[unknown]"))
     );
     println!(
         "  iProduct             {:3} {}",
@@ -456,46 +462,42 @@ fn print_interface(interface: &usb::USBInterface) {
         for dt in dt_vec {
             match dt {
                 // Should only be Device or Interface as we mask out the rest
-                usb::DescriptorType::Device(cd) | usb::DescriptorType::Interface(cd) => {
-                    match cd {
-                        usb::ClassDescriptor::Hid(hidd) => dump_hid_device(hidd),
-                        usb::ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid),
-                        usb::ClassDescriptor::Printer(pd) => dump_printer_desc(pd),
-                        usb::ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, 6),
-                        usb::ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md),
-                        usb::ClassDescriptor::Video(vcd, p) => {
-                            dump_videocontrol_interface(vcd, *p)
+                usb::DescriptorType::Device(cd) | usb::DescriptorType::Interface(cd) => match cd {
+                    usb::ClassDescriptor::Hid(hidd) => dump_hid_device(hidd),
+                    usb::ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid),
+                    usb::ClassDescriptor::Printer(pd) => dump_printer_desc(pd),
+                    usb::ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, 6),
+                    usb::ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md),
+                    usb::ClassDescriptor::Video(vcd, p) => dump_videocontrol_interface(vcd, *p),
+                    usb::ClassDescriptor::Generic(cc, gd) => match cc {
+                        Some((usb::ClassCode::Audio, 1, p)) => {
+                            dump_audiocontrol_interface(gd, *p);
                         }
-                        usb::ClassDescriptor::Generic(cc, gd) => match cc {
-                            Some((usb::ClassCode::Audio, 1, p)) => {
-                                dump_audiocontrol_interface(gd, *p);
+                        Some((usb::ClassCode::Audio, 2, p)) => {
+                            dump_audiostreaming_interface(gd, *p);
+                        }
+                        Some((usb::ClassCode::Audio, 3, _)) => {
+                            if let Ok(md) = usb::MidiDescriptor::try_from(gd.to_owned()) {
+                                dump_midistreaming_interface(&md);
                             }
-                            Some((usb::ClassCode::Audio, 2, p)) => {
-                                dump_audiostreaming_interface(gd, *p);
+                        }
+                        Some((usb::ClassCode::Video, 1, p)) => {
+                            if let Ok(vcd) = usb::UvcDescriptor::try_from(gd.to_owned()) {
+                                dump_videocontrol_interface(&vcd, *p);
                             }
-                            Some((usb::ClassCode::Audio, 3, _)) => {
-                                if let Ok(md) = usb::MidiDescriptor::try_from(gd.to_owned()) {
-                                    dump_midistreaming_interface(&md);
-                                }
-                            }
-                            Some((usb::ClassCode::Video, 1, p)) => {
-                                if let Ok(vcd) = usb::UvcDescriptor::try_from(gd.to_owned()) {
-                                    dump_videocontrol_interface(&vcd, *p);
-                                }
-                            }
-                            Some((usb::ClassCode::Video, 2, _)) => {
-                                dump_videostreaming_interface(gd);
-                            }
-                            Some((usb::ClassCode::ApplicationSpecificInterface, 1, _)) => {
-                                dump_dfu_interface(gd);
-                            }
-                            _ => {
-                                let junk = Vec::from(cd.to_owned());
-                                dump_unrecognised(&junk, 6);
-                            }
-                        },
-                    }
-                }
+                        }
+                        Some((usb::ClassCode::Video, 2, _)) => {
+                            dump_videostreaming_interface(gd);
+                        }
+                        Some((usb::ClassCode::ApplicationSpecificInterface, 1, _)) => {
+                            dump_dfu_interface(gd);
+                        }
+                        _ => {
+                            let junk = Vec::from(cd.to_owned());
+                            dump_unrecognised(&junk, 6);
+                        }
+                    },
+                },
                 usb::DescriptorType::Unknown(junk) | usb::DescriptorType::Junk(junk) => {
                     dump_unrecognised(junk, 6);
                 }
@@ -534,17 +536,15 @@ fn print_endpoint(endpoint: &usb::USBEndpoint) {
     if let Some(dt_vec) = &endpoint.extra {
         for dt in dt_vec {
             match dt {
-                usb::DescriptorType::Endpoint(usb::ClassDescriptor::Generic(cc, gd)) => {
-                    match cc {
-                        Some((usb::ClassCode::Audio, 2, p)) => {
-                            dump_audiostreaming_endpoint(gd, *p);
-                        }
-                        Some((usb::ClassCode::Audio, 3, _)) => {
-                            dump_midistreaming_endpoint(gd);
-                        }
-                        _ => (),
+                usb::DescriptorType::Endpoint(usb::ClassDescriptor::Generic(cc, gd)) => match cc {
+                    Some((usb::ClassCode::Audio, 2, p)) => {
+                        dump_audiostreaming_endpoint(gd, *p);
                     }
-                }
+                    Some((usb::ClassCode::Audio, 3, _)) => {
+                        dump_midistreaming_endpoint(gd);
+                    }
+                    _ => (),
+                },
                 // Misplaced descriptors
                 usb::DescriptorType::Device(cd) => match cd {
                     usb::ClassDescriptor::Ccid(ccid) => {
@@ -666,9 +666,7 @@ fn dump_audiostreaming_endpoint(gd: &usb::GenericDescriptor, protocol: u8) {
 
     if let Some(data) = gd.data.as_ref() {
         let uacp = usb::UacProtocol::from(protocol);
-        if let Ok(uaci) =
-            usb::UacInterfaceDescriptor::from_uac_as_iso_data_endpoint(&uacp, data)
-        {
+        if let Ok(uaci) = usb::UacInterfaceDescriptor::from_uac_as_iso_data_endpoint(&uacp, data) {
             dump_audio_subtype(&uaci, &uacp, 5);
         }
     }
@@ -916,12 +914,7 @@ fn dump_printer_desc(pd: &usb::PrinterDescriptor) {
     }
 }
 
-fn dump_array<T: std::fmt::Display>(
-    array: &[T],
-    field_name: &str,
-    indent: usize,
-    width: usize,
-) {
+fn dump_array<T: std::fmt::Display>(array: &[T], field_name: &str, indent: usize, width: usize) {
     for (i, b) in array.iter().enumerate() {
         dump_value(b, &format!("{}({:2})", field_name, i), indent, width);
     }
@@ -967,7 +960,7 @@ fn dump_hex<T: std::fmt::LowerHex + Into<u64>>(
         value_as_u64,
         width = (std::mem::size_of::<T>() * 2)
     );
-    dump_value(&hex_value, field_name, indent, width);
+    dump_value(hex_value, field_name, indent, width);
 }
 
 fn dump_name<T: std::fmt::Display>(
@@ -1022,11 +1015,8 @@ fn dump_number_string<T: std::fmt::Display, S: std::fmt::Display>(
 }
 
 /// Dumps strings matching the bits set in `bitmap` using `strings_f` function
-fn dump_bitmap_strings<T>(
-    bitmap: T,
-    strings_f: fn(usize) -> Option<&'static str>,
-    indent: usize,
-) where
+fn dump_bitmap_strings<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>, indent: usize)
+where
     T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
 {
     let bitmap_u64: u64 = bitmap.into();
@@ -1078,8 +1068,13 @@ fn dump_bmcontrols_array<T: Into<u32> + std::fmt::Display + Copy>(
     for (i, control) in controls.iter().enumerate() {
         let control = control.to_owned();
         let control: u32 = control.into();
-        dump_value(control, &format!("{}({:2})", field_name, i), indent * 2, width);
-        dump_bmcontrols(control, control_descriptions, &desc_type, indent + 1);
+        dump_value(
+            control,
+            &format!("{}({:2})", field_name, i),
+            indent * 2,
+            width,
+        );
+        dump_bmcontrols(control, control_descriptions, desc_type, indent + 1);
     }
 }
 
@@ -1201,22 +1196,14 @@ fn dump_audio_power_domain(power_domain: &usb::AudioPowerDomain, indent: usize, 
     );
 }
 
-fn dump_audio_selector_unit1(
-    selector_unit: &usb::AudioSelectorUnit1,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_selector_unit1(selector_unit: &usb::AudioSelectorUnit1, indent: usize, width: usize) {
     dump_value(selector_unit.unit_id, "bUnitID", indent * 2, width);
     dump_value(selector_unit.nr_in_pins, "bNrInPins", indent * 2, width);
     dump_array(&selector_unit.source_ids, "baSourceID", indent * 2, width);
     dump_value(selector_unit.selector_index, "iSelector", indent * 2, width);
 }
 
-fn dump_audio_selector_unit2(
-    selector_unit: &usb::AudioSelectorUnit2,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_selector_unit2(selector_unit: &usb::AudioSelectorUnit2, indent: usize, width: usize) {
     dump_value(selector_unit.unit_id, "bUnitID", indent * 2, width);
     dump_value(selector_unit.nr_in_pins, "bNrInPins", indent * 2, width);
     dump_array(&selector_unit.source_ids, "baSourceID", indent * 2, width);
@@ -1230,11 +1217,7 @@ fn dump_audio_selector_unit2(
     dump_value(selector_unit.selector_index, "iSelector", indent * 2, width);
 }
 
-fn dump_audio_selector_unit3(
-    selector_unit: &usb::AudioSelectorUnit3,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_selector_unit3(selector_unit: &usb::AudioSelectorUnit3, indent: usize, width: usize) {
     dump_value(selector_unit.unit_id, "bUnitID", indent * 2, width);
     dump_value(selector_unit.nr_in_pins, "bNrInPins", indent * 2, width);
     dump_array(&selector_unit.source_ids, "baSourceID", indent * 2, width);
@@ -1259,7 +1242,7 @@ fn dump_audio_processing_unit1(unit: &usb::AudioProcessingUnit1, indent: usize, 
     dump_number_string(
         unit.process_type,
         "wProcessType",
-        &unit.processing_type(),
+        unit.processing_type(),
         indent * 2,
         width,
     );
@@ -1267,7 +1250,10 @@ fn dump_audio_processing_unit1(unit: &usb::AudioProcessingUnit1, indent: usize, 
     dump_array(&unit.source_ids, "baSourceID", indent * 2, width);
     dump_value(unit.nr_channels, "bNrChannels", indent * 2, width);
     dump_hex(unit.channel_config, "wChannelConfig", indent * 2, width);
-    let channel_names = usb::UacInterfaceDescriptor::get_channel_names(&usb::UacProtocol::Uac1, unit.channel_config as u32);
+    let channel_names = usb::UacInterfaceDescriptor::get_channel_names(
+        &usb::UacProtocol::Uac1,
+        unit.channel_config as u32,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
     }
@@ -1287,7 +1273,7 @@ fn dump_audio_processing_unit2(unit: &usb::AudioProcessingUnit2, indent: usize, 
     dump_number_string(
         unit.process_type,
         "wProcessType",
-        &unit.processing_type(),
+        unit.processing_type(),
         indent * 2,
         width,
     );
@@ -1295,7 +1281,10 @@ fn dump_audio_processing_unit2(unit: &usb::AudioProcessingUnit2, indent: usize, 
     dump_array(&unit.source_ids, "baSourceID", indent * 2, width);
     dump_value(unit.nr_channels, "bNrChannels", indent * 2, width);
     dump_hex(unit.channel_config, "bmChannelConfig", indent * 2, width);
-    let channel_names = usb::UacInterfaceDescriptor::get_channel_names(&usb::UacProtocol::Uac2, unit.channel_config as u32);
+    let channel_names = usb::UacInterfaceDescriptor::get_channel_names(
+        &usb::UacProtocol::Uac2,
+        unit.channel_config,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
     }
@@ -1322,29 +1311,59 @@ fn dump_audio_processing_unit3(unit: &usb::AudioProcessingUnit3, indent: usize, 
     dump_number_string(
         unit.process_type,
         "wProcessType",
-        &unit.processing_type(),
+        unit.processing_type(),
         indent * 2,
         width,
     );
     dump_value(unit.nr_in_pins, "bNrInPins", indent * 2, width);
     dump_array(&unit.source_ids, "baSourceID", indent * 2, width);
-    dump_value(unit.processing_descr_str, "wProcessingDescrStr", indent * 2, width);
+    dump_value(
+        unit.processing_descr_str,
+        "wProcessingDescrStr",
+        indent * 2,
+        width,
+    );
     if let Some(ref specific) = unit.specific {
         match specific {
             usb::AudioProcessingUnit3Specific::UpDownMix(up_down_mix) => {
                 dump_hex(up_down_mix.controls, "bmControls", indent * 2, width);
-                dump_bmcontrols(up_down_mix.controls, &UAC3_PROCESSING_UNIT_UP_DOWN_BMCONTROLS, &usb::ControlType::BmControl2, indent + 1);
+                dump_bmcontrols(
+                    up_down_mix.controls,
+                    &UAC3_PROCESSING_UNIT_UP_DOWN_BMCONTROLS,
+                    &usb::ControlType::BmControl2,
+                    indent + 1,
+                );
                 dump_value(up_down_mix.nr_modes, "bNrModes", indent * 2, width);
-                dump_array(&up_down_mix.cluster_descr_ids, "waClusterDescrID", indent * 2, width);
+                dump_array(
+                    &up_down_mix.cluster_descr_ids,
+                    "waClusterDescrID",
+                    indent * 2,
+                    width,
+                );
             }
             usb::AudioProcessingUnit3Specific::StereoExtender(stereo_extender) => {
                 dump_hex(stereo_extender.controls, "bmControls", indent * 2, width);
-                dump_bmcontrols(stereo_extender.controls, &UAC3_PROCESSING_UNIT_STEREO_EXTENDER_BMCONTROLS, &usb::ControlType::BmControl2, indent + 1);
+                dump_bmcontrols(
+                    stereo_extender.controls,
+                    &UAC3_PROCESSING_UNIT_STEREO_EXTENDER_BMCONTROLS,
+                    &usb::ControlType::BmControl2,
+                    indent + 1,
+                );
             }
             usb::AudioProcessingUnit3Specific::MultiFunction(multi_function) => {
                 dump_hex(multi_function.controls, "bmControls", indent * 2, width);
-                dump_bmcontrols(multi_function.controls, &UAC3_PROCESSING_UNIT_MULTI_FUNC_BMCONTROLS, &usb::ControlType::BmControl2, indent + 1);
-                dump_value(multi_function.cluster_descr_id, "wClusterDescrID", indent * 2, width);
+                dump_bmcontrols(
+                    multi_function.controls,
+                    &UAC3_PROCESSING_UNIT_MULTI_FUNC_BMCONTROLS,
+                    &usb::ControlType::BmControl2,
+                    indent + 1,
+                );
+                dump_value(
+                    multi_function.cluster_descr_id,
+                    "wClusterDescrID",
+                    indent * 2,
+                    width,
+                );
                 dump_value(multi_function.algorithms, "bmAlgorithms", indent * 2, width);
                 if let Some(ref algorithms) = unit.algorithms() {
                     for algorithm in algorithms.iter() {
@@ -1417,9 +1436,13 @@ fn dump_audio_feature_unit3(unit: &usb::AudioFeatureUnit3, indent: usize, width:
         indent,
         width,
     );
-    dump_value(unit.feature_descr_str, "wFeatureDescrStr", indent * 2, width);
+    dump_value(
+        unit.feature_descr_str,
+        "wFeatureDescrStr",
+        indent * 2,
+        width,
+    );
 }
-
 
 /// Dumps the contents of a UAC1 Extension Unit Descriptor
 fn dump_audio_extension_unit1(unit: &usb::AudioExtensionUnit1, indent: usize, width: usize) {
@@ -1553,11 +1576,7 @@ fn dump_audio_clock_source3(source: &usb::AudioClockSource3, indent: usize, widt
 }
 
 /// Dumps the contents of a UAC2 Clock Selector Descriptor
-fn dump_audio_clock_selector2(
-    selector: &usb::AudioClockSelector2,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_clock_selector2(selector: &usb::AudioClockSelector2, indent: usize, width: usize) {
     dump_value(selector.clock_id, "bClockID", indent * 2, width);
     dump_value(selector.nr_in_pins, "bNrInPins", indent * 2, width);
     dump_array(&selector.csource_ids, "baCSourceID", indent * 2, width);
@@ -1577,11 +1596,7 @@ fn dump_audio_clock_selector2(
 }
 
 /// Dumps the contents of a UAC3 Clock Selector Descriptor
-fn dump_audio_clock_selector3(
-    selector: &usb::AudioClockSelector3,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_clock_selector3(selector: &usb::AudioClockSelector3, indent: usize, width: usize) {
     dump_value(selector.clock_id, "bClockID", indent * 2, width);
     dump_value(selector.nr_in_pins, "bNrInPins", indent * 2, width);
     dump_array(&selector.csource_ids, "baCSourceID", indent * 2, width);
@@ -1670,20 +1685,16 @@ fn dump_audio_sample_rate_converter3(
     dump_value(converter.src_descr_str, "wSRCDescrStr", indent * 2, width);
 }
 
-fn dump_audio_subtype(
-    uacid: &usb::UacInterfaceDescriptor,
-    uacp: &usb::UacProtocol,
-    indent: usize,
-) {
+fn dump_audio_subtype(uacid: &usb::UacInterfaceDescriptor, uacp: &usb::UacProtocol, indent: usize) {
     match uacid {
         usb::UacInterfaceDescriptor::AudioHeader1(ach) => {
-            dump_value(&ach.version, "bcdADC", indent * 2, 24);
+            dump_value(ach.version, "bcdADC", indent * 2, 24);
             dump_value(ach.total_length, "wTotalLength", indent * 2, 24);
             dump_value(ach.collection_bytes, "bInCollection", indent * 2, 24);
             dump_array(&ach.interfaces, "baInterfaceNr", indent * 2, 24);
         }
         usb::UacInterfaceDescriptor::AudioHeader2(ach) => {
-            dump_value(&ach.version, "bcdADC", indent * 2, 24);
+            dump_value(ach.version, "bcdADC", indent * 2, 24);
             dump_value(ach.total_length, "wTotalLength", indent * 2, 24);
             dump_hex(ach.controls, "bmControls", indent * 2, 24);
             dump_bmcontrols(
@@ -1934,7 +1945,7 @@ fn dump_audio_subtype(
             dump_value(asi.nr_channels, "bNrChannels", indent * 2, 24);
             dump_hex(asi.channel_config, "bmChannelConfig", indent * 2, 24);
             let channel_names =
-                usb::UacInterfaceDescriptor::get_channel_names(uacp, asi.channel_config as u32);
+                usb::UacInterfaceDescriptor::get_channel_names(uacp, asi.channel_config);
             for name in channel_names.iter() {
                 println!("{:indent$}{}", "", name, indent = (indent + 1) * 2);
             }
@@ -2093,7 +2104,7 @@ fn dump_audiostreaming_interface(gd: &usb::GenericDescriptor, protocol: u8) {
                         }
                     }
                     usb::UacProtocol::Uac2 => {
-                        if data.len() < 1 {
+                        if data.is_empty() {
                             println!("      Warning: Descriptor too short");
                             return;
                         }
@@ -2381,7 +2392,7 @@ fn dump_format_type_iii_uac2(data: &[u8]) {
 
 fn dump_format_type_iv_uac2(data: &[u8]) {
     println!("(FORMAT_TYPE_IV)");
-    if data.len() < 1 {
+    if data.is_empty() {
         println!("      Warning: Descriptor too short");
         return;
     }
@@ -2641,8 +2652,7 @@ fn dump_videocontrol_interface(vcd: &usb::UvcDescriptor, protocol: u8) {
             println!("(HEADER)");
             if vcd.data.len() >= 10 {
                 let n = vcd.data[8] as usize;
-                let freq =
-                    u32::from_le_bytes([vcd.data[4], vcd.data[5], vcd.data[6], vcd.data[7]]);
+                let freq = u32::from_le_bytes([vcd.data[4], vcd.data[5], vcd.data[6], vcd.data[7]]);
                 println!(
                     "        bcdUVC              {:2x}.{:02x}",
                     vcd.data[1], vcd.data[0]
