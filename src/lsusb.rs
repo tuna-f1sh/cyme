@@ -270,6 +270,21 @@ pub mod display {
     const UAC2_MIXER_UNIT_BMCONTROLS: [&str; 4] = ["Cluster", "Underflow", "Overflow", "Overflow"];
     const UAC3_MIXER_UNIT_BMCONTROLS: [&str; 2] = ["Underflow", "Overflow"];
     const UAC2_SELECTOR_UNIT_BMCONTROLS: [&str; 1] = ["Selector"];
+    const UAC1_FEATURE_UNIT_BMCONTROLS: [&str; 13] = [
+        "Mute",
+        "Volume",
+        "Bass",
+        "Mid",
+        "Treble",
+        "Graphic Equalizer",
+        "Automatic Gain",
+        "Delay",
+        "Bass Boost",
+        "Loudness",
+        "Input gain",
+        "Input gain pad",
+        "Phase invert",
+    ];
     const UAC2_EXTENSION_UNIT_BMCONTROLS: [&str; 4] =
         ["Enable", "Cluster", "Underflow", "Overflow"];
     const UAC3_EXTENSION_UNIT_BMCONTROLS: [&str; 2] = ["Underflow", "Overflow"];
@@ -1127,12 +1142,13 @@ pub mod display {
         }
     }
 
-    fn dump_bmcontrols(
-        controls: u32,
+    fn dump_bmcontrols<T: Into<u32>>(
+        controls: T,
         control_descriptions: &[&'static str],
-        desc_type: usb::ControlType,
+        desc_type: &usb::ControlType,
         indent: usize,
     ) {
+        let controls: u32 = controls.into();
         for (index, control) in control_descriptions.iter().enumerate() {
             match desc_type {
                 usb::ControlType::BmControl1 => {
@@ -1150,6 +1166,22 @@ pub mod display {
                     )
                 }
             }
+        }
+    }
+
+    fn dump_bmcontrols_array<T: Into<u32> + std::fmt::Display + Copy>(
+        field_name: &str,
+        controls: &[T],
+        control_descriptions: &[&'static str],
+        desc_type: &usb::ControlType,
+        indent: usize,
+        width: usize,
+    ) {
+        for (i, control) in controls.iter().enumerate() {
+            let control = control.to_owned();
+            let control: u32 = control.into();
+            dump_value(control, &format!("{}({:2})", field_name, i), indent, width);
+            dump_bmcontrols(control, control_descriptions, &desc_type, indent + 1);
         }
     }
 
@@ -1205,7 +1237,7 @@ pub mod display {
         dump_bmcontrols(
             mixer_unit.controls as u32,
             &UAC2_MIXER_UNIT_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(mixer_unit.mixer, "iMixer", indent * 2, width);
@@ -1231,7 +1263,7 @@ pub mod display {
         dump_bmcontrols(
             mixer_unit.controls,
             &UAC3_MIXER_UNIT_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(
@@ -1292,9 +1324,9 @@ pub mod display {
         dump_array(&selector_unit.source_ids, "baSourceID", indent * 2, width);
         dump_hex(selector_unit.controls, "bmControls", indent * 2, width);
         dump_bmcontrols(
-            selector_unit.controls.into(),
+            selector_unit.controls,
             &UAC2_SELECTOR_UNIT_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(selector_unit.selector_index, "iSelector", indent * 2, width);
@@ -1312,7 +1344,7 @@ pub mod display {
         dump_bmcontrols(
             selector_unit.controls,
             &UAC2_SELECTOR_UNIT_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(
@@ -1322,6 +1354,55 @@ pub mod display {
             width,
         );
     }
+
+    /// Dumps the contents of a UAC1 Feature Unit Descriptor
+    fn dump_audio_feature_unit1(unit: &usb::AudioFeatureUnit1, indent: usize, width: usize) {
+        dump_value(unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(unit.source_id, "bSourceID", indent * 2, width);
+        dump_value(unit.control_size, "bControlSize", indent * 2, width);
+        dump_array(&unit.controls, "bmaControls", indent * 2, width);
+        dump_bmcontrols_array(
+            "bmaControls",
+            &unit.controls,
+            &UAC1_FEATURE_UNIT_BMCONTROLS,
+            &usb::ControlType::BmControl1,
+            indent,
+            width,
+        );
+        dump_value(unit.feature_index, "iFeature", indent * 2, width);
+    }
+
+    /// Dumps the contents of a UAC2 Feature Unit Descriptor
+    fn dump_audio_feature_unit2(unit: &usb::AudioFeatureUnit2, indent: usize, width: usize) {
+        dump_value(unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(unit.source_id, "bSourceID", indent * 2, width);
+        dump_array(&unit.controls, "bmaControls", indent * 2, width);
+        dump_bmcontrols_array(
+            "bmaControls",
+            &unit.controls,
+            &UAC1_FEATURE_UNIT_BMCONTROLS,
+            &usb::ControlType::BmControl1,
+            indent,
+            width,
+        );
+        dump_value(unit.feature_index, "iFeature", indent * 2, width);
+    }
+
+    /// Dumps the contents of a UAC3 Feature Unit Descriptor
+    fn dump_audio_feature_unit3(unit: &usb::AudioFeatureUnit3, indent: usize, width: usize) {
+        dump_value(unit.unit_id, "bUnitID", indent * 2, width);
+        dump_value(unit.source_id, "bSourceID", indent * 2, width);
+        dump_bmcontrols_array(
+            "bmaControls",
+            &unit.controls,
+            &UAC1_FEATURE_UNIT_BMCONTROLS,
+            &usb::ControlType::BmControl1,
+            indent,
+            width,
+        );
+        dump_value(unit.feature_descr_str, "wFeatureDescrStr", indent * 2, width);
+    }
+
 
     /// Dumps the contents of a UAC1 Extension Unit Descriptor
     fn dump_audio_extension_unit1(unit: &usb::AudioExtensionUnit1, indent: usize, width: usize) {
@@ -1362,9 +1443,9 @@ pub mod display {
         dump_value(unit.channel_names_index, "iChannelNames", indent * 2, width);
         dump_hex(unit.controls, "bmControls", indent * 2, width);
         dump_bmcontrols(
-            unit.controls.into(),
+            unit.controls,
             &UAC2_EXTENSION_UNIT_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(unit.extension_index, "iExtension", indent * 2, width);
@@ -1386,7 +1467,7 @@ pub mod display {
         dump_bmcontrols(
             unit.controls,
             &UAC3_EXTENSION_UNIT_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(unit.cluster_descr_id, "wClusterDescrID", indent * 2, width);
@@ -1409,9 +1490,9 @@ pub mod display {
         dump_bitmap_strings(source.attributes, uac2_clk_src_bmattr, indent + 1);
         dump_hex(source.controls, "bmControls", indent * 2, width);
         dump_bmcontrols(
-            source.controls.into(),
+            source.controls,
             &UAC2_CLOCK_SOURCE_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(source.assoc_terminal, "bAssocTerminal", indent * 2, width);
@@ -1437,7 +1518,7 @@ pub mod display {
         dump_bmcontrols(
             source.controls,
             &UAC2_CLOCK_SOURCE_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(
@@ -1465,9 +1546,9 @@ pub mod display {
         dump_array(&selector.csource_ids, "baCSourceID", indent * 2, width);
         dump_hex(selector.controls, "bmControls", indent * 2, width);
         dump_bmcontrols(
-            selector.controls.into(),
+            selector.controls,
             &UAC2_CLOCK_SELECTOR_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(
@@ -1491,7 +1572,7 @@ pub mod display {
         dump_bmcontrols(
             selector.controls,
             &UAC2_CLOCK_SELECTOR_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(
@@ -1512,9 +1593,9 @@ pub mod display {
         dump_value(multiplier.csource_id, "bCSourceID", indent * 2, width);
         dump_hex(multiplier.controls, "bmControls", indent * 2, width);
         dump_bmcontrols(
-            multiplier.controls.into(),
+            multiplier.controls,
             &UAC2_CLOCK_MULTIPLIER_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(
@@ -1537,7 +1618,7 @@ pub mod display {
         dump_bmcontrols(
             multiplier.controls,
             &UAC2_CLOCK_MULTIPLIER_BMCONTROLS,
-            usb::ControlType::BmControl2,
+            &usb::ControlType::BmControl2,
             indent + 1,
         );
         dump_value(
@@ -1591,7 +1672,7 @@ pub mod display {
                 dump_bmcontrols(
                     ach.controls as u32,
                     &UAC2_INTERFACE_HEADER_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
             }
@@ -1602,7 +1683,7 @@ pub mod display {
                 dump_bmcontrols(
                     ach.controls,
                     &UAC2_INTERFACE_HEADER_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
             }
@@ -1645,9 +1726,9 @@ pub mod display {
                 dump_value(ait.channel_names_index, "iChannelNames", indent * 2, 24);
                 dump_hex(ait.controls, "bmControls", indent * 2, 24);
                 dump_bmcontrols(
-                    ait.controls.into(),
+                    ait.controls,
                     &UAC2_INPUT_TERMINAL_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
                 dump_value(ait.terminal_index, "iTerminal", indent * 2, 24);
@@ -1665,9 +1746,9 @@ pub mod display {
                 dump_value(ait.csource_id, "bCSourceID", indent * 2, 24);
                 dump_hex(ait.controls, "bmControls", indent * 2, 24);
                 dump_bmcontrols(
-                    ait.controls.into(),
+                    ait.controls,
                     &UAC3_INPUT_TERMINAL_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
                 dump_value(ait.cluster_descr_id, "wClusterDescrID", indent * 2, 24);
@@ -1706,9 +1787,9 @@ pub mod display {
                 dump_value(a.source_id, "bSourceID", indent * 2, 24);
                 dump_hex(a.controls, "bmControls", indent * 2, 24);
                 dump_bmcontrols(
-                    a.controls.into(),
+                    a.controls,
                     &UAC2_OUTPUT_TERMINAL_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
                 dump_value(a.terminal_index, "iTerminal", indent * 2, 24);
@@ -1726,9 +1807,9 @@ pub mod display {
                 dump_value(a.c_source_id, "bCSourceID", indent * 2, 24);
                 dump_hex(a.controls, "bmControls", indent * 2, 24);
                 dump_bmcontrols(
-                    a.controls.into(),
+                    a.controls,
                     &UAC3_OUTPUT_TERMINAL_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
                 dump_value(a.ex_terminal_descr_id, "wExTerminalDescrID", indent * 2, 24);
@@ -1804,9 +1885,9 @@ pub mod display {
                 dump_value(asi.terminal_link, "bTerminalLink", indent * 2, 24);
                 dump_hex(asi.controls, "bmControls", indent * 2, 24);
                 dump_bmcontrols(
-                    asi.controls.into(),
+                    asi.controls,
                     &UAC2_AS_INTERFACE_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
                 dump_value(asi.format_type, "bFormatType", indent * 2, 24);
@@ -1823,9 +1904,9 @@ pub mod display {
                 dump_value(asi.terminal_link, "bTerminalLink", indent * 2, 24);
                 dump_hex(asi.controls, "bmControls", indent * 2, 24);
                 dump_bmcontrols(
-                    asi.controls.into(),
+                    asi.controls,
                     &UAC3_AS_INTERFACE_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
                 dump_value(asi.cluster_descr_id, "wClusterDescrID", indent * 2, 24);
@@ -1857,9 +1938,9 @@ pub mod display {
                 dump_bitmap_strings(ads.attributes, uac2_attrs, indent + 1);
                 dump_hex(ads.controls, "bmControls", indent * 2, 24);
                 dump_bmcontrols(
-                    ads.controls.into(),
+                    ads.controls,
                     &UAC2_AS_ISO_ENDPOINT_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
                 dump_value(ads.lock_delay_units, "bLockDelayUnits", indent * 2, 24);
@@ -1868,9 +1949,9 @@ pub mod display {
             usb::UacInterfaceDescriptor::AudioDataStreamingEndpoint3(ads) => {
                 dump_hex(ads.controls, "bmControls", indent * 2, 24);
                 dump_bmcontrols(
-                    ads.controls.into(),
+                    ads.controls,
                     &UAC2_AS_ISO_ENDPOINT_BMCONTROLS,
-                    usb::ControlType::BmControl2,
+                    &usb::ControlType::BmControl2,
                     indent + 1,
                 );
                 dump_value(ads.lock_delay_units, "bLockDelayUnits", indent * 2, 24);
