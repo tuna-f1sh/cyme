@@ -1437,8 +1437,11 @@ pub enum UacInterfaceDescriptor {
     AudioSelectorUnit1(AudioSelectorUnit1),
     AudioSelectorUnit2(AudioSelectorUnit2),
     AudioSelectorUnit3(AudioSelectorUnit3),
-    // TODO EffectUnit
-    // TODO ProcessingUnit
+    AudioProcessingUnit1(AudioProcessingUnit1),
+    AudioProcessingUnit2(AudioProcessingUnit2),
+    AudioProcessingUnit3(AudioProcessingUnit3),
+    AudioEffectUnit2(AudioEffectUnit2),
+    AudioEffectUnit3(AudioEffectUnit3),
     AudioFeatureUnit1(AudioFeatureUnit1),
     AudioFeatureUnit2(AudioFeatureUnit2),
     AudioFeatureUnit3(AudioFeatureUnit3),
@@ -1603,6 +1606,28 @@ impl UacInterfaceDescriptor {
                     "Protocol not supported for this interface",
                 )),
             },
+            UacAcInterface::ProcessingUnit => match protocol {
+                UacProtocol::Uac1 => AudioProcessingUnit1::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioProcessingUnit1),
+                UacProtocol::Uac2 => AudioProcessingUnit2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioProcessingUnit2),
+                UacProtocol::Uac3 => AudioProcessingUnit3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioProcessingUnit3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::EffectUnit => match protocol {
+                UacProtocol::Uac2 => AudioEffectUnit2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioEffectUnit2),
+                UacProtocol::Uac3 => AudioEffectUnit3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioEffectUnit3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
             UacAcInterface::FeatureUnit => match protocol {
                 UacProtocol::Uac1 => AudioFeatureUnit1::try_from(data)
                     .map(UacInterfaceDescriptor::AudioFeatureUnit1),
@@ -1744,7 +1769,7 @@ impl UacInterfaceDescriptor {
         }
     }
 
-    /// Get the lock delay units from the descriptor
+    /// Get the [`LockDelayUnits`] from the descriptor if it has the field
     pub fn get_lock_delay_units(&self) -> Option<LockDelayUnits> {
         match self {
             UacInterfaceDescriptor::AudioDataStreamingEndpoint1(ep) => {
@@ -1757,6 +1782,53 @@ impl UacInterfaceDescriptor {
                 Some(LockDelayUnits::from(ep.lock_delay_units))
             }
             _ => None,
+        }
+    }
+
+    /// Get the [`UacProtocol`] version for the interface descriptor
+    pub fn get_protocol(&self) -> UacProtocol {
+        match self {
+            UacInterfaceDescriptor::AudioHeader1(_)
+                | UacInterfaceDescriptor::AudioInputTerminal1(_)
+                | UacInterfaceDescriptor::AudioOutputTerminal1(_)
+                | UacInterfaceDescriptor::AudioMixerUnit1(_)
+                | UacInterfaceDescriptor::AudioSelectorUnit1(_)
+                | UacInterfaceDescriptor::AudioFeatureUnit1(_)
+                | UacInterfaceDescriptor::AudioExtensionUnit1(_)
+                => UacProtocol::Uac1,
+            UacInterfaceDescriptor::AudioHeader2(_)
+                | UacInterfaceDescriptor::AudioInputTerminal2(_)
+                | UacInterfaceDescriptor::AudioOutputTerminal2(_)
+                | UacInterfaceDescriptor::AudioMixerUnit2(_)
+                | UacInterfaceDescriptor::AudioSelectorUnit2(_)
+                | UacInterfaceDescriptor::AudioEffectUnit2(_)
+                | UacInterfaceDescriptor::AudioFeatureUnit2(_)
+                | UacInterfaceDescriptor::AudioExtensionUnit2(_)
+                | UacInterfaceDescriptor::AudioClockSource2(_)
+                | UacInterfaceDescriptor::AudioClockSelector2(_)
+                | UacInterfaceDescriptor::AudioClockMultiplier2(_)
+                | UacInterfaceDescriptor::AudioSampleRateConverter2(_)
+                | UacInterfaceDescriptor::AudioStreamingInterface2(_)
+                | UacInterfaceDescriptor::AudioDataStreamingEndpoint2(_)
+                => UacProtocol::Uac2,
+            UacInterfaceDescriptor::AudioHeader3(_) 
+                | UacInterfaceDescriptor::AudioInputTerminal3(_)
+                | UacInterfaceDescriptor::AudioOutputTerminal3(_)
+                | UacInterfaceDescriptor::AudioMixerUnit3(_)
+                | UacInterfaceDescriptor::AudioSelectorUnit3(_)
+                | UacInterfaceDescriptor::AudioEffectUnit3(_)
+                | UacInterfaceDescriptor::AudioFeatureUnit3(_)
+                | UacInterfaceDescriptor::AudioExtensionUnit3(_)
+                | UacInterfaceDescriptor::AudioClockSource3(_)
+                | UacInterfaceDescriptor::AudioClockSelector3(_)
+                | UacInterfaceDescriptor::AudioClockMultiplier3(_)
+                | UacInterfaceDescriptor::AudioSampleRateConverter3(_)
+                | UacInterfaceDescriptor::AudioStreamingInterface3(_)
+                | UacInterfaceDescriptor::AudioDataStreamingEndpoint3(_)
+                | UacInterfaceDescriptor::ExtendedTerminalHeader(_)
+                | UacInterfaceDescriptor::AudioPowerDomain(_)
+                => UacProtocol::Uac3,
+            _ => UacProtocol::Unknown,
         }
     }
 }
@@ -2737,6 +2809,597 @@ impl TryFrom<&[u8]> for AudioSelectorUnit3 {
                 value[expected_length - 2],
                 value[expected_length - 1],
             ]),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub enum AudioProcessingUnitType {
+    Undefined,
+    UpDownMix,
+    DolbyPrologic,
+    StereoExtender3d,
+    StereoExtender,
+    Reverberation,
+    Chorus,
+    DynRangeComp,
+    MultiFunction,
+}
+
+impl From<(UacProtocol, u16)> for AudioProcessingUnitType {
+    fn from((protocol, b): (UacProtocol, u16)) -> Self {
+        match protocol {
+            UacProtocol::Uac1 => match b {
+                0 => AudioProcessingUnitType::Undefined,
+                1 => AudioProcessingUnitType::UpDownMix,
+                2 => AudioProcessingUnitType::DolbyPrologic,
+                3 => AudioProcessingUnitType::StereoExtender3d,
+                4 => AudioProcessingUnitType::Reverberation,
+                5 => AudioProcessingUnitType::Chorus,
+                6 => AudioProcessingUnitType::DynRangeComp,
+                _ => AudioProcessingUnitType::Undefined,
+            },
+            UacProtocol::Uac2 => match b {
+                0 => AudioProcessingUnitType::Undefined,
+                1 => AudioProcessingUnitType::UpDownMix,
+                2 => AudioProcessingUnitType::DolbyPrologic,
+                3 => AudioProcessingUnitType::StereoExtender,
+                _ => AudioProcessingUnitType::Undefined,
+            },
+            UacProtocol::Uac3 => match b {
+                0 => AudioProcessingUnitType::Undefined,
+                1 => AudioProcessingUnitType::UpDownMix,
+                2 => AudioProcessingUnitType::StereoExtender,
+                3 => AudioProcessingUnitType::MultiFunction,
+                _ => AudioProcessingUnitType::Undefined,
+            },
+            _ => AudioProcessingUnitType::Undefined,
+        }
+    }
+}
+
+impl fmt::Display for AudioProcessingUnitType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AudioProcessingUnitType::Undefined => write!(f, "Undefined"),
+            AudioProcessingUnitType::UpDownMix => write!(f, "Up/Down-mix"),
+            AudioProcessingUnitType::DolbyPrologic => write!(f, "Dolby Prologic"),
+            AudioProcessingUnitType::StereoExtender3d => write!(f, "3D Stereo Extender"),
+            AudioProcessingUnitType::StereoExtender => write!(f, "Stereo Extender"),
+            AudioProcessingUnitType::Reverberation => write!(f, "Reverberation"),
+            AudioProcessingUnitType::Chorus => write!(f, "Chorus"),
+            AudioProcessingUnitType::DynRangeComp => write!(f, "Dyn Range Comp"),
+            AudioProcessingUnitType::MultiFunction => write!(f, "Multi-Function"),
+        }
+    }
+}
+
+/// UAC1: Up/Down-mix and Dolby Prologic proc unit descriptor extensions Table 4-9, Table 4-10.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioProcessingUnitExtended1 {
+    pub nr_modes: u8,
+    pub modes: Vec<u16>,
+}
+
+impl TryFrom<&[u8]> for AudioProcessingUnitExtended1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit Extended 1 descriptor too short",
+            ));
+        }
+
+        let nr_modes = value[0];
+        let modes = (1..value.len())
+            .step_by(2)
+            .map(|i| u16::from_le_bytes([value[i], value[i + 1]]))
+            .collect();
+
+        Ok(AudioProcessingUnitExtended1 {
+            nr_modes,
+            modes,
+        })
+    }
+}
+
+/// UAC1: 4.3.2.6 Processing Unit Descriptor; Table 4-8.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioProcessingUnit1 {
+    pub unit_id: u8,
+    pub process_type: u16,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub nr_channels: u8,
+    pub channel_config: u16,
+    pub channel_names_index: u8,
+    pub control_size: u8,
+    pub controls: Vec<u8>,
+    pub processing_index: u8,
+    pub specific: Option<AudioProcessingUnitExtended1>,
+}
+
+impl TryFrom<&[u8]> for AudioProcessingUnit1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 10 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 1 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[3];
+        let control_size = value[9 + nr_in_pins as usize];
+        let expected_length = 10 + nr_in_pins as usize + control_size as usize;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 1 descriptor too short",
+            ));
+        }
+
+        let specific = match value[1] {
+            1 | 2 => Some(AudioProcessingUnitExtended1::try_from(&value[expected_length..])?),
+            _ => None,
+        };
+
+        Ok(AudioProcessingUnit1 {
+            unit_id: value[0],
+            process_type: u16::from_le_bytes([value[1], value[2]]),
+            nr_in_pins,
+            source_ids: value[4..4 + nr_in_pins as usize].to_vec(),
+            nr_channels: value[4 + nr_in_pins as usize],
+            channel_config: u16::from_le_bytes([value[5 + nr_in_pins as usize], value[6 + nr_in_pins as usize]]),
+            channel_names_index: value[7 + nr_in_pins as usize],
+            control_size,
+            controls: value[10 + nr_in_pins as usize..10 + nr_in_pins as usize + control_size as usize].to_vec(),
+            processing_index: value[expected_length - 1],
+            specific,
+        })
+    }
+}
+
+impl AudioProcessingUnit1 {
+    /// Returns the [`AudioProcessingUnitType`] of the processing unit.
+    pub fn processing_type(&self) -> AudioProcessingUnitType {
+        (UacProtocol::Uac1, self.process_type).into()
+    }
+}
+
+/// UAC2: 4.7.2.11.1 Up/Down-mix Processing Unit Descriptor; Table 4-21.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioProcessingUnit2UpDownMix {
+    pub nr_modes: u8,
+    pub modes: Vec<u32>,
+}
+
+impl TryFrom<&[u8]> for AudioProcessingUnit2UpDownMix {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 5 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 2 Up/Down-mix descriptor too short",
+            ));
+        }
+
+        let nr_modes = value[0];
+        let modes = (1..value.len())
+            .step_by(4)
+            .map(|i| u32::from_le_bytes([value[i], value[i + 1], value[i + 2], value[i + 3]]))
+            .collect();
+
+        Ok(AudioProcessingUnit2UpDownMix {
+            nr_modes,
+            modes,
+        })
+    }
+}
+
+/// UAC2: 4.7.2.11.2 Dolby prologic Processing Unit Descriptor; Table 4-22.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioProcessingUnit2DolbyPrologic {
+    pub nr_modes: u8,
+    pub modes: Vec<u32>,
+}
+
+impl TryFrom<&[u8]> for AudioProcessingUnit2DolbyPrologic {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 5 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 2 Dolby Prologic descriptor too short",
+            ));
+        }
+
+        let nr_modes = value[0];
+        let modes = (1..value.len())
+            .step_by(4)
+            .map(|i| u32::from_le_bytes([value[i], value[i + 1], value[i + 2], value[i + 3]]))
+            .collect();
+
+        Ok(AudioProcessingUnit2DolbyPrologic {
+            nr_modes,
+            modes,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub enum AudioProcessingUnit2Specific {
+    UpDownMix(AudioProcessingUnit2UpDownMix),
+    DolbyPrologic(AudioProcessingUnit2DolbyPrologic),
+}
+
+/// UAC3: 4.5.2.10.1 Up/Down-mix Processing Unit Descriptor; Table 4-39.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioProcessingUnit3UpDownMix {
+    pub controls: u32,
+    pub nr_modes: u8,
+    pub cluster_descr_ids: Vec<u16>,
+}
+
+impl TryFrom<&[u8]> for AudioProcessingUnit3UpDownMix {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 3 Up/Down-mix descriptor too short",
+            ));
+        }
+
+        let nr_modes = value[4];
+        let cluster_descr_ids = (5..value.len())
+            .step_by(2)
+            .map(|i| u16::from_le_bytes([value[i], value[i + 1]]))
+            .collect();
+
+        Ok(AudioProcessingUnit3UpDownMix {
+            controls: u32::from_le_bytes([value[0], value[1], value[2], value[3]]),
+            nr_modes,
+            cluster_descr_ids,
+        })
+    }
+}
+
+/// UAC3: 4.5.2.10.2 Stereo Extender Processing Unit Descriptor; Table 4-40.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioProcessingUnit3StereoExtender {
+    pub controls: u32,
+}
+
+impl TryFrom<&[u8]> for AudioProcessingUnit3StereoExtender {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 3 Stereo Extender descriptor too short",
+            ));
+        }
+
+        Ok(AudioProcessingUnit3StereoExtender {
+            controls: u32::from_le_bytes([value[0], value[1], value[2], value[3]]),
+        })
+    }
+}
+
+/// UAC3: 4.5.2.10.3 Multi Function Processing Unit Descriptor; Table 4-41.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioProcessingUnit3MultiFunction {
+    pub controls: u32,
+    pub cluster_descr_id: u16,
+    pub algorithms: u32,
+}
+
+impl TryFrom<&[u8]> for AudioProcessingUnit3MultiFunction {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 3 Multi Function descriptor too short",
+            ));
+        }
+
+        Ok(AudioProcessingUnit3MultiFunction {
+            controls: u32::from_le_bytes([value[0], value[1], value[2], value[3]]),
+            cluster_descr_id: u16::from_le_bytes([value[4], value[5]]),
+            algorithms: u32::from_le_bytes([value[6], value[7], value[8], value[9]]),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub enum AudioProcessingUnit3Specific {
+    UpDownMix(AudioProcessingUnit3UpDownMix),
+    StereoExtender(AudioProcessingUnit3StereoExtender),
+    MultiFunction(AudioProcessingUnit3MultiFunction),
+}
+
+/// UAC2: 4.7.2.11 Processing Unit Descriptor; Table 4-20.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioProcessingUnit2 {
+    pub unit_id: u8,
+    pub process_type: u16,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub nr_channels: u8,
+    pub channel_config: u32,
+    pub channel_names_index: u8,
+    pub controls: u16,
+    pub processing_index: u8,
+    pub specific: Option<AudioProcessingUnit2Specific>,
+}
+
+impl TryFrom<&[u8]> for AudioProcessingUnit2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 12 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 2 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[3];
+        let expected_length = 12 + nr_in_pins as usize;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 2 descriptor too short",
+            ));
+        }
+
+        let specific = match value[1] {
+            1 => Some(AudioProcessingUnit2Specific::UpDownMix(AudioProcessingUnit2UpDownMix::try_from(&value[expected_length..])?)),
+            2 => Some(AudioProcessingUnit2Specific::DolbyPrologic(AudioProcessingUnit2DolbyPrologic::try_from(&value[expected_length..])?)),
+            _ => None,
+        };
+
+        Ok(AudioProcessingUnit2 {
+            unit_id: value[0],
+            process_type: u16::from_le_bytes([value[1], value[2]]),
+            nr_in_pins,
+            source_ids: value[4..4 + nr_in_pins as usize].to_vec(),
+            nr_channels: value[4 + nr_in_pins as usize],
+            channel_config: u32::from_le_bytes([value[5 + nr_in_pins as usize], value[6 + nr_in_pins as usize], value[7 + nr_in_pins as usize], value[8 + nr_in_pins as usize]]),
+            channel_names_index: value[9 + nr_in_pins as usize],
+            controls: u16::from_le_bytes([value[10 + nr_in_pins as usize], value[11 + nr_in_pins as usize]]),
+            processing_index: value[expected_length - 1],
+            specific,
+        })
+    }
+}
+
+impl AudioProcessingUnit2 {
+    /// Returns the [`AudioProcessingUnitType`] of the processing unit.
+    pub fn processing_type(&self) -> AudioProcessingUnitType {
+        (UacProtocol::Uac2, self.process_type).into()
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub enum AudioProcessingMultiFunction {
+    AlgorithmUndefined,
+    BeamForming,
+    AcousticEchoCancellation,
+    ActiveNoiseCancellation,
+    BlindSourceSeparation,
+    NoiseSuppression,
+}
+
+impl std::fmt::Display for AudioProcessingMultiFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if f.alternate() {
+            match self {
+                AudioProcessingMultiFunction::AlgorithmUndefined => write!(f, "Algorithm Undefined."),
+                AudioProcessingMultiFunction::BeamForming => write!(f, "Beam Forming."),
+                AudioProcessingMultiFunction::AcousticEchoCancellation => write!(f, "Acoustic Echo Cancellation."),
+                AudioProcessingMultiFunction::ActiveNoiseCancellation => write!(f, "Active Noise Cancellation."),
+                AudioProcessingMultiFunction::BlindSourceSeparation => write!(f, "Blind Source Separation."),
+                AudioProcessingMultiFunction::NoiseSuppression => write!(f, "Noise Suppression/Reduction."),
+            }
+        } else {
+            match self {
+                AudioProcessingMultiFunction::AlgorithmUndefined => write!(f, "Algorithm Undefined"),
+                AudioProcessingMultiFunction::BeamForming => write!(f, "Beam Forming"),
+                AudioProcessingMultiFunction::AcousticEchoCancellation => write!(f, "Acoustic Echo Cancellation"),
+                AudioProcessingMultiFunction::ActiveNoiseCancellation => write!(f, "Active Noise Cancellation"),
+                AudioProcessingMultiFunction::BlindSourceSeparation => write!(f, "Blind Source Separation"),
+                AudioProcessingMultiFunction::NoiseSuppression => write!(f, "Noise Suppression/Reduction"),
+            }
+        }
+    }
+}
+
+impl AudioProcessingMultiFunction {
+    /// Returns the [`AudioProcessingMultiFunction`]s supported from the bitmap value
+    pub fn functions_from_bitmap(bitmap: u32) -> Vec<AudioProcessingMultiFunction> {
+        let mut functions = Vec::new();
+        if bitmap & 0x01 != 0 {
+            functions.push(AudioProcessingMultiFunction::AlgorithmUndefined);
+        }
+        if bitmap & 0x02 != 0 {
+            functions.push(AudioProcessingMultiFunction::BeamForming);
+        }
+        if bitmap & 0x04 != 0 {
+            functions.push(AudioProcessingMultiFunction::AcousticEchoCancellation);
+        }
+        if bitmap & 0x08 != 0 {
+            functions.push(AudioProcessingMultiFunction::ActiveNoiseCancellation);
+        }
+        if bitmap & 0x10 != 0 {
+            functions.push(AudioProcessingMultiFunction::BlindSourceSeparation);
+        }
+        if bitmap & 0x20 != 0 {
+            functions.push(AudioProcessingMultiFunction::NoiseSuppression);
+        }
+        functions
+    }
+}
+
+/// UAC3: 4.5.2.10 Processing Unit Descriptor; Table 4-38.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioProcessingUnit3 {
+    pub unit_id: u8,
+    pub process_type: u16,
+    pub nr_in_pins: u8,
+    pub source_ids: Vec<u8>,
+    pub processing_descr_str: u16,
+    pub specific: Option<AudioProcessingUnit3Specific>,
+}
+
+impl TryFrom<&[u8]> for AudioProcessingUnit3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 7 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 3 descriptor too short",
+            ));
+        }
+
+        let nr_in_pins = value[3];
+        let expected_length = 7 + nr_in_pins as usize;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Processing Unit 3 descriptor too short",
+            ));
+        }
+
+        let specific = match value[1] {
+            1 => Some(AudioProcessingUnit3Specific::UpDownMix(AudioProcessingUnit3UpDownMix::try_from(&value[expected_length..])?)),
+            2 => Some(AudioProcessingUnit3Specific::StereoExtender(AudioProcessingUnit3StereoExtender::try_from(&value[expected_length..])?)),
+            3 => Some(AudioProcessingUnit3Specific::MultiFunction(AudioProcessingUnit3MultiFunction::try_from(&value[expected_length..])?)),
+            _ => None,
+        };
+
+        Ok(AudioProcessingUnit3 {
+            unit_id: value[0],
+            process_type: u16::from_le_bytes([value[1], value[2]]),
+            nr_in_pins,
+            source_ids: value[4..4 + nr_in_pins as usize].to_vec(),
+            processing_descr_str: u16::from_le_bytes([value[5 + nr_in_pins as usize], value[6 + nr_in_pins as usize]]),
+            specific,
+        })
+    }
+}
+
+impl AudioProcessingUnit3 {
+    /// Returns the [`AudioProcessingUnitType`] of the processing unit.
+    pub fn processing_type(&self) -> AudioProcessingUnitType {
+        (UacProtocol::Uac3, self.process_type).into()
+    }
+
+    /// Returns the [`AudioProcessingMultiFunction`] supported by the processing unit.
+    pub fn algorithms(&self) -> Option<Vec<AudioProcessingMultiFunction>> {
+        match &self.specific {
+            Some(AudioProcessingUnit3Specific::MultiFunction(AudioProcessingUnit3MultiFunction { algorithms, .. })) => {
+                Some(AudioProcessingMultiFunction::functions_from_bitmap(*algorithms))
+            }
+            _ => None,
+        }
+    }
+}
+
+/// UAC2: 4.7.2.10 Effect Unit Descriptor; Table 4-15.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioEffectUnit2 {
+    pub unit_id: u8,
+    pub effect_type: u16,
+    pub source_id: u8,
+    pub controls: Vec<u32>,
+    pub effect_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioEffectUnit2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Effect Unit 2 descriptor too short",
+            ));
+        }
+
+        let controls = (4..value.len() - 1)
+            .step_by(4)
+            .map(|i| u32::from_le_bytes([value[i], value[i + 1], value[i + 2], value[i + 3]]))
+            .collect();
+
+        Ok(AudioEffectUnit2 {
+            unit_id: value[0],
+            effect_type: u16::from_le_bytes([value[1], value[2]]),
+            source_id: value[3],
+            controls,
+            effect_index: value[value.len() - 1],
+        })
+    }
+}
+
+/// UAC3: 4.5.2.9 Effect Unit Descriptor; Table 4-33.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioEffectUnit3 {
+    pub unit_id: u8,
+    pub effect_type: u16,
+    pub source_id: u8,
+    pub controls: Vec<u32>,
+    pub effect_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioEffectUnit3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 7 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Effect Unit 3 descriptor too short",
+            ));
+        }
+
+        let controls = (4..value.len() - 2)
+            .step_by(4)
+            .map(|i| u32::from_le_bytes([value[i], value[i + 1], value[i + 2], value[i + 3]]))
+            .collect();
+
+        Ok(AudioEffectUnit3 {
+            unit_id: value[0],
+            effect_type: u16::from_le_bytes([value[1], value[2]]),
+            source_id: value[3],
+            controls,
+            effect_descr_str: u16::from_le_bytes([value[value.len() - 2], value[value.len() - 1]]),
         })
     }
 }
