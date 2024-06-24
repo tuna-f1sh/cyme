@@ -1439,7 +1439,9 @@ pub enum UacInterfaceDescriptor {
     AudioSelectorUnit3(AudioSelectorUnit3),
     // TODO EffectUnit
     // TODO ProcessingUnit
-    // TODO FeatureUnit
+    AudioFeatureUnit1(AudioFeatureUnit1),
+    AudioFeatureUnit2(AudioFeatureUnit2),
+    AudioFeatureUnit3(AudioFeatureUnit3),
     AudioExtensionUnit1(AudioExtensionUnit1),
     AudioExtensionUnit2(AudioExtensionUnit2),
     AudioExtensionUnit3(AudioExtensionUnit3),
@@ -1596,6 +1598,18 @@ impl UacInterfaceDescriptor {
                     .map(UacInterfaceDescriptor::AudioSelectorUnit2),
                 UacProtocol::Uac3 => AudioSelectorUnit3::try_from(data)
                     .map(UacInterfaceDescriptor::AudioSelectorUnit3),
+                _ => Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    "Protocol not supported for this interface",
+                )),
+            },
+            UacAcInterface::FeatureUnit => match protocol {
+                UacProtocol::Uac1 => AudioFeatureUnit1::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioFeatureUnit1),
+                UacProtocol::Uac2 => AudioFeatureUnit2::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioFeatureUnit2),
+                UacProtocol::Uac3 => AudioFeatureUnit3::try_from(data)
+                    .map(UacInterfaceDescriptor::AudioFeatureUnit3),
                 _ => Err(Error::new(
                     ErrorKind::InvalidArg,
                     "Protocol not supported for this interface",
@@ -2723,6 +2737,109 @@ impl TryFrom<&[u8]> for AudioSelectorUnit3 {
                 value[expected_length - 2],
                 value[expected_length - 1],
             ]),
+        })
+    }
+}
+
+/// UAC1: 4.3.2.5 Feature Unit Descriptor; Table 4-7.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioFeatureUnit1 {
+    pub unit_id: u8,
+    pub source_id: u8,
+    pub control_size: u8,
+    pub controls: Vec<u8>,
+    pub feature_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioFeatureUnit1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Feature Unit 1 descriptor too short",
+            ));
+        }
+
+        let control_size = value[2];
+        let expected_length = 4 + control_size as usize;
+        if value.len() < expected_length {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Feature Unit 1 descriptor too short",
+            ));
+        }
+
+        let controls = value[3..(3 + control_size as usize)].to_vec();
+
+        Ok(AudioFeatureUnit1 {
+            unit_id: value[0],
+            source_id: value[1],
+            control_size,
+            controls,
+            feature_index: value[expected_length - 1],
+        })
+    }
+}
+
+/// UAC2: 4.7.2.8 Feature Unit Descriptor; Table 4-13.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioFeatureUnit2 {
+    pub unit_id: u8,
+    pub source_id: u8,
+    pub controls: [u8; 4],
+    pub feature_index: u8,
+}
+
+impl TryFrom<&[u8]> for AudioFeatureUnit2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 7 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Feature Unit 2 descriptor too short",
+            ));
+        }
+
+        Ok(AudioFeatureUnit2 {
+            unit_id: value[0],
+            source_id: value[1],
+            controls: value[2..6].try_into().unwrap(),
+            feature_index: value[7],
+        })
+    }
+}
+
+/// UAC3: 4.5.2.7 Feature Unit Descriptor; Table 4-31.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AudioFeatureUnit3 {
+    pub unit_id: u8,
+    pub source_id: u8,
+    pub controls: [u8; 4],
+    pub feature_descr_str: u16,
+}
+
+impl TryFrom<&[u8]> for AudioFeatureUnit3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Audio Feature Unit 3 descriptor too short",
+            ));
+        }
+
+        Ok(AudioFeatureUnit3 {
+            unit_id: value[0],
+            source_id: value[1],
+            controls: value[2..6].try_into().unwrap(),
+            feature_descr_str: u16::from_le_bytes([value[6], value[7]]),
         })
     }
 }
