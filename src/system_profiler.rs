@@ -280,11 +280,11 @@ impl USBBus {
             // no fallback for lsusb tree mode
             let (driver, vendor, product) = match &root_device.extra {
                 Some(v) => (
-                    v.driver.to_owned().unwrap_or(String::new()),
-                    v.vendor.to_owned().unwrap_or(String::new()),
-                    v.product_name.to_owned().unwrap_or(String::new()),
+                    v.driver.to_owned().unwrap_or(String::from("[none]")),
+                    v.vendor.to_owned().unwrap_or_default(),
+                    v.product_name.to_owned().unwrap_or_default(),
                 ),
-                None => (String::new(), String::new(), String::new()),
+                None => (String::from("[none]"), String::new(), String::new()),
             };
 
             Vec::from([(
@@ -311,7 +311,7 @@ impl USBBus {
             log::warn!("Failed to get root_device in bus");
             Vec::from([(
                 format!(
-                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=,",
+                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=[none],",
                     self.get_bus_number(),
                 ),
                 format!(
@@ -1047,11 +1047,11 @@ impl USBDevice {
         // no fallback for lsusb tree mode
         let (driver, vendor, product) = match &self.extra {
             Some(v) => (
-                v.driver.to_owned().unwrap_or(String::new()),
-                v.vendor.to_owned().unwrap_or(String::new()),
-                v.product_name.to_owned().unwrap_or(String::new()),
+                v.driver.to_owned().unwrap_or(String::from("[none]")),
+                v.vendor.to_owned().unwrap_or_default(),
+                v.product_name.to_owned().unwrap_or_default(),
             ),
-            None => (String::new(), String::new(), String::new()),
+            None => (String::from("[none]"), String::new(), String::new()),
         };
 
         if let Some(extra) = self.extra.as_ref() {
@@ -1064,7 +1064,7 @@ impl USBDevice {
                             self.location_id.number,
                             interface.number,
                             interface.class.to_lsusb_string(),
-                            interface.driver.as_ref().unwrap_or(&String::new()),
+                            interface.driver.as_ref().unwrap_or(&String::from("[none]")),
                             speed
                         ),
                         format!(
@@ -1093,7 +1093,7 @@ impl USBDevice {
                     0,
                     self.class
                         .as_ref()
-                        .map_or(String::new(), |c| c.to_lsusb_string()),
+                        .map_or(String::from("[unknown]"), |c| c.to_lsusb_string()),
                     driver,
                     speed
                 ),
