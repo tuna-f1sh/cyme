@@ -282,9 +282,15 @@ impl USBBus {
                 Some(v) => (
                     v.driver.to_owned().unwrap_or(String::from("[none]")),
                     v.vendor.to_owned().unwrap_or(String::from("[unknown]")),
-                    v.product_name.to_owned().unwrap_or(String::from("[unknown]")), 
+                    v.product_name
+                        .to_owned()
+                        .unwrap_or(String::from("[unknown]")),
                 ),
-                None => (String::from("[none]"), String::from("[unknown]"), String::from("[unknown]")),
+                None => (
+                    String::from("[none]"),
+                    String::from("[unknown]"),
+                    String::from("[unknown]"),
+                ),
             };
 
             Vec::from([(
@@ -1049,9 +1055,15 @@ impl USBDevice {
             Some(v) => (
                 v.driver.to_owned().unwrap_or(String::from("[none]")),
                 v.vendor.to_owned().unwrap_or(String::from("[unknown]")),
-                v.product_name.to_owned().unwrap_or(String::from("[unknown]")),
+                v.product_name
+                    .to_owned()
+                    .unwrap_or(String::from("[unknown]")),
             ),
-            None => (String::from("[none]"), String::from("[unknown]"), String::from("[unknown]")),
+            None => (
+                String::from("[none]"),
+                String::from("[unknown]"),
+                String::from("[unknown]"),
+            ),
         };
 
         if let Some(extra) = self.extra.as_ref() {
@@ -1102,7 +1114,9 @@ impl USBDevice {
                     self.vendor_id.unwrap_or(0xFFFF),
                     self.product_id.unwrap_or(0xFFFF),
                     // these are actually usb_ids vendor/product but don't have those without extra
-                    self.manufacturer.as_ref().unwrap_or(&String::from("[unknown]")),
+                    self.manufacturer
+                        .as_ref()
+                        .unwrap_or(&String::from("[unknown]")),
                     self.name,
                 ),
                 format!(
