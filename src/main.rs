@@ -352,7 +352,7 @@ fn print_lsusb(
         if !cfg!(feature = "udev") {
             log::warn!("Without udev, lsusb style tree content will not match lsusb: driver and syspath will be missing");
         }
-        lsusb::display::print_tree(sp_usb, settings)
+        lsusb::print_tree(sp_usb, settings)
     } else {
         // can't print verbose if not using libusb
         if !cfg!(feature = "libusb") && (settings.verbosity > 0 || device.is_some()) {
@@ -362,10 +362,10 @@ fn print_lsusb(
         let devices = sp_usb.flatten_devices();
         // even though we filtered using filter.show and using prepare, keep this here because it will match the exact Linux dev path and exit error if it doesn't match like lsusb
         if let Some(dev_path) = &device {
-            lsusb::display::dump_one_device(&devices, dev_path)?
+            lsusb::dump_one_device(&devices, dev_path)?
         } else {
             let sorted = settings.sort_devices.sort_devices_ref(&devices);
-            lsusb::display::print(&sorted, settings.verbosity > 0);
+            lsusb::print(&sorted, settings.verbosity > 0);
         }
     };
 
