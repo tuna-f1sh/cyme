@@ -448,12 +448,12 @@ pub mod display {
         println!(
             "  bDeviceClass         {:3} {}",
             device.base_class_code().unwrap_or(0),
-            class_name.unwrap_or_default()
+            class_name.unwrap_or(String::from("[unknown]"))
         );
         println!(
             "  bDeviceSubClass      {:3} {}",
             device.sub_class.unwrap_or(0),
-            sub_class_name.unwrap_or_default()
+            sub_class_name.unwrap_or(String::from("[unknown]"))
         );
         println!(
             "  bDeviceProtocol      {:3} {}",
@@ -464,12 +464,12 @@ pub mod display {
         println!(
             "  idVendor          0x{:04x} {}",
             device.vendor_id.unwrap_or(0),
-            device_extra.vendor.as_ref().unwrap_or(&String::new())
+            device_extra.vendor.as_ref().unwrap_or(&String::from("[unknown]"))
         );
         println!(
             "  idProduct         0x{:04x} {}",
             device.product_id.unwrap_or(0),
-            device_extra.product_name.as_ref().unwrap_or(&String::new())
+            device_extra.product_name.as_ref().unwrap_or(&String::from("[unknown]"))
         );
         println!(
             "  bcdDevice           {}",
@@ -481,7 +481,7 @@ pub mod display {
         println!(
             "  iManufacturer        {:3} {}",
             device_extra.string_indexes.0,
-            device.manufacturer.as_ref().unwrap_or(&String::new())
+            device.manufacturer.as_ref().unwrap_or(&String::from("[unknown]"))
         );
         println!(
             "  iProduct             {:3} {}",
@@ -575,12 +575,12 @@ pub mod display {
         println!(
             "      bInterfaceClass      {:3} {}",
             u8::from(interface.class.to_owned()),
-            interface_name.unwrap_or_default()
+            interface_name.unwrap_or(String::from("[unknown]"))
         );
         println!(
             "      bInterfaceSubClass   {:3} {}",
             interface.sub_class,
-            sub_class_name.unwrap_or_default()
+            sub_class_name.unwrap_or(String::from("[unknown]"))
         );
         println!(
             "      bInterfaceProtocol   {:3} {}",
