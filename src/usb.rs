@@ -13,12 +13,11 @@ use std::str::FromStr;
 
 #[cfg(feature = "libusb")]
 pub mod profiler;
-// re-export for ease of use, separate file because it was getting big
 pub mod descriptors;
-pub use descriptors::*;
 
 use crate::error::{self, Error, ErrorKind};
 use crate::types::NumericalUnit;
+use descriptors::*;
 
 /// The version value (for BCD and USB) is in binary coded decimal with a format of 0xJJMN where JJ is the major version number, M is the minor version number and N is the sub minor version number. e.g. USB 2.0 is reported as 0x0200, USB 1.1 as 0x0110 and USB 1.0 as 0x0100. The type is a mirror of the one from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
 ///
