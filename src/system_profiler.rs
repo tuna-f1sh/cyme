@@ -281,10 +281,10 @@ impl USBBus {
             let (driver, vendor, product) = match &root_device.extra {
                 Some(v) => (
                     v.driver.to_owned().unwrap_or(String::from("[none]")),
-                    v.vendor.to_owned().unwrap_or_default(),
-                    v.product_name.to_owned().unwrap_or_default(),
+                    v.vendor.to_owned().unwrap_or(String::from("[unknown]")),
+                    v.product_name.to_owned().unwrap_or(String::from("[unknown]")), 
                 ),
-                None => (String::from("[none]"), String::new(), String::new()),
+                None => (String::from("[none]"), String::from("[unknown]"), String::from("[unknown]")),
             };
 
             Vec::from([(
@@ -1048,10 +1048,10 @@ impl USBDevice {
         let (driver, vendor, product) = match &self.extra {
             Some(v) => (
                 v.driver.to_owned().unwrap_or(String::from("[none]")),
-                v.vendor.to_owned().unwrap_or_default(),
-                v.product_name.to_owned().unwrap_or_default(),
+                v.vendor.to_owned().unwrap_or(String::from("[unknown]")),
+                v.product_name.to_owned().unwrap_or(String::from("[unknown]")),
             ),
-            None => (String::from("[none]"), String::new(), String::new()),
+            None => (String::from("[none]"), String::from("[unknown]"), String::from("[unknown]")),
         };
 
         if let Some(extra) = self.extra.as_ref() {
@@ -1102,7 +1102,7 @@ impl USBDevice {
                     self.vendor_id.unwrap_or(0xFFFF),
                     self.product_id.unwrap_or(0xFFFF),
                     // these are actually usb_ids vendor/product but don't have those without extra
-                    self.manufacturer.as_ref().unwrap_or(&String::new()),
+                    self.manufacturer.as_ref().unwrap_or(&String::from("[unknown]")),
                     self.name,
                 ),
                 format!(

@@ -8,12 +8,12 @@
         |__ Port 1: Dev 23, If 1, Class=CDC Data, Driver=cdc_acm, 12M
         |__ Port 1: Dev 23, If 2, Class=Communications, Driver=cdc_acm, 12M
         |__ Port 1: Dev 23, If 3, Class=CDC Data, Driver=cdc_acm, 12M
-        |__ Port 1: Dev 23, If 4, Class=Vendor Specific Class, Driver=, 12M
+        |__ Port 1: Dev 23, If 4, Class=Vendor Specific Class, Driver=[none], 12M
         |__ Port 8: Dev 24, If 0, Class=Communications, Driver=cdc_acm, 12M
         |__ Port 8: Dev 24, If 1, Class=CDC Data, Driver=cdc_acm, 12M
         |__ Port 8: Dev 24, If 2, Class=Communications, Driver=cdc_acm, 12M
         |__ Port 8: Dev 24, If 3, Class=CDC Data, Driver=cdc_acm, 12M
-        |__ Port 8: Dev 24, If 4, Class=Application Specific Interface, Driver=, 12M
-        |__ Port 8: Dev 24, If 5, Class=Vendor Specific Class, Driver=, 12M
+        |__ Port 8: Dev 24, If 4, Class=Application Specific Interface, Driver=[none], 12M
+        |__ Port 8: Dev 24, If 5, Class=Vendor Specific Class, Driver=[none], 12M
 /:  Bus 03.Port 1: Dev 1, Class=root_hub, Driver=hub, 480M
 /:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=hub, 10000M
