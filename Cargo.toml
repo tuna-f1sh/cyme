@@ -5,7 +5,7 @@ description = "List system USB buses and devices; a modern cross-platform `lsusb
 repository = "https://github.com/tuna-f1sh/cyme"
 readme = "README.md"
 license = "GPL-3.0-or-later"
-version = "1.6.1"
+version = "1.7.0"
 edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
 categories = ["command-line-utilities"]
@@ -32,32 +32,34 @@ terminal_size = "0.2.5"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 
-[patch.crates-io]
-libudev-sys = { git = "https://github.com/Emilgardis/libudev-sys/", branch = "fix-cross-compilation" }
-
 [dev-dependencies]
 diff = "0.1"
 assert-json-diff = "2.0.2"
 
 [target.x86_64-unknown-linux-gnu.dependencies]
-udev = { version = "^0.8.0", optional = true }
+udevrs = { version = "^0.3.0", optional = true }
+udevlib = { package = "udev", version = "^0.8.0", optional = true }
 rusb = "0.9.4"
 
 [target.arm-unknown-linux-gnueabihf.dependencies]
-udev = { version = "^0.8.0", optional = true }
+udevrs = { version = "^0.3.0", optional = true }
+udevlib = { package = "udev", version = "^0.8.0", optional = true }
 rusb = "0.9.4"
 
 [target.aarch64-unknown-linux-gnu.dependencies]
-udev = { version = "^0.8.0", optional = true }
+udevrs = { version = "^0.3.0", optional = true }
+udevlib = { package = "udev", version = "^0.8.0", optional = true }
 rusb = "0.9.4"
 
 [features]
 libusb = ["dep:rusb"]
-udev = ["dep:udev"]
-udev_hwdb = ["udev/hwdb"]
+udev = ["libusb", "dep:udevrs"]
+udev_hwdb = ["libusb", "udevlib?/hwdb"]
+# libudev C binding
+udevlib = ["libusb", "dep:udevlib"]
 usb_test = []
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
-default = ["libusb"]
+default = ["libusb", "udev"]
 
 [[bin]]
 name = "cyme"

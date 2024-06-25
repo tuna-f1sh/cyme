@@ -47,6 +47,9 @@ pub mod system_profiler;
 pub mod types;
 #[cfg(all(target_os = "linux", feature = "udev"))]
 pub mod udev;
+#[cfg(all(all(target_os = "linux", feature = "udevlib"), not(feature = "udev")))]
+#[path = "udev_ffi.rs"]
+pub mod udev;
 pub mod usb;
 
 /// Set cyme module and binary log level

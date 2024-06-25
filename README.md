@@ -47,7 +47,6 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 ## Requirements
 
 * Linux/Windows and pre-compiled targets require [libusb 1.0.0](https://libusb.info): `brew install libusb`, `sudo apt install libusb-1.0-0-dev` or one's package manager of choice.
-* Linux pre-compiled and `--features udev`/`--features udev_hwdb` requires 'libudev-dev': `sudo apt install libudev-dev` or one's package manager of choice.
 
 For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases).
 
@@ -70,9 +69,12 @@ More package managers to come/package distribution, please feel free to create a
 
 ## Linux udev
 
-To obtain device and interface drivers being used on Linux like `lsusb`, one must install 'libudev-dev' via a package manager and the `--features udev` feature when building. To lookup USB IDs from the udev hwdb as well (like `lsusb`) use `--features udev_hwdb`. Without hwdb, `cyme` will use the 'usb-ids' crate, which is the same source as the hwdb binary data but the bundled hwdb may differ due to customisations or last update ('usb-ids' will be most up to date).
+> [!NOTE]
+> Only supported on Linux targets.
 
-Only supported on Linux targets.
+To obtain device and interface drivers being used on Linux like `lsusb`, one can use the `--features udev` feature when building - it's a default feature. The feature uses the Rust crate [udevrs](https://crates.io/crates/udevrs) to obtain the information. To use the C FFI libudev library, use `--no-default-features --features udevlib` which will use the 'libudev' crate. Note that this will require 'libudev-dev' to be installed on the host machine.
+
+To lookup USB IDs from the udev hwdb as well (like `lsusb`) use `--features udev_hwdb`. Without hwdb, `cyme` will use the 'usb-ids' crate, which is the same source as the hwdb binary data but the bundled hwdb may differ due to customisations or last update ('usb-ids' will be most up to date).
 
 ## Alias `lsusb`
 
