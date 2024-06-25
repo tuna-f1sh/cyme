@@ -1478,6 +1478,7 @@ pub struct AudioSelectorUnit1 {
     pub nr_in_pins: u8,
     pub source_ids: Vec<u8>,
     pub selector_index: u8,
+    pub selector: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioSelectorUnit1 {
@@ -1507,6 +1508,7 @@ impl TryFrom<&[u8]> for AudioSelectorUnit1 {
             nr_in_pins: value[1],
             source_ids,
             selector_index: value[expected_length - 1],
+            selector: None,
         })
     }
 }
@@ -1519,6 +1521,7 @@ pub struct AudioSelectorUnit2 {
     pub source_ids: Vec<u8>,
     pub controls: u8,
     pub selector_index: u8,
+    pub selector: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioSelectorUnit2 {
@@ -1549,6 +1552,7 @@ impl TryFrom<&[u8]> for AudioSelectorUnit2 {
             source_ids,
             controls: value[2 + nr_in_pins],
             selector_index: value[expected_length - 1],
+            selector: None,
         })
     }
 }
@@ -2171,6 +2175,7 @@ pub struct AudioEffectUnit2 {
     pub source_id: u8,
     pub controls: Vec<u32>,
     pub effect_index: u8,
+    pub effect: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioEffectUnit2 {
@@ -2195,6 +2200,7 @@ impl TryFrom<&[u8]> for AudioEffectUnit2 {
             source_id: value[3],
             controls,
             effect_index: value[value.len() - 1],
+            effect: None,
         })
     }
 }
@@ -2245,6 +2251,7 @@ pub struct AudioFeatureUnit1 {
     pub control_size: u8,
     pub controls: Vec<u8>,
     pub feature_index: u8,
+    pub feature: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioFeatureUnit1 {
@@ -2275,6 +2282,7 @@ impl TryFrom<&[u8]> for AudioFeatureUnit1 {
             control_size,
             controls,
             feature_index: value[expected_length - 1],
+            feature: None,
         })
     }
 }
@@ -2287,6 +2295,7 @@ pub struct AudioFeatureUnit2 {
     pub source_id: u8,
     pub controls: [u8; 4],
     pub feature_index: u8,
+    pub feature: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioFeatureUnit2 {
@@ -2305,6 +2314,7 @@ impl TryFrom<&[u8]> for AudioFeatureUnit2 {
             source_id: value[1],
             controls: value[2..6].try_into().unwrap(),
             feature_index: value[7],
+            feature: None,
         })
     }
 }
@@ -2353,6 +2363,7 @@ pub struct AudioExtensionUnit1 {
     pub control_size: u8,
     pub controls: Vec<u8>,
     pub extension_index: u8,
+    pub extension: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioExtensionUnit1 {
@@ -2390,6 +2401,7 @@ impl TryFrom<&[u8]> for AudioExtensionUnit1 {
             control_size,
             controls,
             extension_index: value[expected_length - 1],
+            extension: None,
         })
     }
 }
@@ -2407,6 +2419,7 @@ pub struct AudioExtensionUnit2 {
     pub channel_names_index: u8,
     pub controls: u8,
     pub extension_index: u8,
+    pub extension: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioExtensionUnit2 {
@@ -2446,6 +2459,7 @@ impl TryFrom<&[u8]> for AudioExtensionUnit2 {
             channel_names_index: value[9 + nr_in_pins],
             controls: value[10 + nr_in_pins],
             extension_index: value[11 + nr_in_pins],
+            extension: None,
         })
     }
 }
@@ -2511,6 +2525,7 @@ pub struct AudioClockSource2 {
     pub controls: u8,
     pub assoc_terminal: u8,
     pub clock_source_index: u8,
+    pub clock_source: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioClockSource2 {
@@ -2530,6 +2545,7 @@ impl TryFrom<&[u8]> for AudioClockSource2 {
             controls: value[2],
             assoc_terminal: value[3],
             clock_source_index: value[4],
+            clock_source: None,
         })
     }
 }
@@ -2575,6 +2591,7 @@ pub struct AudioClockSelector2 {
     pub csource_ids: Vec<u8>,
     pub controls: u8,
     pub clock_selector_index: u8,
+    pub clock_selector: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioClockSelector2 {
@@ -2605,6 +2622,7 @@ impl TryFrom<&[u8]> for AudioClockSelector2 {
             csource_ids,
             controls: value[2 + nr_in_pins],
             clock_selector_index: value[expected_length - 1],
+            clock_selector: None,
         })
     }
 }
@@ -2669,6 +2687,7 @@ pub struct AudioClockMultiplier2 {
     pub csource_id: u8,
     pub controls: u8,
     pub clock_multiplier_index: u8,
+    pub clock_multiplier: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioClockMultiplier2 {
@@ -2687,6 +2706,7 @@ impl TryFrom<&[u8]> for AudioClockMultiplier2 {
             csource_id: value[1],
             controls: value[2],
             clock_multiplier_index: value[3],
+            clock_multiplier: None,
         })
     }
 }
@@ -2730,6 +2750,7 @@ pub struct AudioSampleRateConverter2 {
     pub csource_in_id: u8,
     pub csource_out_id: u8,
     pub src_index: u8,
+    pub src: Option<String>,
 }
 
 impl TryFrom<&[u8]> for AudioSampleRateConverter2 {
@@ -2749,6 +2770,7 @@ impl TryFrom<&[u8]> for AudioSampleRateConverter2 {
             csource_in_id: value[2],
             csource_out_id: value[3],
             src_index: value[4],
+            src: None,
         })
     }
 }
