@@ -6,9 +6,9 @@ use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
 use crate::system_profiler;
 
-use crate::usb::*;
-use crate::usb::descriptors::*;
 use crate::usb::descriptors::audio::*;
+use crate::usb::descriptors::*;
+use crate::usb::*;
 
 pub mod names;
 
@@ -386,16 +386,10 @@ fn print_config(config: &USBConfiguration) {
     if config.attributes.is_empty() {
         println!("      (Bus Powered)");
     } else {
-        if config
-            .attributes
-            .contains(&ConfigAttributes::SelfPowered)
-        {
+        if config.attributes.contains(&ConfigAttributes::SelfPowered) {
             println!("      Self Powered");
         }
-        if config
-            .attributes
-            .contains(&ConfigAttributes::RemoteWakeup)
-        {
+        if config.attributes.contains(&ConfigAttributes::RemoteWakeup) {
             println!("      Remote Wakeup");
         }
     }
@@ -472,17 +466,30 @@ fn print_interface(interface: &USBInterface) {
                     ClassDescriptor::Printer(pd) => dump_printer_desc(pd),
                     ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, 6),
                     ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md),
+                    ClassDescriptor::Audio(uacd, uacp) => match &uacd.subtype {
+                        UacSubtype::Control(cs) => dump_audiocontrol_interface(uacd, cs, uacp),
+                        UacSubtype::Streaming(ss) => dump_audiostreaming_interface(uacd, ss, uacp),
+                        _ => (),
+                    },
                     ClassDescriptor::Video(vcd, p) => dump_videocontrol_interface(vcd, *p),
                     ClassDescriptor::Generic(cc, gd) => match cc {
-                        Some((ClassCode::Audio, 1, p)) => {
-                            dump_audiocontrol_interface(gd, *p);
-                        }
-                        Some((ClassCode::Audio, 2, p)) => {
-                            dump_audiostreaming_interface(gd, *p);
-                        }
                         Some((ClassCode::Audio, 3, _)) => {
                             if let Ok(md) = MidiDescriptor::try_from(gd.to_owned()) {
                                 dump_midistreaming_interface(&md);
+                            }
+                        }
+                        Some((ClassCode::Audio, s, p)) => {
+                            if let Ok(uacd) = UacDescriptor::try_from((gd.to_owned(), *s, *p)) {
+                                let uacp = UacProtocol::from(*p);
+                                match &uacd.subtype {
+                                    UacSubtype::Control(cs) => {
+                                        dump_audiocontrol_interface(&uacd, cs, &uacp)
+                                    }
+                                    UacSubtype::Streaming(ss) => {
+                                        dump_audiostreaming_interface(&uacd, ss, &uacp)
+                                    }
+                                    _ => (),
+                                }
                             }
                         }
                         Some((ClassCode::Video, 1, p)) => {
@@ -1072,12 +1079,7 @@ fn dump_bmcontrols_array<T: Into<u32> + std::fmt::Display + Copy>(
     for (i, control) in controls.iter().enumerate() {
         let control = control.to_owned();
         let control: u32 = control.into();
-        dump_value(
-            control,
-            &format!("{}({:2})", field_name, i),
-            indent,
-            width,
-        );
+        dump_value(control, &format!("{}({:2})", field_name, i), indent, width);
         dump_bmcontrols(control, control_descriptions, desc_type, indent + 2);
     }
 }
@@ -1087,12 +1089,7 @@ fn dump_audio_mixer_unit1(mixer_unit: &AudioMixerUnit1, indent: usize, width: us
     dump_value(mixer_unit.nr_in_pins, "bNrInPins", indent, width);
     dump_array(&mixer_unit.source_ids, "baSourceID", indent, width);
     dump_value(mixer_unit.nr_channels, "bNrChannels", indent, width);
-    dump_hex(
-        mixer_unit.channel_config,
-        "wChannelConfig",
-        indent,
-        width,
-    );
+    dump_hex(mixer_unit.channel_config, "wChannelConfig", indent, width);
     let channel_names = UacInterfaceDescriptor::get_channel_names(
         &UacProtocol::Uac1,
         mixer_unit.channel_config as u32,
@@ -1110,26 +1107,14 @@ fn dump_audio_mixer_unit2(mixer_unit: &AudioMixerUnit2, indent: usize, width: us
     dump_value(mixer_unit.nr_in_pins, "bNrInPins", indent, width);
     dump_array(&mixer_unit.source_ids, "baSourceID", indent, width);
     dump_value(mixer_unit.nr_channels, "bNrChannels", indent, width);
-    dump_hex(
-        mixer_unit.channel_config,
-        "bmChannelConfig",
-        indent,
-        width,
-    );
-    let channel_names = UacInterfaceDescriptor::get_channel_names(
-        &UacProtocol::Uac2,
-        mixer_unit.channel_config,
-    );
+    dump_hex(mixer_unit.channel_config, "bmChannelConfig", indent, width);
+    let channel_names =
+        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac2, mixer_unit.channel_config);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
     dump_value(mixer_unit.channel_names, "iChannelNames", indent, width);
-    dump_bitmap_array(
-        &mixer_unit.mixer_controls,
-        "bmMixerControls",
-        indent,
-        width,
-    );
+    dump_bitmap_array(&mixer_unit.mixer_controls, "bmMixerControls", indent, width);
     dump_hex(mixer_unit.controls, "bmControls", indent, width);
     dump_bmcontrols(
         mixer_unit.controls as u32,
@@ -1150,12 +1135,7 @@ fn dump_audio_mixer_unit3(mixer_unit: &AudioMixerUnit3, indent: usize, width: us
         indent,
         width,
     );
-    dump_bitmap_array(
-        &mixer_unit.mixer_controls,
-        "bmMixerControls",
-        indent,
-        width,
-    );
+    dump_bitmap_array(&mixer_unit.mixer_controls, "bmMixerControls", indent, width);
     dump_hex(mixer_unit.controls, "bmControls", indent, width);
     dump_bmcontrols(
         mixer_unit.controls,
@@ -1163,12 +1143,7 @@ fn dump_audio_mixer_unit3(mixer_unit: &AudioMixerUnit3, indent: usize, width: us
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(
-        mixer_unit.mixer_descr_str,
-        "wMixerDescrStr",
-        indent,
-        width,
-    );
+    dump_value(mixer_unit.mixer_descr_str, "wMixerDescrStr", indent, width);
 }
 
 fn dump_audio_power_domain(power_domain: &AudioPowerDomain, indent: usize, width: usize) {
@@ -1204,7 +1179,13 @@ fn dump_audio_selector_unit1(selector_unit: &AudioSelectorUnit1, indent: usize, 
     dump_value(selector_unit.unit_id, "bUnitID", indent, width);
     dump_value(selector_unit.nr_in_pins, "bNrInPins", indent, width);
     dump_array(&selector_unit.source_ids, "baSourceID", indent, width);
-    dump_value(selector_unit.selector_index, "iSelector", indent, width);
+    dump_number_string(
+        selector_unit.selector_index,
+        "iSelector",
+        selector_unit.selector.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_selector_unit2(selector_unit: &AudioSelectorUnit2, indent: usize, width: usize) {
@@ -1218,7 +1199,13 @@ fn dump_audio_selector_unit2(selector_unit: &AudioSelectorUnit2, indent: usize, 
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(selector_unit.selector_index, "iSelector", indent, width);
+    dump_number_string(
+        selector_unit.selector_index,
+        "iSelector",
+        selector_unit.selector.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_selector_unit3(selector_unit: &AudioSelectorUnit3, indent: usize, width: usize) {
@@ -1254,17 +1241,27 @@ fn dump_audio_processing_unit1(unit: &AudioProcessingUnit1, indent: usize, width
     dump_array(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "wChannelConfig", indent, width);
-    let channel_names = UacInterfaceDescriptor::get_channel_names(
-        &UacProtocol::Uac1,
-        unit.channel_config as u32,
-    );
+    let channel_names =
+        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac1, unit.channel_config as u32);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_value(unit.channel_names_index, "iChannelNames", indent, width);
+    dump_number_string(
+        unit.channel_names_index,
+        "iChannelNames",
+        unit.channel_names.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
     dump_value(unit.control_size, "bControlSize", indent, width);
     dump_bitmap_array(&unit.controls, "bmControls", indent, width);
-    dump_value(unit.processing_index, "iProcessing", indent, width);
+    dump_number_string(
+        unit.processing_index,
+        "iProcessing",
+        unit.processing.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
     if let Some(ref specific) = unit.specific {
         dump_value(specific.nr_modes, "bNrModes", indent, width);
         dump_bitmap_array(&specific.modes, "waModes", indent, width);
@@ -1285,16 +1282,26 @@ fn dump_audio_processing_unit2(unit: &AudioProcessingUnit2, indent: usize, width
     dump_array(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "bmChannelConfig", indent, width);
-    let channel_names = UacInterfaceDescriptor::get_channel_names(
-        &UacProtocol::Uac2,
-        unit.channel_config,
-    );
+    let channel_names =
+        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac2, unit.channel_config);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_value(unit.channel_names_index, "iChannelNames", indent, width);
+    dump_number_string(
+        unit.channel_names_index,
+        "iChannelNames",
+        unit.channel_names.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
     dump_value(unit.controls, "bmControls", indent, width);
-    dump_value(unit.processing_index, "iProcessing", indent, width);
+    dump_number_string(
+        unit.processing_index,
+        "iProcessing",
+        unit.processing.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
     if let Some(ref specific) = unit.specific {
         match specific {
             AudioProcessingUnit2Specific::UpDownMix(up_down_mix) => {
@@ -1386,6 +1393,13 @@ fn dump_audio_effect_unit2(unit: &AudioEffectUnit2, indent: usize, width: usize)
     dump_value(unit.source_id, "bSourceID", indent, width);
     dump_bitmap_array(&unit.controls, "bmaControls", indent, width);
     dump_value(unit.effect_index, "iEffects", indent, width);
+    dump_number_string(
+        unit.effect_index,
+        "iEffects",
+        unit.effect.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 /// Dumps the contents of a UAC3 Effect Unit Descriptor
@@ -1410,7 +1424,13 @@ fn dump_audio_feature_unit1(unit: &AudioFeatureUnit1, indent: usize, width: usiz
         indent,
         width,
     );
-    dump_value(unit.feature_index, "iFeature", indent, width);
+    dump_number_string(
+        unit.feature_index,
+        "iFeature",
+        unit.feature.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 /// Dumps the contents of a UAC2 Feature Unit Descriptor
@@ -1425,7 +1445,13 @@ fn dump_audio_feature_unit2(unit: &AudioFeatureUnit2, indent: usize, width: usiz
         indent,
         width,
     );
-    dump_value(unit.feature_index, "iFeature", indent, width);
+    dump_number_string(
+        unit.feature_index,
+        "iFeature",
+        unit.feature.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 /// Dumps the contents of a UAC3 Feature Unit Descriptor
@@ -1440,12 +1466,7 @@ fn dump_audio_feature_unit3(unit: &AudioFeatureUnit3, indent: usize, width: usiz
         indent,
         width,
     );
-    dump_value(
-        unit.feature_descr_str,
-        "wFeatureDescrStr",
-        indent,
-        width,
-    );
+    dump_value(unit.feature_descr_str, "wFeatureDescrStr", indent, width);
 }
 
 /// Dumps the contents of a UAC1 Extension Unit Descriptor
@@ -1456,17 +1477,28 @@ fn dump_audio_extension_unit1(unit: &AudioExtensionUnit1, indent: usize, width: 
     dump_array(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "wChannelConfig", indent, width);
-    let channel_names = UacInterfaceDescriptor::get_channel_names(
-        &UacProtocol::Uac1,
-        unit.channel_config as u32,
-    );
+    let channel_names =
+        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac1, unit.channel_config as u32);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
     dump_value(unit.channel_names_index, "iChannelNames", indent, width);
+    dump_number_string(
+        unit.channel_names_index,
+        "iChannelNames",
+        unit.channel_names.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
     dump_value(unit.control_size, "bControlSize", indent, width);
     dump_bitmap_array(&unit.controls, "bmControls", indent, width);
-    dump_value(unit.extension_index, "iExtension", indent, width);
+    dump_number_string(
+        unit.extension_index,
+        "iExtension",
+        unit.extension.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 /// Dumps the contents of a UAC2 Extension Unit Descriptor
@@ -1477,14 +1509,18 @@ fn dump_audio_extension_unit2(unit: &AudioExtensionUnit2, indent: usize, width: 
     dump_array(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "bmChannelConfig", indent, width);
-    let channel_names = UacInterfaceDescriptor::get_channel_names(
-        &UacProtocol::Uac2,
-        unit.channel_config,
-    );
+    let channel_names =
+        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac2, unit.channel_config);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_value(unit.channel_names_index, "iChannelNames", indent, width);
+    dump_number_string(
+        unit.channel_names_index,
+        "iChannelNames",
+        unit.channel_names.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
     dump_hex(unit.controls, "bmControls", indent, width);
     dump_bmcontrols(
         unit.controls,
@@ -1492,7 +1528,13 @@ fn dump_audio_extension_unit2(unit: &AudioExtensionUnit2, indent: usize, width: 
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(unit.extension_index, "iExtension", indent, width);
+    dump_number_string(
+        unit.extension_index,
+        "iExtension",
+        unit.extension.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 /// Dumps the contents of a UAC3 Extension Unit Descriptor
@@ -1540,7 +1582,13 @@ fn dump_audio_clock_source2(source: &AudioClockSource2, indent: usize, width: us
         indent + 2,
     );
     dump_value(source.assoc_terminal, "bAssocTerminal", indent, width);
-    dump_value(source.clock_source_index, "iClockSource", indent, width);
+    dump_number_string(
+        source.clock_source_index,
+        "iClockSource",
+        source.clock_source.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 /// Dumps the contents of a UAC3 Clock Source Descriptor
@@ -1571,12 +1619,7 @@ fn dump_audio_clock_source3(source: &AudioClockSource3, indent: usize, width: us
         indent,
         width,
     );
-    dump_value(
-        source.clock_source_str,
-        "wClockSourceStr",
-        indent,
-        width,
-    );
+    dump_value(source.clock_source_str, "wClockSourceStr", indent, width);
 }
 
 /// Dumps the contents of a UAC2 Clock Selector Descriptor
@@ -1591,9 +1634,10 @@ fn dump_audio_clock_selector2(selector: &AudioClockSelector2, indent: usize, wid
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(
+    dump_number_string(
         selector.clock_selector_index,
         "iClockSelector",
+        selector.clock_selector.as_ref().unwrap_or(&"".into()),
         indent,
         width,
     );
@@ -1620,11 +1664,7 @@ fn dump_audio_clock_selector3(selector: &AudioClockSelector3, indent: usize, wid
 }
 
 /// Dumps the contents of a UAC2 Clock Multiplier Descriptor
-fn dump_audio_clock_multiplier2(
-    multiplier: &AudioClockMultiplier2,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_clock_multiplier2(multiplier: &AudioClockMultiplier2, indent: usize, width: usize) {
     dump_value(multiplier.clock_id, "bClockID", indent, width);
     dump_value(multiplier.csource_id, "bCSourceID", indent, width);
     dump_hex(multiplier.controls, "bmControls", indent, width);
@@ -1634,20 +1674,17 @@ fn dump_audio_clock_multiplier2(
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(
+    dump_number_string(
         multiplier.clock_multiplier_index,
         "iClockMultiplier",
+        multiplier.clock_multiplier.as_ref().unwrap_or(&"".into()),
         indent,
         width,
     );
 }
 
 /// Dumps the contents of a UAC3 Clock Multiplier Descriptor
-fn dump_audio_clock_multiplier3(
-    multiplier: &AudioClockMultiplier3,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_clock_multiplier3(multiplier: &AudioClockMultiplier3, indent: usize, width: usize) {
     dump_value(multiplier.clock_id, "bClockID", indent, width);
     dump_value(multiplier.csource_id, "bCSourceID", indent, width);
     dump_hex(multiplier.controls, "bmControls", indent, width);
@@ -1674,7 +1711,13 @@ fn dump_audio_sample_rate_converter2(
     dump_value(converter.source_id, "bSourceID", indent, width);
     dump_value(converter.csource_in_id, "bCSourceInID", indent, width);
     dump_value(converter.csource_out_id, "bCSourceOutID", indent, width);
-    dump_value(converter.src_index, "iSRC", indent, width);
+    dump_number_string(
+        converter.src_index,
+        "iSRC",
+        converter.src.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_sample_rate_converter3(
@@ -1737,7 +1780,20 @@ fn dump_audio_input_terminal1(ait: &AudioInputTerminal1, indent: usize, width: u
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_value(ait.channel_names_index, "iChannelNames", indent, width);
+    dump_number_string(
+        ait.channel_names_index,
+        "iChannelNames",
+        ait.channel_names.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
+    dump_number_string(
+        ait.terminal_index,
+        "iTerminal",
+        ait.terminal.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_input_terminal2(ait: &AudioInputTerminal2, indent: usize, width: usize) {
@@ -1757,7 +1813,13 @@ fn dump_audio_input_terminal2(ait: &AudioInputTerminal2, indent: usize, width: u
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_value(ait.channel_names_index, "iChannelNames", indent, width);
+    dump_number_string(
+        ait.channel_names_index,
+        "iChannelNames",
+        ait.channel_names.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
     dump_hex(ait.controls, "bmControls", indent, width);
     dump_bmcontrols(
         ait.controls,
@@ -1766,6 +1828,13 @@ fn dump_audio_input_terminal2(ait: &AudioInputTerminal2, indent: usize, width: u
         indent + 2,
     );
     dump_value(ait.terminal_index, "iTerminal", indent, width);
+    dump_number_string(
+        ait.terminal_index,
+        "iTerminal",
+        ait.terminal.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_input_terminal3(ait: &AudioInputTerminal3, indent: usize, width: usize) {
@@ -1808,7 +1877,13 @@ fn dump_audio_output_terminal1(a: &AudioOutputTerminal1, indent: usize, width: u
     );
     dump_value(a.assoc_terminal, "bAssocTerminal", indent, width);
     dump_value(a.source_id, "bSourceID", indent, width);
-    dump_value(a.terminal_index, "iTerminal", indent, width);
+    dump_number_string(
+        a.terminal_index,
+        "iTerminal",
+        a.terminal.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_output_terminal2(a: &AudioOutputTerminal2, indent: usize, width: usize) {
@@ -1829,7 +1904,13 @@ fn dump_audio_output_terminal2(a: &AudioOutputTerminal2, indent: usize, width: u
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(a.terminal_index, "iTerminal", indent, width);
+    dump_number_string(
+        a.terminal_index,
+        "iTerminal",
+        a.terminal.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_output_terminal3(a: &AudioOutputTerminal3, indent: usize, width: usize) {
@@ -1883,7 +1964,13 @@ fn dump_audio_streaming_interface2(asi: &AudioStreamingInterface2, indent: usize
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_value(asi.channel_names_index, "iChannelNames", indent, width);
+    dump_number_string(
+        asi.channel_names_index,
+        "iChannelNames",
+        asi.channel_names.as_ref().unwrap_or(&"".into()),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_streaming_interface3(asi: &AudioStreamingInterface3, indent: usize, width: usize) {
@@ -1903,7 +1990,11 @@ fn dump_audio_streaming_interface3(asi: &AudioStreamingInterface3, indent: usize
     dump_value(asi.control_size, "bControlSize", indent, width);
 }
 
-fn dump_audio_data_streaming_endpoint1(ads: &AudioDataStreamingEndpoint1, indent: usize, width: usize) {
+fn dump_audio_data_streaming_endpoint1(
+    ads: &AudioDataStreamingEndpoint1,
+    indent: usize,
+    width: usize,
+) {
     let uac1_attrs = |a: usize| match a {
         0x00 => Some("Sampling Frequency"),
         0x01 => Some("Pitch"),
@@ -1917,7 +2008,11 @@ fn dump_audio_data_streaming_endpoint1(ads: &AudioDataStreamingEndpoint1, indent
     dump_value(ads.lock_delay, "wLockDelay", indent, width);
 }
 
-fn dump_audio_data_streaming_endpoint2(ads: &AudioDataStreamingEndpoint2, indent: usize, width: usize) {
+fn dump_audio_data_streaming_endpoint2(
+    ads: &AudioDataStreamingEndpoint2,
+    indent: usize,
+    width: usize,
+) {
     let uac2_attrs = |attr: usize| match attr {
         0x07 => Some("MaxPacketsOnly"),
         _ => None,
@@ -1935,7 +2030,11 @@ fn dump_audio_data_streaming_endpoint2(ads: &AudioDataStreamingEndpoint2, indent
     dump_value(ads.lock_delay, "wLockDelay", indent, width);
 }
 
-fn dump_audio_data_streaming_endpoint3(ads: &AudioDataStreamingEndpoint3, indent: usize, width: usize) {
+fn dump_audio_data_streaming_endpoint3(
+    ads: &AudioDataStreamingEndpoint3,
+    indent: usize,
+    width: usize,
+) {
     dump_hex(ads.controls, "bmControls", indent, width);
     dump_bmcontrols(
         ads.controls,
@@ -2090,130 +2189,136 @@ fn dump_audio_subtype(uacid: &UacInterfaceDescriptor, indent: usize) {
     }
 }
 
-fn dump_audiocontrol_interface(gd: &GenericDescriptor, protocol: u8) {
-    let subtype = UacAcInterface::get_uac_subtype(gd.descriptor_subtype, protocol);
+fn dump_audiocontrol_interface(
+    uacd: &UacDescriptor,
+    uaci: &UacAcInterface,
+    protocol: &UacProtocol,
+) {
     println!("      AudioControl Interface Descriptor:");
-    println!("        bLength              {:3}", gd.length);
-    println!("        bDescriptorType      {:3}", gd.descriptor_type);
+    println!("        bLength              {:3}", uacd.length);
+    println!("        bDescriptorType      {:3}", uacd.descriptor_type);
     println!(
         "        bDescriptorSubType   {:3} ({:#})",
-        gd.descriptor_subtype, subtype
+        uaci.to_owned() as u8,
+        uaci
     );
 
-    if let Some(data) = gd.data.as_ref() {
-        let uacp = UacProtocol::from(protocol);
-        match subtype.get_descriptor(&uacp, data) {
-            Ok(uacid) => {
-                dump_audio_subtype(&uacid, 8);
-            }
-            Err(_) => {
-                println!(
-                    "{:indent$}Warning: {:#} descriptors are illegal for {}",
-                    "",
-                    subtype,
-                    uacp,
-                    indent = 6
-                );
-            }
+    match &uacd.interface {
+        UacInterfaceDescriptor::Invalid(_) => {
+            println!(
+                "{:indent$}Warning: {:#} descriptors are illegal for {}",
+                "",
+                uacd.subtype,
+                u8::from(protocol.to_owned()),
+                indent = 6
+            );
         }
+        uacid => dump_audio_subtype(uacid, 8),
     }
 }
 
-fn dump_audiostreaming_interface(gd: &GenericDescriptor, protocol: u8) {
-    let subtype = UacAsInterface::from(gd.descriptor_subtype);
+fn dump_audiostreaming_interface(
+    uacd: &UacDescriptor,
+    uasi: &UacAsInterface,
+    protocol: &UacProtocol,
+) {
     println!("      AudioStreaming Interface Descriptor:");
-    println!("        bLength              {:3}", gd.length);
-    println!("        bDescriptorType      {:3}", gd.descriptor_type);
-    print!("        bDescriptorSubType   {:3} ", gd.descriptor_subtype);
+    println!("        bLength              {:3}", uacd.length);
+    println!("        bDescriptorType      {:3}", uacd.descriptor_type);
+    print!("        bDescriptorSubType   {:3} ", uasi.to_owned() as u8);
 
-    if let Some(data) = gd.data.as_ref() {
-        let uacp = UacProtocol::from(protocol);
-        match subtype {
-            UacAsInterface::General | UacAsInterface::Undefined => {
-                println!("({:#})", subtype);
-                match subtype.get_descriptor(&uacp, data) {
-                    Ok(uacid) => {
-                        dump_audio_subtype(&uacid, 8);
-                    }
-                    Err(_) => {
-                        println!(
-                            "{:indent$}Warning: {:#} descriptors are illegal for {}",
-                            "",
-                            subtype,
-                            uacp,
-                            indent = 6
-                        );
-                    }
+    match uasi {
+        UacAsInterface::General | UacAsInterface::Undefined => {
+            println!("({:#})", uacd.subtype);
+            match &uacd.interface {
+                UacInterfaceDescriptor::Invalid(_) => {
+                    println!(
+                        "{:indent$}Warning: {:#} descriptors are illegal for {}",
+                        "",
+                        uacd.subtype,
+                        u8::from(protocol.to_owned()),
+                        indent = 6
+                    );
                 }
+                uacid => dump_audio_subtype(uacid, 8),
             }
-            UacAsInterface::FormatType => {
-                println!("(FORMAT_TYPE)");
-                match uacp {
-                    UacProtocol::Uac1 => {
-                        if data.len() < 5 {
-                            println!("      Warning: Descriptor too short");
-                            return;
-                        }
-                        print!("        bFormatType        {:5} ", data[0]);
-                        match data[0] {
-                            0x01 => dump_format_type_i(data),
-                            0x02 => dump_format_type_ii(data),
-                            0x03 => dump_format_type_iii(data),
-                            _ => println!(
-                                "(invalid)\n        Invalid desc format type: {}",
-                                data[1..]
-                                    .iter()
-                                    .map(|b| format!("{:02x}", b))
-                                    .collect::<Vec<String>>()
-                                    .join("")
-                            ),
-                        }
+        }
+        UacAsInterface::FormatType => {
+            println!("(FORMAT_TYPE)");
+            let data: Vec<u8> = uacd.interface.to_owned().into();
+            match protocol {
+                UacProtocol::Uac1 => {
+                    if data.len() < 5 {
+                        println!("      Warning: Descriptor too short");
+                        return;
                     }
-                    UacProtocol::Uac2 => {
-                        if data.is_empty() {
-                            println!("      Warning: Descriptor too short");
-                            return;
-                        }
-                        print!("        bFormatType        {:5} ", data[0]);
-                        match data[0] {
-                            0x01 => dump_format_type_i_uac2(data),
-                            0x02 => dump_format_type_ii_uac2(data),
-                            0x03 => dump_format_type_iii_uac2(data),
-                            0x04 => dump_format_type_iv_uac2(data),
-                            _ => println!(
-                                "(invalid)\n        Invalid desc format type: {}",
-                                data[1..]
-                                    .iter()
-                                    .map(|b| format!("{:02x}", b))
-                                    .collect::<Vec<String>>()
-                                    .join("")
-                            ),
-                        }
+                    print!("        bFormatType        {:5} ", data[0]);
+                    match data[0] {
+                        0x01 => dump_format_type_i(&data),
+                        0x02 => dump_format_type_ii(&data),
+                        0x03 => dump_format_type_iii(&data),
+                        _ => println!(
+                            "(invalid)\n        Invalid desc format type: {}",
+                            data[1..]
+                                .iter()
+                                .map(|b| format!("{:02x}", b))
+                                .collect::<Vec<String>>()
+                                .join("")
+                        ),
                     }
-                    _ => println!("Unknown protocol"),
                 }
+                UacProtocol::Uac2 => {
+                    if data.is_empty() {
+                        println!("      Warning: Descriptor too short");
+                        return;
+                    }
+                    print!("        bFormatType        {:5} ", data[0]);
+                    match data[0] {
+                        0x01 => dump_format_type_i_uac2(&data),
+                        0x02 => dump_format_type_ii_uac2(&data),
+                        0x03 => dump_format_type_iii_uac2(&data),
+                        0x04 => dump_format_type_iv_uac2(&data),
+                        _ => println!(
+                            "(invalid)\n        Invalid desc format type: {}",
+                            data[1..]
+                                .iter()
+                                .map(|b| format!("{:02x}", b))
+                                .collect::<Vec<String>>()
+                                .join("")
+                        ),
+                    }
+                }
+                _ => println!(
+                    "(unknown)\n        Invalid desc format type: {}",
+                    data[1..]
+                        .iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect::<Vec<String>>()
+                        .join("")
+                ),
             }
-            UacAsInterface::FormatSpecific => {
-                println!("(FORMAT_SPECIFIC)");
-                if data.len() < 2 {
-                    println!("      Warning: Descriptor too short");
-                    return;
-                }
-                let fmttag = u16::from_le_bytes([data[0], data[1]]);
-                let fmtptr = get_format_specific_string(fmttag);
-                println!("        wFormatTag          {:5} {}", fmttag, fmtptr);
-                match fmttag {
-                    0x1001 => dump_format_specific_mpeg(data),
-                    0x1002 => dump_format_specific_ac3(data),
-                    _ => println!(
-                        "        Invalid desc format type: {}",
-                        data[2..]
-                            .iter()
-                            .map(|b| format!("{:02x}", b))
-                            .collect::<Vec<String>>()
-                            .join("")
-                    ),
-                }
+        }
+        UacAsInterface::FormatSpecific => {
+            let data: Vec<u8> = uacd.interface.to_owned().into();
+            println!("(FORMAT_SPECIFIC)");
+            if data.len() < 2 {
+                println!("      Warning: Descriptor too short");
+                return;
+            }
+            let fmttag = u16::from_le_bytes([data[0], data[1]]);
+            let fmtptr = get_format_specific_string(fmttag);
+            println!("        wFormatTag          {:5} {}", fmttag, fmtptr);
+            match fmttag {
+                0x1001 => dump_format_specific_mpeg(&data),
+                0x1002 => dump_format_specific_ac3(&data),
+                _ => println!(
+                    "        Invalid desc format type: {}",
+                    data[2..]
+                        .iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect::<Vec<String>>()
+                        .join("")
+                ),
             }
         }
     }
