@@ -11,9 +11,9 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
+pub mod descriptors;
 #[cfg(feature = "libusb")]
 pub mod profiler;
-pub mod descriptors;
 
 use crate::error::{self, Error, ErrorKind};
 use crate::types::NumericalUnit;

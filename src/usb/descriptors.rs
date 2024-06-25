@@ -2,8 +2,8 @@
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
-use crate::error::{self, Error, ErrorKind};
 use super::*;
+use crate::error::{self, Error, ErrorKind};
 
 pub mod audio;
 
@@ -379,7 +379,8 @@ impl ClassDescriptor {
                 }
                 // MIDI - TODO include in UAC
                 (ClassCode::Audio, 3, p) => {
-                    *self = ClassDescriptor::Midi(audio::MidiDescriptor::try_from(gd.to_owned())?, p)
+                    *self =
+                        ClassDescriptor::Midi(audio::MidiDescriptor::try_from(gd.to_owned())?, p)
                 }
                 // UAC
                 (ClassCode::Audio, s, p) => {

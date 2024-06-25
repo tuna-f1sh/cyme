@@ -295,71 +295,93 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                     md.string = get_descriptor_string(string_index, handle);
                 }
             }
-            usb::ClassDescriptor::Audio(ref mut ad, _) => {
-                match ad.interface {
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioInputTerminal1(ref mut ah) => {
-                        ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
-                        ah.terminal = get_descriptor_string(ah.terminal_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioInputTerminal2(ref mut ah) => {
-                        ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
-                        ah.terminal = get_descriptor_string(ah.terminal_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioOutputTerminal1(ref mut ah) => {
-                        ah.terminal = get_descriptor_string(ah.terminal_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioOutputTerminal2(ref mut ah) => {
-                        ah.terminal = get_descriptor_string(ah.terminal_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioStreamingInterface2(ref mut ah) => {
-                        ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioSelectorUnit1(ref mut ah) => {
-                        ah.selector = get_descriptor_string(ah.selector_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioSelectorUnit2(ref mut ah) => {
-                        ah.selector = get_descriptor_string(ah.selector_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioProcessingUnit1(ref mut ah) => {
-                        ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
-                        ah.processing = get_descriptor_string(ah.processing_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioProcessingUnit2(ref mut ah) => {
-                        ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
-                        ah.processing = get_descriptor_string(ah.processing_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioEffectUnit2(ref mut ah) => {
-                        ah.effect = get_descriptor_string(ah.effect_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioFeatureUnit1(ref mut ah) => {
-                        ah.feature = get_descriptor_string(ah.feature_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioFeatureUnit2(ref mut ah) => {
-                        ah.feature = get_descriptor_string(ah.feature_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioExtensionUnit1(ref mut ah) => {
-                        ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
-                        ah.extension = get_descriptor_string(ah.extension_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioExtensionUnit2(ref mut ah) => {
-                        ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
-                        ah.extension = get_descriptor_string(ah.extension_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioClockSource2(ref mut ah) => {
-                        ah.clock_source = get_descriptor_string(ah.clock_source_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioClockSelector2(ref mut ah) => {
-                        ah.clock_selector = get_descriptor_string(ah.clock_selector_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioClockMultiplier2(ref mut ah) => {
-                        ah.clock_multiplier = get_descriptor_string(ah.clock_multiplier_index, handle);
-                    }
-                    usb::descriptors::audio::UacInterfaceDescriptor::AudioSampleRateConverter2(ref mut ah) => {
-                        ah.src = get_descriptor_string(ah.src_index, handle);
-                    }
-                    _ => (),
+            usb::ClassDescriptor::Audio(ref mut ad, _) => match ad.interface {
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioInputTerminal1(
+                    ref mut ah,
+                ) => {
+                    ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
+                    ah.terminal = get_descriptor_string(ah.terminal_index, handle);
                 }
-            }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioInputTerminal2(
+                    ref mut ah,
+                ) => {
+                    ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
+                    ah.terminal = get_descriptor_string(ah.terminal_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioOutputTerminal1(
+                    ref mut ah,
+                ) => {
+                    ah.terminal = get_descriptor_string(ah.terminal_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioOutputTerminal2(
+                    ref mut ah,
+                ) => {
+                    ah.terminal = get_descriptor_string(ah.terminal_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioStreamingInterface2(
+                    ref mut ah,
+                ) => {
+                    ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioSelectorUnit1(ref mut ah) => {
+                    ah.selector = get_descriptor_string(ah.selector_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioSelectorUnit2(ref mut ah) => {
+                    ah.selector = get_descriptor_string(ah.selector_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioProcessingUnit1(
+                    ref mut ah,
+                ) => {
+                    ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
+                    ah.processing = get_descriptor_string(ah.processing_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioProcessingUnit2(
+                    ref mut ah,
+                ) => {
+                    ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
+                    ah.processing = get_descriptor_string(ah.processing_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioEffectUnit2(ref mut ah) => {
+                    ah.effect = get_descriptor_string(ah.effect_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioFeatureUnit1(ref mut ah) => {
+                    ah.feature = get_descriptor_string(ah.feature_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioFeatureUnit2(ref mut ah) => {
+                    ah.feature = get_descriptor_string(ah.feature_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioExtensionUnit1(
+                    ref mut ah,
+                ) => {
+                    ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
+                    ah.extension = get_descriptor_string(ah.extension_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioExtensionUnit2(
+                    ref mut ah,
+                ) => {
+                    ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
+                    ah.extension = get_descriptor_string(ah.extension_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioClockSource2(ref mut ah) => {
+                    ah.clock_source = get_descriptor_string(ah.clock_source_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioClockSelector2(
+                    ref mut ah,
+                ) => {
+                    ah.clock_selector = get_descriptor_string(ah.clock_selector_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioClockMultiplier2(
+                    ref mut ah,
+                ) => {
+                    ah.clock_multiplier = get_descriptor_string(ah.clock_multiplier_index, handle);
+                }
+                usb::descriptors::audio::UacInterfaceDescriptor::AudioSampleRateConverter2(
+                    ref mut ah,
+                ) => {
+                    ah.src = get_descriptor_string(ah.src_index, handle);
+                }
+                _ => (),
+            },
             usb::ClassDescriptor::Video(ref mut vd, _) => {
                 if let Some(string_index) = vd.string_index {
                     vd.string = get_descriptor_string(string_index, handle);

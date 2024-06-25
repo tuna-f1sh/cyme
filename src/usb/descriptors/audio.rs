@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::error::{self, Error, ErrorKind};
 use super::*;
+use crate::error::{self, Error, ErrorKind};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -140,18 +140,18 @@ impl TryFrom<(GenericDescriptor, u8, u8)> for UacDescriptor {
     }
 }
 
-impl Into<Vec<u8>> for UacDescriptor {
-    fn into(self) -> Vec<u8> {
+impl From<UacDescriptor> for Vec<u8> {
+    fn from(val: UacDescriptor) -> Self {
         let mut ret: Vec<u8> = Vec::new();
-        ret.push(self.length);
-        ret.push(self.descriptor_type);
-        let subtype: u8 = match self.subtype {
+        ret.push(val.length);
+        ret.push(val.descriptor_type);
+        let subtype: u8 = match val.subtype {
             UacSubtype::Control(aci) => aci as u8,
             UacSubtype::Streaming(asi) => asi as u8,
             UacSubtype::Midi(mi) => mi as u8,
         };
         ret.push(subtype);
-        let data: Vec<u8> = self.interface.into();
+        let data: Vec<u8> = val.interface.into();
         ret.extend(&data);
 
         ret
@@ -227,9 +227,9 @@ pub enum UacInterfaceDescriptor {
     Undefined(Vec<u8>),
 }
 
-impl Into<Vec<u8>> for UacInterfaceDescriptor {
-    fn into(self) -> Vec<u8> {
-        match self {
+impl From<UacInterfaceDescriptor> for Vec<u8> {
+    fn from(val: UacInterfaceDescriptor) -> Self {
+        match val {
             UacInterfaceDescriptor::AudioHeader1(a) => a.into(),
             UacInterfaceDescriptor::AudioHeader2(a) => a.into(),
             UacInterfaceDescriptor::AudioHeader3(a) => a.into(),
@@ -658,10 +658,7 @@ impl TryFrom<(u8, u8, u8)> for UacSubtype {
             (1, d, p) => Ok(UacSubtype::Control(UacAcInterface::get_uac_subtype(d, p))),
             (2, d, _) => Ok(UacSubtype::Streaming(UacAsInterface::from(d))),
             (3, d, _) => Ok(UacSubtype::Midi(MidiInterface::from(d))),
-            _ => Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Invalid UAC subtype",
-            )), 
+            _ => Err(Error::new(ErrorKind::InvalidArg, "Invalid UAC subtype")),
         }
     }
 }
@@ -987,13 +984,13 @@ impl TryFrom<&[u8]> for AudioHeader1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioHeader1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioHeader1> for Vec<u8> {
+    fn from(val: AudioHeader1) -> Self {
         let mut data = Vec::new();
-        data.extend_from_slice(&(u16::from(self.version)).to_le_bytes());
-        data.extend_from_slice(&self.total_length.to_le_bytes());
-        data.push(self.collection_bytes);
-        data.extend_from_slice(&self.interfaces);
+        data.extend_from_slice(&(u16::from(val.version)).to_le_bytes());
+        data.extend_from_slice(&val.total_length.to_le_bytes());
+        data.push(val.collection_bytes);
+        data.extend_from_slice(&val.interfaces);
         data
     }
 }
@@ -1031,13 +1028,13 @@ impl TryFrom<&[u8]> for AudioHeader2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioHeader2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioHeader2> for Vec<u8> {
+    fn from(val: AudioHeader2) -> Self {
         let mut data = Vec::new();
-        data.extend_from_slice(&(u16::from(self.version)).to_le_bytes());
-        data.push(self.category);
-        data.extend_from_slice(&self.total_length.to_le_bytes());
-        data.push(self.controls);
+        data.extend_from_slice(&(u16::from(val.version)).to_le_bytes());
+        data.push(val.category);
+        data.extend_from_slice(&val.total_length.to_le_bytes());
+        data.push(val.controls);
         data
     }
 }
@@ -1073,12 +1070,12 @@ impl TryFrom<&[u8]> for AudioHeader3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioHeader3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioHeader3> for Vec<u8> {
+    fn from(val: AudioHeader3) -> Self {
         let mut data = Vec::new();
-        data.push(self.category);
-        data.extend_from_slice(&self.total_length.to_le_bytes());
-        data.extend_from_slice(&self.controls.to_le_bytes());
+        data.push(val.category);
+        data.extend_from_slice(&val.total_length.to_le_bytes());
+        data.extend_from_slice(&val.controls.to_le_bytes());
         data
     }
 }
@@ -1123,16 +1120,16 @@ impl TryFrom<&[u8]> for AudioInputTerminal1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioInputTerminal1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioInputTerminal1> for Vec<u8> {
+    fn from(val: AudioInputTerminal1) -> Self {
         let mut data = Vec::new();
-        data.push(self.terminal_id);
-        data.extend_from_slice(&self.terminal_type.to_le_bytes());
-        data.push(self.assoc_terminal);
-        data.push(self.nr_channels);
-        data.extend_from_slice(&self.channel_config.to_le_bytes());
-        data.push(self.channel_names_index);
-        data.push(self.terminal_index);
+        data.push(val.terminal_id);
+        data.extend_from_slice(&val.terminal_type.to_le_bytes());
+        data.push(val.assoc_terminal);
+        data.push(val.nr_channels);
+        data.extend_from_slice(&val.channel_config.to_le_bytes());
+        data.push(val.channel_names_index);
+        data.push(val.terminal_index);
         data
     }
 }
@@ -1181,18 +1178,18 @@ impl TryFrom<&[u8]> for AudioInputTerminal2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioInputTerminal2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioInputTerminal2> for Vec<u8> {
+    fn from(val: AudioInputTerminal2) -> Self {
         let mut data = Vec::new();
-        data.push(self.terminal_id);
-        data.extend_from_slice(&self.terminal_type.to_le_bytes());
-        data.push(self.assoc_terminal);
-        data.push(self.csource_id);
-        data.push(self.nr_channels);
-        data.extend_from_slice(&self.channel_config.to_le_bytes());
-        data.push(self.channel_names_index);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.push(self.terminal_index);
+        data.push(val.terminal_id);
+        data.extend_from_slice(&val.terminal_type.to_le_bytes());
+        data.push(val.assoc_terminal);
+        data.push(val.csource_id);
+        data.push(val.nr_channels);
+        data.extend_from_slice(&val.channel_config.to_le_bytes());
+        data.push(val.channel_names_index);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.push(val.terminal_index);
         data
     }
 }
@@ -1237,18 +1234,18 @@ impl TryFrom<&[u8]> for AudioInputTerminal3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioInputTerminal3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioInputTerminal3> for Vec<u8> {
+    fn from(val: AudioInputTerminal3) -> Self {
         let mut data = Vec::new();
-        data.push(self.terminal_id);
-        data.extend_from_slice(&self.terminal_type.to_le_bytes());
-        data.push(self.assoc_terminal);
-        data.push(self.csource_id);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.extend_from_slice(&self.cluster_descr_id.to_le_bytes());
-        data.extend_from_slice(&self.ex_terminal_descr_id.to_le_bytes());
-        data.extend_from_slice(&self.connectors_descr_id.to_le_bytes());
-        data.extend_from_slice(&self.terminal_descr_str.to_le_bytes());
+        data.push(val.terminal_id);
+        data.extend_from_slice(&val.terminal_type.to_le_bytes());
+        data.push(val.assoc_terminal);
+        data.push(val.csource_id);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.extend_from_slice(&val.cluster_descr_id.to_le_bytes());
+        data.extend_from_slice(&val.ex_terminal_descr_id.to_le_bytes());
+        data.extend_from_slice(&val.connectors_descr_id.to_le_bytes());
+        data.extend_from_slice(&val.terminal_descr_str.to_le_bytes());
         data
     }
 }
@@ -1287,14 +1284,14 @@ impl TryFrom<&[u8]> for AudioOutputTerminal1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioOutputTerminal1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioOutputTerminal1> for Vec<u8> {
+    fn from(val: AudioOutputTerminal1) -> Self {
         let mut data = Vec::new();
-        data.push(self.terminal_id);
-        data.extend_from_slice(&self.terminal_type.to_le_bytes());
-        data.push(self.assoc_terminal);
-        data.push(self.source_id);
-        data.push(self.terminal_index);
+        data.push(val.terminal_id);
+        data.extend_from_slice(&val.terminal_type.to_le_bytes());
+        data.push(val.assoc_terminal);
+        data.push(val.source_id);
+        data.push(val.terminal_index);
         data
     }
 }
@@ -1337,16 +1334,16 @@ impl TryFrom<&[u8]> for AudioOutputTerminal2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioOutputTerminal2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioOutputTerminal2> for Vec<u8> {
+    fn from(val: AudioOutputTerminal2) -> Self {
         let mut data = Vec::new();
-        data.push(self.terminal_id);
-        data.extend_from_slice(&self.terminal_type.to_le_bytes());
-        data.push(self.assoc_terminal);
-        data.push(self.source_id);
-        data.push(self.c_source_id);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.push(self.terminal_index);
+        data.push(val.terminal_id);
+        data.extend_from_slice(&val.terminal_type.to_le_bytes());
+        data.push(val.assoc_terminal);
+        data.push(val.source_id);
+        data.push(val.c_source_id);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.push(val.terminal_index);
         data
     }
 }
@@ -1391,18 +1388,18 @@ impl TryFrom<&[u8]> for AudioOutputTerminal3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioOutputTerminal3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioOutputTerminal3> for Vec<u8> {
+    fn from(val: AudioOutputTerminal3) -> Self {
         let mut data = Vec::new();
-        data.push(self.terminal_id);
-        data.extend_from_slice(&self.terminal_type.to_le_bytes());
-        data.push(self.assoc_terminal);
-        data.push(self.source_id);
-        data.push(self.c_source_id);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.extend_from_slice(&self.ex_terminal_descr_id.to_le_bytes());
-        data.extend_from_slice(&self.connectors_descr_id.to_le_bytes());
-        data.extend_from_slice(&self.terminal_descr_str.to_le_bytes());
+        data.push(val.terminal_id);
+        data.extend_from_slice(&val.terminal_type.to_le_bytes());
+        data.push(val.assoc_terminal);
+        data.push(val.source_id);
+        data.push(val.c_source_id);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.extend_from_slice(&val.ex_terminal_descr_id.to_le_bytes());
+        data.extend_from_slice(&val.connectors_descr_id.to_le_bytes());
+        data.extend_from_slice(&val.terminal_descr_str.to_le_bytes());
         data
     }
 }
@@ -1433,9 +1430,9 @@ impl TryFrom<&[u8]> for ExtendedTerminalHeader {
     }
 }
 
-impl Into<Vec<u8>> for ExtendedTerminalHeader {
-    fn into(self) -> Vec<u8> {
-        vec![self.descriptor_id, self.nr_channels]
+impl From<ExtendedTerminalHeader> for Vec<u8> {
+    fn from(val: ExtendedTerminalHeader) -> Self {
+        vec![val.descriptor_id, val.nr_channels]
     }
 }
 
@@ -1482,15 +1479,15 @@ impl TryFrom<&[u8]> for AudioPowerDomain {
     }
 }
 
-impl Into<Vec<u8>> for AudioPowerDomain {
-    fn into(self) -> Vec<u8> {
+impl From<AudioPowerDomain> for Vec<u8> {
+    fn from(val: AudioPowerDomain) -> Self {
         let mut data = Vec::new();
-        data.push(self.power_domain_id);
-        data.extend_from_slice(&self.recovery_time_1.to_le_bytes());
-        data.extend_from_slice(&self.recovery_time_2.to_le_bytes());
-        data.push(self.nr_entities);
-        data.extend_from_slice(&self.entity_ids);
-        data.extend_from_slice(&self.domain_descr_str.to_le_bytes());
+        data.push(val.power_domain_id);
+        data.extend_from_slice(&val.recovery_time_1.to_le_bytes());
+        data.extend_from_slice(&val.recovery_time_2.to_le_bytes());
+        data.push(val.nr_entities);
+        data.extend_from_slice(&val.entity_ids);
+        data.extend_from_slice(&val.domain_descr_str.to_le_bytes());
         data
     }
 }
@@ -1543,17 +1540,17 @@ impl TryFrom<&[u8]> for AudioMixerUnit1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioMixerUnit1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioMixerUnit1> for Vec<u8> {
+    fn from(val: AudioMixerUnit1) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.push(self.nr_channels);
-        data.extend_from_slice(&self.channel_config.to_le_bytes());
-        data.push(self.channel_names);
-        data.extend_from_slice(&self.controls);
-        data.push(self.mixer);
+        data.push(val.unit_id);
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.push(val.nr_channels);
+        data.extend_from_slice(&val.channel_config.to_le_bytes());
+        data.push(val.channel_names);
+        data.extend_from_slice(&val.controls);
+        data.push(val.mixer);
         data
     }
 }
@@ -1613,18 +1610,18 @@ impl TryFrom<&[u8]> for AudioMixerUnit2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioMixerUnit2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioMixerUnit2> for Vec<u8> {
+    fn from(val: AudioMixerUnit2) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.push(self.nr_channels);
-        data.extend_from_slice(&self.channel_config.to_le_bytes());
-        data.push(self.channel_names);
-        data.extend_from_slice(&self.mixer_controls);
-        data.push(self.controls);
-        data.push(self.mixer);
+        data.push(val.unit_id);
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.push(val.nr_channels);
+        data.extend_from_slice(&val.channel_config.to_le_bytes());
+        data.push(val.channel_names);
+        data.extend_from_slice(&val.mixer_controls);
+        data.push(val.controls);
+        data.push(val.mixer);
         data
     }
 }
@@ -1679,16 +1676,16 @@ impl TryFrom<&[u8]> for AudioMixerUnit3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioMixerUnit3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioMixerUnit3> for Vec<u8> {
+    fn from(val: AudioMixerUnit3) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.extend_from_slice(&self.cluster_descr_id.to_le_bytes());
-        data.extend_from_slice(&self.mixer_controls);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.extend_from_slice(&self.mixer_descr_str.to_le_bytes());
+        data.push(val.unit_id);
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.extend_from_slice(&val.cluster_descr_id.to_le_bytes());
+        data.extend_from_slice(&val.mixer_controls);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.extend_from_slice(&val.mixer_descr_str.to_le_bytes());
         data
     }
 }
@@ -1720,12 +1717,12 @@ impl TryFrom<&[u8]> for AudioStreamingInterface1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioStreamingInterface1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioStreamingInterface1> for Vec<u8> {
+    fn from(val: AudioStreamingInterface1) -> Self {
         let mut data = Vec::new();
-        data.push(self.terminal_link);
-        data.push(self.delay);
-        data.extend_from_slice(&self.format_tag.to_le_bytes());
+        data.push(val.terminal_link);
+        data.push(val.delay);
+        data.extend_from_slice(&val.format_tag.to_le_bytes());
         data
     }
 }
@@ -1767,16 +1764,16 @@ impl TryFrom<&[u8]> for AudioStreamingInterface2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioStreamingInterface2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioStreamingInterface2> for Vec<u8> {
+    fn from(val: AudioStreamingInterface2) -> Self {
         let mut data = Vec::new();
-        data.push(self.terminal_link);
-        data.push(self.controls);
-        data.push(self.format_type);
-        data.extend_from_slice(&self.formats.to_le_bytes());
-        data.push(self.nr_channels);
-        data.extend_from_slice(&self.channel_config.to_le_bytes());
-        data.push(self.channel_names_index);
+        data.push(val.terminal_link);
+        data.push(val.controls);
+        data.push(val.format_type);
+        data.extend_from_slice(&val.formats.to_le_bytes());
+        data.push(val.nr_channels);
+        data.extend_from_slice(&val.channel_config.to_le_bytes());
+        data.push(val.channel_names_index);
         data
     }
 }
@@ -1820,17 +1817,17 @@ impl TryFrom<&[u8]> for AudioStreamingInterface3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioStreamingInterface3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioStreamingInterface3> for Vec<u8> {
+    fn from(val: AudioStreamingInterface3) -> Self {
         let mut data = Vec::new();
-        data.push(self.terminal_link);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.extend_from_slice(&self.cluster_descr_id.to_le_bytes());
-        data.extend_from_slice(&self.formats.to_le_bytes());
-        data.push(self.sub_slot_size);
-        data.push(self.bit_resolution);
-        data.extend_from_slice(&self.aux_protocols.to_le_bytes());
-        data.push(self.control_size);
+        data.push(val.terminal_link);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.extend_from_slice(&val.cluster_descr_id.to_le_bytes());
+        data.extend_from_slice(&val.formats.to_le_bytes());
+        data.push(val.sub_slot_size);
+        data.push(val.bit_resolution);
+        data.extend_from_slice(&val.aux_protocols.to_le_bytes());
+        data.push(val.control_size);
         data
     }
 }
@@ -1893,9 +1890,14 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioDataStreamingEndpoint1 {
-    fn into(self) -> Vec<u8> {
-        vec![self.attributes, self.lock_delay_units, self.lock_delay.to_le_bytes()[0], self.lock_delay.to_le_bytes()[1]]
+impl From<AudioDataStreamingEndpoint1> for Vec<u8> {
+    fn from(val: AudioDataStreamingEndpoint1) -> Self {
+        vec![
+            val.attributes,
+            val.lock_delay_units,
+            val.lock_delay.to_le_bytes()[0],
+            val.lock_delay.to_le_bytes()[1],
+        ]
     }
 }
 
@@ -1929,9 +1931,15 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioDataStreamingEndpoint2 {
-    fn into(self) -> Vec<u8> {
-        vec![self.attributes, self.controls, self.lock_delay_units, self.lock_delay.to_le_bytes()[0], self.lock_delay.to_le_bytes()[1]]
+impl From<AudioDataStreamingEndpoint2> for Vec<u8> {
+    fn from(val: AudioDataStreamingEndpoint2) -> Self {
+        vec![
+            val.attributes,
+            val.controls,
+            val.lock_delay_units,
+            val.lock_delay.to_le_bytes()[0],
+            val.lock_delay.to_le_bytes()[1],
+        ]
     }
 }
 
@@ -1963,12 +1971,12 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioDataStreamingEndpoint3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioDataStreamingEndpoint3> for Vec<u8> {
+    fn from(val: AudioDataStreamingEndpoint3) -> Self {
         let mut data = Vec::new();
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.push(self.lock_delay_units);
-        data.extend_from_slice(&self.lock_delay.to_le_bytes());
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.push(val.lock_delay_units);
+        data.extend_from_slice(&val.lock_delay.to_le_bytes());
         data
     }
 }
@@ -2015,13 +2023,13 @@ impl TryFrom<&[u8]> for AudioSelectorUnit1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioSelectorUnit1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioSelectorUnit1> for Vec<u8> {
+    fn from(val: AudioSelectorUnit1) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.push(self.selector_index);
+        data.push(val.unit_id);
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.push(val.selector_index);
         data
     }
 }
@@ -2070,14 +2078,14 @@ impl TryFrom<&[u8]> for AudioSelectorUnit2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioSelectorUnit2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioSelectorUnit2> for Vec<u8> {
+    fn from(val: AudioSelectorUnit2) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.push(self.controls);
-        data.push(self.selector_index);
+        data.push(val.unit_id);
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.push(val.controls);
+        data.push(val.selector_index);
         data
     }
 }
@@ -2133,14 +2141,14 @@ impl TryFrom<&[u8]> for AudioSelectorUnit3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioSelectorUnit3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioSelectorUnit3> for Vec<u8> {
+    fn from(val: AudioSelectorUnit3) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.extend_from_slice(&self.selector_descr_str.to_le_bytes());
+        data.push(val.unit_id);
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.extend_from_slice(&val.selector_descr_str.to_le_bytes());
         data
     }
 }
@@ -2236,11 +2244,11 @@ impl TryFrom<&[u8]> for AudioProcessingUnitExtended1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnitExtended1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioProcessingUnitExtended1> for Vec<u8> {
+    fn from(val: AudioProcessingUnitExtended1) -> Self {
         let mut data = Vec::new();
-        data.push(self.nr_modes);
-        for mode in self.modes {
+        data.push(val.nr_modes);
+        for mode in val.modes {
             data.extend_from_slice(&mode.to_le_bytes());
         }
         data
@@ -2317,23 +2325,23 @@ impl TryFrom<&[u8]> for AudioProcessingUnit1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioProcessingUnit1> for Vec<u8> {
+    fn from(val: AudioProcessingUnit1) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.extend_from_slice(&self.process_type.to_le_bytes());
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.push(self.nr_channels);
-        data.extend_from_slice(&self.channel_config.to_le_bytes());
-        data.push(self.channel_names_index);
-        data.push(self.control_size);
-        data.extend_from_slice(&self.controls);
-        if let Some(specific) = self.specific {
+        data.push(val.unit_id);
+        data.extend_from_slice(&val.process_type.to_le_bytes());
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.push(val.nr_channels);
+        data.extend_from_slice(&val.channel_config.to_le_bytes());
+        data.push(val.channel_names_index);
+        data.push(val.control_size);
+        data.extend_from_slice(&val.controls);
+        if let Some(specific) = val.specific {
             let specific_data: Vec<u8> = specific.into();
             data.extend_from_slice(&specific_data);
         }
-        data.push(self.processing_index);
+        data.push(val.processing_index);
         data
     }
 }
@@ -2374,11 +2382,11 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2UpDownMix {
     }
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit2UpDownMix {
-    fn into(self) -> Vec<u8> {
+impl From<AudioProcessingUnit2UpDownMix> for Vec<u8> {
+    fn from(val: AudioProcessingUnit2UpDownMix) -> Self {
         let mut data = Vec::new();
-        data.push(self.nr_modes);
-        for mode in self.modes {
+        data.push(val.nr_modes);
+        for mode in val.modes {
             data.extend_from_slice(&mode.to_le_bytes());
         }
         data
@@ -2414,11 +2422,11 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2DolbyPrologic {
     }
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit2DolbyPrologic {
-    fn into(self) -> Vec<u8> {
+impl From<AudioProcessingUnit2DolbyPrologic> for Vec<u8> {
+    fn from(val: AudioProcessingUnit2DolbyPrologic) -> Self {
         let mut data = Vec::new();
-        data.push(self.nr_modes);
-        for mode in self.modes {
+        data.push(val.nr_modes);
+        for mode in val.modes {
             data.extend_from_slice(&mode.to_le_bytes());
         }
         data
@@ -2432,9 +2440,9 @@ pub enum AudioProcessingUnit2Specific {
     DolbyPrologic(AudioProcessingUnit2DolbyPrologic),
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit2Specific {
-    fn into(self) -> Vec<u8> {
-        match self {
+impl From<AudioProcessingUnit2Specific> for Vec<u8> {
+    fn from(val: AudioProcessingUnit2Specific) -> Self {
+        match val {
             AudioProcessingUnit2Specific::UpDownMix(up_down_mix) => up_down_mix.into(),
             AudioProcessingUnit2Specific::DolbyPrologic(dolby_prologic) => dolby_prologic.into(),
         }
@@ -2475,12 +2483,12 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3UpDownMix {
     }
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit3UpDownMix {
-    fn into(self) -> Vec<u8> {
+impl From<AudioProcessingUnit3UpDownMix> for Vec<u8> {
+    fn from(val: AudioProcessingUnit3UpDownMix) -> Self {
         let mut data = Vec::new();
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.push(self.nr_modes);
-        for cluster_descr_id in self.cluster_descr_ids {
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.push(val.nr_modes);
+        for cluster_descr_id in val.cluster_descr_ids {
             data.extend_from_slice(&cluster_descr_id.to_le_bytes());
         }
         data
@@ -2511,9 +2519,9 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3StereoExtender {
     }
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit3StereoExtender {
-    fn into(self) -> Vec<u8> {
-        self.controls.to_le_bytes().to_vec()
+impl From<AudioProcessingUnit3StereoExtender> for Vec<u8> {
+    fn from(val: AudioProcessingUnit3StereoExtender) -> Self {
+        val.controls.to_le_bytes().to_vec()
     }
 }
 
@@ -2545,12 +2553,12 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3MultiFunction {
     }
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit3MultiFunction {
-    fn into(self) -> Vec<u8> {
+impl From<AudioProcessingUnit3MultiFunction> for Vec<u8> {
+    fn from(val: AudioProcessingUnit3MultiFunction) -> Self {
         let mut data = Vec::new();
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.extend_from_slice(&self.cluster_descr_id.to_le_bytes());
-        data.extend_from_slice(&self.algorithms.to_le_bytes());
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.extend_from_slice(&val.cluster_descr_id.to_le_bytes());
+        data.extend_from_slice(&val.algorithms.to_le_bytes());
         data
     }
 }
@@ -2563,9 +2571,9 @@ pub enum AudioProcessingUnit3Specific {
     MultiFunction(AudioProcessingUnit3MultiFunction),
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit3Specific {
-    fn into(self) -> Vec<u8> {
-        match self {
+impl From<AudioProcessingUnit3Specific> for Vec<u8> {
+    fn from(val: AudioProcessingUnit3Specific) -> Self {
+        match val {
             AudioProcessingUnit3Specific::UpDownMix(up_down_mix) => up_down_mix.into(),
             AudioProcessingUnit3Specific::StereoExtender(stereo_extender) => stereo_extender.into(),
             AudioProcessingUnit3Specific::MultiFunction(multi_function) => multi_function.into(),
@@ -2646,22 +2654,22 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioProcessingUnit2> for Vec<u8> {
+    fn from(val: AudioProcessingUnit2) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.extend_from_slice(&self.process_type.to_le_bytes());
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.push(self.nr_channels);
-        data.extend_from_slice(&self.channel_config.to_le_bytes());
-        data.push(self.channel_names_index);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        if let Some(specific) = self.specific {
+        data.push(val.unit_id);
+        data.extend_from_slice(&val.process_type.to_le_bytes());
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.push(val.nr_channels);
+        data.extend_from_slice(&val.channel_config.to_le_bytes());
+        data.push(val.channel_names_index);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        if let Some(specific) = val.specific {
             let specific_data: Vec<u8> = specific.into();
             data.extend_from_slice(&specific_data);
         }
-        data.push(self.processing_index);
+        data.push(val.processing_index);
         data
     }
 }
@@ -2813,15 +2821,15 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioProcessingUnit3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioProcessingUnit3> for Vec<u8> {
+    fn from(val: AudioProcessingUnit3) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.extend_from_slice(&self.process_type.to_le_bytes());
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.extend_from_slice(&self.processing_descr_str.to_le_bytes());
-        if let Some(specific) = self.specific {
+        data.push(val.unit_id);
+        data.extend_from_slice(&val.process_type.to_le_bytes());
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.extend_from_slice(&val.processing_descr_str.to_le_bytes());
+        if let Some(specific) = val.specific {
             let specific_data: Vec<u8> = specific.into();
             data.extend_from_slice(&specific_data);
         }
@@ -2887,16 +2895,16 @@ impl TryFrom<&[u8]> for AudioEffectUnit2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioEffectUnit2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioEffectUnit2> for Vec<u8> {
+    fn from(val: AudioEffectUnit2) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.extend_from_slice(&self.effect_type.to_le_bytes());
-        data.push(self.source_id);
-        for control in self.controls {
+        data.push(val.unit_id);
+        data.extend_from_slice(&val.effect_type.to_le_bytes());
+        data.push(val.source_id);
+        for control in val.controls {
             data.extend_from_slice(&control.to_le_bytes());
         }
-        data.push(self.effect_index);
+        data.push(val.effect_index);
         data
     }
 }
@@ -2938,16 +2946,16 @@ impl TryFrom<&[u8]> for AudioEffectUnit3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioEffectUnit3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioEffectUnit3> for Vec<u8> {
+    fn from(val: AudioEffectUnit3) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.extend_from_slice(&self.effect_type.to_le_bytes());
-        data.push(self.source_id);
-        for control in self.controls {
+        data.push(val.unit_id);
+        data.extend_from_slice(&val.effect_type.to_le_bytes());
+        data.push(val.source_id);
+        for control in val.controls {
             data.extend_from_slice(&control.to_le_bytes());
         }
-        data.extend_from_slice(&self.effect_descr_str.to_le_bytes());
+        data.extend_from_slice(&val.effect_descr_str.to_le_bytes());
         data
     }
 }
@@ -2997,14 +3005,14 @@ impl TryFrom<&[u8]> for AudioFeatureUnit1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioFeatureUnit1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioFeatureUnit1> for Vec<u8> {
+    fn from(val: AudioFeatureUnit1) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.source_id);
-        data.push(self.control_size);
-        data.extend_from_slice(&self.controls);
-        data.push(self.feature_index);
+        data.push(val.unit_id);
+        data.push(val.source_id);
+        data.push(val.control_size);
+        data.extend_from_slice(&val.controls);
+        data.push(val.feature_index);
         data
     }
 }
@@ -3041,13 +3049,13 @@ impl TryFrom<&[u8]> for AudioFeatureUnit2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioFeatureUnit2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioFeatureUnit2> for Vec<u8> {
+    fn from(val: AudioFeatureUnit2) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.source_id);
-        data.extend_from_slice(&self.controls);
-        data.push(self.feature_index);
+        data.push(val.unit_id);
+        data.push(val.source_id);
+        data.extend_from_slice(&val.controls);
+        data.push(val.feature_index);
         data
     }
 }
@@ -3082,13 +3090,13 @@ impl TryFrom<&[u8]> for AudioFeatureUnit3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioFeatureUnit3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioFeatureUnit3> for Vec<u8> {
+    fn from(val: AudioFeatureUnit3) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.source_id);
-        data.extend_from_slice(&self.controls);
-        data.extend_from_slice(&self.feature_descr_str.to_le_bytes());
+        data.push(val.unit_id);
+        data.push(val.source_id);
+        data.extend_from_slice(&val.controls);
+        data.extend_from_slice(&val.feature_descr_str.to_le_bytes());
         data
     }
 }
@@ -3152,19 +3160,19 @@ impl TryFrom<&[u8]> for AudioExtensionUnit1 {
     }
 }
 
-impl Into<Vec<u8>> for AudioExtensionUnit1 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioExtensionUnit1> for Vec<u8> {
+    fn from(val: AudioExtensionUnit1) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.extend_from_slice(&self.extension_code.to_le_bytes());
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.push(self.nr_channels);
-        data.extend_from_slice(&self.channel_config.to_le_bytes());
-        data.push(self.channel_names_index);
-        data.push(self.control_size);
-        data.extend_from_slice(&self.controls);
-        data.push(self.extension_index);
+        data.push(val.unit_id);
+        data.extend_from_slice(&val.extension_code.to_le_bytes());
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.push(val.nr_channels);
+        data.extend_from_slice(&val.channel_config.to_le_bytes());
+        data.push(val.channel_names_index);
+        data.push(val.control_size);
+        data.extend_from_slice(&val.controls);
+        data.push(val.extension_index);
         data
     }
 }
@@ -3229,18 +3237,18 @@ impl TryFrom<&[u8]> for AudioExtensionUnit2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioExtensionUnit2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioExtensionUnit2> for Vec<u8> {
+    fn from(val: AudioExtensionUnit2) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.extend_from_slice(&self.extension_code.to_le_bytes());
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.push(self.nr_channels);
-        data.extend_from_slice(&self.channel_config.to_le_bytes());
-        data.push(self.channel_names_index);
-        data.push(self.controls);
-        data.push(self.extension_index);
+        data.push(val.unit_id);
+        data.extend_from_slice(&val.extension_code.to_le_bytes());
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.push(val.nr_channels);
+        data.extend_from_slice(&val.channel_config.to_le_bytes());
+        data.push(val.channel_names_index);
+        data.push(val.controls);
+        data.push(val.extension_index);
         data
     }
 }
@@ -3297,16 +3305,16 @@ impl TryFrom<&[u8]> for AudioExtensionUnit3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioExtensionUnit3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioExtensionUnit3> for Vec<u8> {
+    fn from(val: AudioExtensionUnit3) -> Self {
         let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.extend_from_slice(&self.extension_code.to_le_bytes());
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.source_ids);
-        data.extend_from_slice(&self.extension_descr_str.to_le_bytes());
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.extend_from_slice(&self.cluster_descr_id.to_le_bytes());
+        data.push(val.unit_id);
+        data.extend_from_slice(&val.extension_code.to_le_bytes());
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.source_ids);
+        data.extend_from_slice(&val.extension_descr_str.to_le_bytes());
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.extend_from_slice(&val.cluster_descr_id.to_le_bytes());
         data
     }
 }
@@ -3345,15 +3353,15 @@ impl TryFrom<&[u8]> for AudioClockSource2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioClockSource2 {
-    fn into(self) -> Vec<u8> {
-        let mut data = Vec::new();
-        data.push(self.clock_id);
-        data.push(self.attributes);
-        data.push(self.controls);
-        data.push(self.assoc_terminal);
-        data.push(self.clock_source_index);
-        data
+impl From<AudioClockSource2> for Vec<u8> {
+    fn from(val: AudioClockSource2) -> Self {
+        vec![
+            val.clock_id,
+            val.attributes,
+            val.controls,
+            val.assoc_terminal,
+            val.clock_source_index,
+        ]
     }
 }
 
@@ -3389,14 +3397,14 @@ impl TryFrom<&[u8]> for AudioClockSource3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioClockSource3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioClockSource3> for Vec<u8> {
+    fn from(val: AudioClockSource3) -> Self {
         let mut data = Vec::new();
-        data.push(self.clock_id);
-        data.push(self.attributes);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.push(self.reference_terminal);
-        data.extend_from_slice(&self.clock_source_str.to_le_bytes());
+        data.push(val.clock_id);
+        data.push(val.attributes);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.push(val.reference_terminal);
+        data.extend_from_slice(&val.clock_source_str.to_le_bytes());
         data
     }
 }
@@ -3446,14 +3454,14 @@ impl TryFrom<&[u8]> for AudioClockSelector2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioClockSelector2 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioClockSelector2> for Vec<u8> {
+    fn from(val: AudioClockSelector2) -> Self {
         let mut data = Vec::new();
-        data.push(self.clock_id);
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.csource_ids);
-        data.push(self.controls);
-        data.push(self.clock_selector_index);
+        data.push(val.clock_id);
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.csource_ids);
+        data.push(val.controls);
+        data.push(val.clock_selector_index);
         data
     }
 }
@@ -3510,14 +3518,14 @@ impl TryFrom<&[u8]> for AudioClockSelector3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioClockSelector3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioClockSelector3> for Vec<u8> {
+    fn from(val: AudioClockSelector3) -> Self {
         let mut data = Vec::new();
-        data.push(self.clock_id);
-        data.push(self.nr_in_pins);
-        data.extend_from_slice(&self.csource_ids);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.extend_from_slice(&self.cselector_descr_str.to_le_bytes());
+        data.push(val.clock_id);
+        data.push(val.nr_in_pins);
+        data.extend_from_slice(&val.csource_ids);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.extend_from_slice(&val.cselector_descr_str.to_le_bytes());
         data
     }
 }
@@ -3554,14 +3562,14 @@ impl TryFrom<&[u8]> for AudioClockMultiplier2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioClockMultiplier2 {
-    fn into(self) -> Vec<u8> {
-        let mut data = Vec::new();
-        data.push(self.clock_id);
-        data.push(self.csource_id);
-        data.push(self.controls);
-        data.push(self.clock_multiplier_index);
-        data
+impl From<AudioClockMultiplier2> for Vec<u8> {
+    fn from(val: AudioClockMultiplier2) -> Self {
+        vec![
+            val.clock_id,
+            val.csource_id,
+            val.controls,
+            val.clock_multiplier_index,
+        ]
     }
 }
 
@@ -3595,13 +3603,13 @@ impl TryFrom<&[u8]> for AudioClockMultiplier3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioClockMultiplier3 {
-    fn into(self) -> Vec<u8> {
+impl From<AudioClockMultiplier3> for Vec<u8> {
+    fn from(val: AudioClockMultiplier3) -> Self {
         let mut data = Vec::new();
-        data.push(self.clock_id);
-        data.push(self.csource_id);
-        data.extend_from_slice(&self.controls.to_le_bytes());
-        data.extend_from_slice(&self.cmultiplier_descr_str.to_le_bytes());
+        data.push(val.clock_id);
+        data.push(val.csource_id);
+        data.extend_from_slice(&val.controls.to_le_bytes());
+        data.extend_from_slice(&val.cmultiplier_descr_str.to_le_bytes());
         data
     }
 }
@@ -3640,15 +3648,15 @@ impl TryFrom<&[u8]> for AudioSampleRateConverter2 {
     }
 }
 
-impl Into<Vec<u8>> for AudioSampleRateConverter2 {
-    fn into(self) -> Vec<u8> {
-        let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.source_id);
-        data.push(self.csource_in_id);
-        data.push(self.csource_out_id);
-        data.push(self.src_index);
-        data
+impl From<AudioSampleRateConverter2> for Vec<u8> {
+    fn from(val: AudioSampleRateConverter2) -> Self {
+        vec![
+            val.unit_id,
+            val.source_id,
+            val.csource_in_id,
+            val.csource_out_id,
+            val.src_index,
+        ]
     }
 }
 
@@ -3684,14 +3692,15 @@ impl TryFrom<&[u8]> for AudioSampleRateConverter3 {
     }
 }
 
-impl Into<Vec<u8>> for AudioSampleRateConverter3 {
-    fn into(self) -> Vec<u8> {
-        let mut data = Vec::new();
-        data.push(self.unit_id);
-        data.push(self.source_id);
-        data.push(self.csource_in_id);
-        data.push(self.csource_out_id);
-        data.extend_from_slice(&self.src_descr_str.to_le_bytes());
+impl From<AudioSampleRateConverter3> for Vec<u8> {
+    fn from(val: AudioSampleRateConverter3) -> Self {
+        let mut data = vec![
+            val.unit_id,
+            val.source_id,
+            val.csource_in_id,
+            val.csource_out_id,
+        ];
+        data.extend_from_slice(&val.src_descr_str.to_le_bytes());
         data
     }
 }
