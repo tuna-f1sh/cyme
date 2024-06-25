@@ -39,8 +39,8 @@ pub enum DescriptorType {
     Physical = 0x23,
     Pipe = 0x24,
     // TODO do_hub
-    Hub = 0x29,
-    SuperSpeedHub = 0x2a,
+    Hub(HubDescriptor) = 0x29,
+    SuperSpeedHub(HubDescriptor) = 0x2a,
     SsEndpointCompanion(SsEndpointCompanionDescriptor) = 0x30,
     SsIsocEndpointCompanion = 0x31,
     // these are internal
@@ -92,8 +92,8 @@ impl TryFrom<&[u8]> for DescriptorType {
             0x22 => Ok(DescriptorType::Report(HidReportDescriptor::try_from(v)?)),
             0x23 => Ok(DescriptorType::Physical),
             0x24 => Ok(DescriptorType::Pipe),
-            0x29 => Ok(DescriptorType::Hub),
-            0x2a => Ok(DescriptorType::SuperSpeedHub),
+            0x29 => Ok(DescriptorType::Hub(HubDescriptor::try_from(v)?)),
+            0x2a => Ok(DescriptorType::SuperSpeedHub(HubDescriptor::try_from(v)?)),
             0x30 => Ok(DescriptorType::SsEndpointCompanion(
                 SsEndpointCompanionDescriptor::try_from(v)?,
             )),
@@ -311,7 +311,9 @@ pub enum ClassDescriptor {
     /// USB Printer extra descriptor
     Printer(PrinterDescriptor),
     /// USB MIDI extra descriptor (AudioVideoAVDataAudio)
-    Midi(MidiDescriptor, u8),
+    Midi(audio::MidiDescriptor, u8),
+    /// USB Audio extra descriptor
+    Audio(audio::UacDescriptor, audio::UacProtocol),
     /// USB Video extra descriptor
     Video(UvcDescriptor, u8),
     /// Generic descriptor with Option<ClassCode>
@@ -347,6 +349,7 @@ impl From<ClassDescriptor> for Vec<u8> {
             ClassDescriptor::Printer(pd) => pd.into(),
             ClassDescriptor::Communication(cd) => cd.into(),
             ClassDescriptor::Midi(md, _) => md.into(),
+            ClassDescriptor::Audio(ad, _) => ad.into(),
             ClassDescriptor::Video(vd, _) => vd.into(),
         }
     }
@@ -374,8 +377,16 @@ impl ClassDescriptor {
                         gd.to_owned(),
                     )?)
                 }
+                // MIDI - TODO include in UAC
                 (ClassCode::Audio, 3, p) => {
-                    *self = ClassDescriptor::Midi(MidiDescriptor::try_from(gd.to_owned())?, p)
+                    *self = ClassDescriptor::Midi(audio::MidiDescriptor::try_from(gd.to_owned())?, p)
+                }
+                // UAC
+                (ClassCode::Audio, s, p) => {
+                    *self = ClassDescriptor::Audio(
+                        audio::UacDescriptor::try_from((gd.to_owned(), s, p))?,
+                        audio::UacProtocol::from(p),
+                    )
                 }
                 (ClassCode::Video, 1, p) => {
                     *self = ClassDescriptor::Video(UvcDescriptor::try_from(gd.to_owned())?, p)
@@ -1112,107 +1123,59 @@ impl TryFrom<GenericDescriptor> for UvcDescriptor {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-#[repr(u8)]
-#[non_exhaustive]
-pub enum MidiInterface {
-    Undefined = 0x00,
-    Header = 0x01,
-    InputJack = 0x02,
-    OutputJack = 0x03,
-    Element = 0x04,
-}
-
-impl From<u8> for MidiInterface {
-    fn from(b: u8) -> Self {
-        match b {
-            0x00 => MidiInterface::Undefined,
-            0x01 => MidiInterface::Header,
-            0x02 => MidiInterface::InputJack,
-            0x03 => MidiInterface::OutputJack,
-            0x04 => MidiInterface::Element,
-            _ => MidiInterface::Undefined,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct MidiDescriptor {
+pub struct HubDescriptor {
     pub length: u8,
     pub descriptor_type: u8,
-    pub midi_type: MidiInterface,
-    pub string_index: Option<u8>,
-    pub string: Option<String>,
-    pub data: Vec<u8>,
+    pub num_ports: u8,
+    pub characteristics: u16,
+    pub power_on_to_power_good: u8,
+    pub control_current: u8,
+    pub latancy: u8,
+    pub delay: u8,
+    pub device_removable: u8,
+    pub port_power_ctrl_mask: u8,
 }
 
-impl TryFrom<&[u8]> for MidiDescriptor {
+impl TryFrom<&[u8]> for HubDescriptor {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 4 {
+        if value.len() < 9 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "MidiDescriptor descriptor too short",
+                "Hub descriptor too short",
             ));
         }
 
-        let length = value[0];
-        if length as usize > value.len() {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "MidiDescriptor descriptor reported length too long for buffer",
-            ));
-        }
-
-        let midi_type = MidiInterface::from(value[2]);
-
-        let string_index = match midi_type {
-            MidiInterface::InputJack => value.get(5).copied(),
-            MidiInterface::OutputJack => value.get(5).map(|v| 6 + *v * 2),
-            MidiInterface::Element => {
-                // don't ask...
-                if let Some(j) = value.get(4) {
-                    if let Some(capsize) = value.get((5 + *j as usize * 2) + 3) {
-                        value.get(9 + 2 * *j as usize + *capsize as usize).copied()
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-
-        Ok(MidiDescriptor {
-            length,
+        Ok(HubDescriptor {
+            length: value[0],
             descriptor_type: value[1],
-            midi_type,
-            string_index,
-            string: None,
-            data: value[3..].to_vec(),
+            num_ports: value[2],
+            characteristics: u16::from_le_bytes([value[3], value[4]]),
+            power_on_to_power_good: value[5],
+            control_current: value[6],
+            latancy: value[7],
+            delay: value[8],
+            device_removable: value[9],
+            port_power_ctrl_mask: value[10],
         })
     }
 }
 
-impl From<MidiDescriptor> for Vec<u8> {
-    fn from(md: MidiDescriptor) -> Self {
+impl From<HubDescriptor> for Vec<u8> {
+    fn from(hd: HubDescriptor) -> Self {
         let mut ret = Vec::new();
-        ret.push(md.length);
-        ret.push(md.descriptor_type);
-        ret.push(md.midi_type as u8);
-        ret.extend(md.data);
+        ret.push(hd.length);
+        ret.push(hd.descriptor_type);
+        ret.push(hd.num_ports);
+        ret.extend(hd.characteristics.to_le_bytes());
+        ret.push(hd.power_on_to_power_good);
+        ret.push(hd.control_current);
+        ret.push(hd.latancy);
+        ret.push(hd.delay);
+        ret.push(hd.device_removable);
+        ret.push(hd.port_power_ctrl_mask);
 
         ret
-    }
-}
-
-impl TryFrom<GenericDescriptor> for MidiDescriptor {
-    type Error = Error;
-
-    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
-        let gd_vec: Vec<u8> = gd.into();
-        MidiDescriptor::try_from(&gd_vec[..])
     }
 }
