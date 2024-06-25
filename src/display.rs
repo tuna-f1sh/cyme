@@ -1634,8 +1634,8 @@ fn attributes_to_icons(attributes: &Vec<ConfigAttributes>, settings: &PrintSetti
     if settings.icons.is_some() {
         for a in attributes {
             match a {
-                ConfigAttributes::SelfPowered => icon_strs.push("\u{fba4}"), // ﮤ
-                ConfigAttributes::RemoteWakeup => icon_strs.push("\u{f654}"), // 
+                ConfigAttributes::SelfPowered => icon_strs.push("\u{f06a5}"), // 󰚥
+                ConfigAttributes::RemoteWakeup => icon_strs.push("\u{f0155}"), // 󰅕
             }
         }
     }

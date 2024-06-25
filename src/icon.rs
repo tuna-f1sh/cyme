@@ -238,14 +238,14 @@ lazy_static! {
             (Icon::UnknownVendor, "\u{f287}"), // usb plug default 
             (Icon::Vid(0x05ac), "\u{f179}"), // apple 
             (Icon::Vid(0x8086), "\u{f179}"), // apple bus 
-            (Icon::Vid(0x045e), "\u{f871}"), // microsoft 
+            (Icon::Vid(0x045e), "\u{f0372}"), // microsoft 󰍲
             (Icon::Vid(0x18d1), "\u{f1a0}"), // google 
             (Icon::Vid(0x1D6B), "\u{f17c}"), // linux foundation 
             (Icon::Vid(0x1d50), "\u{e771}"), // open source VID 
             (Icon::VidPid((0x1915, 0x520c)), "\u{f00a3}"), // specialized 󰂣
             (Icon::VidPid((0x1915, 0x520d)), "\u{f00a3}"), // specialized 󰂣
             (Icon::VidPid((0x0483, 0x572B)), "\u{f00a3}"), // specialized 󰂣
-            (Icon::Vid(0x046d), "\u{f87c}"), // logitech 
+            (Icon::Vid(0x046d), "\u{f037d}"), // logitech 󰍽
             (Icon::Vid(0x091e), "\u{e2a6}"), // garmin 
             (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}"), // black magic probe 
             (Icon::Vid(0x1366), "\u{f188}"), // segger 
@@ -261,22 +261,22 @@ lazy_static! {
             (Icon::Vid(0x0483), "\u{f2db}"), // stm 
             (Icon::Vid(0x1915), "\u{f2db}"), // nordic 
             (Icon::Vid(0x1fc9), "\u{f2db}"), // nxp 
-            (Icon::Vid(0x1050), "\u{f805}"), // yubikey 
+            (Icon::Vid(0x1050), "\u{f084}"), // yubikey 
             (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"), // android dev 
             (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
             (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
-            (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f878}"), // lg monitor 
-            (Icon::VidPid((0x0781, 0xf7c9)), "\u{f878}"), // sandisk external disk 
+            (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f0379}"), // lg monitor 󰍹
+            (Icon::VidPid((0x0781, 0xf7c9)), "\u{f02ca}"), // sandisk external disk 󰋊
             (Icon::Classifier(ClassCode::Audio), "\u{f001}"), // 
             (Icon::Classifier(ClassCode::Image), "\u{f03e}"), // 
             (Icon::Classifier(ClassCode::Video), "\u{f03d}"), // 
             (Icon::Classifier(ClassCode::Printer), "\u{f02f}"), // 
             // (Icon::Classifier(ClassCode::MassStorage), "\u{fc05}".into()),
             (Icon::Classifier(ClassCode::Hub), "\u{f126}"), // 
-            (Icon::Classifier(ClassCode::ContentSecurity), "\u{f805}"), // 
-            (Icon::Classifier(ClassCode::SmartCart), "\u{f805}"), // 
+            (Icon::Classifier(ClassCode::ContentSecurity), "\u{f084}"), // 
+            (Icon::Classifier(ClassCode::SmartCart), "\u{f084}"), // 
             (Icon::Classifier(ClassCode::PersonalHealthcare), "\u{f21e}"), // 
-            (Icon::Classifier(ClassCode::AudioVideo), "\u{fd3f}"), // ﴿
+            (Icon::Classifier(ClassCode::AudioVideo), "\u{f0841}"), // 󰡁
             (Icon::Classifier(ClassCode::Billboard), "\u{f05a}"), // 
             (Icon::Classifier(ClassCode::I3CDevice), "\u{f493}"), // 
             (Icon::Classifier(ClassCode::Diagnostic), "\u{f489}"), // 
@@ -284,7 +284,7 @@ lazy_static! {
             (Icon::Classifier(ClassCode::Miscellaneous), "\u{f074}"), // 
             (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}"), // serial 
             (Icon::Classifier(ClassCode::CDCData), "\u{e795}"), // serial 
-            (Icon::Classifier(ClassCode::HID), "\u{f80b}"), // 
+            (Icon::Classifier(ClassCode::HID), "\u{f030c}"), // 󰌌
             (Icon::UndefinedClassifier, "\u{2636}"), //☶
         ])
     };

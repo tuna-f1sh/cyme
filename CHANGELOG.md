@@ -6,9 +6,15 @@
 
 - Full dumps of device descriptors for matching `--lsusb --verbose` ([#15](https://github.com/tuna-f1sh/cyme/issues/15))
 
+## [1.7.0] - 2024-25-06
+
 ### Changed
 
 - Replace [udev-rs](https://github.com/Smithay/udev-rs) and indirectly libudev-sys with Rust native [udev](https://github.com/cr8t/udev); libudev dependency (and system requirement) is now optional but can be used with `--no-default-features -F=udevlib`. ([#19](https://github.com/tuna-f1sh/cyme/pull/19))
+
+### Fixes
+
+- Replace more font-awesome icons in default look-up that have been deprecated ([#20](https://github.com/tuna-f1sh/cyme/issues/20))
 
 ## [1.6.1] - 2024-13-06
 
