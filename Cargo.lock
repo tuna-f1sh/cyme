@@ -1062,8 +1062,9 @@ dependencies = [
 
 [[package]]
 name = "udevrs"
-version = "0.2.0"
-source = "git+https://github.com/tuna-f1sh/udev/?branch=query#d27ba56a4c229aa4b89c016f392f0966012a6969"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdc959ba33f1deec76a55dd1fc7f6265b404dfb6155dc3c14f21551fa60e1a09"
 dependencies = [
  "bitflags 2.4.1",
  "glob",
