@@ -2,6 +2,13 @@
 //! Printing functions for lsusb style output of USB data
 //!
 //! The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for a lot of the styling and content of the display module
+//!
+//! TODO:
+//! - [ ] Implement do_otg: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3036
+//! - [ ] Implement do_hub: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2805
+//! - [ ] Implement do_debug: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2984
+//! - [ ] Implement do_dualspeed: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2933
+//! - [ ] Convert the in dump descriptor decoding into concrete struct in [`crate::usb::descriptors`] and use that for printing - like the [`crate::usb::descriptors::audio`] module
 use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
 use crate::system_profiler;
@@ -16,6 +23,7 @@ const TREE_LSUSB_BUS: &str = "/:  ";
 const TREE_LSUSB_DEVICE: &str = "|__ ";
 const TREE_LSUSB_SPACE: &str = "    ";
 
+// TODO - convert these to Rust enum like [`Uac1ChannelNames`] etc.
 const CAM_CTRL_NAMES: [&str; 22] = [
     "Scanning Mode",
     "Auto-Exposure Mode",
@@ -169,16 +177,16 @@ pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettin
                 continue;
             }
             // the const len should get compiled to const...
-            let spaces = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
+            let indent = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
             let device_tree_strings: Vec<(String, String, String)> = device.to_lsusb_tree_string();
 
             for strings in device_tree_strings {
-                println!("{:>spaces$}{}", TREE_LSUSB_DEVICE, strings.0);
+                println!("{:>indent$}{}", TREE_LSUSB_DEVICE, strings.0);
                 if settings.verbosity >= 1 {
-                    println!("{:>spaces$}{}", TREE_LSUSB_SPACE, strings.1);
+                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, strings.1);
                 }
                 if settings.verbosity >= 2 {
-                    println!("{:>spaces$}{}", TREE_LSUSB_SPACE, strings.2);
+                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, strings.2);
                 }
             }
             // print all devices with this device - if hub for example
@@ -1090,7 +1098,7 @@ fn dump_audio_mixer_unit1(mixer_unit: &AudioMixerUnit1, indent: usize, width: us
     dump_array(&mixer_unit.source_ids, "baSourceID", indent, width);
     dump_value(mixer_unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(mixer_unit.channel_config, "wChannelConfig", indent, width);
-    let channel_names = UacInterfaceDescriptor::get_channel_names(
+    let channel_names = UacInterfaceDescriptor::get_channel_name_strings(
         &UacProtocol::Uac1,
         mixer_unit.channel_config as u32,
     );
@@ -1109,7 +1117,7 @@ fn dump_audio_mixer_unit2(mixer_unit: &AudioMixerUnit2, indent: usize, width: us
     dump_value(mixer_unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(mixer_unit.channel_config, "bmChannelConfig", indent, width);
     let channel_names =
-        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac2, mixer_unit.channel_config);
+        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac2, mixer_unit.channel_config);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1242,7 +1250,7 @@ fn dump_audio_processing_unit1(unit: &AudioProcessingUnit1, indent: usize, width
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "wChannelConfig", indent, width);
     let channel_names =
-        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac1, unit.channel_config as u32);
+        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac1, unit.channel_config as u32);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1283,7 +1291,7 @@ fn dump_audio_processing_unit2(unit: &AudioProcessingUnit2, indent: usize, width
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "bmChannelConfig", indent, width);
     let channel_names =
-        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac2, unit.channel_config);
+        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac2, unit.channel_config);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1478,7 +1486,7 @@ fn dump_audio_extension_unit1(unit: &AudioExtensionUnit1, indent: usize, width: 
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "wChannelConfig", indent, width);
     let channel_names =
-        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac1, unit.channel_config as u32);
+        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac1, unit.channel_config as u32);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1510,7 +1518,7 @@ fn dump_audio_extension_unit2(unit: &AudioExtensionUnit2, indent: usize, width: 
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "bmChannelConfig", indent, width);
     let channel_names =
-        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac2, unit.channel_config);
+        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac2, unit.channel_config);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1776,7 +1784,7 @@ fn dump_audio_input_terminal1(ait: &AudioInputTerminal1, indent: usize, width: u
     dump_value(ait.nr_channels, "bNrChannels", indent, width);
     dump_hex(ait.channel_config, "wChannelConfig", indent, width);
     let channel_names =
-        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac1, ait.channel_config as u32);
+        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac1, ait.channel_config as u32);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1809,7 +1817,7 @@ fn dump_audio_input_terminal2(ait: &AudioInputTerminal2, indent: usize, width: u
     dump_value(ait.nr_channels, "bNrChannels", indent, width);
     dump_hex(ait.channel_config, "wChannelConfig", indent, width);
     let channel_names =
-        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac2, ait.channel_config);
+        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac2, ait.channel_config);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1960,7 +1968,7 @@ fn dump_audio_streaming_interface2(asi: &AudioStreamingInterface2, indent: usize
     dump_value(asi.nr_channels, "bNrChannels", indent, width);
     dump_hex(asi.channel_config, "bmChannelConfig", indent, width);
     let channel_names =
-        UacInterfaceDescriptor::get_channel_names(&UacProtocol::Uac2, asi.channel_config);
+        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac2, asi.channel_config);
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }

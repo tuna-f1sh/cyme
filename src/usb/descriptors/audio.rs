@@ -1,7 +1,9 @@
 //! Defines for the USB Audio Class (UAC) interface descriptors and MIDI
-use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
 use std::fmt;
+use std::convert::TryFrom;
+use serde::{Deserialize, Serialize};
+use strum::VariantArray;
+use strum_macros::VariantArray;
 
 use super::*;
 use crate::error::{self, Error, ErrorKind};
@@ -169,7 +171,7 @@ impl UacDescriptor {
 ///
 /// Ported from https://github.com/gregkh/usbutils/blob/master/desc-defs.c
 ///
-/// I think there is a much nicer way to define all these for more generic printing; enum types like desc-def.c wrapping the int values so they can be acted on in a more generic way
+/// Possibly much nicer way to define all these for more generic printing; enum types like desc-def.c wrapping the int values so they can be acted on in a more generic way
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 #[allow(missing_docs)]
@@ -279,52 +281,141 @@ impl From<UacInterfaceDescriptor> for Vec<u8> {
     }
 }
 
+/// USB Audio Class (UAC) protocol 1 channel names based on the "wChannelConfig" field
+///
+/// Decoded as bitstring; each bit corresponds to a channel name
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, VariantArray)]
+#[allow(missing_docs)]
+pub enum Uac1ChannelNames {
+    LeftFront,
+    RightFront,
+    CenterFront,
+    LowFrequencyEnhancement,
+    LeftSurround,
+    RightSurround,
+    LeftOfCenter,
+    RightOfCenter,
+    Surround,
+    SideLeft,
+    SideRight,
+    Top,
+}
+
+impl fmt::Display for Uac1ChannelNames {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Uac1ChannelNames::LeftFront => write!(f, "Left Front (L)"),
+            Uac1ChannelNames::RightFront => write!(f, "Right Front (R)"),
+            Uac1ChannelNames::CenterFront => write!(f, "Center Front (C)"),
+            Uac1ChannelNames::LowFrequencyEnhancement => write!(f, "Low Frequency Enhancement (LFE)"),
+            Uac1ChannelNames::LeftSurround => write!(f, "Left Surround (LS)"),
+            Uac1ChannelNames::RightSurround => write!(f, "Right Surround (RS)"),
+            Uac1ChannelNames::LeftOfCenter => write!(f, "Left of Center (LC)"),
+            Uac1ChannelNames::RightOfCenter => write!(f, "Right of Center (RC)"),
+            Uac1ChannelNames::Surround => write!(f, "Surround (S)"),
+            Uac1ChannelNames::SideLeft => write!(f, "Side Left (SL)"),
+            Uac1ChannelNames::SideRight => write!(f, "Side Right (SR)"),
+            Uac1ChannelNames::Top => write!(f, "Top (T)"),
+        }
+    }
+}
+
+impl Uac1ChannelNames {
+    /// Get the supported [`Uac1ChannelNames`] from the bitmap value
+    pub fn from_bitmap<T: Into<u32>>(bitmap: T) -> Vec<Uac1ChannelNames> {
+        let mut ret = Vec::new();
+        let bitmap = bitmap.into();
+        for (i, s) in Uac1ChannelNames::VARIANTS.iter().enumerate() {
+            if bitmap & (1 << i) != 0 {
+                ret.push(*s);
+            }
+        }
+        ret
+    }
+}
+
+/// USB Audio Class (UAC) protocol 2 supported channel names based on the "wChannelConfig" bitmap
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, VariantArray)]
+#[allow(missing_docs)]
+pub enum Uac2ChannelNames {
+    FrontLeft,
+    FrontRight,
+    FrontCenter,
+    LowFrequencyEffects,
+    BackLeft,
+    BackRight,
+    FrontLeftOfCenter,
+    FrontRightOfCenter,
+    BackCenter,
+    SideLeft,
+    SideRight,
+    TopCenter,
+    TopFrontLeft,
+    TopFrontCenter,
+    TopFrontRight,
+    TopBackLeft,
+    TopBackCenter,
+    TopBackRight,
+    TopFrontLeftOfCenter,
+    TopFrontRightOfCenter,
+    LeftLowFrequencyEffects,
+    RightLowFrequencyEffects,
+    TopSideLeft,
+    TopSideRight,
+    BottomCenter,
+    BackLeftOfCenter,
+    BackRightOfCenter,
+}
+
+impl fmt::Display for Uac2ChannelNames {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Uac2ChannelNames::FrontLeft => write!(f, "Front Left (FL)"),
+            Uac2ChannelNames::FrontRight => write!(f, "Front Right (FR)"),
+            Uac2ChannelNames::FrontCenter => write!(f, "Front Center (FC)"),
+            Uac2ChannelNames::LowFrequencyEffects => write!(f, "Low Frequency Effects (LFE)"),
+            Uac2ChannelNames::BackLeft => write!(f, "Back Left (BL)"),
+            Uac2ChannelNames::BackRight => write!(f, "Back Right (BR)"),
+            Uac2ChannelNames::FrontLeftOfCenter => write!(f, "Front Left of Center (FLC)"),
+            Uac2ChannelNames::FrontRightOfCenter => write!(f, "Front Right of Center (FRC)"),
+            Uac2ChannelNames::BackCenter => write!(f, "Back Center (BC)"),
+            Uac2ChannelNames::SideLeft => write!(f, "Side Left (SL)"),
+            Uac2ChannelNames::SideRight => write!(f, "Side Right (SR)"),
+            Uac2ChannelNames::TopCenter => write!(f, "Top Center (TC)"),
+            Uac2ChannelNames::TopFrontLeft => write!(f, "Top Front Left (TFL)"),
+            Uac2ChannelNames::TopFrontCenter => write!(f, "Top Front Center (TFC)"),
+            Uac2ChannelNames::TopFrontRight => write!(f, "Top Front Right (TFR)"),
+            Uac2ChannelNames::TopBackLeft => write!(f, "Top Back Left (TBL)"),
+            Uac2ChannelNames::TopBackCenter => write!(f, "Top Back Center (TBC)"),
+            Uac2ChannelNames::TopBackRight => write!(f, "Top Back Right (TBR)"),
+            Uac2ChannelNames::TopFrontLeftOfCenter => write!(f, "Top Front Left of Center (TFLC)"),
+            Uac2ChannelNames::TopFrontRightOfCenter => write!(f, "Top Front Right of Center (TFRC)"),
+            Uac2ChannelNames::LeftLowFrequencyEffects => write!(f, "Left Low Frequency Effects (LLFE)"),
+            Uac2ChannelNames::RightLowFrequencyEffects => write!(f, "Right Low Frequency Effects (RLFE)"),
+            Uac2ChannelNames::TopSideLeft => write!(f, "Top Side Left (TSL)"),
+            Uac2ChannelNames::TopSideRight => write!(f, "Top Side Right (TSR)"),
+            Uac2ChannelNames::BottomCenter => write!(f, "Bottom Center (BC)"),
+            Uac2ChannelNames::BackLeftOfCenter => write!(f, "Back Left of Center (BLC)"),
+            Uac2ChannelNames::BackRightOfCenter => write!(f, "Back Right of Center (BRC)"),
+        }
+    }
+}
+
+impl Uac2ChannelNames {
+    /// Get the supported [`Uac2ChannelNames`] from the bitmap value
+    pub fn from_bitmap<T: Into<u32>>(bitmap: T) -> Vec<Uac2ChannelNames> {
+        let mut ret = Vec::new();
+        let bitmap = bitmap.into();
+        for (i, s) in Uac2ChannelNames::VARIANTS.iter().enumerate() {
+            if bitmap & (1 << i) != 0 {
+                ret.push(*s);
+            }
+        }
+        ret
+    }
+}
+
 impl UacInterfaceDescriptor {
-    const UAC1_CHANNEL_NAMES: [&'static str; 12] = [
-        "Left Front (L)",
-        "Right Front (R)",
-        "Center Front (C)",
-        "Low Frequency Enhancement (LFE)",
-        "Left Surround (LS)",
-        "Right Surround (RS)",
-        "Left of Center (LC)",
-        "Right of Center (RC)",
-        "Surround (S)",
-        "Side Left (SL)",
-        "Side Right (SR)",
-        "Top (T)",
-    ];
-
-    const UAC2_CHANNEL_NAMES: [&'static str; 27] = [
-        "Front Left (FL)",
-        "Front Right (FR)",
-        "Front Center (FC)",
-        "Low Frequency Effects (LFE)",
-        "Back Left (BL)",
-        "Back Right (BR)",
-        "Front Left of Center (FLC)",
-        "Front Right of Center (FRC)",
-        "Back Center (BC)",
-        "Side Left (SL)",
-        "Side Right (SR)",
-        "Top Center (TC)",
-        "Top Front Left (TFL)",
-        "Top Front Center (TFC)",
-        "Top Front Right (TFR)",
-        "Top Back Left (TBL)",
-        "Top Back Center (TBC)",
-        "Top Back Right (TBR)",
-        "Top Front Left of Center (TFLC)",
-        "Top Front Right of Center (TFRC)",
-        "Left Low Frequency Effects (LLFE)",
-        "Right Low Frequency Effects (RLFE)",
-        "Top Side Left (TSL)",
-        "Top Side Right (TSR)",
-        "Bottom Center (BC)",
-        "Back Left of Center (BLC)",
-        "Back Right of Center (BRC)",
-    ];
-
     /// Get the UAC AC interface descriptor from the UAC AC interface
     pub fn from_uac_ac_interface(
         uac_interface: &UacAcInterface,
@@ -517,13 +608,19 @@ impl UacInterfaceDescriptor {
     }
 
     /// Get USB Audio Device Class channel names from the descriptor "wChannelConfig" field bitmap string based on the protocol
-    pub fn get_channel_names<T: Into<u32> + Copy>(
+    pub fn get_channel_name_strings<T: Into<u32> + Copy>(
         protocol: &UacProtocol,
         channel_config: T,
     ) -> Vec<String> {
         match protocol {
-            UacProtocol::Uac1 => Self::get_bitmap_string(channel_config, &Self::UAC1_CHANNEL_NAMES),
-            UacProtocol::Uac2 => Self::get_bitmap_string(channel_config, &Self::UAC2_CHANNEL_NAMES),
+            UacProtocol::Uac1 => Uac1ChannelNames::from_bitmap(channel_config)
+                .iter()
+                .map(|c| c.to_string())
+                .collect(),
+            UacProtocol::Uac2 => Uac2ChannelNames::from_bitmap(channel_config)
+                .iter()
+                .map(|c| c.to_string())
+                .collect(),
             _ => Vec::new(),
         }
     }
@@ -552,6 +649,7 @@ impl UacInterfaceDescriptor {
             | UacInterfaceDescriptor::AudioOutputTerminal1(_)
             | UacInterfaceDescriptor::AudioMixerUnit1(_)
             | UacInterfaceDescriptor::AudioSelectorUnit1(_)
+            | UacInterfaceDescriptor::AudioProcessingUnit1(_)
             | UacInterfaceDescriptor::AudioFeatureUnit1(_)
             | UacInterfaceDescriptor::AudioExtensionUnit1(_) => UacProtocol::Uac1,
             UacInterfaceDescriptor::AudioHeader2(_)
@@ -559,6 +657,7 @@ impl UacInterfaceDescriptor {
             | UacInterfaceDescriptor::AudioOutputTerminal2(_)
             | UacInterfaceDescriptor::AudioMixerUnit2(_)
             | UacInterfaceDescriptor::AudioSelectorUnit2(_)
+            | UacInterfaceDescriptor::AudioProcessingUnit2(_)
             | UacInterfaceDescriptor::AudioEffectUnit2(_)
             | UacInterfaceDescriptor::AudioFeatureUnit2(_)
             | UacInterfaceDescriptor::AudioExtensionUnit2(_)
@@ -573,6 +672,7 @@ impl UacInterfaceDescriptor {
             | UacInterfaceDescriptor::AudioOutputTerminal3(_)
             | UacInterfaceDescriptor::AudioMixerUnit3(_)
             | UacInterfaceDescriptor::AudioSelectorUnit3(_)
+            | UacInterfaceDescriptor::AudioProcessingUnit3(_)
             | UacInterfaceDescriptor::AudioEffectUnit3(_)
             | UacInterfaceDescriptor::AudioFeatureUnit3(_)
             | UacInterfaceDescriptor::AudioExtensionUnit3(_)
