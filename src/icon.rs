@@ -262,11 +262,11 @@ lazy_static! {
             (Icon::Vid(0x1915), "\u{f2db}"), // nordic 
             (Icon::Vid(0x1fc9), "\u{f2db}"), // nxp 
             (Icon::Vid(0x1050), "\u{f084}"), // yubikey 
+            (Icon::Vid(0x0781), "\u{f129e}"), // sandisk 󱊞
             (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"), // android dev 
             (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
             (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
             (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f0379}"), // lg monitor 󰍹
-            (Icon::VidPid((0x0781, 0xf7c9)), "\u{f02ca}"), // sandisk external disk 󰋊
             (Icon::Classifier(ClassCode::Audio), "\u{f001}"), // 
             (Icon::Classifier(ClassCode::Image), "\u{f03e}"), // 
             (Icon::Classifier(ClassCode::Video), "\u{f03d}"), // 
