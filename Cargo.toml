@@ -29,8 +29,8 @@ clap_mangen = { version = "0.2.5", optional = true }
 dirs = "4.0.0"
 rand = "0.8.5"
 terminal_size = "0.2.5"
-strum = "0.24.1"
-strum_macros = "0.24.3"
+strum = "0.26"
+strum_macros = "0.26"
 
 [dev-dependencies]
 diff = "0.1"
