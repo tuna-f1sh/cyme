@@ -263,6 +263,8 @@ lazy_static! {
             (Icon::Vid(0x1fc9), "\u{f2db}"), // nxp 
             (Icon::Vid(0x1050), "\u{f084}"), // yubikey 
             (Icon::Vid(0x0781), "\u{f129e}"), // sandisk 󱊞
+            (Icon::VidPid((0x05ac, 0x8409)), "\u{ef61}"), // Apple sd card reader 
+            (Icon::VidPid((0x05e3, 0x0749)), "\u{ef61}"), // USB 3.0 SD Card reader 
             (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"), // android dev 
             (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
             (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
@@ -271,7 +273,7 @@ lazy_static! {
             (Icon::Classifier(ClassCode::Image), "\u{f03e}"), // 
             (Icon::Classifier(ClassCode::Video), "\u{f03d}"), // 
             (Icon::Classifier(ClassCode::Printer), "\u{f02f}"), // 
-            // (Icon::Classifier(ClassCode::MassStorage), "\u{fc05}".into()),
+            (Icon::Classifier(ClassCode::MassStorage), "\u{f0a0}"), // 
             (Icon::Classifier(ClassCode::Hub), "\u{f126}"), // 
             (Icon::Classifier(ClassCode::ContentSecurity), "\u{f084}"), // 
             (Icon::Classifier(ClassCode::SmartCart), "\u{f084}"), // 
