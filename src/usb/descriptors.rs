@@ -6,6 +6,7 @@ use super::*;
 use crate::error::{self, Error, ErrorKind};
 
 pub mod audio;
+pub mod video;
 
 /// USB Descriptor Types
 ///
@@ -315,7 +316,7 @@ pub enum ClassDescriptor {
     /// USB Audio extra descriptor
     Audio(audio::UacDescriptor, audio::UacProtocol),
     /// USB Video extra descriptor
-    Video(UvcDescriptor, u8),
+    Video(video::UvcDescriptor, u8),
     /// Generic descriptor with Option<ClassCode>
     ///
     /// Used for most descriptors and allows for TryFrom without knowing the [`ClassCode`]
@@ -390,7 +391,7 @@ impl ClassDescriptor {
                     )
                 }
                 (ClassCode::Video, 1, p) => {
-                    *self = ClassDescriptor::Video(UvcDescriptor::try_from(gd.to_owned())?, p)
+                    *self = ClassDescriptor::Video(video::UvcDescriptor::try_from(gd.to_owned())?, p)
                 }
                 ct => *self = ClassDescriptor::Generic(Some(ct), gd.to_owned()),
             }
@@ -992,133 +993,6 @@ impl TryFrom<GenericDescriptor> for CommunicationDescriptor {
     fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
         let gd_vec: Vec<u8> = gd.into();
         CommunicationDescriptor::try_from(&gd_vec[..])
-    }
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-#[repr(u8)]
-#[non_exhaustive]
-pub enum UvcInterface {
-    Undefined = 0x00,
-    Header = 0x01,
-    InputTerminal = 0x02,
-    OutputTerminal = 0x03,
-    SelectorUnit = 0x04,
-    ProcessingUnit = 0x05,
-    ExtensionUnit = 0x06,
-    EncodingUnit = 0x07,
-}
-
-impl From<u8> for UvcInterface {
-    fn from(b: u8) -> Self {
-        match b {
-            0x00 => UvcInterface::Undefined,
-            0x01 => UvcInterface::Header,
-            0x02 => UvcInterface::InputTerminal,
-            0x03 => UvcInterface::OutputTerminal,
-            0x04 => UvcInterface::SelectorUnit,
-            0x05 => UvcInterface::ProcessingUnit,
-            0x06 => UvcInterface::ExtensionUnit,
-            0x07 => UvcInterface::EncodingUnit,
-            _ => UvcInterface::Undefined,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct UvcDescriptor {
-    pub length: u8,
-    pub descriptor_type: u8,
-    pub descriptor_subtype: u8,
-    pub string_index: Option<u8>,
-    pub string: Option<String>,
-    pub data: Vec<u8>,
-}
-
-impl TryFrom<&[u8]> for UvcDescriptor {
-    type Error = Error;
-
-    fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Video Control descriptor too short",
-            ));
-        }
-
-        let length = value[0];
-        if length as usize > value.len() {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Video Control descriptor reported length too long for buffer",
-            ));
-        }
-
-        let video_control_subtype = UvcInterface::from(value[2]);
-
-        let string_index = match video_control_subtype {
-            UvcInterface::InputTerminal => value.get(7).copied(),
-            UvcInterface::OutputTerminal => value.get(8).copied(),
-            UvcInterface::SelectorUnit => {
-                if let Some(p) = value.get(4) {
-                    value.get(5 + *p as usize).copied()
-                } else {
-                    None
-                }
-            }
-            UvcInterface::ProcessingUnit => {
-                if let Some(n) = value.get(7) {
-                    value.get(8 + *n as usize).copied()
-                } else {
-                    None
-                }
-            }
-            UvcInterface::ExtensionUnit => {
-                if let Some(p) = value.get(21) {
-                    if let Some(n) = value.get(22 + *p as usize) {
-                        value.get(23 + *n as usize + *p as usize).copied()
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            UvcInterface::EncodingUnit => value.get(5).copied(),
-            _ => None,
-        };
-
-        Ok(UvcDescriptor {
-            length,
-            descriptor_type: value[1],
-            descriptor_subtype: value[2],
-            string_index,
-            string: None,
-            data: value[3..].to_vec(),
-        })
-    }
-}
-
-impl From<UvcDescriptor> for Vec<u8> {
-    fn from(vcd: UvcDescriptor) -> Self {
-        let mut ret = Vec::new();
-        ret.push(vcd.length);
-        ret.push(vcd.descriptor_type);
-        ret.push(vcd.descriptor_subtype);
-        ret.extend(vcd.data);
-
-        ret
-    }
-}
-
-impl TryFrom<GenericDescriptor> for UvcDescriptor {
-    type Error = Error;
-
-    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
-        let gd_vec: Vec<u8> = gd.into();
-        UvcDescriptor::try_from(&gd_vec[..])
     }
 }
 

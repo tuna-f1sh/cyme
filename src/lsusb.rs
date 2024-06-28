@@ -14,6 +14,7 @@ use crate::error::{Error, ErrorKind};
 use crate::system_profiler;
 
 use crate::usb::descriptors::audio::*;
+use crate::usb::descriptors::video::*;
 use crate::usb::descriptors::*;
 use crate::usb::*;
 
@@ -475,8 +476,8 @@ fn print_interface(interface: &USBInterface) {
                     ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, 6),
                     ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md),
                     ClassDescriptor::Audio(uacd, uacp) => match &uacd.subtype {
-                        UacSubtype::Control(cs) => dump_audiocontrol_interface(uacd, cs, uacp),
-                        UacSubtype::Streaming(ss) => dump_audiostreaming_interface(uacd, ss, uacp),
+                        UacType::Control(cs) => dump_audiocontrol_interface(uacd, cs, uacp),
+                        UacType::Streaming(ss) => dump_audiostreaming_interface(uacd, ss, uacp),
                         _ => (),
                     },
                     ClassDescriptor::Video(vcd, p) => dump_videocontrol_interface(vcd, *p),
@@ -490,10 +491,10 @@ fn print_interface(interface: &USBInterface) {
                             if let Ok(uacd) = UacDescriptor::try_from((gd.to_owned(), *s, *p)) {
                                 let uacp = UacProtocol::from(*p);
                                 match &uacd.subtype {
-                                    UacSubtype::Control(cs) => {
+                                    UacType::Control(cs) => {
                                         dump_audiocontrol_interface(&uacd, cs, &uacp)
                                     }
-                                    UacSubtype::Streaming(ss) => {
+                                    UacType::Streaming(ss) => {
                                         dump_audiostreaming_interface(&uacd, ss, &uacp)
                                     }
                                     _ => (),
@@ -948,6 +949,10 @@ fn dump_bitmap_array<T: std::fmt::LowerHex + Into<u64> + Copy>(
     for (i, b) in array.iter().enumerate() {
         dump_hex(*b, &format!("{}({:2})", field_name, i), indent, width);
     }
+}
+
+fn dump_title(field_name: &str, indent: usize) {
+    println!("{:indent$}{}", "", field_name, indent = indent);
 }
 
 fn dump_value<T: std::fmt::Display>(value: T, field_name: &str, indent: usize, width: usize) {
@@ -2199,7 +2204,7 @@ fn dump_audio_subtype(uacid: &UacInterfaceDescriptor, indent: usize) {
 
 fn dump_audiocontrol_interface(
     uacd: &UacDescriptor,
-    uaci: &ControlInterface,
+    uaci: &ControlSubtype,
     protocol: &UacProtocol,
 ) {
     println!("      AudioControl Interface Descriptor:");
@@ -2227,7 +2232,7 @@ fn dump_audiocontrol_interface(
 
 fn dump_audiostreaming_interface(
     uacd: &UacDescriptor,
-    uasi: &StreamingInterface,
+    uasi: &StreamingSubtype,
     protocol: &UacProtocol,
 ) {
     println!("      AudioStreaming Interface Descriptor:");
@@ -2236,7 +2241,7 @@ fn dump_audiostreaming_interface(
     print!("        bDescriptorSubType   {:3} ", uasi.to_owned() as u8);
 
     match uasi {
-        StreamingInterface::General | StreamingInterface::Undefined => {
+        StreamingSubtype::General | StreamingSubtype::Undefined => {
             println!("({:#})", uacd.subtype);
             match &uacd.interface {
                 UacInterfaceDescriptor::Invalid(_) => {
@@ -2251,7 +2256,7 @@ fn dump_audiostreaming_interface(
                 uacid => dump_audio_subtype(uacid, 8),
             }
         }
-        StreamingInterface::FormatType => {
+        StreamingSubtype::FormatType => {
             println!("(FORMAT_TYPE)");
             let data: Vec<u8> = uacd.interface.to_owned().into();
             match protocol {
@@ -2306,7 +2311,7 @@ fn dump_audiostreaming_interface(
                 ),
             }
         }
-        StreamingInterface::FormatSpecific => {
+        StreamingSubtype::FormatSpecific => {
             let data: Vec<u8> = uacd.interface.to_owned().into();
             println!("(FORMAT_SPECIFIC)");
             if data.len() < 2 {
@@ -2682,7 +2687,7 @@ fn dump_midistreaming_interface(md: &MidiDescriptor) {
     );
 
     match md.midi_type {
-        MidiInterface::Header => {
+        MidiSubtype::Header => {
             println!("(HEADER)");
             if md.data.len() >= 4 {
                 let total_length = u16::from_le_bytes([md.data[2], md.data[3]]);
@@ -2694,7 +2699,7 @@ fn dump_midistreaming_interface(md: &MidiDescriptor) {
             }
             dump_junk(&md.data, 8, md.length as usize - 3, 4);
         }
-        MidiInterface::InputJack => {
+        MidiSubtype::InputJack => {
             println!("(MIDI_IN_JACK)");
             if md.data.len() >= 3 {
                 println!(
@@ -2711,7 +2716,7 @@ fn dump_midistreaming_interface(md: &MidiDescriptor) {
             }
             dump_junk(&md.data, 8, md.length as usize - 3, 4);
         }
-        MidiInterface::OutputJack => {
+        MidiSubtype::OutputJack => {
             println!("(MIDI_OUT_JACK)");
             if md.data.len() >= md.length as usize - 3 {
                 println!(
@@ -2738,7 +2743,7 @@ fn dump_midistreaming_interface(md: &MidiDescriptor) {
                 dump_junk(&md.data, 8, md.length as usize - 3, 4 + md.data[2] as usize);
             }
         }
-        MidiInterface::Element => {
+        MidiSubtype::Element => {
             println!("(ELEMENT)");
             if md.data.len() >= md.length as usize - 3 {
                 let num_inputs = md.data[1] as usize;
@@ -2824,10 +2829,10 @@ fn dump_videocontrol_interface(vcd: &UvcDescriptor, protocol: u8) {
     println!("      VideoControl Interface Descriptor:");
     println!("        bLength             {:5}", vcd.length);
     println!("        bDescriptorType     {:5}", vcd.descriptor_type);
-    print!("        bDescriptorSubType  {:5} ", vcd.descriptor_subtype);
+    print!("        bDescriptorSubType  {:5} ", (vcd.subtype.to_owned() as u8));
 
-    match UvcInterface::from(vcd.descriptor_subtype) {
-        UvcInterface::Header => {
+    match vcd.subtype {
+        UvcSubtype::Header => {
             println!("(HEADER)");
             if vcd.data.len() >= 10 {
                 let n = vcd.data[8] as usize;
@@ -2856,7 +2861,7 @@ fn dump_videocontrol_interface(vcd: &UvcDescriptor, protocol: u8) {
                 dump_junk(&vcd.data, 8, vcd.length as usize - 3, 9 + n);
             }
         }
-        UvcInterface::InputTerminal => {
+        UvcSubtype::InputTerminal => {
             println!("(INPUT_TERMINAL)");
             if vcd.data.len() >= 10 {
                 let term_type = u16::from_le_bytes([vcd.data[1], vcd.data[2]]);
@@ -2918,7 +2923,7 @@ fn dump_videocontrol_interface(vcd: &UvcDescriptor, protocol: u8) {
                 println!("      Warning: Descriptor too short");
             }
         }
-        UvcInterface::OutputTerminal => {
+        UvcSubtype::OutputTerminal => {
             println!("(OUTPUT_TERMINAL)");
             if vcd.data.len() >= 6 {
                 let term_type = u16::from_le_bytes([vcd.data[1], vcd.data[2]]);
@@ -2941,7 +2946,7 @@ fn dump_videocontrol_interface(vcd: &UvcDescriptor, protocol: u8) {
 
             dump_junk(&vcd.data, 8, vcd.length as usize - 3, 6);
         }
-        UvcInterface::SelectorUnit => {
+        UvcSubtype::SelectorUnit => {
             println!("(SELECTOR_UNIT)");
             if vcd.data.len() >= 4 {
                 let pins = vcd.data[1] as usize;
@@ -2964,7 +2969,7 @@ fn dump_videocontrol_interface(vcd: &UvcDescriptor, protocol: u8) {
                 println!("      Warning: Descriptor too short");
             }
         }
-        UvcInterface::ProcessingUnit => {
+        UvcSubtype::ProcessingUnit => {
             println!("(PROCESSING_UNIT)");
             if vcd.data.len() >= 9 {
                 let n = vcd.data[4] as usize;
@@ -3012,7 +3017,7 @@ fn dump_videocontrol_interface(vcd: &UvcDescriptor, protocol: u8) {
                 println!("      Warning: Descriptor too short");
             }
         }
-        UvcInterface::ExtensionUnit => {
+        UvcSubtype::ExtensionUnit => {
             println!("(EXTENSION_UNIT)");
             if vcd.data.len() >= 21 {
                 let p = vcd.data[18] as usize;
@@ -3045,7 +3050,7 @@ fn dump_videocontrol_interface(vcd: &UvcDescriptor, protocol: u8) {
                 println!("      Warning: Descriptor too short");
             }
         }
-        UvcInterface::EncodingUnit => {
+        UvcSubtype::EncodingUnit => {
             println!("(ENCODING_UNIT)");
             if vcd.data.len() >= 10 {
                 println!("        bUnitID             {:5}", vcd.data[0]);

@@ -8,11 +8,12 @@ use strum_macros::VariantArray;
 use super::*;
 use crate::error::{self, Error, ErrorKind};
 
+/// bSubtype for MIDI interface descriptors
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 #[repr(u8)]
 #[non_exhaustive]
-pub enum MidiInterface {
+pub enum MidiSubtype {
     Undefined = 0x00,
     Header = 0x01,
     InputJack = 0x02,
@@ -20,15 +21,15 @@ pub enum MidiInterface {
     Element = 0x04,
 }
 
-impl From<u8> for MidiInterface {
+impl From<u8> for MidiSubtype {
     fn from(b: u8) -> Self {
         match b {
-            0x00 => MidiInterface::Undefined,
-            0x01 => MidiInterface::Header,
-            0x02 => MidiInterface::InputJack,
-            0x03 => MidiInterface::OutputJack,
-            0x04 => MidiInterface::Element,
-            _ => MidiInterface::Undefined,
+            0x00 => MidiSubtype::Undefined,
+            0x01 => MidiSubtype::Header,
+            0x02 => MidiSubtype::InputJack,
+            0x03 => MidiSubtype::OutputJack,
+            0x04 => MidiSubtype::Element,
+            _ => MidiSubtype::Undefined,
         }
     }
 }
@@ -38,7 +39,7 @@ impl From<u8> for MidiInterface {
 pub struct MidiDescriptor {
     pub length: u8,
     pub descriptor_type: u8,
-    pub midi_type: MidiInterface,
+    pub midi_type: MidiSubtype,
     pub string_index: Option<u8>,
     pub string: Option<String>,
     pub data: Vec<u8>,
@@ -63,12 +64,12 @@ impl TryFrom<&[u8]> for MidiDescriptor {
             ));
         }
 
-        let midi_type = MidiInterface::from(value[2]);
+        let midi_type = MidiSubtype::from(value[2]);
 
         let string_index = match midi_type {
-            MidiInterface::InputJack => value.get(5).copied(),
-            MidiInterface::OutputJack => value.get(5).map(|v| 6 + *v * 2),
-            MidiInterface::Element => {
+            MidiSubtype::InputJack => value.get(5).copied(),
+            MidiSubtype::OutputJack => value.get(5).map(|v| 6 + *v * 2),
+            MidiSubtype::Element => {
                 // don't ask...
                 if let Some(j) = value.get(4) {
                     if let Some(capsize) = value.get((5 + *j as usize * 2) + 3) {
@@ -121,7 +122,7 @@ impl TryFrom<GenericDescriptor> for MidiDescriptor {
 pub struct UacDescriptor {
     pub length: u8,
     pub descriptor_type: u8,
-    pub subtype: UacSubtype,
+    pub subtype: UacType,
     pub interface: UacInterfaceDescriptor,
 }
 
@@ -131,7 +132,7 @@ impl TryFrom<(GenericDescriptor, u8, u8)> for UacDescriptor {
     fn try_from((gd, subc, p): (GenericDescriptor, u8, u8)) -> error::Result<Self> {
         let length = gd.length;
         let descriptor_type = gd.descriptor_type;
-        let subtype: UacSubtype = (subc, gd.descriptor_subtype, p).try_into()?;
+        let subtype: UacType = (subc, gd.descriptor_subtype, p).try_into()?;
         let interface = subtype.uac_descriptor_from_generic(gd, p)?;
         Ok(UacDescriptor {
             length,
@@ -148,9 +149,9 @@ impl From<UacDescriptor> for Vec<u8> {
         ret.push(val.length);
         ret.push(val.descriptor_type);
         let subtype: u8 = match val.subtype {
-            UacSubtype::Control(aci) => aci as u8,
-            UacSubtype::Streaming(asi) => asi as u8,
-            UacSubtype::Midi(mi) => mi as u8,
+            UacType::Control(aci) => aci as u8,
+            UacType::Streaming(asi) => asi as u8,
+            UacType::Midi(mi) => mi as u8,
         };
         ret.push(subtype);
         let data: Vec<u8> = val.interface.into();
@@ -415,15 +416,51 @@ impl Uac2ChannelNames {
     }
 }
 
+/// USB Audio Class (UAC) channel names based on the "wChannelConfig" field
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub enum ChannelNames {
+    /// UAC1 channel names
+    Uac1(Uac1ChannelNames),
+    /// UAC2 channel names
+    Uac2(Uac2ChannelNames),
+}
+
+impl fmt::Display for ChannelNames {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ChannelNames::Uac1(c) => write!(f, "{}", c),
+            ChannelNames::Uac2(c) => write!(f, "{}", c),
+        }
+    }
+}
+
+impl ChannelNames {
+    /// Get the supported [`ChannelNames`] from the bitmap value
+    pub fn from_bitmap<T: Into<u32>>(protocol: &UacProtocol, bitmap: T) -> Vec<ChannelNames> {
+        match protocol {
+            UacProtocol::Uac1 => Uac1ChannelNames::from_bitmap(bitmap)
+                .iter()
+                .map(|c| ChannelNames::Uac1(*c))
+                .collect(),
+            UacProtocol::Uac2 => Uac2ChannelNames::from_bitmap(bitmap)
+                .iter()
+                .map(|c| ChannelNames::Uac2(*c))
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+}
+
 impl UacInterfaceDescriptor {
     /// Get the UAC AC interface descriptor from the UAC AC interface
     pub fn from_uac_ac_interface(
-        uac_interface: &ControlInterface,
+        uac_interface: &ControlSubtype,
         protocol: &UacProtocol,
         data: &[u8],
     ) -> Result<Self, Error> {
         match uac_interface {
-            ControlInterface::Header => match protocol {
+            ControlSubtype::Header => match protocol {
                 UacProtocol::Uac1 => {
                     Header1::try_from(data).map(UacInterfaceDescriptor::Header1)
                 }
@@ -435,7 +472,7 @@ impl UacInterfaceDescriptor {
                 }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::InputTerminal => match protocol {
+            ControlSubtype::InputTerminal => match protocol {
                 UacProtocol::Uac1 => InputTerminal1::try_from(data)
                     .map(UacInterfaceDescriptor::InputTerminal1),
                 UacProtocol::Uac2 => InputTerminal2::try_from(data)
@@ -444,7 +481,7 @@ impl UacInterfaceDescriptor {
                     .map(UacInterfaceDescriptor::InputTerminal3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::OutputTerminal => match protocol {
+            ControlSubtype::OutputTerminal => match protocol {
                 UacProtocol::Uac1 => OutputTerminal1::try_from(data)
                     .map(UacInterfaceDescriptor::OutputTerminal1),
                 UacProtocol::Uac2 => OutputTerminal2::try_from(data)
@@ -453,18 +490,18 @@ impl UacInterfaceDescriptor {
                     .map(UacInterfaceDescriptor::OutputTerminal3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::ExtendedTerminal => match protocol {
+            ControlSubtype::ExtendedTerminal => match protocol {
                 UacProtocol::Uac3 => ExtendedTerminalHeader::try_from(data)
                     .map(UacInterfaceDescriptor::ExtendedTerminalHeader),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::PowerDomain => match protocol {
+            ControlSubtype::PowerDomain => match protocol {
                 UacProtocol::Uac3 => {
                     PowerDomain::try_from(data).map(UacInterfaceDescriptor::PowerDomain)
                 }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::MixerUnit => match protocol {
+            ControlSubtype::MixerUnit => match protocol {
                 UacProtocol::Uac1 => {
                     MixerUnit1::try_from(data).map(UacInterfaceDescriptor::MixerUnit1)
                 }
@@ -476,7 +513,7 @@ impl UacInterfaceDescriptor {
                 }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::SelectorUnit => match protocol {
+            ControlSubtype::SelectorUnit => match protocol {
                 UacProtocol::Uac1 => SelectorUnit1::try_from(data)
                     .map(UacInterfaceDescriptor::SelectorUnit1),
                 UacProtocol::Uac2 => SelectorUnit2::try_from(data)
@@ -485,7 +522,7 @@ impl UacInterfaceDescriptor {
                     .map(UacInterfaceDescriptor::SelectorUnit3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::ProcessingUnit => match protocol {
+            ControlSubtype::ProcessingUnit => match protocol {
                 UacProtocol::Uac1 => ProcessingUnit1::try_from(data)
                     .map(UacInterfaceDescriptor::ProcessingUnit1),
                 UacProtocol::Uac2 => ProcessingUnit2::try_from(data)
@@ -494,7 +531,7 @@ impl UacInterfaceDescriptor {
                     .map(UacInterfaceDescriptor::ProcessingUnit3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::EffectUnit => {
+            ControlSubtype::EffectUnit => {
                 match protocol {
                     UacProtocol::Uac2 => EffectUnit2::try_from(data)
                         .map(UacInterfaceDescriptor::EffectUnit2),
@@ -503,7 +540,7 @@ impl UacInterfaceDescriptor {
                     _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
                 }
             }
-            ControlInterface::FeatureUnit => {
+            ControlSubtype::FeatureUnit => {
                 match protocol {
                     UacProtocol::Uac1 => FeatureUnit1::try_from(data)
                         .map(UacInterfaceDescriptor::FeatureUnit1),
@@ -514,7 +551,7 @@ impl UacInterfaceDescriptor {
                     _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
                 }
             }
-            ControlInterface::ExtensionUnit => match protocol {
+            ControlSubtype::ExtensionUnit => match protocol {
                 UacProtocol::Uac1 => ExtensionUnit1::try_from(data)
                     .map(UacInterfaceDescriptor::ExtensionUnit1),
                 UacProtocol::Uac2 => ExtensionUnit2::try_from(data)
@@ -523,7 +560,7 @@ impl UacInterfaceDescriptor {
                     .map(UacInterfaceDescriptor::ExtensionUnit3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::ClockSource => {
+            ControlSubtype::ClockSource => {
                 match protocol {
                     UacProtocol::Uac2 => ClockSource2::try_from(data)
                         .map(UacInterfaceDescriptor::ClockSource2),
@@ -532,40 +569,40 @@ impl UacInterfaceDescriptor {
                     _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
                 }
             }
-            ControlInterface::ClockSelector => match protocol {
+            ControlSubtype::ClockSelector => match protocol {
                 UacProtocol::Uac2 => ClockSelector2::try_from(data)
                     .map(UacInterfaceDescriptor::ClockSelector2),
                 UacProtocol::Uac3 => ClockSelector3::try_from(data)
                     .map(UacInterfaceDescriptor::ClockSelector3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::ClockMultiplier => match protocol {
+            ControlSubtype::ClockMultiplier => match protocol {
                 UacProtocol::Uac2 => ClockMultiplier2::try_from(data)
                     .map(UacInterfaceDescriptor::ClockMultiplier2),
                 UacProtocol::Uac3 => ClockMultiplier3::try_from(data)
                     .map(UacInterfaceDescriptor::ClockMultiplier3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::SampleRateConverter => match protocol {
+            ControlSubtype::SampleRateConverter => match protocol {
                 UacProtocol::Uac2 => SampleRateConverter2::try_from(data)
                     .map(UacInterfaceDescriptor::SampleRateConverter2),
                 UacProtocol::Uac3 => SampleRateConverter3::try_from(data)
                     .map(UacInterfaceDescriptor::SampleRateConverter3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlInterface::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
+            ControlSubtype::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
             _ => Ok(UacInterfaceDescriptor::Generic(data.to_vec())),
         }
     }
 
     /// Get the UAC AS interface descriptor from the UAC AS interface
     pub fn from_uac_as_interface(
-        uac_interface: &StreamingInterface,
+        uac_interface: &StreamingSubtype,
         protocol: &UacProtocol,
         data: &[u8],
     ) -> Result<Self, Error> {
         match uac_interface {
-            StreamingInterface::General => match protocol {
+            StreamingSubtype::General => match protocol {
                 UacProtocol::Uac1 => StreamingInterface1::try_from(data)
                     .map(UacInterfaceDescriptor::StreamingInterface1),
                 UacProtocol::Uac2 => StreamingInterface2::try_from(data)
@@ -574,7 +611,7 @@ impl UacInterfaceDescriptor {
                     .map(UacInterfaceDescriptor::StreamingInterface3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            StreamingInterface::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
+            StreamingSubtype::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
             _ => Ok(UacInterfaceDescriptor::Generic(data.to_vec())),
         }
     }
@@ -605,6 +642,24 @@ impl UacInterfaceDescriptor {
             }
         }
         ret
+    }
+
+    /// Get the [`ChannelNames`] from the descriptor "wChannelConfig" field bitmap
+    pub fn get_channel_names<T: Into<u32> + Copy>(
+        &self,
+        channel_config: T,
+    ) -> Vec<ChannelNames> {
+        match self.get_protocol() {
+            UacProtocol::Uac1 => Uac1ChannelNames::from_bitmap(channel_config)
+                .iter()
+                .map(|c| ChannelNames::Uac1(*c))
+                .collect(),
+            UacProtocol::Uac2 => Uac2ChannelNames::from_bitmap(channel_config)
+                .iter()
+                .map(|c| ChannelNames::Uac2(*c))
+                .collect(),
+            _ => Vec::new(),
+        }
     }
 
     /// Get USB Audio Device Class channel names from the descriptor "wChannelConfig" field bitmap string based on the protocol
@@ -735,14 +790,14 @@ impl std::fmt::Display for UacProtocol {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub enum UacSubtype {
-    Control(ControlInterface),
-    Streaming(StreamingInterface),
-    Midi(MidiInterface),
+pub enum UacType {
+    Control(ControlSubtype),
+    Streaming(StreamingSubtype),
+    Midi(MidiSubtype),
 }
 
 /// From a [`GenericDescriptor`] and a protocol, get the UAC subtype
-impl TryFrom<(&GenericDescriptor, u8)> for UacSubtype {
+impl TryFrom<(&GenericDescriptor, u8)> for UacType {
     type Error = Error;
 
     fn try_from((gd, p): (&GenericDescriptor, u8)) -> error::Result<Self> {
@@ -750,40 +805,40 @@ impl TryFrom<(&GenericDescriptor, u8)> for UacSubtype {
     }
 }
 
-impl TryFrom<(u8, u8, u8)> for UacSubtype {
+impl TryFrom<(u8, u8, u8)> for UacType {
     type Error = Error;
 
     fn try_from((sub_class, descriptor_sub, protocol): (u8, u8, u8)) -> error::Result<Self> {
         match (sub_class, descriptor_sub, protocol) {
-            (1, d, p) => Ok(UacSubtype::Control(ControlInterface::get_uac_subtype(d, p))),
-            (2, d, _) => Ok(UacSubtype::Streaming(StreamingInterface::from(d))),
-            (3, d, _) => Ok(UacSubtype::Midi(MidiInterface::from(d))),
+            (1, d, p) => Ok(UacType::Control(ControlSubtype::get_uac_subtype(d, p))),
+            (2, d, _) => Ok(UacType::Streaming(StreamingSubtype::from(d))),
+            (3, d, _) => Ok(UacType::Midi(MidiSubtype::from(d))),
             _ => Err(Error::new(ErrorKind::InvalidArg, "Invalid UAC subtype")),
         }
     }
 }
 
-impl From<UacSubtype> for u8 {
-    fn from(us: UacSubtype) -> u8 {
+impl From<UacType> for u8 {
+    fn from(us: UacType) -> u8 {
         match us {
-            UacSubtype::Control(aci) => aci as u8,
-            UacSubtype::Streaming(asi) => asi as u8,
-            UacSubtype::Midi(mi) => mi as u8,
+            UacType::Control(aci) => aci as u8,
+            UacType::Streaming(asi) => asi as u8,
+            UacType::Midi(mi) => mi as u8,
         }
     }
 }
 
-impl fmt::Display for UacSubtype {
+impl fmt::Display for UacType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UacSubtype::Control(aci) => write!(f, "{}", aci),
-            UacSubtype::Streaming(asi) => write!(f, "{}", asi),
-            UacSubtype::Midi(mi) => write!(f, "{:?}", mi),
+            UacType::Control(aci) => write!(f, "{}", aci),
+            UacType::Streaming(asi) => write!(f, "{}", asi),
+            UacType::Midi(mi) => write!(f, "{:?}", mi),
         }
     }
 }
 
-impl UacSubtype {
+impl UacType {
     /// Get the [`UacInterfaceDescriptor`] based on UAC subtype, [`UacProtocol`] and raw data
     pub fn get_uac_descriptor(
         &self,
@@ -791,10 +846,10 @@ impl UacSubtype {
         data: &[u8],
     ) -> Result<UacInterfaceDescriptor, Error> {
         match self {
-            UacSubtype::Control(aci) => aci.get_descriptor(&UacProtocol::from(protocol), data),
-            UacSubtype::Streaming(asi) => asi.get_descriptor(&UacProtocol::from(protocol), data),
+            UacType::Control(aci) => aci.get_descriptor(&UacProtocol::from(protocol), data),
+            UacType::Streaming(asi) => asi.get_descriptor(&UacProtocol::from(protocol), data),
             // TODO decode all MidiInterface types like Control and Streaming
-            UacSubtype::Midi(_) => Err(Error::new(
+            UacType::Midi(_) => Err(Error::new(
                 ErrorKind::InvalidArg,
                 "Midi descriptor to UAC not yet supported, use MidiDescriptor.data",
             )),
@@ -821,7 +876,7 @@ impl UacSubtype {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
-pub enum ControlInterface {
+pub enum ControlSubtype {
     Undefined = 0x00,
     Header = 0x01,
     InputTerminal = 0x02,
@@ -841,104 +896,104 @@ pub enum ControlInterface {
     PowerDomain = 0x10,
 }
 
-impl std::fmt::Display for ControlInterface {
+impl std::fmt::Display for ControlSubtype {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             // uppercase with _ instead of space for lsusb dump
             match self {
-                ControlInterface::Undefined => write!(f, "unknown"),
-                ControlInterface::Header => write!(f, "HEADER"),
-                ControlInterface::InputTerminal => write!(f, "INPUT_TERMINAL"),
-                ControlInterface::OutputTerminal => write!(f, "OUTPUT_TERMINAL"),
-                ControlInterface::ExtendedTerminal => write!(f, "EXTENDED_TERMINAL"),
-                ControlInterface::MixerUnit => write!(f, "MIXER_UNIT"),
-                ControlInterface::SelectorUnit => write!(f, "SELECTOR_UNIT"),
-                ControlInterface::FeatureUnit => write!(f, "FEATURE_UNIT"),
-                ControlInterface::EffectUnit => write!(f, "EFFECT_UNIT"),
-                ControlInterface::ProcessingUnit => write!(f, "PROCESSING_UNIT"),
-                ControlInterface::ExtensionUnit => write!(f, "EXTENSION_UNIT"),
-                ControlInterface::ClockSource => write!(f, "CLOCK_SOURCE"),
-                ControlInterface::ClockSelector => write!(f, "CLOCK_SELECTOR"),
-                ControlInterface::ClockMultiplier => write!(f, "CLOCK_MULTIPLIER"),
-                ControlInterface::SampleRateConverter => write!(f, "SAMPLE_RATE_CONVERTER"),
-                ControlInterface::Connectors => write!(f, "CONNECTORS"),
-                ControlInterface::PowerDomain => write!(f, "POWER_DOMAIN"),
+                ControlSubtype::Undefined => write!(f, "unknown"),
+                ControlSubtype::Header => write!(f, "HEADER"),
+                ControlSubtype::InputTerminal => write!(f, "INPUT_TERMINAL"),
+                ControlSubtype::OutputTerminal => write!(f, "OUTPUT_TERMINAL"),
+                ControlSubtype::ExtendedTerminal => write!(f, "EXTENDED_TERMINAL"),
+                ControlSubtype::MixerUnit => write!(f, "MIXER_UNIT"),
+                ControlSubtype::SelectorUnit => write!(f, "SELECTOR_UNIT"),
+                ControlSubtype::FeatureUnit => write!(f, "FEATURE_UNIT"),
+                ControlSubtype::EffectUnit => write!(f, "EFFECT_UNIT"),
+                ControlSubtype::ProcessingUnit => write!(f, "PROCESSING_UNIT"),
+                ControlSubtype::ExtensionUnit => write!(f, "EXTENSION_UNIT"),
+                ControlSubtype::ClockSource => write!(f, "CLOCK_SOURCE"),
+                ControlSubtype::ClockSelector => write!(f, "CLOCK_SELECTOR"),
+                ControlSubtype::ClockMultiplier => write!(f, "CLOCK_MULTIPLIER"),
+                ControlSubtype::SampleRateConverter => write!(f, "SAMPLE_RATE_CONVERTER"),
+                ControlSubtype::Connectors => write!(f, "CONNECTORS"),
+                ControlSubtype::PowerDomain => write!(f, "POWER_DOMAIN"),
             }
         } else {
             match self {
-                ControlInterface::Undefined => write!(f, "Undefined"),
-                ControlInterface::Header => write!(f, "Header"),
-                ControlInterface::InputTerminal => write!(f, "Input Terminal"),
-                ControlInterface::OutputTerminal => write!(f, "Output Terminal"),
-                ControlInterface::ExtendedTerminal => write!(f, "Extended Terminal"),
-                ControlInterface::MixerUnit => write!(f, "Mixer Unit"),
-                ControlInterface::SelectorUnit => write!(f, "Selector Unit"),
-                ControlInterface::FeatureUnit => write!(f, "Feature Unit"),
-                ControlInterface::EffectUnit => write!(f, "Effect Unit"),
-                ControlInterface::ProcessingUnit => write!(f, "Processing Unit"),
-                ControlInterface::ExtensionUnit => write!(f, "Extension Unit"),
-                ControlInterface::ClockSource => write!(f, "Clock Source"),
-                ControlInterface::ClockSelector => write!(f, "Clock Selector"),
-                ControlInterface::ClockMultiplier => write!(f, "Clock Multiplier"),
-                ControlInterface::SampleRateConverter => write!(f, "Sample Rate Converter"),
-                ControlInterface::Connectors => write!(f, "Connectors"),
-                ControlInterface::PowerDomain => write!(f, "Power Domain"),
+                ControlSubtype::Undefined => write!(f, "Undefined"),
+                ControlSubtype::Header => write!(f, "Header"),
+                ControlSubtype::InputTerminal => write!(f, "Input Terminal"),
+                ControlSubtype::OutputTerminal => write!(f, "Output Terminal"),
+                ControlSubtype::ExtendedTerminal => write!(f, "Extended Terminal"),
+                ControlSubtype::MixerUnit => write!(f, "Mixer Unit"),
+                ControlSubtype::SelectorUnit => write!(f, "Selector Unit"),
+                ControlSubtype::FeatureUnit => write!(f, "Feature Unit"),
+                ControlSubtype::EffectUnit => write!(f, "Effect Unit"),
+                ControlSubtype::ProcessingUnit => write!(f, "Processing Unit"),
+                ControlSubtype::ExtensionUnit => write!(f, "Extension Unit"),
+                ControlSubtype::ClockSource => write!(f, "Clock Source"),
+                ControlSubtype::ClockSelector => write!(f, "Clock Selector"),
+                ControlSubtype::ClockMultiplier => write!(f, "Clock Multiplier"),
+                ControlSubtype::SampleRateConverter => write!(f, "Sample Rate Converter"),
+                ControlSubtype::Connectors => write!(f, "Connectors"),
+                ControlSubtype::PowerDomain => write!(f, "Power Domain"),
             }
         }
     }
 }
 
-impl From<u8> for ControlInterface {
+impl From<u8> for ControlSubtype {
     fn from(b: u8) -> Self {
         match b {
-            0x00 => ControlInterface::Undefined,
-            0x01 => ControlInterface::Header,
-            0x02 => ControlInterface::InputTerminal,
-            0x03 => ControlInterface::OutputTerminal,
-            0x04 => ControlInterface::ExtendedTerminal,
-            0x05 => ControlInterface::MixerUnit,
-            0x06 => ControlInterface::SelectorUnit,
-            0x07 => ControlInterface::FeatureUnit,
-            0x08 => ControlInterface::EffectUnit,
-            0x09 => ControlInterface::ProcessingUnit,
-            0x0a => ControlInterface::ExtensionUnit,
-            0x0b => ControlInterface::ClockSource,
-            0x0c => ControlInterface::ClockSelector,
-            0x0d => ControlInterface::ClockMultiplier,
-            0x0e => ControlInterface::SampleRateConverter,
-            0x0f => ControlInterface::Connectors,
-            0x10 => ControlInterface::PowerDomain,
-            _ => ControlInterface::Undefined,
+            0x00 => ControlSubtype::Undefined,
+            0x01 => ControlSubtype::Header,
+            0x02 => ControlSubtype::InputTerminal,
+            0x03 => ControlSubtype::OutputTerminal,
+            0x04 => ControlSubtype::ExtendedTerminal,
+            0x05 => ControlSubtype::MixerUnit,
+            0x06 => ControlSubtype::SelectorUnit,
+            0x07 => ControlSubtype::FeatureUnit,
+            0x08 => ControlSubtype::EffectUnit,
+            0x09 => ControlSubtype::ProcessingUnit,
+            0x0a => ControlSubtype::ExtensionUnit,
+            0x0b => ControlSubtype::ClockSource,
+            0x0c => ControlSubtype::ClockSelector,
+            0x0d => ControlSubtype::ClockMultiplier,
+            0x0e => ControlSubtype::SampleRateConverter,
+            0x0f => ControlSubtype::Connectors,
+            0x10 => ControlSubtype::PowerDomain,
+            _ => ControlSubtype::Undefined,
         }
     }
 }
 
-impl ControlInterface {
+impl ControlSubtype {
     /// UAC1, UAC2, and UAC3 define bDescriptorSubtype differently for the
     /// AudioControl interface, so we need to do some ugly remapping:
     pub fn get_uac_subtype(subtype: u8, protocol: u8) -> Self {
         match protocol {
             // UAC1
             0x00 => match subtype {
-                0x04 => ControlInterface::MixerUnit,
-                0x05 => ControlInterface::SelectorUnit,
-                0x06 => ControlInterface::FeatureUnit,
-                0x07 => ControlInterface::ProcessingUnit,
-                0x08 => ControlInterface::ExtensionUnit,
+                0x04 => ControlSubtype::MixerUnit,
+                0x05 => ControlSubtype::SelectorUnit,
+                0x06 => ControlSubtype::FeatureUnit,
+                0x07 => ControlSubtype::ProcessingUnit,
+                0x08 => ControlSubtype::ExtensionUnit,
                 _ => Self::from(subtype),
             },
             // UAC2
             0x20 => match subtype {
-                0x04 => ControlInterface::MixerUnit,
-                0x05 => ControlInterface::SelectorUnit,
-                0x06 => ControlInterface::FeatureUnit,
-                0x07 => ControlInterface::EffectUnit,
-                0x08 => ControlInterface::ProcessingUnit,
-                0x09 => ControlInterface::ExtensionUnit,
-                0x0a => ControlInterface::ClockSource,
-                0x0b => ControlInterface::ClockSelector,
-                0x0c => ControlInterface::ClockMultiplier,
-                0x0d => ControlInterface::SampleRateConverter,
+                0x04 => ControlSubtype::MixerUnit,
+                0x05 => ControlSubtype::SelectorUnit,
+                0x06 => ControlSubtype::FeatureUnit,
+                0x07 => ControlSubtype::EffectUnit,
+                0x08 => ControlSubtype::ProcessingUnit,
+                0x09 => ControlSubtype::ExtensionUnit,
+                0x0a => ControlSubtype::ClockSource,
+                0x0b => ControlSubtype::ClockSelector,
+                0x0c => ControlSubtype::ClockMultiplier,
+                0x0d => ControlSubtype::SampleRateConverter,
                 _ => Self::from(subtype),
             },
             // no re-map for UAC3..
@@ -960,47 +1015,47 @@ impl ControlInterface {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
-pub enum StreamingInterface {
+pub enum StreamingSubtype {
     Undefined = 0x00,
     General = 0x01,
     FormatType = 0x02,
     FormatSpecific = 0x03,
 }
 
-impl From<u8> for StreamingInterface {
+impl From<u8> for StreamingSubtype {
     fn from(b: u8) -> Self {
         match b {
-            0x00 => StreamingInterface::Undefined,
-            0x01 => StreamingInterface::General,
-            0x02 => StreamingInterface::FormatType,
-            0x03 => StreamingInterface::FormatSpecific,
-            _ => StreamingInterface::Undefined,
+            0x00 => StreamingSubtype::Undefined,
+            0x01 => StreamingSubtype::General,
+            0x02 => StreamingSubtype::FormatType,
+            0x03 => StreamingSubtype::FormatSpecific,
+            _ => StreamingSubtype::Undefined,
         }
     }
 }
 
-impl fmt::Display for StreamingInterface {
+impl fmt::Display for StreamingSubtype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             // uppercase with _ instead of space for lsusb dump
             match self {
-                StreamingInterface::Undefined => write!(f, "UNDEFINED"),
-                StreamingInterface::General => write!(f, "GENERAL"),
-                StreamingInterface::FormatType => write!(f, "FORMAT_TYPE"),
-                StreamingInterface::FormatSpecific => write!(f, "FORMAT_SPECIFIC"),
+                StreamingSubtype::Undefined => write!(f, "UNDEFINED"),
+                StreamingSubtype::General => write!(f, "GENERAL"),
+                StreamingSubtype::FormatType => write!(f, "FORMAT_TYPE"),
+                StreamingSubtype::FormatSpecific => write!(f, "FORMAT_SPECIFIC"),
             }
         } else {
             match self {
-                StreamingInterface::Undefined => write!(f, "Undefined"),
-                StreamingInterface::General => write!(f, "General"),
-                StreamingInterface::FormatType => write!(f, "Format Type"),
-                StreamingInterface::FormatSpecific => write!(f, "Format Specific"),
+                StreamingSubtype::Undefined => write!(f, "Undefined"),
+                StreamingSubtype::General => write!(f, "General"),
+                StreamingSubtype::FormatType => write!(f, "Format Type"),
+                StreamingSubtype::FormatSpecific => write!(f, "Format Specific"),
             }
         }
     }
 }
 
-impl StreamingInterface {
+impl StreamingSubtype {
     /// Get the UAC interface descriptor from the UAC interface
     pub fn get_descriptor(
         &self,
