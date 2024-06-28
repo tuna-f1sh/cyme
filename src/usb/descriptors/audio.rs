@@ -177,50 +177,50 @@ impl UacDescriptor {
 #[allow(missing_docs)]
 pub enum UacInterfaceDescriptor {
     // Audio Controls bSubClass
-    AudioHeader1(AudioHeader1),
-    AudioHeader2(AudioHeader2),
-    AudioHeader3(AudioHeader3),
-    AudioInputTerminal1(AudioInputTerminal1),
-    AudioInputTerminal2(AudioInputTerminal2),
-    AudioInputTerminal3(AudioInputTerminal3),
-    AudioOutputTerminal1(AudioOutputTerminal1),
-    AudioOutputTerminal2(AudioOutputTerminal2),
-    AudioOutputTerminal3(AudioOutputTerminal3),
+    Header1(Header1),
+    Header2(Header2),
+    Header3(Header3),
+    InputTerminal1(InputTerminal1),
+    InputTerminal2(InputTerminal2),
+    InputTerminal3(InputTerminal3),
+    OutputTerminal1(OutputTerminal1),
+    OutputTerminal2(OutputTerminal2),
+    OutputTerminal3(OutputTerminal3),
     ExtendedTerminalHeader(ExtendedTerminalHeader),
-    AudioPowerDomain(AudioPowerDomain),
-    AudioMixerUnit1(AudioMixerUnit1),
-    AudioMixerUnit2(AudioMixerUnit2),
-    AudioMixerUnit3(AudioMixerUnit3),
-    AudioSelectorUnit1(AudioSelectorUnit1),
-    AudioSelectorUnit2(AudioSelectorUnit2),
-    AudioSelectorUnit3(AudioSelectorUnit3),
-    AudioProcessingUnit1(AudioProcessingUnit1),
-    AudioProcessingUnit2(AudioProcessingUnit2),
-    AudioProcessingUnit3(AudioProcessingUnit3),
-    AudioEffectUnit2(AudioEffectUnit2),
-    AudioEffectUnit3(AudioEffectUnit3),
-    AudioFeatureUnit1(AudioFeatureUnit1),
-    AudioFeatureUnit2(AudioFeatureUnit2),
-    AudioFeatureUnit3(AudioFeatureUnit3),
-    AudioExtensionUnit1(AudioExtensionUnit1),
-    AudioExtensionUnit2(AudioExtensionUnit2),
-    AudioExtensionUnit3(AudioExtensionUnit3),
-    AudioClockSource2(AudioClockSource2),
-    AudioClockSource3(AudioClockSource3),
-    AudioClockSelector2(AudioClockSelector2),
-    AudioClockSelector3(AudioClockSelector3),
-    AudioClockMultiplier2(AudioClockMultiplier2),
-    AudioClockMultiplier3(AudioClockMultiplier3),
-    AudioSampleRateConverter2(AudioSampleRateConverter2),
-    AudioSampleRateConverter3(AudioSampleRateConverter3),
+    PowerDomain(PowerDomain),
+    MixerUnit1(MixerUnit1),
+    MixerUnit2(MixerUnit2),
+    MixerUnit3(MixerUnit3),
+    SelectorUnit1(SelectorUnit1),
+    SelectorUnit2(SelectorUnit2),
+    SelectorUnit3(SelectorUnit3),
+    ProcessingUnit1(ProcessingUnit1),
+    ProcessingUnit2(ProcessingUnit2),
+    ProcessingUnit3(ProcessingUnit3),
+    EffectUnit2(EffectUnit2),
+    EffectUnit3(EffectUnit3),
+    FeatureUnit1(FeatureUnit1),
+    FeatureUnit2(FeatureUnit2),
+    FeatureUnit3(FeatureUnit3),
+    ExtensionUnit1(ExtensionUnit1),
+    ExtensionUnit2(ExtensionUnit2),
+    ExtensionUnit3(ExtensionUnit3),
+    ClockSource2(ClockSource2),
+    ClockSource3(ClockSource3),
+    ClockSelector2(ClockSelector2),
+    ClockSelector3(ClockSelector3),
+    ClockMultiplier2(ClockMultiplier2),
+    ClockMultiplier3(ClockMultiplier3),
+    SampleRateConverter2(SampleRateConverter2),
+    SampleRateConverter3(SampleRateConverter3),
     // Audio Streaming bSubClass
-    AudioStreamingInterface1(AudioStreamingInterface1),
-    AudioStreamingInterface2(AudioStreamingInterface2),
-    AudioStreamingInterface3(AudioStreamingInterface3),
+    StreamingInterface1(StreamingInterface1),
+    StreamingInterface2(StreamingInterface2),
+    StreamingInterface3(StreamingInterface3),
     // Isochronous Audio Data Stream Endpoint
-    AudioDataStreamingEndpoint1(AudioDataStreamingEndpoint1),
-    AudioDataStreamingEndpoint2(AudioDataStreamingEndpoint2),
-    AudioDataStreamingEndpoint3(AudioDataStreamingEndpoint3),
+    DataStreamingEndpoint1(DataStreamingEndpoint1),
+    DatastreamingEndpoint2(DataStreamingEndpoint2),
+    DataStreamingEndpoint3(DataStreamingEndpoint3),
     /// Invalid descriptor for failing to parse matched
     Invalid(Vec<u8>),
     /// Generic descriptor for unsupported descriptors
@@ -232,48 +232,48 @@ pub enum UacInterfaceDescriptor {
 impl From<UacInterfaceDescriptor> for Vec<u8> {
     fn from(val: UacInterfaceDescriptor) -> Self {
         match val {
-            UacInterfaceDescriptor::AudioHeader1(a) => a.into(),
-            UacInterfaceDescriptor::AudioHeader2(a) => a.into(),
-            UacInterfaceDescriptor::AudioHeader3(a) => a.into(),
-            UacInterfaceDescriptor::AudioInputTerminal1(a) => a.into(),
-            UacInterfaceDescriptor::AudioInputTerminal2(a) => a.into(),
-            UacInterfaceDescriptor::AudioInputTerminal3(a) => a.into(),
-            UacInterfaceDescriptor::AudioOutputTerminal1(a) => a.into(),
-            UacInterfaceDescriptor::AudioOutputTerminal2(a) => a.into(),
-            UacInterfaceDescriptor::AudioOutputTerminal3(a) => a.into(),
+            UacInterfaceDescriptor::Header1(a) => a.into(),
+            UacInterfaceDescriptor::Header2(a) => a.into(),
+            UacInterfaceDescriptor::Header3(a) => a.into(),
+            UacInterfaceDescriptor::InputTerminal1(a) => a.into(),
+            UacInterfaceDescriptor::InputTerminal2(a) => a.into(),
+            UacInterfaceDescriptor::InputTerminal3(a) => a.into(),
+            UacInterfaceDescriptor::OutputTerminal1(a) => a.into(),
+            UacInterfaceDescriptor::OutputTerminal2(a) => a.into(),
+            UacInterfaceDescriptor::OutputTerminal3(a) => a.into(),
             UacInterfaceDescriptor::ExtendedTerminalHeader(a) => a.into(),
-            UacInterfaceDescriptor::AudioPowerDomain(a) => a.into(),
-            UacInterfaceDescriptor::AudioMixerUnit1(a) => a.into(),
-            UacInterfaceDescriptor::AudioMixerUnit2(a) => a.into(),
-            UacInterfaceDescriptor::AudioMixerUnit3(a) => a.into(),
-            UacInterfaceDescriptor::AudioSelectorUnit1(a) => a.into(),
-            UacInterfaceDescriptor::AudioSelectorUnit2(a) => a.into(),
-            UacInterfaceDescriptor::AudioSelectorUnit3(a) => a.into(),
-            UacInterfaceDescriptor::AudioProcessingUnit1(a) => a.into(),
-            UacInterfaceDescriptor::AudioProcessingUnit2(a) => a.into(),
-            UacInterfaceDescriptor::AudioProcessingUnit3(a) => a.into(),
-            UacInterfaceDescriptor::AudioEffectUnit2(a) => a.into(),
-            UacInterfaceDescriptor::AudioEffectUnit3(a) => a.into(),
-            UacInterfaceDescriptor::AudioFeatureUnit1(a) => a.into(),
-            UacInterfaceDescriptor::AudioFeatureUnit2(a) => a.into(),
-            UacInterfaceDescriptor::AudioFeatureUnit3(a) => a.into(),
-            UacInterfaceDescriptor::AudioExtensionUnit1(a) => a.into(),
-            UacInterfaceDescriptor::AudioExtensionUnit2(a) => a.into(),
-            UacInterfaceDescriptor::AudioExtensionUnit3(a) => a.into(),
-            UacInterfaceDescriptor::AudioClockSource2(a) => a.into(),
-            UacInterfaceDescriptor::AudioClockSource3(a) => a.into(),
-            UacInterfaceDescriptor::AudioClockSelector2(a) => a.into(),
-            UacInterfaceDescriptor::AudioClockSelector3(a) => a.into(),
-            UacInterfaceDescriptor::AudioClockMultiplier2(a) => a.into(),
-            UacInterfaceDescriptor::AudioClockMultiplier3(a) => a.into(),
-            UacInterfaceDescriptor::AudioSampleRateConverter2(a) => a.into(),
-            UacInterfaceDescriptor::AudioSampleRateConverter3(a) => a.into(),
-            UacInterfaceDescriptor::AudioStreamingInterface1(a) => a.into(),
-            UacInterfaceDescriptor::AudioStreamingInterface2(a) => a.into(),
-            UacInterfaceDescriptor::AudioStreamingInterface3(a) => a.into(),
-            UacInterfaceDescriptor::AudioDataStreamingEndpoint1(a) => a.into(),
-            UacInterfaceDescriptor::AudioDataStreamingEndpoint2(a) => a.into(),
-            UacInterfaceDescriptor::AudioDataStreamingEndpoint3(a) => a.into(),
+            UacInterfaceDescriptor::PowerDomain(a) => a.into(),
+            UacInterfaceDescriptor::MixerUnit1(a) => a.into(),
+            UacInterfaceDescriptor::MixerUnit2(a) => a.into(),
+            UacInterfaceDescriptor::MixerUnit3(a) => a.into(),
+            UacInterfaceDescriptor::SelectorUnit1(a) => a.into(),
+            UacInterfaceDescriptor::SelectorUnit2(a) => a.into(),
+            UacInterfaceDescriptor::SelectorUnit3(a) => a.into(),
+            UacInterfaceDescriptor::ProcessingUnit1(a) => a.into(),
+            UacInterfaceDescriptor::ProcessingUnit2(a) => a.into(),
+            UacInterfaceDescriptor::ProcessingUnit3(a) => a.into(),
+            UacInterfaceDescriptor::EffectUnit2(a) => a.into(),
+            UacInterfaceDescriptor::EffectUnit3(a) => a.into(),
+            UacInterfaceDescriptor::FeatureUnit1(a) => a.into(),
+            UacInterfaceDescriptor::FeatureUnit2(a) => a.into(),
+            UacInterfaceDescriptor::FeatureUnit3(a) => a.into(),
+            UacInterfaceDescriptor::ExtensionUnit1(a) => a.into(),
+            UacInterfaceDescriptor::ExtensionUnit2(a) => a.into(),
+            UacInterfaceDescriptor::ExtensionUnit3(a) => a.into(),
+            UacInterfaceDescriptor::ClockSource2(a) => a.into(),
+            UacInterfaceDescriptor::ClockSource3(a) => a.into(),
+            UacInterfaceDescriptor::ClockSelector2(a) => a.into(),
+            UacInterfaceDescriptor::ClockSelector3(a) => a.into(),
+            UacInterfaceDescriptor::ClockMultiplier2(a) => a.into(),
+            UacInterfaceDescriptor::ClockMultiplier3(a) => a.into(),
+            UacInterfaceDescriptor::SampleRateConverter2(a) => a.into(),
+            UacInterfaceDescriptor::SampleRateConverter3(a) => a.into(),
+            UacInterfaceDescriptor::StreamingInterface1(a) => a.into(),
+            UacInterfaceDescriptor::StreamingInterface2(a) => a.into(),
+            UacInterfaceDescriptor::StreamingInterface3(a) => a.into(),
+            UacInterfaceDescriptor::DataStreamingEndpoint1(a) => a.into(),
+            UacInterfaceDescriptor::DatastreamingEndpoint2(a) => a.into(),
+            UacInterfaceDescriptor::DataStreamingEndpoint3(a) => a.into(),
             UacInterfaceDescriptor::Invalid(a) => a,
             UacInterfaceDescriptor::Generic(a) => a,
             UacInterfaceDescriptor::Undefined(a) => a,
@@ -418,163 +418,163 @@ impl Uac2ChannelNames {
 impl UacInterfaceDescriptor {
     /// Get the UAC AC interface descriptor from the UAC AC interface
     pub fn from_uac_ac_interface(
-        uac_interface: &UacAcInterface,
+        uac_interface: &ControlInterface,
         protocol: &UacProtocol,
         data: &[u8],
     ) -> Result<Self, Error> {
         match uac_interface {
-            UacAcInterface::Header => match protocol {
+            ControlInterface::Header => match protocol {
                 UacProtocol::Uac1 => {
-                    AudioHeader1::try_from(data).map(UacInterfaceDescriptor::AudioHeader1)
+                    Header1::try_from(data).map(UacInterfaceDescriptor::Header1)
                 }
                 UacProtocol::Uac2 => {
-                    AudioHeader2::try_from(data).map(UacInterfaceDescriptor::AudioHeader2)
+                    Header2::try_from(data).map(UacInterfaceDescriptor::Header2)
                 }
                 UacProtocol::Uac3 => {
-                    AudioHeader3::try_from(data).map(UacInterfaceDescriptor::AudioHeader3)
+                    Header3::try_from(data).map(UacInterfaceDescriptor::Header3)
                 }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::InputTerminal => match protocol {
-                UacProtocol::Uac1 => AudioInputTerminal1::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioInputTerminal1),
-                UacProtocol::Uac2 => AudioInputTerminal2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioInputTerminal2),
-                UacProtocol::Uac3 => AudioInputTerminal3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioInputTerminal3),
+            ControlInterface::InputTerminal => match protocol {
+                UacProtocol::Uac1 => InputTerminal1::try_from(data)
+                    .map(UacInterfaceDescriptor::InputTerminal1),
+                UacProtocol::Uac2 => InputTerminal2::try_from(data)
+                    .map(UacInterfaceDescriptor::InputTerminal2),
+                UacProtocol::Uac3 => InputTerminal3::try_from(data)
+                    .map(UacInterfaceDescriptor::InputTerminal3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::OutputTerminal => match protocol {
-                UacProtocol::Uac1 => AudioOutputTerminal1::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioOutputTerminal1),
-                UacProtocol::Uac2 => AudioOutputTerminal2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioOutputTerminal2),
-                UacProtocol::Uac3 => AudioOutputTerminal3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioOutputTerminal3),
+            ControlInterface::OutputTerminal => match protocol {
+                UacProtocol::Uac1 => OutputTerminal1::try_from(data)
+                    .map(UacInterfaceDescriptor::OutputTerminal1),
+                UacProtocol::Uac2 => OutputTerminal2::try_from(data)
+                    .map(UacInterfaceDescriptor::OutputTerminal2),
+                UacProtocol::Uac3 => OutputTerminal3::try_from(data)
+                    .map(UacInterfaceDescriptor::OutputTerminal3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::ExtendedTerminal => match protocol {
+            ControlInterface::ExtendedTerminal => match protocol {
                 UacProtocol::Uac3 => ExtendedTerminalHeader::try_from(data)
                     .map(UacInterfaceDescriptor::ExtendedTerminalHeader),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::PowerDomain => match protocol {
+            ControlInterface::PowerDomain => match protocol {
                 UacProtocol::Uac3 => {
-                    AudioPowerDomain::try_from(data).map(UacInterfaceDescriptor::AudioPowerDomain)
+                    PowerDomain::try_from(data).map(UacInterfaceDescriptor::PowerDomain)
                 }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::MixerUnit => match protocol {
+            ControlInterface::MixerUnit => match protocol {
                 UacProtocol::Uac1 => {
-                    AudioMixerUnit1::try_from(data).map(UacInterfaceDescriptor::AudioMixerUnit1)
+                    MixerUnit1::try_from(data).map(UacInterfaceDescriptor::MixerUnit1)
                 }
                 UacProtocol::Uac2 => {
-                    AudioMixerUnit2::try_from(data).map(UacInterfaceDescriptor::AudioMixerUnit2)
+                    MixerUnit2::try_from(data).map(UacInterfaceDescriptor::MixerUnit2)
                 }
                 UacProtocol::Uac3 => {
-                    AudioMixerUnit3::try_from(data).map(UacInterfaceDescriptor::AudioMixerUnit3)
+                    MixerUnit3::try_from(data).map(UacInterfaceDescriptor::MixerUnit3)
                 }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::SelectorUnit => match protocol {
-                UacProtocol::Uac1 => AudioSelectorUnit1::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioSelectorUnit1),
-                UacProtocol::Uac2 => AudioSelectorUnit2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioSelectorUnit2),
-                UacProtocol::Uac3 => AudioSelectorUnit3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioSelectorUnit3),
+            ControlInterface::SelectorUnit => match protocol {
+                UacProtocol::Uac1 => SelectorUnit1::try_from(data)
+                    .map(UacInterfaceDescriptor::SelectorUnit1),
+                UacProtocol::Uac2 => SelectorUnit2::try_from(data)
+                    .map(UacInterfaceDescriptor::SelectorUnit2),
+                UacProtocol::Uac3 => SelectorUnit3::try_from(data)
+                    .map(UacInterfaceDescriptor::SelectorUnit3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::ProcessingUnit => match protocol {
-                UacProtocol::Uac1 => AudioProcessingUnit1::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioProcessingUnit1),
-                UacProtocol::Uac2 => AudioProcessingUnit2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioProcessingUnit2),
-                UacProtocol::Uac3 => AudioProcessingUnit3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioProcessingUnit3),
+            ControlInterface::ProcessingUnit => match protocol {
+                UacProtocol::Uac1 => ProcessingUnit1::try_from(data)
+                    .map(UacInterfaceDescriptor::ProcessingUnit1),
+                UacProtocol::Uac2 => ProcessingUnit2::try_from(data)
+                    .map(UacInterfaceDescriptor::ProcessingUnit2),
+                UacProtocol::Uac3 => ProcessingUnit3::try_from(data)
+                    .map(UacInterfaceDescriptor::ProcessingUnit3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::EffectUnit => {
+            ControlInterface::EffectUnit => {
                 match protocol {
-                    UacProtocol::Uac2 => AudioEffectUnit2::try_from(data)
-                        .map(UacInterfaceDescriptor::AudioEffectUnit2),
-                    UacProtocol::Uac3 => AudioEffectUnit3::try_from(data)
-                        .map(UacInterfaceDescriptor::AudioEffectUnit3),
+                    UacProtocol::Uac2 => EffectUnit2::try_from(data)
+                        .map(UacInterfaceDescriptor::EffectUnit2),
+                    UacProtocol::Uac3 => EffectUnit3::try_from(data)
+                        .map(UacInterfaceDescriptor::EffectUnit3),
                     _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
                 }
             }
-            UacAcInterface::FeatureUnit => {
+            ControlInterface::FeatureUnit => {
                 match protocol {
-                    UacProtocol::Uac1 => AudioFeatureUnit1::try_from(data)
-                        .map(UacInterfaceDescriptor::AudioFeatureUnit1),
-                    UacProtocol::Uac2 => AudioFeatureUnit2::try_from(data)
-                        .map(UacInterfaceDescriptor::AudioFeatureUnit2),
-                    UacProtocol::Uac3 => AudioFeatureUnit3::try_from(data)
-                        .map(UacInterfaceDescriptor::AudioFeatureUnit3),
+                    UacProtocol::Uac1 => FeatureUnit1::try_from(data)
+                        .map(UacInterfaceDescriptor::FeatureUnit1),
+                    UacProtocol::Uac2 => FeatureUnit2::try_from(data)
+                        .map(UacInterfaceDescriptor::FeatureUnit2),
+                    UacProtocol::Uac3 => FeatureUnit3::try_from(data)
+                        .map(UacInterfaceDescriptor::FeatureUnit3),
                     _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
                 }
             }
-            UacAcInterface::ExtensionUnit => match protocol {
-                UacProtocol::Uac1 => AudioExtensionUnit1::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioExtensionUnit1),
-                UacProtocol::Uac2 => AudioExtensionUnit2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioExtensionUnit2),
-                UacProtocol::Uac3 => AudioExtensionUnit3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioExtensionUnit3),
+            ControlInterface::ExtensionUnit => match protocol {
+                UacProtocol::Uac1 => ExtensionUnit1::try_from(data)
+                    .map(UacInterfaceDescriptor::ExtensionUnit1),
+                UacProtocol::Uac2 => ExtensionUnit2::try_from(data)
+                    .map(UacInterfaceDescriptor::ExtensionUnit2),
+                UacProtocol::Uac3 => ExtensionUnit3::try_from(data)
+                    .map(UacInterfaceDescriptor::ExtensionUnit3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::ClockSource => {
+            ControlInterface::ClockSource => {
                 match protocol {
-                    UacProtocol::Uac2 => AudioClockSource2::try_from(data)
-                        .map(UacInterfaceDescriptor::AudioClockSource2),
-                    UacProtocol::Uac3 => AudioClockSource3::try_from(data)
-                        .map(UacInterfaceDescriptor::AudioClockSource3),
+                    UacProtocol::Uac2 => ClockSource2::try_from(data)
+                        .map(UacInterfaceDescriptor::ClockSource2),
+                    UacProtocol::Uac3 => ClockSource3::try_from(data)
+                        .map(UacInterfaceDescriptor::ClockSource3),
                     _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
                 }
             }
-            UacAcInterface::ClockSelector => match protocol {
-                UacProtocol::Uac2 => AudioClockSelector2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioClockSelector2),
-                UacProtocol::Uac3 => AudioClockSelector3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioClockSelector3),
+            ControlInterface::ClockSelector => match protocol {
+                UacProtocol::Uac2 => ClockSelector2::try_from(data)
+                    .map(UacInterfaceDescriptor::ClockSelector2),
+                UacProtocol::Uac3 => ClockSelector3::try_from(data)
+                    .map(UacInterfaceDescriptor::ClockSelector3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::ClockMultiplier => match protocol {
-                UacProtocol::Uac2 => AudioClockMultiplier2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioClockMultiplier2),
-                UacProtocol::Uac3 => AudioClockMultiplier3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioClockMultiplier3),
+            ControlInterface::ClockMultiplier => match protocol {
+                UacProtocol::Uac2 => ClockMultiplier2::try_from(data)
+                    .map(UacInterfaceDescriptor::ClockMultiplier2),
+                UacProtocol::Uac3 => ClockMultiplier3::try_from(data)
+                    .map(UacInterfaceDescriptor::ClockMultiplier3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::SampleRateConverter => match protocol {
-                UacProtocol::Uac2 => AudioSampleRateConverter2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioSampleRateConverter2),
-                UacProtocol::Uac3 => AudioSampleRateConverter3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioSampleRateConverter3),
+            ControlInterface::SampleRateConverter => match protocol {
+                UacProtocol::Uac2 => SampleRateConverter2::try_from(data)
+                    .map(UacInterfaceDescriptor::SampleRateConverter2),
+                UacProtocol::Uac3 => SampleRateConverter3::try_from(data)
+                    .map(UacInterfaceDescriptor::SampleRateConverter3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAcInterface::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
+            ControlInterface::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
             _ => Ok(UacInterfaceDescriptor::Generic(data.to_vec())),
         }
     }
 
     /// Get the UAC AS interface descriptor from the UAC AS interface
     pub fn from_uac_as_interface(
-        uac_interface: &UacAsInterface,
+        uac_interface: &StreamingInterface,
         protocol: &UacProtocol,
         data: &[u8],
     ) -> Result<Self, Error> {
         match uac_interface {
-            UacAsInterface::General => match protocol {
-                UacProtocol::Uac1 => AudioStreamingInterface1::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioStreamingInterface1),
-                UacProtocol::Uac2 => AudioStreamingInterface2::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioStreamingInterface2),
-                UacProtocol::Uac3 => AudioStreamingInterface3::try_from(data)
-                    .map(UacInterfaceDescriptor::AudioStreamingInterface3),
+            StreamingInterface::General => match protocol {
+                UacProtocol::Uac1 => StreamingInterface1::try_from(data)
+                    .map(UacInterfaceDescriptor::StreamingInterface1),
+                UacProtocol::Uac2 => StreamingInterface2::try_from(data)
+                    .map(UacInterfaceDescriptor::StreamingInterface2),
+                UacProtocol::Uac3 => StreamingInterface3::try_from(data)
+                    .map(UacInterfaceDescriptor::StreamingInterface3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            UacAsInterface::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
+            StreamingInterface::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
             _ => Ok(UacInterfaceDescriptor::Generic(data.to_vec())),
         }
     }
@@ -585,12 +585,12 @@ impl UacInterfaceDescriptor {
         data: &[u8],
     ) -> Result<Self, Error> {
         match protocol {
-            UacProtocol::Uac1 => AudioDataStreamingEndpoint1::try_from(data)
-                .map(UacInterfaceDescriptor::AudioDataStreamingEndpoint1),
-            UacProtocol::Uac2 => AudioDataStreamingEndpoint2::try_from(data)
-                .map(UacInterfaceDescriptor::AudioDataStreamingEndpoint2),
-            UacProtocol::Uac3 => AudioDataStreamingEndpoint3::try_from(data)
-                .map(UacInterfaceDescriptor::AudioDataStreamingEndpoint3),
+            UacProtocol::Uac1 => DataStreamingEndpoint1::try_from(data)
+                .map(UacInterfaceDescriptor::DataStreamingEndpoint1),
+            UacProtocol::Uac2 => DataStreamingEndpoint2::try_from(data)
+                .map(UacInterfaceDescriptor::DatastreamingEndpoint2),
+            UacProtocol::Uac3 => DataStreamingEndpoint3::try_from(data)
+                .map(UacInterfaceDescriptor::DataStreamingEndpoint3),
             // Only endpoint
             _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
         }
@@ -628,13 +628,13 @@ impl UacInterfaceDescriptor {
     /// Get the [`LockDelayUnits`] from the descriptor if it has the field
     pub fn get_lock_delay_units(&self) -> Option<LockDelayUnits> {
         match self {
-            UacInterfaceDescriptor::AudioDataStreamingEndpoint1(ep) => {
+            UacInterfaceDescriptor::DataStreamingEndpoint1(ep) => {
                 Some(LockDelayUnits::from(ep.lock_delay_units))
             }
-            UacInterfaceDescriptor::AudioDataStreamingEndpoint2(ep) => {
+            UacInterfaceDescriptor::DatastreamingEndpoint2(ep) => {
                 Some(LockDelayUnits::from(ep.lock_delay_units))
             }
-            UacInterfaceDescriptor::AudioDataStreamingEndpoint3(ep) => {
+            UacInterfaceDescriptor::DataStreamingEndpoint3(ep) => {
                 Some(LockDelayUnits::from(ep.lock_delay_units))
             }
             _ => None,
@@ -644,46 +644,46 @@ impl UacInterfaceDescriptor {
     /// Get the [`UacProtocol`] version for the interface descriptor
     pub fn get_protocol(&self) -> UacProtocol {
         match self {
-            UacInterfaceDescriptor::AudioHeader1(_)
-            | UacInterfaceDescriptor::AudioInputTerminal1(_)
-            | UacInterfaceDescriptor::AudioOutputTerminal1(_)
-            | UacInterfaceDescriptor::AudioMixerUnit1(_)
-            | UacInterfaceDescriptor::AudioSelectorUnit1(_)
-            | UacInterfaceDescriptor::AudioProcessingUnit1(_)
-            | UacInterfaceDescriptor::AudioFeatureUnit1(_)
-            | UacInterfaceDescriptor::AudioExtensionUnit1(_) => UacProtocol::Uac1,
-            UacInterfaceDescriptor::AudioHeader2(_)
-            | UacInterfaceDescriptor::AudioInputTerminal2(_)
-            | UacInterfaceDescriptor::AudioOutputTerminal2(_)
-            | UacInterfaceDescriptor::AudioMixerUnit2(_)
-            | UacInterfaceDescriptor::AudioSelectorUnit2(_)
-            | UacInterfaceDescriptor::AudioProcessingUnit2(_)
-            | UacInterfaceDescriptor::AudioEffectUnit2(_)
-            | UacInterfaceDescriptor::AudioFeatureUnit2(_)
-            | UacInterfaceDescriptor::AudioExtensionUnit2(_)
-            | UacInterfaceDescriptor::AudioClockSource2(_)
-            | UacInterfaceDescriptor::AudioClockSelector2(_)
-            | UacInterfaceDescriptor::AudioClockMultiplier2(_)
-            | UacInterfaceDescriptor::AudioSampleRateConverter2(_)
-            | UacInterfaceDescriptor::AudioStreamingInterface2(_)
-            | UacInterfaceDescriptor::AudioDataStreamingEndpoint2(_) => UacProtocol::Uac2,
-            UacInterfaceDescriptor::AudioHeader3(_)
-            | UacInterfaceDescriptor::AudioInputTerminal3(_)
-            | UacInterfaceDescriptor::AudioOutputTerminal3(_)
-            | UacInterfaceDescriptor::AudioMixerUnit3(_)
-            | UacInterfaceDescriptor::AudioSelectorUnit3(_)
-            | UacInterfaceDescriptor::AudioProcessingUnit3(_)
-            | UacInterfaceDescriptor::AudioEffectUnit3(_)
-            | UacInterfaceDescriptor::AudioFeatureUnit3(_)
-            | UacInterfaceDescriptor::AudioExtensionUnit3(_)
-            | UacInterfaceDescriptor::AudioClockSource3(_)
-            | UacInterfaceDescriptor::AudioClockSelector3(_)
-            | UacInterfaceDescriptor::AudioClockMultiplier3(_)
-            | UacInterfaceDescriptor::AudioSampleRateConverter3(_)
-            | UacInterfaceDescriptor::AudioStreamingInterface3(_)
-            | UacInterfaceDescriptor::AudioDataStreamingEndpoint3(_)
+            UacInterfaceDescriptor::Header1(_)
+            | UacInterfaceDescriptor::InputTerminal1(_)
+            | UacInterfaceDescriptor::OutputTerminal1(_)
+            | UacInterfaceDescriptor::MixerUnit1(_)
+            | UacInterfaceDescriptor::SelectorUnit1(_)
+            | UacInterfaceDescriptor::ProcessingUnit1(_)
+            | UacInterfaceDescriptor::FeatureUnit1(_)
+            | UacInterfaceDescriptor::ExtensionUnit1(_) => UacProtocol::Uac1,
+            UacInterfaceDescriptor::Header2(_)
+            | UacInterfaceDescriptor::InputTerminal2(_)
+            | UacInterfaceDescriptor::OutputTerminal2(_)
+            | UacInterfaceDescriptor::MixerUnit2(_)
+            | UacInterfaceDescriptor::SelectorUnit2(_)
+            | UacInterfaceDescriptor::ProcessingUnit2(_)
+            | UacInterfaceDescriptor::EffectUnit2(_)
+            | UacInterfaceDescriptor::FeatureUnit2(_)
+            | UacInterfaceDescriptor::ExtensionUnit2(_)
+            | UacInterfaceDescriptor::ClockSource2(_)
+            | UacInterfaceDescriptor::ClockSelector2(_)
+            | UacInterfaceDescriptor::ClockMultiplier2(_)
+            | UacInterfaceDescriptor::SampleRateConverter2(_)
+            | UacInterfaceDescriptor::StreamingInterface2(_)
+            | UacInterfaceDescriptor::DatastreamingEndpoint2(_) => UacProtocol::Uac2,
+            UacInterfaceDescriptor::Header3(_)
+            | UacInterfaceDescriptor::InputTerminal3(_)
+            | UacInterfaceDescriptor::OutputTerminal3(_)
+            | UacInterfaceDescriptor::MixerUnit3(_)
+            | UacInterfaceDescriptor::SelectorUnit3(_)
+            | UacInterfaceDescriptor::ProcessingUnit3(_)
+            | UacInterfaceDescriptor::EffectUnit3(_)
+            | UacInterfaceDescriptor::FeatureUnit3(_)
+            | UacInterfaceDescriptor::ExtensionUnit3(_)
+            | UacInterfaceDescriptor::ClockSource3(_)
+            | UacInterfaceDescriptor::ClockSelector3(_)
+            | UacInterfaceDescriptor::ClockMultiplier3(_)
+            | UacInterfaceDescriptor::SampleRateConverter3(_)
+            | UacInterfaceDescriptor::StreamingInterface3(_)
+            | UacInterfaceDescriptor::DataStreamingEndpoint3(_)
             | UacInterfaceDescriptor::ExtendedTerminalHeader(_)
-            | UacInterfaceDescriptor::AudioPowerDomain(_) => UacProtocol::Uac3,
+            | UacInterfaceDescriptor::PowerDomain(_) => UacProtocol::Uac3,
             _ => UacProtocol::Unknown(0xff),
         }
     }
@@ -736,8 +736,8 @@ impl std::fmt::Display for UacProtocol {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub enum UacSubtype {
-    Control(UacAcInterface),
-    Streaming(UacAsInterface),
+    Control(ControlInterface),
+    Streaming(StreamingInterface),
     Midi(MidiInterface),
 }
 
@@ -755,8 +755,8 @@ impl TryFrom<(u8, u8, u8)> for UacSubtype {
 
     fn try_from((sub_class, descriptor_sub, protocol): (u8, u8, u8)) -> error::Result<Self> {
         match (sub_class, descriptor_sub, protocol) {
-            (1, d, p) => Ok(UacSubtype::Control(UacAcInterface::get_uac_subtype(d, p))),
-            (2, d, _) => Ok(UacSubtype::Streaming(UacAsInterface::from(d))),
+            (1, d, p) => Ok(UacSubtype::Control(ControlInterface::get_uac_subtype(d, p))),
+            (2, d, _) => Ok(UacSubtype::Streaming(StreamingInterface::from(d))),
             (3, d, _) => Ok(UacSubtype::Midi(MidiInterface::from(d))),
             _ => Err(Error::new(ErrorKind::InvalidArg, "Invalid UAC subtype")),
         }
@@ -821,7 +821,7 @@ impl UacSubtype {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
-pub enum UacAcInterface {
+pub enum ControlInterface {
     Undefined = 0x00,
     Header = 0x01,
     InputTerminal = 0x02,
@@ -841,104 +841,104 @@ pub enum UacAcInterface {
     PowerDomain = 0x10,
 }
 
-impl std::fmt::Display for UacAcInterface {
+impl std::fmt::Display for ControlInterface {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             // uppercase with _ instead of space for lsusb dump
             match self {
-                UacAcInterface::Undefined => write!(f, "unknown"),
-                UacAcInterface::Header => write!(f, "HEADER"),
-                UacAcInterface::InputTerminal => write!(f, "INPUT_TERMINAL"),
-                UacAcInterface::OutputTerminal => write!(f, "OUTPUT_TERMINAL"),
-                UacAcInterface::ExtendedTerminal => write!(f, "EXTENDED_TERMINAL"),
-                UacAcInterface::MixerUnit => write!(f, "MIXER_UNIT"),
-                UacAcInterface::SelectorUnit => write!(f, "SELECTOR_UNIT"),
-                UacAcInterface::FeatureUnit => write!(f, "FEATURE_UNIT"),
-                UacAcInterface::EffectUnit => write!(f, "EFFECT_UNIT"),
-                UacAcInterface::ProcessingUnit => write!(f, "PROCESSING_UNIT"),
-                UacAcInterface::ExtensionUnit => write!(f, "EXTENSION_UNIT"),
-                UacAcInterface::ClockSource => write!(f, "CLOCK_SOURCE"),
-                UacAcInterface::ClockSelector => write!(f, "CLOCK_SELECTOR"),
-                UacAcInterface::ClockMultiplier => write!(f, "CLOCK_MULTIPLIER"),
-                UacAcInterface::SampleRateConverter => write!(f, "SAMPLE_RATE_CONVERTER"),
-                UacAcInterface::Connectors => write!(f, "CONNECTORS"),
-                UacAcInterface::PowerDomain => write!(f, "POWER_DOMAIN"),
+                ControlInterface::Undefined => write!(f, "unknown"),
+                ControlInterface::Header => write!(f, "HEADER"),
+                ControlInterface::InputTerminal => write!(f, "INPUT_TERMINAL"),
+                ControlInterface::OutputTerminal => write!(f, "OUTPUT_TERMINAL"),
+                ControlInterface::ExtendedTerminal => write!(f, "EXTENDED_TERMINAL"),
+                ControlInterface::MixerUnit => write!(f, "MIXER_UNIT"),
+                ControlInterface::SelectorUnit => write!(f, "SELECTOR_UNIT"),
+                ControlInterface::FeatureUnit => write!(f, "FEATURE_UNIT"),
+                ControlInterface::EffectUnit => write!(f, "EFFECT_UNIT"),
+                ControlInterface::ProcessingUnit => write!(f, "PROCESSING_UNIT"),
+                ControlInterface::ExtensionUnit => write!(f, "EXTENSION_UNIT"),
+                ControlInterface::ClockSource => write!(f, "CLOCK_SOURCE"),
+                ControlInterface::ClockSelector => write!(f, "CLOCK_SELECTOR"),
+                ControlInterface::ClockMultiplier => write!(f, "CLOCK_MULTIPLIER"),
+                ControlInterface::SampleRateConverter => write!(f, "SAMPLE_RATE_CONVERTER"),
+                ControlInterface::Connectors => write!(f, "CONNECTORS"),
+                ControlInterface::PowerDomain => write!(f, "POWER_DOMAIN"),
             }
         } else {
             match self {
-                UacAcInterface::Undefined => write!(f, "Undefined"),
-                UacAcInterface::Header => write!(f, "Header"),
-                UacAcInterface::InputTerminal => write!(f, "Input Terminal"),
-                UacAcInterface::OutputTerminal => write!(f, "Output Terminal"),
-                UacAcInterface::ExtendedTerminal => write!(f, "Extended Terminal"),
-                UacAcInterface::MixerUnit => write!(f, "Mixer Unit"),
-                UacAcInterface::SelectorUnit => write!(f, "Selector Unit"),
-                UacAcInterface::FeatureUnit => write!(f, "Feature Unit"),
-                UacAcInterface::EffectUnit => write!(f, "Effect Unit"),
-                UacAcInterface::ProcessingUnit => write!(f, "Processing Unit"),
-                UacAcInterface::ExtensionUnit => write!(f, "Extension Unit"),
-                UacAcInterface::ClockSource => write!(f, "Clock Source"),
-                UacAcInterface::ClockSelector => write!(f, "Clock Selector"),
-                UacAcInterface::ClockMultiplier => write!(f, "Clock Multiplier"),
-                UacAcInterface::SampleRateConverter => write!(f, "Sample Rate Converter"),
-                UacAcInterface::Connectors => write!(f, "Connectors"),
-                UacAcInterface::PowerDomain => write!(f, "Power Domain"),
+                ControlInterface::Undefined => write!(f, "Undefined"),
+                ControlInterface::Header => write!(f, "Header"),
+                ControlInterface::InputTerminal => write!(f, "Input Terminal"),
+                ControlInterface::OutputTerminal => write!(f, "Output Terminal"),
+                ControlInterface::ExtendedTerminal => write!(f, "Extended Terminal"),
+                ControlInterface::MixerUnit => write!(f, "Mixer Unit"),
+                ControlInterface::SelectorUnit => write!(f, "Selector Unit"),
+                ControlInterface::FeatureUnit => write!(f, "Feature Unit"),
+                ControlInterface::EffectUnit => write!(f, "Effect Unit"),
+                ControlInterface::ProcessingUnit => write!(f, "Processing Unit"),
+                ControlInterface::ExtensionUnit => write!(f, "Extension Unit"),
+                ControlInterface::ClockSource => write!(f, "Clock Source"),
+                ControlInterface::ClockSelector => write!(f, "Clock Selector"),
+                ControlInterface::ClockMultiplier => write!(f, "Clock Multiplier"),
+                ControlInterface::SampleRateConverter => write!(f, "Sample Rate Converter"),
+                ControlInterface::Connectors => write!(f, "Connectors"),
+                ControlInterface::PowerDomain => write!(f, "Power Domain"),
             }
         }
     }
 }
 
-impl From<u8> for UacAcInterface {
+impl From<u8> for ControlInterface {
     fn from(b: u8) -> Self {
         match b {
-            0x00 => UacAcInterface::Undefined,
-            0x01 => UacAcInterface::Header,
-            0x02 => UacAcInterface::InputTerminal,
-            0x03 => UacAcInterface::OutputTerminal,
-            0x04 => UacAcInterface::ExtendedTerminal,
-            0x05 => UacAcInterface::MixerUnit,
-            0x06 => UacAcInterface::SelectorUnit,
-            0x07 => UacAcInterface::FeatureUnit,
-            0x08 => UacAcInterface::EffectUnit,
-            0x09 => UacAcInterface::ProcessingUnit,
-            0x0a => UacAcInterface::ExtensionUnit,
-            0x0b => UacAcInterface::ClockSource,
-            0x0c => UacAcInterface::ClockSelector,
-            0x0d => UacAcInterface::ClockMultiplier,
-            0x0e => UacAcInterface::SampleRateConverter,
-            0x0f => UacAcInterface::Connectors,
-            0x10 => UacAcInterface::PowerDomain,
-            _ => UacAcInterface::Undefined,
+            0x00 => ControlInterface::Undefined,
+            0x01 => ControlInterface::Header,
+            0x02 => ControlInterface::InputTerminal,
+            0x03 => ControlInterface::OutputTerminal,
+            0x04 => ControlInterface::ExtendedTerminal,
+            0x05 => ControlInterface::MixerUnit,
+            0x06 => ControlInterface::SelectorUnit,
+            0x07 => ControlInterface::FeatureUnit,
+            0x08 => ControlInterface::EffectUnit,
+            0x09 => ControlInterface::ProcessingUnit,
+            0x0a => ControlInterface::ExtensionUnit,
+            0x0b => ControlInterface::ClockSource,
+            0x0c => ControlInterface::ClockSelector,
+            0x0d => ControlInterface::ClockMultiplier,
+            0x0e => ControlInterface::SampleRateConverter,
+            0x0f => ControlInterface::Connectors,
+            0x10 => ControlInterface::PowerDomain,
+            _ => ControlInterface::Undefined,
         }
     }
 }
 
-impl UacAcInterface {
+impl ControlInterface {
     /// UAC1, UAC2, and UAC3 define bDescriptorSubtype differently for the
     /// AudioControl interface, so we need to do some ugly remapping:
     pub fn get_uac_subtype(subtype: u8, protocol: u8) -> Self {
         match protocol {
             // UAC1
             0x00 => match subtype {
-                0x04 => UacAcInterface::MixerUnit,
-                0x05 => UacAcInterface::SelectorUnit,
-                0x06 => UacAcInterface::FeatureUnit,
-                0x07 => UacAcInterface::ProcessingUnit,
-                0x08 => UacAcInterface::ExtensionUnit,
+                0x04 => ControlInterface::MixerUnit,
+                0x05 => ControlInterface::SelectorUnit,
+                0x06 => ControlInterface::FeatureUnit,
+                0x07 => ControlInterface::ProcessingUnit,
+                0x08 => ControlInterface::ExtensionUnit,
                 _ => Self::from(subtype),
             },
             // UAC2
             0x20 => match subtype {
-                0x04 => UacAcInterface::MixerUnit,
-                0x05 => UacAcInterface::SelectorUnit,
-                0x06 => UacAcInterface::FeatureUnit,
-                0x07 => UacAcInterface::EffectUnit,
-                0x08 => UacAcInterface::ProcessingUnit,
-                0x09 => UacAcInterface::ExtensionUnit,
-                0x0a => UacAcInterface::ClockSource,
-                0x0b => UacAcInterface::ClockSelector,
-                0x0c => UacAcInterface::ClockMultiplier,
-                0x0d => UacAcInterface::SampleRateConverter,
+                0x04 => ControlInterface::MixerUnit,
+                0x05 => ControlInterface::SelectorUnit,
+                0x06 => ControlInterface::FeatureUnit,
+                0x07 => ControlInterface::EffectUnit,
+                0x08 => ControlInterface::ProcessingUnit,
+                0x09 => ControlInterface::ExtensionUnit,
+                0x0a => ControlInterface::ClockSource,
+                0x0b => ControlInterface::ClockSelector,
+                0x0c => ControlInterface::ClockMultiplier,
+                0x0d => ControlInterface::SampleRateConverter,
                 _ => Self::from(subtype),
             },
             // no re-map for UAC3..
@@ -960,47 +960,47 @@ impl UacAcInterface {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
-pub enum UacAsInterface {
+pub enum StreamingInterface {
     Undefined = 0x00,
     General = 0x01,
     FormatType = 0x02,
     FormatSpecific = 0x03,
 }
 
-impl From<u8> for UacAsInterface {
+impl From<u8> for StreamingInterface {
     fn from(b: u8) -> Self {
         match b {
-            0x00 => UacAsInterface::Undefined,
-            0x01 => UacAsInterface::General,
-            0x02 => UacAsInterface::FormatType,
-            0x03 => UacAsInterface::FormatSpecific,
-            _ => UacAsInterface::Undefined,
+            0x00 => StreamingInterface::Undefined,
+            0x01 => StreamingInterface::General,
+            0x02 => StreamingInterface::FormatType,
+            0x03 => StreamingInterface::FormatSpecific,
+            _ => StreamingInterface::Undefined,
         }
     }
 }
 
-impl fmt::Display for UacAsInterface {
+impl fmt::Display for StreamingInterface {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             // uppercase with _ instead of space for lsusb dump
             match self {
-                UacAsInterface::Undefined => write!(f, "UNDEFINED"),
-                UacAsInterface::General => write!(f, "GENERAL"),
-                UacAsInterface::FormatType => write!(f, "FORMAT_TYPE"),
-                UacAsInterface::FormatSpecific => write!(f, "FORMAT_SPECIFIC"),
+                StreamingInterface::Undefined => write!(f, "UNDEFINED"),
+                StreamingInterface::General => write!(f, "GENERAL"),
+                StreamingInterface::FormatType => write!(f, "FORMAT_TYPE"),
+                StreamingInterface::FormatSpecific => write!(f, "FORMAT_SPECIFIC"),
             }
         } else {
             match self {
-                UacAsInterface::Undefined => write!(f, "Undefined"),
-                UacAsInterface::General => write!(f, "General"),
-                UacAsInterface::FormatType => write!(f, "Format Type"),
-                UacAsInterface::FormatSpecific => write!(f, "Format Specific"),
+                StreamingInterface::Undefined => write!(f, "Undefined"),
+                StreamingInterface::General => write!(f, "General"),
+                StreamingInterface::FormatType => write!(f, "Format Type"),
+                StreamingInterface::FormatSpecific => write!(f, "Format Specific"),
             }
         }
     }
 }
 
-impl UacAsInterface {
+impl StreamingInterface {
     /// Get the UAC interface descriptor from the UAC interface
     pub fn get_descriptor(
         &self,
@@ -1053,14 +1053,14 @@ pub enum ControlType {
 /// UAC1: 4.3.2 Class-Specific AC Interface Descriptor; Table 4-2.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioHeader1 {
+pub struct Header1 {
     pub version: Version,
     pub total_length: u16,
     pub collection_bytes: u8,
     pub interfaces: Vec<u8>,
 }
 
-impl TryFrom<&[u8]> for AudioHeader1 {
+impl TryFrom<&[u8]> for Header1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1075,7 +1075,7 @@ impl TryFrom<&[u8]> for AudioHeader1 {
         let collection_bytes = value[4];
         let interfaces = value[5..].to_vec();
 
-        Ok(AudioHeader1 {
+        Ok(Header1 {
             version: Version::from_bcd(u16::from_le_bytes([value[0], value[1]])),
             total_length,
             collection_bytes,
@@ -1084,8 +1084,8 @@ impl TryFrom<&[u8]> for AudioHeader1 {
     }
 }
 
-impl From<AudioHeader1> for Vec<u8> {
-    fn from(val: AudioHeader1) -> Self {
+impl From<Header1> for Vec<u8> {
+    fn from(val: Header1) -> Self {
         let mut data = Vec::new();
         data.extend_from_slice(&(u16::from(val.version)).to_le_bytes());
         data.extend_from_slice(&val.total_length.to_le_bytes());
@@ -1098,14 +1098,14 @@ impl From<AudioHeader1> for Vec<u8> {
 /// UAC2: 4.7.2 Class-Specific AC Interface Descriptor; Table 4-5.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioHeader2 {
+pub struct Header2 {
     pub version: Version,
     pub category: u8,
     pub total_length: u16,
     pub controls: u8,
 }
 
-impl TryFrom<&[u8]> for AudioHeader2 {
+impl TryFrom<&[u8]> for Header2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1119,7 +1119,7 @@ impl TryFrom<&[u8]> for AudioHeader2 {
         let total_length = u16::from_le_bytes([value[3], value[4]]);
         let controls = value[5];
 
-        Ok(AudioHeader2 {
+        Ok(Header2 {
             version: Version::from_bcd(u16::from_le_bytes([value[0], value[1]])),
             category: value[2],
             total_length,
@@ -1128,8 +1128,8 @@ impl TryFrom<&[u8]> for AudioHeader2 {
     }
 }
 
-impl From<AudioHeader2> for Vec<u8> {
-    fn from(val: AudioHeader2) -> Self {
+impl From<Header2> for Vec<u8> {
+    fn from(val: Header2) -> Self {
         let mut data = Vec::new();
         data.extend_from_slice(&(u16::from(val.version)).to_le_bytes());
         data.push(val.category);
@@ -1142,13 +1142,13 @@ impl From<AudioHeader2> for Vec<u8> {
 /// UAC3: 4.5.2 Class-Specific AC Interface Descriptor; Table 4-15.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioHeader3 {
+pub struct Header3 {
     pub category: u8,
     pub total_length: u16,
     pub controls: u32,
 }
 
-impl TryFrom<&[u8]> for AudioHeader3 {
+impl TryFrom<&[u8]> for Header3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1162,7 +1162,7 @@ impl TryFrom<&[u8]> for AudioHeader3 {
         let total_length = u16::from_le_bytes([value[1], value[2]]);
         let controls = u32::from_le_bytes([value[3], value[4], value[5], value[6]]);
 
-        Ok(AudioHeader3 {
+        Ok(Header3 {
             category: value[0],
             total_length,
             controls,
@@ -1170,8 +1170,8 @@ impl TryFrom<&[u8]> for AudioHeader3 {
     }
 }
 
-impl From<AudioHeader3> for Vec<u8> {
-    fn from(val: AudioHeader3) -> Self {
+impl From<Header3> for Vec<u8> {
+    fn from(val: Header3) -> Self {
         let mut data = Vec::new();
         data.push(val.category);
         data.extend_from_slice(&val.total_length.to_le_bytes());
@@ -1183,7 +1183,7 @@ impl From<AudioHeader3> for Vec<u8> {
 /// UAC1: 4.3.2.1 Input Terminal Descriptor; Table 4-3.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioInputTerminal1 {
+pub struct InputTerminal1 {
     pub terminal_id: u8,
     pub terminal_type: u16,
     pub assoc_terminal: u8,
@@ -1195,7 +1195,7 @@ pub struct AudioInputTerminal1 {
     pub terminal: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioInputTerminal1 {
+impl TryFrom<&[u8]> for InputTerminal1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1206,7 +1206,7 @@ impl TryFrom<&[u8]> for AudioInputTerminal1 {
             ));
         }
 
-        Ok(AudioInputTerminal1 {
+        Ok(InputTerminal1 {
             terminal_id: value[0],
             terminal_type: u16::from_le_bytes([value[1], value[2]]),
             assoc_terminal: value[3],
@@ -1220,8 +1220,8 @@ impl TryFrom<&[u8]> for AudioInputTerminal1 {
     }
 }
 
-impl From<AudioInputTerminal1> for Vec<u8> {
-    fn from(val: AudioInputTerminal1) -> Self {
+impl From<InputTerminal1> for Vec<u8> {
+    fn from(val: InputTerminal1) -> Self {
         let mut data = Vec::new();
         data.push(val.terminal_id);
         data.extend_from_slice(&val.terminal_type.to_le_bytes());
@@ -1237,7 +1237,7 @@ impl From<AudioInputTerminal1> for Vec<u8> {
 /// UAC2: 4.7.2.4 Input Terminal Descriptor; Table 4-9.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioInputTerminal2 {
+pub struct InputTerminal2 {
     pub terminal_id: u8,
     pub terminal_type: u16,
     pub assoc_terminal: u8,
@@ -1251,7 +1251,7 @@ pub struct AudioInputTerminal2 {
     pub terminal: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioInputTerminal2 {
+impl TryFrom<&[u8]> for InputTerminal2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1262,7 +1262,7 @@ impl TryFrom<&[u8]> for AudioInputTerminal2 {
             ));
         }
 
-        Ok(AudioInputTerminal2 {
+        Ok(InputTerminal2 {
             terminal_id: value[0],
             terminal_type: u16::from_le_bytes([value[1], value[2]]),
             assoc_terminal: value[3],
@@ -1278,8 +1278,8 @@ impl TryFrom<&[u8]> for AudioInputTerminal2 {
     }
 }
 
-impl From<AudioInputTerminal2> for Vec<u8> {
-    fn from(val: AudioInputTerminal2) -> Self {
+impl From<InputTerminal2> for Vec<u8> {
+    fn from(val: InputTerminal2) -> Self {
         let mut data = Vec::new();
         data.push(val.terminal_id);
         data.extend_from_slice(&val.terminal_type.to_le_bytes());
@@ -1297,7 +1297,7 @@ impl From<AudioInputTerminal2> for Vec<u8> {
 /// UAC3: 4.5.2.1 Input Terminal Descriptor; Table 4-16.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioInputTerminal3 {
+pub struct InputTerminal3 {
     pub terminal_id: u8,
     pub terminal_type: u16,
     pub assoc_terminal: u8,
@@ -1309,7 +1309,7 @@ pub struct AudioInputTerminal3 {
     pub terminal_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioInputTerminal3 {
+impl TryFrom<&[u8]> for InputTerminal3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1320,7 +1320,7 @@ impl TryFrom<&[u8]> for AudioInputTerminal3 {
             ));
         }
 
-        Ok(AudioInputTerminal3 {
+        Ok(InputTerminal3 {
             terminal_id: value[0],
             terminal_type: u16::from_le_bytes([value[1], value[2]]),
             assoc_terminal: value[3],
@@ -1334,8 +1334,8 @@ impl TryFrom<&[u8]> for AudioInputTerminal3 {
     }
 }
 
-impl From<AudioInputTerminal3> for Vec<u8> {
-    fn from(val: AudioInputTerminal3) -> Self {
+impl From<InputTerminal3> for Vec<u8> {
+    fn from(val: InputTerminal3) -> Self {
         let mut data = Vec::new();
         data.push(val.terminal_id);
         data.extend_from_slice(&val.terminal_type.to_le_bytes());
@@ -1353,7 +1353,7 @@ impl From<AudioInputTerminal3> for Vec<u8> {
 /// UAC1: 4.3.2.2 Output Terminal Descriptor; Table 4-4.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioOutputTerminal1 {
+pub struct OutputTerminal1 {
     pub terminal_id: u8,
     pub terminal_type: u16,
     pub assoc_terminal: u8,
@@ -1362,7 +1362,7 @@ pub struct AudioOutputTerminal1 {
     pub terminal: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioOutputTerminal1 {
+impl TryFrom<&[u8]> for OutputTerminal1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1373,7 +1373,7 @@ impl TryFrom<&[u8]> for AudioOutputTerminal1 {
             ));
         }
 
-        Ok(AudioOutputTerminal1 {
+        Ok(OutputTerminal1 {
             terminal_id: value[0],
             terminal_type: u16::from_le_bytes([value[1], value[2]]),
             assoc_terminal: value[3],
@@ -1384,8 +1384,8 @@ impl TryFrom<&[u8]> for AudioOutputTerminal1 {
     }
 }
 
-impl From<AudioOutputTerminal1> for Vec<u8> {
-    fn from(val: AudioOutputTerminal1) -> Self {
+impl From<OutputTerminal1> for Vec<u8> {
+    fn from(val: OutputTerminal1) -> Self {
         let mut data = Vec::new();
         data.push(val.terminal_id);
         data.extend_from_slice(&val.terminal_type.to_le_bytes());
@@ -1399,7 +1399,7 @@ impl From<AudioOutputTerminal1> for Vec<u8> {
 /// UAC2: 4.7.2.5 Output Terminal Descriptor; Table 4-10.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioOutputTerminal2 {
+pub struct OutputTerminal2 {
     pub terminal_id: u8,
     pub terminal_type: u16,
     pub assoc_terminal: u8,
@@ -1410,7 +1410,7 @@ pub struct AudioOutputTerminal2 {
     pub terminal: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioOutputTerminal2 {
+impl TryFrom<&[u8]> for OutputTerminal2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1421,7 +1421,7 @@ impl TryFrom<&[u8]> for AudioOutputTerminal2 {
             ));
         }
 
-        Ok(AudioOutputTerminal2 {
+        Ok(OutputTerminal2 {
             terminal_id: value[0],
             terminal_type: u16::from_le_bytes([value[1], value[2]]),
             assoc_terminal: value[3],
@@ -1434,8 +1434,8 @@ impl TryFrom<&[u8]> for AudioOutputTerminal2 {
     }
 }
 
-impl From<AudioOutputTerminal2> for Vec<u8> {
-    fn from(val: AudioOutputTerminal2) -> Self {
+impl From<OutputTerminal2> for Vec<u8> {
+    fn from(val: OutputTerminal2) -> Self {
         let mut data = Vec::new();
         data.push(val.terminal_id);
         data.extend_from_slice(&val.terminal_type.to_le_bytes());
@@ -1451,7 +1451,7 @@ impl From<AudioOutputTerminal2> for Vec<u8> {
 /// UAC3: 4.5.2.2 Output Terminal Descriptor; Table 4-17.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioOutputTerminal3 {
+pub struct OutputTerminal3 {
     pub terminal_id: u8,
     pub terminal_type: u16,
     pub assoc_terminal: u8,
@@ -1463,7 +1463,7 @@ pub struct AudioOutputTerminal3 {
     pub terminal_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioOutputTerminal3 {
+impl TryFrom<&[u8]> for OutputTerminal3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1474,7 +1474,7 @@ impl TryFrom<&[u8]> for AudioOutputTerminal3 {
             ));
         }
 
-        Ok(AudioOutputTerminal3 {
+        Ok(OutputTerminal3 {
             terminal_id: value[0],
             terminal_type: u16::from_le_bytes([value[1], value[2]]),
             assoc_terminal: value[3],
@@ -1488,8 +1488,8 @@ impl TryFrom<&[u8]> for AudioOutputTerminal3 {
     }
 }
 
-impl From<AudioOutputTerminal3> for Vec<u8> {
-    fn from(val: AudioOutputTerminal3) -> Self {
+impl From<OutputTerminal3> for Vec<u8> {
+    fn from(val: OutputTerminal3) -> Self {
         let mut data = Vec::new();
         data.push(val.terminal_id);
         data.extend_from_slice(&val.terminal_type.to_le_bytes());
@@ -1539,7 +1539,7 @@ impl From<ExtendedTerminalHeader> for Vec<u8> {
 /// UAC3: 4.5.2.15 Power Domain Descriptor; Table 4-46. */
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioPowerDomain {
+pub struct PowerDomain {
     pub power_domain_id: u8,
     pub recovery_time_1: u16,
     pub recovery_time_2: u16,
@@ -1548,7 +1548,7 @@ pub struct AudioPowerDomain {
     pub domain_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioPowerDomain {
+impl TryFrom<&[u8]> for PowerDomain {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1568,7 +1568,7 @@ impl TryFrom<&[u8]> for AudioPowerDomain {
             ));
         }
 
-        Ok(AudioPowerDomain {
+        Ok(PowerDomain {
             power_domain_id: value[0],
             recovery_time_1: u16::from_le_bytes([value[1], value[2]]),
             recovery_time_2: u16::from_le_bytes([value[3], value[4]]),
@@ -1579,8 +1579,8 @@ impl TryFrom<&[u8]> for AudioPowerDomain {
     }
 }
 
-impl From<AudioPowerDomain> for Vec<u8> {
-    fn from(val: AudioPowerDomain) -> Self {
+impl From<PowerDomain> for Vec<u8> {
+    fn from(val: PowerDomain) -> Self {
         let mut data = Vec::new();
         data.push(val.power_domain_id);
         data.extend_from_slice(&val.recovery_time_1.to_le_bytes());
@@ -1595,7 +1595,7 @@ impl From<AudioPowerDomain> for Vec<u8> {
 /// UAC1: 4.3.2.3 Mixer Unit Descriptor; Table 4-5.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioMixerUnit1 {
+pub struct MixerUnit1 {
     pub unit_id: u8,
     pub nr_in_pins: u8,
     pub source_ids: Vec<u8>,
@@ -1606,7 +1606,7 @@ pub struct AudioMixerUnit1 {
     pub mixer: u8,
 }
 
-impl TryFrom<&[u8]> for AudioMixerUnit1 {
+impl TryFrom<&[u8]> for MixerUnit1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1627,7 +1627,7 @@ impl TryFrom<&[u8]> for AudioMixerUnit1 {
             ));
         }
 
-        Ok(AudioMixerUnit1 {
+        Ok(MixerUnit1 {
             unit_id: value[0],
             nr_in_pins: value[1],
             source_ids: value[2..2 + nr_in_pins].to_vec(),
@@ -1640,8 +1640,8 @@ impl TryFrom<&[u8]> for AudioMixerUnit1 {
     }
 }
 
-impl From<AudioMixerUnit1> for Vec<u8> {
-    fn from(val: AudioMixerUnit1) -> Self {
+impl From<MixerUnit1> for Vec<u8> {
+    fn from(val: MixerUnit1) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.push(val.nr_in_pins);
@@ -1658,7 +1658,7 @@ impl From<AudioMixerUnit1> for Vec<u8> {
 /// UAC2: 4.7.2.6 Mixer Unit Descriptor; Table 4-11.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioMixerUnit2 {
+pub struct MixerUnit2 {
     pub unit_id: u8,
     pub nr_in_pins: u8,
     pub source_ids: Vec<u8>,
@@ -1670,7 +1670,7 @@ pub struct AudioMixerUnit2 {
     pub mixer: u8,
 }
 
-impl TryFrom<&[u8]> for AudioMixerUnit2 {
+impl TryFrom<&[u8]> for MixerUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1691,7 +1691,7 @@ impl TryFrom<&[u8]> for AudioMixerUnit2 {
             ));
         }
 
-        Ok(AudioMixerUnit2 {
+        Ok(MixerUnit2 {
             unit_id: value[0],
             nr_in_pins: value[1],
             source_ids: value[2..2 + nr_in_pins].to_vec(),
@@ -1710,8 +1710,8 @@ impl TryFrom<&[u8]> for AudioMixerUnit2 {
     }
 }
 
-impl From<AudioMixerUnit2> for Vec<u8> {
-    fn from(val: AudioMixerUnit2) -> Self {
+impl From<MixerUnit2> for Vec<u8> {
+    fn from(val: MixerUnit2) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.push(val.nr_in_pins);
@@ -1729,7 +1729,7 @@ impl From<AudioMixerUnit2> for Vec<u8> {
 /// UAC3: 4.5.2.5 Mixer Unit Descriptor; Table 4-29.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioMixerUnit3 {
+pub struct MixerUnit3 {
     pub unit_id: u8,
     pub nr_in_pins: u8,
     pub source_ids: Vec<u8>,
@@ -1739,7 +1739,7 @@ pub struct AudioMixerUnit3 {
     pub mixer_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioMixerUnit3 {
+impl TryFrom<&[u8]> for MixerUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1759,7 +1759,7 @@ impl TryFrom<&[u8]> for AudioMixerUnit3 {
             ));
         }
 
-        Ok(AudioMixerUnit3 {
+        Ok(MixerUnit3 {
             unit_id: value[0],
             nr_in_pins: value[1],
             source_ids: value[2..2 + nr_in_pins].to_vec(),
@@ -1776,8 +1776,8 @@ impl TryFrom<&[u8]> for AudioMixerUnit3 {
     }
 }
 
-impl From<AudioMixerUnit3> for Vec<u8> {
-    fn from(val: AudioMixerUnit3) -> Self {
+impl From<MixerUnit3> for Vec<u8> {
+    fn from(val: MixerUnit3) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.push(val.nr_in_pins);
@@ -1792,13 +1792,13 @@ impl From<AudioMixerUnit3> for Vec<u8> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioStreamingInterface1 {
+pub struct StreamingInterface1 {
     pub terminal_link: u8,
     pub delay: u8,
     pub format_tag: u16,
 }
 
-impl TryFrom<&[u8]> for AudioStreamingInterface1 {
+impl TryFrom<&[u8]> for StreamingInterface1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1809,7 +1809,7 @@ impl TryFrom<&[u8]> for AudioStreamingInterface1 {
             ));
         }
 
-        Ok(AudioStreamingInterface1 {
+        Ok(StreamingInterface1 {
             terminal_link: value[0],
             delay: value[1],
             format_tag: u16::from_le_bytes([value[2], value[3]]),
@@ -1817,8 +1817,8 @@ impl TryFrom<&[u8]> for AudioStreamingInterface1 {
     }
 }
 
-impl From<AudioStreamingInterface1> for Vec<u8> {
-    fn from(val: AudioStreamingInterface1) -> Self {
+impl From<StreamingInterface1> for Vec<u8> {
+    fn from(val: StreamingInterface1) -> Self {
         let mut data = Vec::new();
         data.push(val.terminal_link);
         data.push(val.delay);
@@ -1829,7 +1829,7 @@ impl From<AudioStreamingInterface1> for Vec<u8> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioStreamingInterface2 {
+pub struct StreamingInterface2 {
     pub terminal_link: u8,
     pub controls: u8, // BmControl2
     pub format_type: u8,
@@ -1840,7 +1840,7 @@ pub struct AudioStreamingInterface2 {
     pub channel_names: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioStreamingInterface2 {
+impl TryFrom<&[u8]> for StreamingInterface2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1851,7 +1851,7 @@ impl TryFrom<&[u8]> for AudioStreamingInterface2 {
             ));
         }
 
-        Ok(AudioStreamingInterface2 {
+        Ok(StreamingInterface2 {
             terminal_link: value[0],
             controls: value[1],
             format_type: value[2],
@@ -1864,8 +1864,8 @@ impl TryFrom<&[u8]> for AudioStreamingInterface2 {
     }
 }
 
-impl From<AudioStreamingInterface2> for Vec<u8> {
-    fn from(val: AudioStreamingInterface2) -> Self {
+impl From<StreamingInterface2> for Vec<u8> {
+    fn from(val: StreamingInterface2) -> Self {
         let mut data = Vec::new();
         data.push(val.terminal_link);
         data.push(val.controls);
@@ -1880,7 +1880,7 @@ impl From<AudioStreamingInterface2> for Vec<u8> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioStreamingInterface3 {
+pub struct StreamingInterface3 {
     pub terminal_link: u8,
     pub controls: u32, // BmControl2
     pub cluster_descr_id: u16,
@@ -1891,7 +1891,7 @@ pub struct AudioStreamingInterface3 {
     pub control_size: u8,
 }
 
-impl TryFrom<&[u8]> for AudioStreamingInterface3 {
+impl TryFrom<&[u8]> for StreamingInterface3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1902,7 +1902,7 @@ impl TryFrom<&[u8]> for AudioStreamingInterface3 {
             ));
         }
 
-        Ok(AudioStreamingInterface3 {
+        Ok(StreamingInterface3 {
             terminal_link: value[0],
             controls: u32::from_le_bytes([value[1], value[2], value[3], value[4]]),
             cluster_descr_id: u16::from_le_bytes([value[5], value[6]]),
@@ -1917,8 +1917,8 @@ impl TryFrom<&[u8]> for AudioStreamingInterface3 {
     }
 }
 
-impl From<AudioStreamingInterface3> for Vec<u8> {
-    fn from(val: AudioStreamingInterface3) -> Self {
+impl From<StreamingInterface3> for Vec<u8> {
+    fn from(val: StreamingInterface3) -> Self {
         let mut data = Vec::new();
         data.push(val.terminal_link);
         data.extend_from_slice(&val.controls.to_le_bytes());
@@ -1965,13 +1965,13 @@ impl fmt::Display for LockDelayUnits {
 /// Isochronous Audio Data Stream Endpoint for UAC1
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioDataStreamingEndpoint1 {
+pub struct DataStreamingEndpoint1 {
     pub attributes: u8,
     pub lock_delay_units: u8,
     pub lock_delay: u16,
 }
 
-impl TryFrom<&[u8]> for AudioDataStreamingEndpoint1 {
+impl TryFrom<&[u8]> for DataStreamingEndpoint1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -1982,7 +1982,7 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint1 {
             ));
         }
 
-        Ok(AudioDataStreamingEndpoint1 {
+        Ok(DataStreamingEndpoint1 {
             attributes: value[0],
             lock_delay_units: value[1],
             lock_delay: u16::from_le_bytes([value[2], value[3]]),
@@ -1990,8 +1990,8 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint1 {
     }
 }
 
-impl From<AudioDataStreamingEndpoint1> for Vec<u8> {
-    fn from(val: AudioDataStreamingEndpoint1) -> Self {
+impl From<DataStreamingEndpoint1> for Vec<u8> {
+    fn from(val: DataStreamingEndpoint1) -> Self {
         vec![
             val.attributes,
             val.lock_delay_units,
@@ -2004,14 +2004,14 @@ impl From<AudioDataStreamingEndpoint1> for Vec<u8> {
 /// Isochronous Audio Data Stream Endpoint for UAC2
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioDataStreamingEndpoint2 {
+pub struct DataStreamingEndpoint2 {
     pub attributes: u8,
     pub controls: u8,
     pub lock_delay_units: u8,
     pub lock_delay: u16,
 }
 
-impl TryFrom<&[u8]> for AudioDataStreamingEndpoint2 {
+impl TryFrom<&[u8]> for DataStreamingEndpoint2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -2022,7 +2022,7 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint2 {
             ));
         }
 
-        Ok(AudioDataStreamingEndpoint2 {
+        Ok(DataStreamingEndpoint2 {
             attributes: value[0],
             controls: value[1],
             lock_delay_units: value[2],
@@ -2031,8 +2031,8 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint2 {
     }
 }
 
-impl From<AudioDataStreamingEndpoint2> for Vec<u8> {
-    fn from(val: AudioDataStreamingEndpoint2) -> Self {
+impl From<DataStreamingEndpoint2> for Vec<u8> {
+    fn from(val: DataStreamingEndpoint2) -> Self {
         vec![
             val.attributes,
             val.controls,
@@ -2046,13 +2046,13 @@ impl From<AudioDataStreamingEndpoint2> for Vec<u8> {
 /// Isochronous Audio Data Stream Endpoint for UAC3
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioDataStreamingEndpoint3 {
+pub struct DataStreamingEndpoint3 {
     pub controls: u32,
     pub lock_delay_units: u8,
     pub lock_delay: u16,
 }
 
-impl TryFrom<&[u8]> for AudioDataStreamingEndpoint3 {
+impl TryFrom<&[u8]> for DataStreamingEndpoint3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -2063,7 +2063,7 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint3 {
             ));
         }
 
-        Ok(AudioDataStreamingEndpoint3 {
+        Ok(DataStreamingEndpoint3 {
             controls: u32::from_le_bytes([value[0], value[1], value[2], value[3]]),
             lock_delay_units: value[4],
             lock_delay: u16::from_le_bytes([value[5], value[6]]),
@@ -2071,8 +2071,8 @@ impl TryFrom<&[u8]> for AudioDataStreamingEndpoint3 {
     }
 }
 
-impl From<AudioDataStreamingEndpoint3> for Vec<u8> {
-    fn from(val: AudioDataStreamingEndpoint3) -> Self {
+impl From<DataStreamingEndpoint3> for Vec<u8> {
+    fn from(val: DataStreamingEndpoint3) -> Self {
         let mut data = Vec::new();
         data.extend_from_slice(&val.controls.to_le_bytes());
         data.push(val.lock_delay_units);
@@ -2083,7 +2083,7 @@ impl From<AudioDataStreamingEndpoint3> for Vec<u8> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioSelectorUnit1 {
+pub struct SelectorUnit1 {
     pub unit_id: u8,
     pub nr_in_pins: u8,
     pub source_ids: Vec<u8>,
@@ -2091,7 +2091,7 @@ pub struct AudioSelectorUnit1 {
     pub selector: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioSelectorUnit1 {
+impl TryFrom<&[u8]> for SelectorUnit1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -2113,7 +2113,7 @@ impl TryFrom<&[u8]> for AudioSelectorUnit1 {
 
         let source_ids = value[2..(2 + nr_in_pins)].to_vec();
 
-        Ok(AudioSelectorUnit1 {
+        Ok(SelectorUnit1 {
             unit_id: value[0],
             nr_in_pins: value[1],
             source_ids,
@@ -2123,8 +2123,8 @@ impl TryFrom<&[u8]> for AudioSelectorUnit1 {
     }
 }
 
-impl From<AudioSelectorUnit1> for Vec<u8> {
-    fn from(val: AudioSelectorUnit1) -> Self {
+impl From<SelectorUnit1> for Vec<u8> {
+    fn from(val: SelectorUnit1) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.push(val.nr_in_pins);
@@ -2136,7 +2136,7 @@ impl From<AudioSelectorUnit1> for Vec<u8> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioSelectorUnit2 {
+pub struct SelectorUnit2 {
     pub unit_id: u8,
     pub nr_in_pins: u8,
     pub source_ids: Vec<u8>,
@@ -2145,7 +2145,7 @@ pub struct AudioSelectorUnit2 {
     pub selector: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioSelectorUnit2 {
+impl TryFrom<&[u8]> for SelectorUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -2167,7 +2167,7 @@ impl TryFrom<&[u8]> for AudioSelectorUnit2 {
 
         let source_ids = value[2..(2 + nr_in_pins)].to_vec();
 
-        Ok(AudioSelectorUnit2 {
+        Ok(SelectorUnit2 {
             unit_id: value[0],
             nr_in_pins: value[1],
             source_ids,
@@ -2178,8 +2178,8 @@ impl TryFrom<&[u8]> for AudioSelectorUnit2 {
     }
 }
 
-impl From<AudioSelectorUnit2> for Vec<u8> {
-    fn from(val: AudioSelectorUnit2) -> Self {
+impl From<SelectorUnit2> for Vec<u8> {
+    fn from(val: SelectorUnit2) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.push(val.nr_in_pins);
@@ -2192,7 +2192,7 @@ impl From<AudioSelectorUnit2> for Vec<u8> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioSelectorUnit3 {
+pub struct SelectorUnit3 {
     pub unit_id: u8,
     pub nr_in_pins: u8,
     pub source_ids: Vec<u8>,
@@ -2200,7 +2200,7 @@ pub struct AudioSelectorUnit3 {
     pub selector_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioSelectorUnit3 {
+impl TryFrom<&[u8]> for SelectorUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -2228,7 +2228,7 @@ impl TryFrom<&[u8]> for AudioSelectorUnit3 {
             value[5 + nr_in_pins],
         ]);
 
-        Ok(AudioSelectorUnit3 {
+        Ok(SelectorUnit3 {
             unit_id: value[0],
             nr_in_pins: value[1],
             source_ids,
@@ -2241,8 +2241,8 @@ impl TryFrom<&[u8]> for AudioSelectorUnit3 {
     }
 }
 
-impl From<AudioSelectorUnit3> for Vec<u8> {
-    fn from(val: AudioSelectorUnit3) -> Self {
+impl From<SelectorUnit3> for Vec<u8> {
+    fn from(val: SelectorUnit3) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.push(val.nr_in_pins);
@@ -2358,7 +2358,7 @@ impl From<AudioProcessingUnitExtended1> for Vec<u8> {
 /// UAC1: 4.3.2.6 Processing Unit Descriptor; Table 4-8.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioProcessingUnit1 {
+pub struct ProcessingUnit1 {
     pub unit_id: u8,
     pub process_type: u16,
     pub nr_in_pins: u8,
@@ -2374,7 +2374,7 @@ pub struct AudioProcessingUnit1 {
     pub specific: Option<AudioProcessingUnitExtended1>,
 }
 
-impl TryFrom<&[u8]> for AudioProcessingUnit1 {
+impl TryFrom<&[u8]> for ProcessingUnit1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -2402,7 +2402,7 @@ impl TryFrom<&[u8]> for AudioProcessingUnit1 {
             _ => None,
         };
 
-        Ok(AudioProcessingUnit1 {
+        Ok(ProcessingUnit1 {
             unit_id: value[0],
             process_type: u16::from_le_bytes([value[1], value[2]]),
             nr_in_pins,
@@ -2425,8 +2425,8 @@ impl TryFrom<&[u8]> for AudioProcessingUnit1 {
     }
 }
 
-impl From<AudioProcessingUnit1> for Vec<u8> {
-    fn from(val: AudioProcessingUnit1) -> Self {
+impl From<ProcessingUnit1> for Vec<u8> {
+    fn from(val: ProcessingUnit1) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.extend_from_slice(&val.process_type.to_le_bytes());
@@ -2446,7 +2446,7 @@ impl From<AudioProcessingUnit1> for Vec<u8> {
     }
 }
 
-impl AudioProcessingUnit1 {
+impl ProcessingUnit1 {
     /// Returns the [`AudioProcessingUnitType`] of the processing unit.
     pub fn processing_type(&self) -> AudioProcessingUnitType {
         (UacProtocol::Uac1, self.process_type).into()
@@ -2684,7 +2684,7 @@ impl From<AudioProcessingUnit3Specific> for Vec<u8> {
 /// UAC2: 4.7.2.11 Processing Unit Descriptor; Table 4-20.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioProcessingUnit2 {
+pub struct ProcessingUnit2 {
     pub unit_id: u8,
     pub process_type: u16,
     pub nr_in_pins: u8,
@@ -2699,7 +2699,7 @@ pub struct AudioProcessingUnit2 {
     pub specific: Option<AudioProcessingUnit2Specific>,
 }
 
-impl TryFrom<&[u8]> for AudioProcessingUnit2 {
+impl TryFrom<&[u8]> for ProcessingUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -2729,7 +2729,7 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2 {
             _ => None,
         };
 
-        Ok(AudioProcessingUnit2 {
+        Ok(ProcessingUnit2 {
             unit_id: value[0],
             process_type: u16::from_le_bytes([value[1], value[2]]),
             nr_in_pins,
@@ -2754,8 +2754,8 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2 {
     }
 }
 
-impl From<AudioProcessingUnit2> for Vec<u8> {
-    fn from(val: AudioProcessingUnit2) -> Self {
+impl From<ProcessingUnit2> for Vec<u8> {
+    fn from(val: ProcessingUnit2) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.extend_from_slice(&val.process_type.to_le_bytes());
@@ -2774,7 +2774,7 @@ impl From<AudioProcessingUnit2> for Vec<u8> {
     }
 }
 
-impl AudioProcessingUnit2 {
+impl ProcessingUnit2 {
     /// Returns the [`AudioProcessingUnitType`] of the processing unit.
     pub fn processing_type(&self) -> AudioProcessingUnitType {
         (UacProtocol::Uac2, self.process_type).into()
@@ -2865,7 +2865,7 @@ impl AudioProcessingMultiFunction {
 /// UAC3: 4.5.2.10 Processing Unit Descriptor; Table 4-38.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioProcessingUnit3 {
+pub struct ProcessingUnit3 {
     pub unit_id: u8,
     pub process_type: u16,
     pub nr_in_pins: u8,
@@ -2874,7 +2874,7 @@ pub struct AudioProcessingUnit3 {
     pub specific: Option<AudioProcessingUnit3Specific>,
 }
 
-impl TryFrom<&[u8]> for AudioProcessingUnit3 {
+impl TryFrom<&[u8]> for ProcessingUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -2907,7 +2907,7 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3 {
             _ => None,
         };
 
-        Ok(AudioProcessingUnit3 {
+        Ok(ProcessingUnit3 {
             unit_id: value[0],
             process_type: u16::from_le_bytes([value[1], value[2]]),
             nr_in_pins,
@@ -2921,8 +2921,8 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3 {
     }
 }
 
-impl From<AudioProcessingUnit3> for Vec<u8> {
-    fn from(val: AudioProcessingUnit3) -> Self {
+impl From<ProcessingUnit3> for Vec<u8> {
+    fn from(val: ProcessingUnit3) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.extend_from_slice(&val.process_type.to_le_bytes());
@@ -2937,7 +2937,7 @@ impl From<AudioProcessingUnit3> for Vec<u8> {
     }
 }
 
-impl AudioProcessingUnit3 {
+impl ProcessingUnit3 {
     /// Returns the [`AudioProcessingUnitType`] of the processing unit.
     pub fn processing_type(&self) -> AudioProcessingUnitType {
         (UacProtocol::Uac3, self.process_type).into()
@@ -2959,7 +2959,7 @@ impl AudioProcessingUnit3 {
 /// UAC2: 4.7.2.10 Effect Unit Descriptor; Table 4-15.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioEffectUnit2 {
+pub struct EffectUnit2 {
     pub unit_id: u8,
     pub effect_type: u16,
     pub source_id: u8,
@@ -2968,7 +2968,7 @@ pub struct AudioEffectUnit2 {
     pub effect: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioEffectUnit2 {
+impl TryFrom<&[u8]> for EffectUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -2984,7 +2984,7 @@ impl TryFrom<&[u8]> for AudioEffectUnit2 {
             .map(|i| u32::from_le_bytes([value[i], value[i + 1], value[i + 2], value[i + 3]]))
             .collect();
 
-        Ok(AudioEffectUnit2 {
+        Ok(EffectUnit2 {
             unit_id: value[0],
             effect_type: u16::from_le_bytes([value[1], value[2]]),
             source_id: value[3],
@@ -2995,8 +2995,8 @@ impl TryFrom<&[u8]> for AudioEffectUnit2 {
     }
 }
 
-impl From<AudioEffectUnit2> for Vec<u8> {
-    fn from(val: AudioEffectUnit2) -> Self {
+impl From<EffectUnit2> for Vec<u8> {
+    fn from(val: EffectUnit2) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.extend_from_slice(&val.effect_type.to_le_bytes());
@@ -3012,7 +3012,7 @@ impl From<AudioEffectUnit2> for Vec<u8> {
 /// UAC3: 4.5.2.9 Effect Unit Descriptor; Table 4-33.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioEffectUnit3 {
+pub struct EffectUnit3 {
     pub unit_id: u8,
     pub effect_type: u16,
     pub source_id: u8,
@@ -3020,7 +3020,7 @@ pub struct AudioEffectUnit3 {
     pub effect_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioEffectUnit3 {
+impl TryFrom<&[u8]> for EffectUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3036,7 +3036,7 @@ impl TryFrom<&[u8]> for AudioEffectUnit3 {
             .map(|i| u32::from_le_bytes([value[i], value[i + 1], value[i + 2], value[i + 3]]))
             .collect();
 
-        Ok(AudioEffectUnit3 {
+        Ok(EffectUnit3 {
             unit_id: value[0],
             effect_type: u16::from_le_bytes([value[1], value[2]]),
             source_id: value[3],
@@ -3046,8 +3046,8 @@ impl TryFrom<&[u8]> for AudioEffectUnit3 {
     }
 }
 
-impl From<AudioEffectUnit3> for Vec<u8> {
-    fn from(val: AudioEffectUnit3) -> Self {
+impl From<EffectUnit3> for Vec<u8> {
+    fn from(val: EffectUnit3) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.extend_from_slice(&val.effect_type.to_le_bytes());
@@ -3063,7 +3063,7 @@ impl From<AudioEffectUnit3> for Vec<u8> {
 /// UAC1: 4.3.2.5 Feature Unit Descriptor; Table 4-7.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioFeatureUnit1 {
+pub struct FeatureUnit1 {
     pub unit_id: u8,
     pub source_id: u8,
     pub control_size: u8,
@@ -3072,7 +3072,7 @@ pub struct AudioFeatureUnit1 {
     pub feature: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioFeatureUnit1 {
+impl TryFrom<&[u8]> for FeatureUnit1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3094,7 +3094,7 @@ impl TryFrom<&[u8]> for AudioFeatureUnit1 {
 
         let controls = value[3..(3 + control_size as usize)].to_vec();
 
-        Ok(AudioFeatureUnit1 {
+        Ok(FeatureUnit1 {
             unit_id: value[0],
             source_id: value[1],
             control_size,
@@ -3105,8 +3105,8 @@ impl TryFrom<&[u8]> for AudioFeatureUnit1 {
     }
 }
 
-impl From<AudioFeatureUnit1> for Vec<u8> {
-    fn from(val: AudioFeatureUnit1) -> Self {
+impl From<FeatureUnit1> for Vec<u8> {
+    fn from(val: FeatureUnit1) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.push(val.source_id);
@@ -3120,7 +3120,7 @@ impl From<AudioFeatureUnit1> for Vec<u8> {
 /// UAC2: 4.7.2.8 Feature Unit Descriptor; Table 4-13.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioFeatureUnit2 {
+pub struct FeatureUnit2 {
     pub unit_id: u8,
     pub source_id: u8,
     pub controls: [u8; 4],
@@ -3128,7 +3128,7 @@ pub struct AudioFeatureUnit2 {
     pub feature: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioFeatureUnit2 {
+impl TryFrom<&[u8]> for FeatureUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3139,7 +3139,7 @@ impl TryFrom<&[u8]> for AudioFeatureUnit2 {
             ));
         }
 
-        Ok(AudioFeatureUnit2 {
+        Ok(FeatureUnit2 {
             unit_id: value[0],
             source_id: value[1],
             controls: value[2..6].try_into().unwrap(),
@@ -3149,8 +3149,8 @@ impl TryFrom<&[u8]> for AudioFeatureUnit2 {
     }
 }
 
-impl From<AudioFeatureUnit2> for Vec<u8> {
-    fn from(val: AudioFeatureUnit2) -> Self {
+impl From<FeatureUnit2> for Vec<u8> {
+    fn from(val: FeatureUnit2) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.push(val.source_id);
@@ -3163,14 +3163,14 @@ impl From<AudioFeatureUnit2> for Vec<u8> {
 /// UAC3: 4.5.2.7 Feature Unit Descriptor; Table 4-31.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioFeatureUnit3 {
+pub struct FeatureUnit3 {
     pub unit_id: u8,
     pub source_id: u8,
     pub controls: [u8; 4],
     pub feature_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioFeatureUnit3 {
+impl TryFrom<&[u8]> for FeatureUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3181,7 +3181,7 @@ impl TryFrom<&[u8]> for AudioFeatureUnit3 {
             ));
         }
 
-        Ok(AudioFeatureUnit3 {
+        Ok(FeatureUnit3 {
             unit_id: value[0],
             source_id: value[1],
             controls: value[2..6].try_into().unwrap(),
@@ -3190,8 +3190,8 @@ impl TryFrom<&[u8]> for AudioFeatureUnit3 {
     }
 }
 
-impl From<AudioFeatureUnit3> for Vec<u8> {
-    fn from(val: AudioFeatureUnit3) -> Self {
+impl From<FeatureUnit3> for Vec<u8> {
+    fn from(val: FeatureUnit3) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.push(val.source_id);
@@ -3204,7 +3204,7 @@ impl From<AudioFeatureUnit3> for Vec<u8> {
 /// UAC1: 4.3.2.7 Extension Unit Descriptor; Table 4-15.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioExtensionUnit1 {
+pub struct ExtensionUnit1 {
     pub unit_id: u8,
     pub extension_code: u16,
     pub nr_in_pins: u8,
@@ -3219,7 +3219,7 @@ pub struct AudioExtensionUnit1 {
     pub extension: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioExtensionUnit1 {
+impl TryFrom<&[u8]> for ExtensionUnit1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3243,7 +3243,7 @@ impl TryFrom<&[u8]> for AudioExtensionUnit1 {
         let source_ids = value[4..(4 + nr_in_pins)].to_vec();
         let controls = value[(9 + nr_in_pins)..(9 + nr_in_pins + control_size as usize)].to_vec();
 
-        Ok(AudioExtensionUnit1 {
+        Ok(ExtensionUnit1 {
             unit_id: value[0],
             extension_code: u16::from_le_bytes([value[1], value[2]]),
             nr_in_pins: value[3],
@@ -3260,8 +3260,8 @@ impl TryFrom<&[u8]> for AudioExtensionUnit1 {
     }
 }
 
-impl From<AudioExtensionUnit1> for Vec<u8> {
-    fn from(val: AudioExtensionUnit1) -> Self {
+impl From<ExtensionUnit1> for Vec<u8> {
+    fn from(val: ExtensionUnit1) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.extend_from_slice(&val.extension_code.to_le_bytes());
@@ -3280,7 +3280,7 @@ impl From<AudioExtensionUnit1> for Vec<u8> {
 /// UAC2: 4.7.2.12 Extension Unit Descriptor; Table 4-24.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioExtensionUnit2 {
+pub struct ExtensionUnit2 {
     pub unit_id: u8,
     pub extension_code: u16,
     pub nr_in_pins: u8,
@@ -3294,7 +3294,7 @@ pub struct AudioExtensionUnit2 {
     pub extension: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioExtensionUnit2 {
+impl TryFrom<&[u8]> for ExtensionUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3316,7 +3316,7 @@ impl TryFrom<&[u8]> for AudioExtensionUnit2 {
 
         let source_ids = value[4..(4 + nr_in_pins)].to_vec();
 
-        Ok(AudioExtensionUnit2 {
+        Ok(ExtensionUnit2 {
             unit_id: value[0],
             extension_code: u16::from_le_bytes([value[1], value[2]]),
             nr_in_pins: value[3],
@@ -3337,8 +3337,8 @@ impl TryFrom<&[u8]> for AudioExtensionUnit2 {
     }
 }
 
-impl From<AudioExtensionUnit2> for Vec<u8> {
-    fn from(val: AudioExtensionUnit2) -> Self {
+impl From<ExtensionUnit2> for Vec<u8> {
+    fn from(val: ExtensionUnit2) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.extend_from_slice(&val.extension_code.to_le_bytes());
@@ -3356,7 +3356,7 @@ impl From<AudioExtensionUnit2> for Vec<u8> {
 /// UAC3: 4.5.2.11 Extension Unit Descriptor; Table 4-42.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioExtensionUnit3 {
+pub struct ExtensionUnit3 {
     pub unit_id: u8,
     pub extension_code: u16,
     pub nr_in_pins: u8,
@@ -3366,7 +3366,7 @@ pub struct AudioExtensionUnit3 {
     pub cluster_descr_id: u16,
 }
 
-impl TryFrom<&[u8]> for AudioExtensionUnit3 {
+impl TryFrom<&[u8]> for ExtensionUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3388,7 +3388,7 @@ impl TryFrom<&[u8]> for AudioExtensionUnit3 {
 
         let source_ids = value[4..(4 + nr_in_pins)].to_vec();
 
-        Ok(AudioExtensionUnit3 {
+        Ok(ExtensionUnit3 {
             unit_id: value[0],
             extension_code: u16::from_le_bytes([value[1], value[2]]),
             nr_in_pins: value[3],
@@ -3405,8 +3405,8 @@ impl TryFrom<&[u8]> for AudioExtensionUnit3 {
     }
 }
 
-impl From<AudioExtensionUnit3> for Vec<u8> {
-    fn from(val: AudioExtensionUnit3) -> Self {
+impl From<ExtensionUnit3> for Vec<u8> {
+    fn from(val: ExtensionUnit3) -> Self {
         let mut data = Vec::new();
         data.push(val.unit_id);
         data.extend_from_slice(&val.extension_code.to_le_bytes());
@@ -3422,7 +3422,7 @@ impl From<AudioExtensionUnit3> for Vec<u8> {
 /// UAC2: 4.7.2.1 Clock Source Descriptor; Table 4-6.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioClockSource2 {
+pub struct ClockSource2 {
     pub clock_id: u8,
     pub attributes: u8,
     pub controls: u8,
@@ -3431,7 +3431,7 @@ pub struct AudioClockSource2 {
     pub clock_source: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioClockSource2 {
+impl TryFrom<&[u8]> for ClockSource2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3442,7 +3442,7 @@ impl TryFrom<&[u8]> for AudioClockSource2 {
             ));
         }
 
-        Ok(AudioClockSource2 {
+        Ok(ClockSource2 {
             clock_id: value[0],
             attributes: value[1],
             controls: value[2],
@@ -3453,8 +3453,8 @@ impl TryFrom<&[u8]> for AudioClockSource2 {
     }
 }
 
-impl From<AudioClockSource2> for Vec<u8> {
-    fn from(val: AudioClockSource2) -> Self {
+impl From<ClockSource2> for Vec<u8> {
+    fn from(val: ClockSource2) -> Self {
         vec![
             val.clock_id,
             val.attributes,
@@ -3468,7 +3468,7 @@ impl From<AudioClockSource2> for Vec<u8> {
 /// UAC3: 4.5.2.12 Clock Source Descriptor; Table 4-43.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioClockSource3 {
+pub struct ClockSource3 {
     pub clock_id: u8,
     pub attributes: u8,
     pub controls: u32,
@@ -3476,7 +3476,7 @@ pub struct AudioClockSource3 {
     pub clock_source_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioClockSource3 {
+impl TryFrom<&[u8]> for ClockSource3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3487,7 +3487,7 @@ impl TryFrom<&[u8]> for AudioClockSource3 {
             ));
         }
 
-        Ok(AudioClockSource3 {
+        Ok(ClockSource3 {
             clock_id: value[0],
             attributes: value[1],
             controls: u32::from_le_bytes([value[2], value[3], value[4], value[5]]),
@@ -3497,8 +3497,8 @@ impl TryFrom<&[u8]> for AudioClockSource3 {
     }
 }
 
-impl From<AudioClockSource3> for Vec<u8> {
-    fn from(val: AudioClockSource3) -> Self {
+impl From<ClockSource3> for Vec<u8> {
+    fn from(val: ClockSource3) -> Self {
         let mut data = Vec::new();
         data.push(val.clock_id);
         data.push(val.attributes);
@@ -3512,7 +3512,7 @@ impl From<AudioClockSource3> for Vec<u8> {
 /// UAC2: 4.7.2.2 Clock Selector Descriptor; Table 4-7.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioClockSelector2 {
+pub struct ClockSelector2 {
     pub clock_id: u8,
     pub nr_in_pins: u8,
     pub csource_ids: Vec<u8>,
@@ -3521,7 +3521,7 @@ pub struct AudioClockSelector2 {
     pub clock_selector: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioClockSelector2 {
+impl TryFrom<&[u8]> for ClockSelector2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3543,7 +3543,7 @@ impl TryFrom<&[u8]> for AudioClockSelector2 {
 
         let csource_ids = value[2..(2 + nr_in_pins)].to_vec();
 
-        Ok(AudioClockSelector2 {
+        Ok(ClockSelector2 {
             clock_id: value[0],
             nr_in_pins: value[1],
             csource_ids,
@@ -3554,8 +3554,8 @@ impl TryFrom<&[u8]> for AudioClockSelector2 {
     }
 }
 
-impl From<AudioClockSelector2> for Vec<u8> {
-    fn from(val: AudioClockSelector2) -> Self {
+impl From<ClockSelector2> for Vec<u8> {
+    fn from(val: ClockSelector2) -> Self {
         let mut data = Vec::new();
         data.push(val.clock_id);
         data.push(val.nr_in_pins);
@@ -3569,7 +3569,7 @@ impl From<AudioClockSelector2> for Vec<u8> {
 /// UAC3: 4.5.2.13 Clock Selector Descriptor; Table 4-44.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioClockSelector3 {
+pub struct ClockSelector3 {
     pub clock_id: u8,
     pub nr_in_pins: u8,
     pub csource_ids: Vec<u8>,
@@ -3577,7 +3577,7 @@ pub struct AudioClockSelector3 {
     pub cselector_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioClockSelector3 {
+impl TryFrom<&[u8]> for ClockSelector3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3605,7 +3605,7 @@ impl TryFrom<&[u8]> for AudioClockSelector3 {
             value[5 + nr_in_pins],
         ]);
 
-        Ok(AudioClockSelector3 {
+        Ok(ClockSelector3 {
             clock_id: value[0],
             nr_in_pins: value[1],
             csource_ids,
@@ -3618,8 +3618,8 @@ impl TryFrom<&[u8]> for AudioClockSelector3 {
     }
 }
 
-impl From<AudioClockSelector3> for Vec<u8> {
-    fn from(val: AudioClockSelector3) -> Self {
+impl From<ClockSelector3> for Vec<u8> {
+    fn from(val: ClockSelector3) -> Self {
         let mut data = Vec::new();
         data.push(val.clock_id);
         data.push(val.nr_in_pins);
@@ -3633,7 +3633,7 @@ impl From<AudioClockSelector3> for Vec<u8> {
 /// UAC2: 4.7.2.3 Clock Multiplier Descriptor; Table 4-8.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioClockMultiplier2 {
+pub struct ClockMultiplier2 {
     pub clock_id: u8,
     pub csource_id: u8,
     pub controls: u8,
@@ -3641,7 +3641,7 @@ pub struct AudioClockMultiplier2 {
     pub clock_multiplier: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioClockMultiplier2 {
+impl TryFrom<&[u8]> for ClockMultiplier2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3652,7 +3652,7 @@ impl TryFrom<&[u8]> for AudioClockMultiplier2 {
             ));
         }
 
-        Ok(AudioClockMultiplier2 {
+        Ok(ClockMultiplier2 {
             clock_id: value[0],
             csource_id: value[1],
             controls: value[2],
@@ -3662,8 +3662,8 @@ impl TryFrom<&[u8]> for AudioClockMultiplier2 {
     }
 }
 
-impl From<AudioClockMultiplier2> for Vec<u8> {
-    fn from(val: AudioClockMultiplier2) -> Self {
+impl From<ClockMultiplier2> for Vec<u8> {
+    fn from(val: ClockMultiplier2) -> Self {
         vec![
             val.clock_id,
             val.csource_id,
@@ -3676,14 +3676,14 @@ impl From<AudioClockMultiplier2> for Vec<u8> {
 /// UAC3: 4.5.2.14 Clock Multiplier Descriptor; Table 4-45.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioClockMultiplier3 {
+pub struct ClockMultiplier3 {
     pub clock_id: u8,
     pub csource_id: u8,
     pub controls: u32,
     pub cmultiplier_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioClockMultiplier3 {
+impl TryFrom<&[u8]> for ClockMultiplier3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3694,7 +3694,7 @@ impl TryFrom<&[u8]> for AudioClockMultiplier3 {
             ));
         }
 
-        Ok(AudioClockMultiplier3 {
+        Ok(ClockMultiplier3 {
             clock_id: value[0],
             csource_id: value[1],
             controls: u32::from_le_bytes([value[2], value[3], value[4], value[5]]),
@@ -3703,8 +3703,8 @@ impl TryFrom<&[u8]> for AudioClockMultiplier3 {
     }
 }
 
-impl From<AudioClockMultiplier3> for Vec<u8> {
-    fn from(val: AudioClockMultiplier3) -> Self {
+impl From<ClockMultiplier3> for Vec<u8> {
+    fn from(val: ClockMultiplier3) -> Self {
         let mut data = Vec::new();
         data.push(val.clock_id);
         data.push(val.csource_id);
@@ -3717,7 +3717,7 @@ impl From<AudioClockMultiplier3> for Vec<u8> {
 /// UAC2: 4.7.2.9 Sampling Rate Converter Descriptor; Table 4-14.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioSampleRateConverter2 {
+pub struct SampleRateConverter2 {
     pub unit_id: u8,
     pub source_id: u8,
     pub csource_in_id: u8,
@@ -3726,7 +3726,7 @@ pub struct AudioSampleRateConverter2 {
     pub src: Option<String>,
 }
 
-impl TryFrom<&[u8]> for AudioSampleRateConverter2 {
+impl TryFrom<&[u8]> for SampleRateConverter2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3737,7 +3737,7 @@ impl TryFrom<&[u8]> for AudioSampleRateConverter2 {
             ));
         }
 
-        Ok(AudioSampleRateConverter2 {
+        Ok(SampleRateConverter2 {
             unit_id: value[0],
             source_id: value[1],
             csource_in_id: value[2],
@@ -3748,8 +3748,8 @@ impl TryFrom<&[u8]> for AudioSampleRateConverter2 {
     }
 }
 
-impl From<AudioSampleRateConverter2> for Vec<u8> {
-    fn from(val: AudioSampleRateConverter2) -> Self {
+impl From<SampleRateConverter2> for Vec<u8> {
+    fn from(val: SampleRateConverter2) -> Self {
         vec![
             val.unit_id,
             val.source_id,
@@ -3763,7 +3763,7 @@ impl From<AudioSampleRateConverter2> for Vec<u8> {
 /// UAC3: 4.5.2.8 Sampling Rate Converter Descriptor; Table 4-32.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct AudioSampleRateConverter3 {
+pub struct SampleRateConverter3 {
     pub unit_id: u8,
     pub source_id: u8,
     pub csource_in_id: u8,
@@ -3771,7 +3771,7 @@ pub struct AudioSampleRateConverter3 {
     pub src_descr_str: u16,
 }
 
-impl TryFrom<&[u8]> for AudioSampleRateConverter3 {
+impl TryFrom<&[u8]> for SampleRateConverter3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
@@ -3782,7 +3782,7 @@ impl TryFrom<&[u8]> for AudioSampleRateConverter3 {
             ));
         }
 
-        Ok(AudioSampleRateConverter3 {
+        Ok(SampleRateConverter3 {
             unit_id: value[0],
             source_id: value[1],
             csource_in_id: value[2],
@@ -3792,8 +3792,8 @@ impl TryFrom<&[u8]> for AudioSampleRateConverter3 {
     }
 }
 
-impl From<AudioSampleRateConverter3> for Vec<u8> {
-    fn from(val: AudioSampleRateConverter3) -> Self {
+impl From<SampleRateConverter3> for Vec<u8> {
+    fn from(val: SampleRateConverter3) -> Self {
         let mut data = vec![
             val.unit_id,
             val.source_id,
