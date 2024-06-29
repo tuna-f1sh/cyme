@@ -3,6 +3,7 @@
     "user": {
       "classifier#02": "",
       "classifier-sub-protocol#fe:01:01": "",
+      "name#.*sd\\scard\\sreader.*": "",
       "undefined-classifier": "☶",
       "unknown-vendor": "",
       "vid#05ac": "",
