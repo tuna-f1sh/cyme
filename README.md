@@ -56,10 +56,10 @@ If wishing to use only macOS `system_profiler` and not obtain more verbose infor
 
 ### Package Managers
 
-* Homebrew tap, which will also install a man page, completions and the 'libusb' dependency: 
+* [Homebrew 'cyme'](https://formulae.brew.sh/formula/cyme) which will also install a man page, completions and the 'libusb' dependency: 
 
 ```bash
-brew install tuna-f1sh/taps/cyme
+brew install cyme
 ```
 
 * [Arch AUR 'cyme-bin'](https://aur.archlinux.org/packages/cyme-bin)
