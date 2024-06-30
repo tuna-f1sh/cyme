@@ -256,23 +256,36 @@ impl From<libusb::Version> for usb::Version {
     }
 }
 
+/// Build fully described USB device descriptor with extra bytes
 fn build_descriptor_extra<T: libusb::UsbContext>(
     handle: &mut Option<UsbDevice<T>>,
     interface_desc: Option<&libusb::InterfaceDescriptor>,
     extra_bytes: &[u8],
 ) -> Result<usb::DescriptorType, Error> {
     // Get any extra descriptors into a known type and add any handle data while we have it
-    let mut dt = usb::DescriptorType::try_from(extra_bytes)?;
+    let mut dt = match usb::DescriptorType::try_from(extra_bytes) {
+        Ok(d) => d,
+        Err(e) => {
+            log::debug!("Failed to convert extra descriptor bytes: {}", e);
+            return Err(e);
+        }
+    };
 
     // Assign class context to interface since descriptor did not know it
     if let Some(interface_desc) = interface_desc {
-        dt.update_with_class_context((
+        if let Err(e) = dt.update_with_class_context((
             interface_desc.class_code(),
             interface_desc.sub_class_code(),
             interface_desc.protocol_code(),
-        ))?;
+        )) {
+            log::debug!(
+                "Failed to update extra descriptor with class context: {}",
+                e
+            );
+        }
     }
 
+    // get any strings at string indexes while we have handle
     match dt {
         usb::DescriptorType::InterfaceAssociation(ref mut iad) => {
             iad.function_string = get_descriptor_string(iad.function_string_index, handle);
@@ -296,26 +309,18 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                 }
             }
             usb::ClassDescriptor::Audio(ref mut ad, _) => match ad.interface {
-                usb::descriptors::audio::UacInterfaceDescriptor::InputTerminal1(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::InputTerminal1(ref mut ah) => {
                     ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
                     ah.terminal = get_descriptor_string(ah.terminal_index, handle);
                 }
-                usb::descriptors::audio::UacInterfaceDescriptor::InputTerminal2(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::InputTerminal2(ref mut ah) => {
                     ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
                     ah.terminal = get_descriptor_string(ah.terminal_index, handle);
                 }
-                usb::descriptors::audio::UacInterfaceDescriptor::OutputTerminal1(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::OutputTerminal1(ref mut ah) => {
                     ah.terminal = get_descriptor_string(ah.terminal_index, handle);
                 }
-                usb::descriptors::audio::UacInterfaceDescriptor::OutputTerminal2(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::OutputTerminal2(ref mut ah) => {
                     ah.terminal = get_descriptor_string(ah.terminal_index, handle);
                 }
                 usb::descriptors::audio::UacInterfaceDescriptor::StreamingInterface2(
@@ -329,15 +334,11 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                 usb::descriptors::audio::UacInterfaceDescriptor::SelectorUnit2(ref mut ah) => {
                     ah.selector = get_descriptor_string(ah.selector_index, handle);
                 }
-                usb::descriptors::audio::UacInterfaceDescriptor::ProcessingUnit1(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::ProcessingUnit1(ref mut ah) => {
                     ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
                     ah.processing = get_descriptor_string(ah.processing_index, handle);
                 }
-                usb::descriptors::audio::UacInterfaceDescriptor::ProcessingUnit2(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::ProcessingUnit2(ref mut ah) => {
                     ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
                     ah.processing = get_descriptor_string(ah.processing_index, handle);
                 }
@@ -350,29 +351,21 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                 usb::descriptors::audio::UacInterfaceDescriptor::FeatureUnit2(ref mut ah) => {
                     ah.feature = get_descriptor_string(ah.feature_index, handle);
                 }
-                usb::descriptors::audio::UacInterfaceDescriptor::ExtensionUnit1(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::ExtensionUnit1(ref mut ah) => {
                     ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
                     ah.extension = get_descriptor_string(ah.extension_index, handle);
                 }
-                usb::descriptors::audio::UacInterfaceDescriptor::ExtensionUnit2(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::ExtensionUnit2(ref mut ah) => {
                     ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);
                     ah.extension = get_descriptor_string(ah.extension_index, handle);
                 }
                 usb::descriptors::audio::UacInterfaceDescriptor::ClockSource2(ref mut ah) => {
                     ah.clock_source = get_descriptor_string(ah.clock_source_index, handle);
                 }
-                usb::descriptors::audio::UacInterfaceDescriptor::ClockSelector2(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::ClockSelector2(ref mut ah) => {
                     ah.clock_selector = get_descriptor_string(ah.clock_selector_index, handle);
                 }
-                usb::descriptors::audio::UacInterfaceDescriptor::ClockMultiplier2(
-                    ref mut ah,
-                ) => {
+                usb::descriptors::audio::UacInterfaceDescriptor::ClockMultiplier2(ref mut ah) => {
                     ah.clock_multiplier = get_descriptor_string(ah.clock_multiplier_index, handle);
                 }
                 usb::descriptors::audio::UacInterfaceDescriptor::SampleRateConverter2(

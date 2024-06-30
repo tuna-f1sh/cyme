@@ -391,7 +391,8 @@ impl ClassDescriptor {
                     )
                 }
                 (ClassCode::Video, 1, p) => {
-                    *self = ClassDescriptor::Video(video::UvcDescriptor::try_from(gd.to_owned())?, p)
+                    *self =
+                        ClassDescriptor::Video(video::UvcDescriptor::try_from(gd.to_owned())?, p)
                 }
                 ct => *self = ClassDescriptor::Generic(Some(ct), gd.to_owned()),
             }
@@ -570,7 +571,7 @@ impl TryFrom<&[u8]> for HidDescriptor {
             if len > descriptors_vec.len() {
                 return Err(Error::new(
                     ErrorKind::InvalidArg,
-                    "HID report descriptor too long for available data!",
+                    &format!("HID report descriptor reported length too long for available data! Expected {} but only have {}", len, descriptors_vec.len()),
                 ));
             }
 

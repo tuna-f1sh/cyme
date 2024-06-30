@@ -1,7 +1,7 @@
 //! Defines for the USB Audio Class (UAC) interface descriptors and MIDI
-use std::fmt;
-use std::convert::TryFrom;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
+use std::fmt;
 use strum::VariantArray;
 use strum_macros::VariantArray;
 
@@ -327,7 +327,9 @@ impl fmt::Display for Uac1ChannelNames {
             Uac1ChannelNames::LeftFront => write!(f, "Left Front (L)"),
             Uac1ChannelNames::RightFront => write!(f, "Right Front (R)"),
             Uac1ChannelNames::CenterFront => write!(f, "Center Front (C)"),
-            Uac1ChannelNames::LowFrequencyEnhancement => write!(f, "Low Frequency Enhancement (LFE)"),
+            Uac1ChannelNames::LowFrequencyEnhancement => {
+                write!(f, "Low Frequency Enhancement (LFE)")
+            }
             Uac1ChannelNames::LeftSurround => write!(f, "Left Surround (LS)"),
             Uac1ChannelNames::RightSurround => write!(f, "Right Surround (RS)"),
             Uac1ChannelNames::LeftOfCenter => write!(f, "Left of Center (LC)"),
@@ -409,9 +411,15 @@ impl fmt::Display for Uac2ChannelNames {
             Uac2ChannelNames::TopBackCenter => write!(f, "Top Back Center (TBC)"),
             Uac2ChannelNames::TopBackRight => write!(f, "Top Back Right (TBR)"),
             Uac2ChannelNames::TopFrontLeftOfCenter => write!(f, "Top Front Left of Center (TFLC)"),
-            Uac2ChannelNames::TopFrontRightOfCenter => write!(f, "Top Front Right of Center (TFRC)"),
-            Uac2ChannelNames::LeftLowFrequencyEffects => write!(f, "Left Low Frequency Effects (LLFE)"),
-            Uac2ChannelNames::RightLowFrequencyEffects => write!(f, "Right Low Frequency Effects (RLFE)"),
+            Uac2ChannelNames::TopFrontRightOfCenter => {
+                write!(f, "Top Front Right of Center (TFRC)")
+            }
+            Uac2ChannelNames::LeftLowFrequencyEffects => {
+                write!(f, "Left Low Frequency Effects (LLFE)")
+            }
+            Uac2ChannelNames::RightLowFrequencyEffects => {
+                write!(f, "Right Low Frequency Effects (RLFE)")
+            }
             Uac2ChannelNames::TopSideLeft => write!(f, "Top Side Left (TSL)"),
             Uac2ChannelNames::TopSideRight => write!(f, "Top Side Right (TSR)"),
             Uac2ChannelNames::BottomCenter => write!(f, "Bottom Center (BC)"),
@@ -480,33 +488,33 @@ impl UacInterfaceDescriptor {
     ) -> Result<Self, Error> {
         match uac_interface {
             ControlSubtype::Header => match protocol {
-                UacProtocol::Uac1 => {
-                    Header1::try_from(data).map(UacInterfaceDescriptor::Header1)
-                }
-                UacProtocol::Uac2 => {
-                    Header2::try_from(data).map(UacInterfaceDescriptor::Header2)
-                }
-                UacProtocol::Uac3 => {
-                    Header3::try_from(data).map(UacInterfaceDescriptor::Header3)
-                }
+                UacProtocol::Uac1 => Header1::try_from(data).map(UacInterfaceDescriptor::Header1),
+                UacProtocol::Uac2 => Header2::try_from(data).map(UacInterfaceDescriptor::Header2),
+                UacProtocol::Uac3 => Header3::try_from(data).map(UacInterfaceDescriptor::Header3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
             ControlSubtype::InputTerminal => match protocol {
-                UacProtocol::Uac1 => InputTerminal1::try_from(data)
-                    .map(UacInterfaceDescriptor::InputTerminal1),
-                UacProtocol::Uac2 => InputTerminal2::try_from(data)
-                    .map(UacInterfaceDescriptor::InputTerminal2),
-                UacProtocol::Uac3 => InputTerminal3::try_from(data)
-                    .map(UacInterfaceDescriptor::InputTerminal3),
+                UacProtocol::Uac1 => {
+                    InputTerminal1::try_from(data).map(UacInterfaceDescriptor::InputTerminal1)
+                }
+                UacProtocol::Uac2 => {
+                    InputTerminal2::try_from(data).map(UacInterfaceDescriptor::InputTerminal2)
+                }
+                UacProtocol::Uac3 => {
+                    InputTerminal3::try_from(data).map(UacInterfaceDescriptor::InputTerminal3)
+                }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
             ControlSubtype::OutputTerminal => match protocol {
-                UacProtocol::Uac1 => OutputTerminal1::try_from(data)
-                    .map(UacInterfaceDescriptor::OutputTerminal1),
-                UacProtocol::Uac2 => OutputTerminal2::try_from(data)
-                    .map(UacInterfaceDescriptor::OutputTerminal2),
-                UacProtocol::Uac3 => OutputTerminal3::try_from(data)
-                    .map(UacInterfaceDescriptor::OutputTerminal3),
+                UacProtocol::Uac1 => {
+                    OutputTerminal1::try_from(data).map(UacInterfaceDescriptor::OutputTerminal1)
+                }
+                UacProtocol::Uac2 => {
+                    OutputTerminal2::try_from(data).map(UacInterfaceDescriptor::OutputTerminal2)
+                }
+                UacProtocol::Uac3 => {
+                    OutputTerminal3::try_from(data).map(UacInterfaceDescriptor::OutputTerminal3)
+                }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
             ControlSubtype::ExtendedTerminal => match protocol {
@@ -533,75 +541,89 @@ impl UacInterfaceDescriptor {
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
             ControlSubtype::SelectorUnit => match protocol {
-                UacProtocol::Uac1 => SelectorUnit1::try_from(data)
-                    .map(UacInterfaceDescriptor::SelectorUnit1),
-                UacProtocol::Uac2 => SelectorUnit2::try_from(data)
-                    .map(UacInterfaceDescriptor::SelectorUnit2),
-                UacProtocol::Uac3 => SelectorUnit3::try_from(data)
-                    .map(UacInterfaceDescriptor::SelectorUnit3),
+                UacProtocol::Uac1 => {
+                    SelectorUnit1::try_from(data).map(UacInterfaceDescriptor::SelectorUnit1)
+                }
+                UacProtocol::Uac2 => {
+                    SelectorUnit2::try_from(data).map(UacInterfaceDescriptor::SelectorUnit2)
+                }
+                UacProtocol::Uac3 => {
+                    SelectorUnit3::try_from(data).map(UacInterfaceDescriptor::SelectorUnit3)
+                }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
             ControlSubtype::ProcessingUnit => match protocol {
-                UacProtocol::Uac1 => ProcessingUnit1::try_from(data)
-                    .map(UacInterfaceDescriptor::ProcessingUnit1),
-                UacProtocol::Uac2 => ProcessingUnit2::try_from(data)
-                    .map(UacInterfaceDescriptor::ProcessingUnit2),
-                UacProtocol::Uac3 => ProcessingUnit3::try_from(data)
-                    .map(UacInterfaceDescriptor::ProcessingUnit3),
+                UacProtocol::Uac1 => {
+                    ProcessingUnit1::try_from(data).map(UacInterfaceDescriptor::ProcessingUnit1)
+                }
+                UacProtocol::Uac2 => {
+                    ProcessingUnit2::try_from(data).map(UacInterfaceDescriptor::ProcessingUnit2)
+                }
+                UacProtocol::Uac3 => {
+                    ProcessingUnit3::try_from(data).map(UacInterfaceDescriptor::ProcessingUnit3)
+                }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlSubtype::EffectUnit => {
-                match protocol {
-                    UacProtocol::Uac2 => EffectUnit2::try_from(data)
-                        .map(UacInterfaceDescriptor::EffectUnit2),
-                    UacProtocol::Uac3 => EffectUnit3::try_from(data)
-                        .map(UacInterfaceDescriptor::EffectUnit3),
-                    _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
+            ControlSubtype::EffectUnit => match protocol {
+                UacProtocol::Uac2 => {
+                    EffectUnit2::try_from(data).map(UacInterfaceDescriptor::EffectUnit2)
                 }
-            }
-            ControlSubtype::FeatureUnit => {
-                match protocol {
-                    UacProtocol::Uac1 => FeatureUnit1::try_from(data)
-                        .map(UacInterfaceDescriptor::FeatureUnit1),
-                    UacProtocol::Uac2 => FeatureUnit2::try_from(data)
-                        .map(UacInterfaceDescriptor::FeatureUnit2),
-                    UacProtocol::Uac3 => FeatureUnit3::try_from(data)
-                        .map(UacInterfaceDescriptor::FeatureUnit3),
-                    _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
+                UacProtocol::Uac3 => {
+                    EffectUnit3::try_from(data).map(UacInterfaceDescriptor::EffectUnit3)
                 }
-            }
+                _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
+            },
+            ControlSubtype::FeatureUnit => match protocol {
+                UacProtocol::Uac1 => {
+                    FeatureUnit1::try_from(data).map(UacInterfaceDescriptor::FeatureUnit1)
+                }
+                UacProtocol::Uac2 => {
+                    FeatureUnit2::try_from(data).map(UacInterfaceDescriptor::FeatureUnit2)
+                }
+                UacProtocol::Uac3 => {
+                    FeatureUnit3::try_from(data).map(UacInterfaceDescriptor::FeatureUnit3)
+                }
+                _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
+            },
             ControlSubtype::ExtensionUnit => match protocol {
-                UacProtocol::Uac1 => ExtensionUnit1::try_from(data)
-                    .map(UacInterfaceDescriptor::ExtensionUnit1),
-                UacProtocol::Uac2 => ExtensionUnit2::try_from(data)
-                    .map(UacInterfaceDescriptor::ExtensionUnit2),
-                UacProtocol::Uac3 => ExtensionUnit3::try_from(data)
-                    .map(UacInterfaceDescriptor::ExtensionUnit3),
+                UacProtocol::Uac1 => {
+                    ExtensionUnit1::try_from(data).map(UacInterfaceDescriptor::ExtensionUnit1)
+                }
+                UacProtocol::Uac2 => {
+                    ExtensionUnit2::try_from(data).map(UacInterfaceDescriptor::ExtensionUnit2)
+                }
+                UacProtocol::Uac3 => {
+                    ExtensionUnit3::try_from(data).map(UacInterfaceDescriptor::ExtensionUnit3)
+                }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
-            ControlSubtype::ClockSource => {
+            ControlSubtype::ClockSource => match protocol {
+                UacProtocol::Uac2 => {
+                    ClockSource2::try_from(data).map(UacInterfaceDescriptor::ClockSource2)
+                }
+                UacProtocol::Uac3 => {
+                    ClockSource3::try_from(data).map(UacInterfaceDescriptor::ClockSource3)
+                }
+                _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
+            },
+            ControlSubtype::ClockSelector => match protocol {
+                UacProtocol::Uac2 => {
+                    ClockSelector2::try_from(data).map(UacInterfaceDescriptor::ClockSelector2)
+                }
+                UacProtocol::Uac3 => {
+                    ClockSelector3::try_from(data).map(UacInterfaceDescriptor::ClockSelector3)
+                }
+                _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
+            },
+            ControlSubtype::ClockMultiplier => {
                 match protocol {
-                    UacProtocol::Uac2 => ClockSource2::try_from(data)
-                        .map(UacInterfaceDescriptor::ClockSource2),
-                    UacProtocol::Uac3 => ClockSource3::try_from(data)
-                        .map(UacInterfaceDescriptor::ClockSource3),
+                    UacProtocol::Uac2 => ClockMultiplier2::try_from(data)
+                        .map(UacInterfaceDescriptor::ClockMultiplier2),
+                    UacProtocol::Uac3 => ClockMultiplier3::try_from(data)
+                        .map(UacInterfaceDescriptor::ClockMultiplier3),
                     _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
                 }
             }
-            ControlSubtype::ClockSelector => match protocol {
-                UacProtocol::Uac2 => ClockSelector2::try_from(data)
-                    .map(UacInterfaceDescriptor::ClockSelector2),
-                UacProtocol::Uac3 => ClockSelector3::try_from(data)
-                    .map(UacInterfaceDescriptor::ClockSelector3),
-                _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
-            },
-            ControlSubtype::ClockMultiplier => match protocol {
-                UacProtocol::Uac2 => ClockMultiplier2::try_from(data)
-                    .map(UacInterfaceDescriptor::ClockMultiplier2),
-                UacProtocol::Uac3 => ClockMultiplier3::try_from(data)
-                    .map(UacInterfaceDescriptor::ClockMultiplier3),
-                _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
-            },
             ControlSubtype::SampleRateConverter => match protocol {
                 UacProtocol::Uac2 => SampleRateConverter2::try_from(data)
                     .map(UacInterfaceDescriptor::SampleRateConverter2),
@@ -621,13 +643,36 @@ impl UacInterfaceDescriptor {
         data: &[u8],
     ) -> Result<Self, Error> {
         match uac_interface {
+            // Can be DataStreamingEndpoint or StreamingInterface so check the length
+            // since we have no Class context here
             StreamingSubtype::General => match protocol {
-                UacProtocol::Uac1 => StreamingInterface1::try_from(data)
-                    .map(UacInterfaceDescriptor::StreamingInterface1),
-                UacProtocol::Uac2 => StreamingInterface2::try_from(data)
-                    .map(UacInterfaceDescriptor::StreamingInterface2),
-                UacProtocol::Uac3 => StreamingInterface3::try_from(data)
-                    .map(UacInterfaceDescriptor::StreamingInterface3),
+                UacProtocol::Uac1 => {
+                    if data.len() == DataStreamingEndpoint1::size() {
+                        DataStreamingEndpoint1::try_from(data)
+                            .map(UacInterfaceDescriptor::DataStreamingEndpoint1)
+                    } else {
+                        StreamingInterface1::try_from(data)
+                            .map(UacInterfaceDescriptor::StreamingInterface1)
+                    }
+                }
+                UacProtocol::Uac2 => {
+                    if data.len() == DataStreamingEndpoint2::size() {
+                        DataStreamingEndpoint2::try_from(data)
+                            .map(UacInterfaceDescriptor::DatastreamingEndpoint2)
+                    } else {
+                        StreamingInterface2::try_from(data)
+                            .map(UacInterfaceDescriptor::StreamingInterface2)
+                    }
+                }
+                UacProtocol::Uac3 => {
+                    if data.len() == DataStreamingEndpoint3::size() {
+                        DataStreamingEndpoint3::try_from(data)
+                            .map(UacInterfaceDescriptor::DataStreamingEndpoint3)
+                    } else {
+                        StreamingInterface3::try_from(data)
+                            .map(UacInterfaceDescriptor::StreamingInterface3)
+                    }
+                }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
             StreamingSubtype::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
@@ -664,10 +709,7 @@ impl UacInterfaceDescriptor {
     }
 
     /// Get the [`ChannelNames`] from the descriptor "wChannelConfig" field bitmap
-    pub fn get_channel_names<T: Into<u32> + Copy>(
-        &self,
-        channel_config: T,
-    ) -> Vec<ChannelNames> {
+    pub fn get_channel_names<T: Into<u32> + Copy>(&self, channel_config: T) -> Vec<ChannelNames> {
         match self.get_protocol() {
             UacProtocol::Uac1 => Uac1ChannelNames::from_bitmap(channel_config)
                 .iter()
@@ -1921,7 +1963,10 @@ impl TryFrom<&[u8]> for StreamingInterface2 {
         if value.len() < 13 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "Audio Streaming Interface 2 descriptor too short",
+                &format!(
+                    "Audio Streaming Interface 2 descriptor too short {} < 13",
+                    value.len()
+                ),
             ));
         }
 
@@ -2045,11 +2090,25 @@ pub struct DataStreamingEndpoint1 {
     pub lock_delay: u16,
 }
 
+impl DataStreamingEndpoint1 {
+    const EXPECTED_LENGTH: usize = 4;
+
+    /// Get the expected length of the descriptor
+    pub fn size() -> usize {
+        Self::EXPECTED_LENGTH
+    }
+
+    /// Get the lock delay units
+    pub fn lock_delay_units(&self) -> LockDelayUnits {
+        self.lock_delay_units.into()
+    }
+}
+
 impl TryFrom<&[u8]> for DataStreamingEndpoint1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 4 {
+        if value.len() < Self::EXPECTED_LENGTH {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
                 "Audio Data Streaming Endpoint 1 descriptor too short",
@@ -2085,11 +2144,25 @@ pub struct DataStreamingEndpoint2 {
     pub lock_delay: u16,
 }
 
+impl DataStreamingEndpoint2 {
+    const EXPECTED_LENGTH: usize = 5;
+
+    /// Get the expected length of the descriptor
+    pub fn size() -> usize {
+        Self::EXPECTED_LENGTH
+    }
+
+    /// Get the lock delay units
+    pub fn lock_delay_units(&self) -> LockDelayUnits {
+        self.lock_delay_units.into()
+    }
+}
+
 impl TryFrom<&[u8]> for DataStreamingEndpoint2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 6 {
+        if value.len() < Self::EXPECTED_LENGTH {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
                 "Audio Data Streaming Endpoint 2 descriptor too short",
@@ -2124,6 +2197,20 @@ pub struct DataStreamingEndpoint3 {
     pub controls: u32,
     pub lock_delay_units: u8,
     pub lock_delay: u16,
+}
+
+impl DataStreamingEndpoint3 {
+    const EXPECTED_LENGTH: usize = 7;
+
+    /// Get the expected length of the descriptor
+    pub fn size() -> usize {
+        Self::EXPECTED_LENGTH
+    }
+
+    /// Get the lock delay units
+    pub fn lock_delay_units(&self) -> LockDelayUnits {
+        self.lock_delay_units.into()
+    }
 }
 
 impl TryFrom<&[u8]> for DataStreamingEndpoint3 {

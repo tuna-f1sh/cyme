@@ -428,10 +428,10 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                         print_config(config, LSUSB_DUMP_INDENT_BASE);
 
                         for interface in &config.interfaces {
-                            print_interface(interface, LSUSB_DUMP_INDENT_BASE*2);
+                            print_interface(interface, LSUSB_DUMP_INDENT_BASE * 2);
 
                             for endpoint in &interface.endpoints {
-                                print_endpoint(endpoint, LSUSB_DUMP_INDENT_BASE*3);
+                                print_endpoint(endpoint, LSUSB_DUMP_INDENT_BASE * 3);
                             }
                         }
                     }
@@ -465,7 +465,10 @@ fn print_device(device: &system_profiler::USBDevice) {
     dump_value(18, "bLength", 2, LSUSB_DUMP_WIDTH);
     dump_value(1, "bDescriptorType", 2, LSUSB_DUMP_WIDTH);
     dump_value(
-        device.bcd_usb.as_ref().map_or(String::new(), |v| v.to_string()),
+        device
+            .bcd_usb
+            .as_ref()
+            .map_or(String::new(), |v| v.to_string()),
         "bcdUSB",
         2,
         LSUSB_DUMP_WIDTH,
@@ -505,7 +508,10 @@ fn print_device(device: &system_profiler::USBDevice) {
     dump_value_string(
         format!("0x{:04x}", device.vendor_id.unwrap_or(0)),
         "idVendor",
-        device_extra.vendor.as_ref().unwrap_or(&String::from("[unknown]")),
+        device_extra
+            .vendor
+            .as_ref()
+            .unwrap_or(&String::from("[unknown]")),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -513,13 +519,19 @@ fn print_device(device: &system_profiler::USBDevice) {
     dump_value_string(
         format!("0x{:04x}", device.product_id.unwrap_or(0)),
         "idProduct",
-        device_extra.product_name.as_ref().unwrap_or(&String::from("[unknown]")),
+        device_extra
+            .product_name
+            .as_ref()
+            .unwrap_or(&String::from("[unknown]")),
         2,
         LSUSB_DUMP_WIDTH,
     );
 
     dump_value(
-        device.bcd_device.as_ref().map_or(String::new(), |v| v.to_string()),
+        device
+            .bcd_device
+            .as_ref()
+            .map_or(String::new(), |v| v.to_string()),
         "bcdDevice",
         2,
         LSUSB_DUMP_WIDTH,
@@ -528,7 +540,10 @@ fn print_device(device: &system_profiler::USBDevice) {
     dump_value_string(
         device_extra.string_indexes.0,
         "iManufacturer",
-        device.manufacturer.as_ref().unwrap_or(&String::from("[unknown]")),
+        device
+            .manufacturer
+            .as_ref()
+            .unwrap_or(&String::from("[unknown]")),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -561,9 +576,24 @@ fn print_config(config: &USBConfiguration, indent: usize) {
     dump_title("Configuration Descriptor:", indent);
     dump_value(config.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(2, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 2 for configuration
-    dump_value(config.total_length, "wTotalLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(config.interfaces.len(), "bNumInterfaces", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(config.number, "bConfigurationValue", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        config.total_length,
+        "wTotalLength",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        config.interfaces.len(),
+        "bNumInterfaces",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        config.number,
+        "bConfigurationValue",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value_string(
         config.string_index,
         "iConfiguration",
@@ -629,9 +659,24 @@ fn print_interface(interface: &USBInterface, indent: usize) {
     dump_title("Interface Descriptor:", indent);
     dump_value(interface.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(4, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 4 for interface
-    dump_value(interface.number, "bInterfaceNumber", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(interface.alt_setting, "bAlternateSetting", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(interface.endpoints.len(), "bNumEndpoints", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        interface.number,
+        "bInterfaceNumber",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        interface.alt_setting,
+        "bAlternateSetting",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        interface.endpoints.len(),
+        "bNumEndpoints",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value_string(
         u8::from(interface.class.to_owned()),
         "bInterfaceClass",
@@ -746,16 +791,24 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_value_string(
+    println!(
+        "{:indent$}Transfer Type          {:?}",
         "",
-        "Transfer Type",
-        endpoint.transfer_type.to_string(),
-        indent + 4,
-        LSUSB_DUMP_WIDTH,
+        endpoint.transfer_type,
+        indent = indent + 4
     );
-    println!("{:indent$}Transfer Type          {:?}", "", endpoint.transfer_type, indent = indent + 4);
-    println!("{:indent$}Sync Type              {:?}", "", endpoint.sync_type, indent = indent + 4);
-    println!("{:indent$}Usage Type             {:?}", "", endpoint.usage_type, indent = indent + 4);
+    println!(
+        "{:indent$}Sync Type              {:?}",
+        "",
+        endpoint.sync_type,
+        indent = indent + 4
+    );
+    println!(
+        "{:indent$}Usage Type             {:?}",
+        "",
+        endpoint.usage_type,
+        indent = indent + 4
+    );
     dump_value_string(
         format!("0x{:04x}", endpoint.max_packet_size),
         "wMaxPacketSize",
@@ -790,7 +843,7 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
                             dump_midistreaming_endpoint(gd);
                         }
                         _ => (),
-                    }
+                    },
                     _ => (),
                 },
                 // Misplaced descriptors
@@ -853,16 +906,31 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
                     dump_interface_association(iad);
                 }
                 DescriptorType::SsEndpointCompanion(ss) => {
-                    println!("{:indent$}bMaxBurst {:>14}", "", ss.max_burst, indent = indent + 2);
+                    println!(
+                        "{:indent$}bMaxBurst {:>14}",
+                        "",
+                        ss.max_burst,
+                        indent = indent + 2
+                    );
                     match endpoint.transfer_type {
                         TransferType::Bulk => {
                             if ss.attributes & 0x1f != 0 {
-                                println!("{:indent$}MaxStreams {:>13}", "", 1 << ss.attributes, indent = indent + 2);
+                                println!(
+                                    "{:indent$}MaxStreams {:>13}",
+                                    "",
+                                    1 << ss.attributes,
+                                    indent = indent + 2
+                                );
                             }
                         }
                         TransferType::Isochronous => {
                             if ss.attributes & 0x03 != 0 {
-                                println!("{:indent$}Mult {:>19}", "", ss.attributes & 0x3, indent = indent + 2);
+                                println!(
+                                    "{:indent$}Mult {:>19}",
+                                    "",
+                                    ss.attributes & 0x3,
+                                    indent = indent + 2
+                                );
                             }
                         }
                         _ => (),
@@ -889,7 +957,8 @@ fn dump_audiostreaming_endpoint(ad: &UacDescriptor) {
     println!("          bDescriptorType      {:3}", ad.descriptor_type);
     println!(
         "          bDescriptorSubType   {:3} ({})",
-        u8::from(ad.subtype.to_owned()), subtype_string
+        u8::from(ad.subtype.to_owned()),
+        subtype_string
     );
 
     if matches!(ad.subtype, UacType::Streaming(StreamingSubtype::General)) {
@@ -1206,8 +1275,10 @@ fn dump_audio_mixer_unit2(mixer_unit: &MixerUnit2, indent: usize, width: usize) 
     dump_array(&mixer_unit.source_ids, "baSourceID", indent, width);
     dump_value(mixer_unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(mixer_unit.channel_config, "bmChannelConfig", indent, width);
-    let channel_names =
-        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac2, mixer_unit.channel_config);
+    let channel_names = UacInterfaceDescriptor::get_channel_name_strings(
+        &UacProtocol::Uac2,
+        mixer_unit.channel_config,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1339,8 +1410,10 @@ fn dump_audio_processing_unit1(unit: &ProcessingUnit1, indent: usize, width: usi
     dump_array(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "wChannelConfig", indent, width);
-    let channel_names =
-        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac1, unit.channel_config as u32);
+    let channel_names = UacInterfaceDescriptor::get_channel_name_strings(
+        &UacProtocol::Uac1,
+        unit.channel_config as u32,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1575,8 +1648,10 @@ fn dump_audio_extension_unit1(unit: &ExtensionUnit1, indent: usize, width: usize
     dump_array(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "wChannelConfig", indent, width);
-    let channel_names =
-        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac1, unit.channel_config as u32);
+    let channel_names = UacInterfaceDescriptor::get_channel_name_strings(
+        &UacProtocol::Uac1,
+        unit.channel_config as u32,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1873,8 +1948,10 @@ fn dump_audio_input_terminal1(ait: &InputTerminal1, indent: usize, width: usize)
     dump_value(ait.assoc_terminal, "bAssocTerminal", indent, width);
     dump_value(ait.nr_channels, "bNrChannels", indent, width);
     dump_hex(ait.channel_config, "wChannelConfig", indent, width);
-    let channel_names =
-        UacInterfaceDescriptor::get_channel_name_strings(&UacProtocol::Uac1, ait.channel_config as u32);
+    let channel_names = UacInterfaceDescriptor::get_channel_name_strings(
+        &UacProtocol::Uac1,
+        ait.channel_config as u32,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -2088,11 +2165,7 @@ fn dump_audio_streaming_interface3(asi: &StreamingInterface3, indent: usize, wid
     dump_value(asi.control_size, "bControlSize", indent, width);
 }
 
-fn dump_audio_data_streaming_endpoint1(
-    ads: &DataStreamingEndpoint1,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_data_streaming_endpoint1(ads: &DataStreamingEndpoint1, indent: usize, width: usize) {
     let uac1_attrs = |a: usize| match a {
         0x00 => Some("Sampling Frequency"),
         0x01 => Some("Pitch"),
@@ -2106,11 +2179,7 @@ fn dump_audio_data_streaming_endpoint1(
     dump_value(ads.lock_delay, "wLockDelay", indent, width);
 }
 
-fn dump_audio_data_streaming_endpoint2(
-    ads: &DataStreamingEndpoint2,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_data_streaming_endpoint2(ads: &DataStreamingEndpoint2, indent: usize, width: usize) {
     let uac2_attrs = |attr: usize| match attr {
         0x07 => Some("MaxPacketsOnly"),
         _ => None,
@@ -2128,11 +2197,7 @@ fn dump_audio_data_streaming_endpoint2(
     dump_value(ads.lock_delay, "wLockDelay", indent, width);
 }
 
-fn dump_audio_data_streaming_endpoint3(
-    ads: &DataStreamingEndpoint3,
-    indent: usize,
-    width: usize,
-) {
+fn dump_audio_data_streaming_endpoint3(ads: &DataStreamingEndpoint3, indent: usize, width: usize) {
     dump_hex(ads.controls, "bmControls", indent, width);
     dump_bmcontrols(
         ads.controls,
@@ -2916,7 +2981,10 @@ fn dump_videocontrol_interface(vcd: &UvcDescriptor, protocol: u8) {
     println!("      VideoControl Interface Descriptor:");
     println!("        bLength             {:5}", vcd.length);
     println!("        bDescriptorType     {:5}", vcd.descriptor_type);
-    print!("        bDescriptorSubType  {:5} ", (vcd.subtype.to_owned() as u8));
+    print!(
+        "        bDescriptorSubType  {:5} ",
+        (vcd.subtype.to_owned() as u8)
+    );
 
     match vcd.subtype {
         UvcSubtype::Header => {
