@@ -1,6 +1,6 @@
 //! Defines for the USB Video Class (UVC) interface descriptors
-use std::convert::TryFrom;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 
 use super::*;
 use crate::error::{self, Error, ErrorKind};

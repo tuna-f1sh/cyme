@@ -391,7 +391,8 @@ impl ClassDescriptor {
                     )
                 }
                 (ClassCode::Video, 1, p) => {
-                    *self = ClassDescriptor::Video(video::UvcDescriptor::try_from(gd.to_owned())?, p)
+                    *self =
+                        ClassDescriptor::Video(video::UvcDescriptor::try_from(gd.to_owned())?, p)
                 }
                 ct => *self = ClassDescriptor::Generic(Some(ct), gd.to_owned()),
             }
