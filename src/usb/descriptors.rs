@@ -570,7 +570,7 @@ impl TryFrom<&[u8]> for HidDescriptor {
             if len > descriptors_vec.len() {
                 return Err(Error::new(
                     ErrorKind::InvalidArg,
-                    "HID report descriptor too long for available data!",
+                    &format!("HID report descriptor reported length too long for available data! Expected {} but only have {}", len, descriptors_vec.len()),
                 ));
             }
 

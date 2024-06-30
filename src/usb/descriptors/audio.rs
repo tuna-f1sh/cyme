@@ -621,13 +621,36 @@ impl UacInterfaceDescriptor {
         data: &[u8],
     ) -> Result<Self, Error> {
         match uac_interface {
+            // Can be DataStreamingEndpoint or StreamingInterface so check the length
+            // since we have no Class context here
             StreamingSubtype::General => match protocol {
-                UacProtocol::Uac1 => StreamingInterface1::try_from(data)
-                    .map(UacInterfaceDescriptor::StreamingInterface1),
-                UacProtocol::Uac2 => StreamingInterface2::try_from(data)
-                    .map(UacInterfaceDescriptor::StreamingInterface2),
-                UacProtocol::Uac3 => StreamingInterface3::try_from(data)
-                    .map(UacInterfaceDescriptor::StreamingInterface3),
+                UacProtocol::Uac1 => { 
+                    if data.len() == DataStreamingEndpoint1::size() {
+                        DataStreamingEndpoint1::try_from(data)
+                            .map(UacInterfaceDescriptor::DataStreamingEndpoint1)
+                    } else {
+                        StreamingInterface1::try_from(data)
+                            .map(UacInterfaceDescriptor::StreamingInterface1)
+                    }
+                }
+                UacProtocol::Uac2 => {
+                    if data.len() == DataStreamingEndpoint2::size() {
+                        DataStreamingEndpoint2::try_from(data)
+                            .map(UacInterfaceDescriptor::DatastreamingEndpoint2)
+                    } else {
+                        StreamingInterface2::try_from(data)
+                            .map(UacInterfaceDescriptor::StreamingInterface2)
+                    }
+                }
+                UacProtocol::Uac3 => {
+                    if data.len() == DataStreamingEndpoint3::size() {
+                        DataStreamingEndpoint3::try_from(data)
+                            .map(UacInterfaceDescriptor::DataStreamingEndpoint3)
+                    } else {
+                        StreamingInterface3::try_from(data)
+                            .map(UacInterfaceDescriptor::StreamingInterface3)
+                    }
+                }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
             StreamingSubtype::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
@@ -1921,7 +1944,7 @@ impl TryFrom<&[u8]> for StreamingInterface2 {
         if value.len() < 13 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "Audio Streaming Interface 2 descriptor too short",
+                &format!("Audio Streaming Interface 2 descriptor too short {} < 13", value.len())
             ));
         }
 
@@ -2045,11 +2068,25 @@ pub struct DataStreamingEndpoint1 {
     pub lock_delay: u16,
 }
 
+impl DataStreamingEndpoint1 {
+    const EXPECTED_LENGTH: usize = 4;
+
+    /// Get the expected length of the descriptor
+    pub fn size() -> usize {
+        Self::EXPECTED_LENGTH
+    }
+
+    /// Get the lock delay units
+    pub fn lock_delay_units(&self) -> LockDelayUnits {
+        self.lock_delay_units.into()
+    }
+}
+
 impl TryFrom<&[u8]> for DataStreamingEndpoint1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 4 {
+        if value.len() < Self::EXPECTED_LENGTH {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
                 "Audio Data Streaming Endpoint 1 descriptor too short",
@@ -2085,11 +2122,25 @@ pub struct DataStreamingEndpoint2 {
     pub lock_delay: u16,
 }
 
+impl DataStreamingEndpoint2 {
+    const EXPECTED_LENGTH: usize = 5;
+
+    /// Get the expected length of the descriptor
+    pub fn size() -> usize {
+        Self::EXPECTED_LENGTH
+    }
+
+    /// Get the lock delay units
+    pub fn lock_delay_units(&self) -> LockDelayUnits {
+        self.lock_delay_units.into()
+    }
+}
+
 impl TryFrom<&[u8]> for DataStreamingEndpoint2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 6 {
+        if value.len() < Self::EXPECTED_LENGTH {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
                 "Audio Data Streaming Endpoint 2 descriptor too short",
@@ -2124,6 +2175,20 @@ pub struct DataStreamingEndpoint3 {
     pub controls: u32,
     pub lock_delay_units: u8,
     pub lock_delay: u16,
+}
+
+impl DataStreamingEndpoint3 {
+    const EXPECTED_LENGTH: usize = 7;
+
+    /// Get the expected length of the descriptor
+    pub fn size() -> usize {
+        Self::EXPECTED_LENGTH
+    }
+
+    /// Get the lock delay units
+    pub fn lock_delay_units(&self) -> LockDelayUnits {
+        self.lock_delay_units.into()
+    }
 }
 
 impl TryFrom<&[u8]> for DataStreamingEndpoint3 {

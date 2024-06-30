@@ -746,13 +746,6 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_value_string(
-        "",
-        "Transfer Type",
-        endpoint.transfer_type.to_string(),
-        indent + 4,
-        LSUSB_DUMP_WIDTH,
-    );
     println!("{:indent$}Transfer Type          {:?}", "", endpoint.transfer_type, indent = indent + 4);
     println!("{:indent$}Sync Type              {:?}", "", endpoint.sync_type, indent = indent + 4);
     println!("{:indent$}Usage Type             {:?}", "", endpoint.usage_type, indent = indent + 4);
