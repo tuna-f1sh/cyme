@@ -8,7 +8,7 @@
 //! - [ ] Implement do_hub: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2805
 //! - [ ] Implement do_debug: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2984
 //! - [ ] Implement do_dualspeed: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2933
-//! - [ ] Convert the in dump descriptor decoding into concrete struct in [`crate::usb::descriptors`] and use that for printing - like the [`crate::usb::descriptors::audio`] module
+//! - [ ] Convert the 'in dump' descriptor decoding into concrete structs in [`crate::usb::descriptors`] and use that for printing - like the [`crate::usb::descriptors::audio`] module
 use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
 use crate::system_profiler;
@@ -23,6 +23,9 @@ pub mod names;
 const TREE_LSUSB_BUS: &str = "/:  ";
 const TREE_LSUSB_DEVICE: &str = "|__ ";
 const TREE_LSUSB_SPACE: &str = "    ";
+
+const LSUSB_DUMP_WIDTH: usize = 24;
+const LSUSB_DUMP_INDENT_BASE: usize = 2;
 
 // TODO - convert these to Rust enum like [`Uac1ChannelNames`] etc.
 const CAM_CTRL_NAMES: [&str; 22] = [
@@ -167,6 +170,160 @@ const UAC3_PROCESSING_UNIT_STEREO_EXTENDER_BMCONTROLS: [&str; 3] =
     ["Width", "Underflow", "Overflow"];
 const UAC3_PROCESSING_UNIT_MULTI_FUNC_BMCONTROLS: [&str; 2] = ["Underflow", "Overflow"];
 
+/// Dump an array of value like lsusb
+fn dump_array<T: std::fmt::Display>(array: &[T], field_name: &str, indent: usize, width: usize) {
+    for (i, b) in array.iter().enumerate() {
+        dump_value(b, &format!("{}({:2})", field_name, i), indent, width);
+    }
+}
+
+/// Dump a bitmap value mapping as hex like lsusb
+fn dump_bitmap_array<T: std::fmt::LowerHex + Into<u64> + Copy>(
+    array: &[T],
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    for (i, b) in array.iter().enumerate() {
+        dump_hex(*b, &format!("{}({:2})", field_name, i), indent, width);
+    }
+}
+
+/// Dump just indented title
+fn dump_title(field_name: &str, indent: usize) {
+    println!("{:indent$}{}", "", field_name, indent = indent);
+}
+
+/// Dump a single value like lsusb
+fn dump_value<T: std::fmt::Display>(value: T, field_name: &str, indent: usize, width: usize) {
+    let value = value.to_string();
+    let spaces = " ".repeat(
+        (width - value.len())
+            .saturating_sub(field_name.len())
+            .max(1),
+    );
+    println!(
+        "{:indent$}{}{}{}",
+        "",
+        field_name,
+        spaces,
+        value,
+        indent = indent
+    );
+}
+
+/// Dump a single hex value like lsusb
+fn dump_hex<T: std::fmt::LowerHex + Into<u64>>(
+    value: T,
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    let value_as_u64: u64 = value.into();
+    let hex_value = format!(
+        "0x{:0width$x}",
+        value_as_u64,
+        width = (std::mem::size_of::<T>() * 2)
+    );
+    dump_value(hex_value, field_name, indent, width);
+}
+
+/// Lookup the name of the value from passed function and dump it
+fn dump_name<T: std::fmt::Display>(
+    value: T,
+    names_f: fn(T) -> Option<String>,
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    let value_string = value.to_string();
+    let spaces = " ".repeat(
+        (width - value_string.len())
+            .saturating_sub(field_name.len())
+            .max(1),
+    );
+    let dump = format!(
+        "{:indent$}{}{}{}",
+        "",
+        field_name,
+        spaces,
+        value_string,
+        indent = indent
+    );
+    if let Some(name) = names_f(value) {
+        println!("{} {}", dump, name);
+    }
+}
+
+/// Dumps the value and the string representation of the value to the right of width
+fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
+    value: T,
+    field_name: &str,
+    value_string: S,
+    indent: usize,
+    width: usize,
+) {
+    let value = value.to_string();
+    let spaces = " ".repeat(
+        (width - value.len())
+            .saturating_sub(field_name.len())
+            .max(1),
+    );
+    println!(
+        "{:indent$}{}{}{} {}",
+        "",
+        field_name,
+        spaces,
+        value,
+        value_string,
+        indent = indent
+    );
+}
+
+/// Dumps junk descriptor bytes as hex like lsusb
+fn dump_junk(extra: &[u8], indent: usize, reported_len: usize, expected_len: usize) {
+    if reported_len > expected_len && extra.len() >= reported_len {
+        println!(
+            "{:^indent$}junk at descriptor end: {}",
+            "",
+            extra[expected_len..reported_len]
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<Vec<String>>()
+                .join(" ")
+        )
+    }
+}
+
+/// Dumps unknown descriptor bytes as hex like lsusb
+fn dump_unrecognised(extra: &[u8], indent: usize) {
+    println!(
+        "{:^indent$}** UNRECOGNIZED: {}",
+        "",
+        extra
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<String>>()
+            .join(" ")
+    )
+}
+
+/// Dumps strings matching the bits set in `bitmap` using `strings_f` function
+fn dump_bitmap_strings<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>, indent: usize)
+where
+    T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
+{
+    let bitmap_u64: u64 = bitmap.into();
+    let num_bits = std::mem::size_of::<T>() * 8;
+    for index in 0..num_bits {
+        if (bitmap_u64 >> index) & 0x1 != 0 {
+            if let Some(string) = strings_f(index) {
+                println!("{:indent$}{}", "", string, indent = indent);
+            }
+        }
+    }
+}
+
 /// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
 pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
     fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, settings: &PrintSettings) {
@@ -268,13 +425,13 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                     print_device(device);
 
                     for config in &device_extra.configurations {
-                        print_config(config);
+                        print_config(config, LSUSB_DUMP_INDENT_BASE);
 
                         for interface in &config.interfaces {
-                            print_interface(interface);
+                            print_interface(interface, LSUSB_DUMP_INDENT_BASE*2);
 
                             for endpoint in &interface.endpoints {
-                                print_endpoint(endpoint);
+                                print_endpoint(endpoint, LSUSB_DUMP_INDENT_BASE*3);
                             }
                         }
                     }
@@ -305,106 +462,137 @@ fn print_device(device: &system_profiler::USBDevice) {
 
     println!("Device Descriptor:");
     // These are constants - length is 18 bytes for descriptor, type is 1
-    println!("  bLength               18");
-    println!("  bDescriptorType        1");
-    println!(
-        "  bcdUSB              {}",
-        device
-            .bcd_usb
-            .as_ref()
-            .map_or(String::new(), |v| v.to_string())
+    dump_value(18, "bLength", 2, LSUSB_DUMP_WIDTH);
+    dump_value(1, "bDescriptorType", 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        device.bcd_usb.as_ref().map_or(String::new(), |v| v.to_string()),
+        "bcdUSB",
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "  bDeviceClass         {:3} {}",
+
+    dump_value_string(
         device.base_class_code().unwrap_or(0),
-        class_name.unwrap_or(String::from("[unknown]"))
+        "bDeviceClass",
+        class_name.unwrap_or(String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "  bDeviceSubClass      {:3} {}",
+
+    dump_value_string(
         device.sub_class.unwrap_or(0),
-        sub_class_name.unwrap_or(String::from("[unknown]"))
+        "bDeviceSubClass",
+        sub_class_name.unwrap_or(String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "  bDeviceProtocol      {:3} {}",
+
+    dump_value_string(
         device.protocol.unwrap_or(0),
-        protocol_name.unwrap_or_default()
+        "bDeviceProtocol",
+        protocol_name.unwrap_or_default(),
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!("  bMaxPacketSize0      {:3}", device_extra.max_packet_size);
-    println!(
-        "  idVendor          0x{:04x} {}",
-        device.vendor_id.unwrap_or(0),
-        device_extra
-            .vendor
-            .as_ref()
-            .unwrap_or(&String::from("[unknown]"))
+
+    dump_value(
+        device_extra.max_packet_size,
+        "bMaxPacketSize0",
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "  idProduct         0x{:04x} {}",
-        device.product_id.unwrap_or(0),
-        device_extra
-            .product_name
-            .as_ref()
-            .unwrap_or(&String::from("[unknown]"))
+
+    dump_value_string(
+        format!("0x{:04x}", device.vendor_id.unwrap_or(0)),
+        "idVendor",
+        device_extra.vendor.as_ref().unwrap_or(&String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "  bcdDevice           {}",
-        device
-            .bcd_device
-            .as_ref()
-            .map_or(String::new(), |v| v.to_string())
+
+    dump_value_string(
+        format!("0x{:04x}", device.product_id.unwrap_or(0)),
+        "idProduct",
+        device_extra.product_name.as_ref().unwrap_or(&String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "  iManufacturer        {:3} {}",
+
+    dump_value(
+        device.bcd_device.as_ref().map_or(String::new(), |v| v.to_string()),
+        "bcdDevice",
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value_string(
         device_extra.string_indexes.0,
-        device
-            .manufacturer
-            .as_ref()
-            .unwrap_or(&String::from("[unknown]"))
+        "iManufacturer",
+        device.manufacturer.as_ref().unwrap_or(&String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "  iProduct             {:3} {}",
-        device_extra.string_indexes.1, device.name
+
+    dump_value_string(
+        device_extra.string_indexes.1,
+        "iProduct",
+        &device.name,
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "  iSerialNumber        {:3} {}",
+
+    dump_value_string(
         device_extra.string_indexes.2,
-        device.serial_num.as_ref().unwrap_or(&String::new())
+        "iSerialNumber",
+        device.serial_num.as_ref().unwrap_or(&String::new()),
+        2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "  bNumConfigurations   {:3}",
-        device_extra.configurations.len()
+
+    dump_value(
+        device_extra.configurations.len(),
+        "bNumConfigurations",
+        2,
+        LSUSB_DUMP_WIDTH,
     );
 }
 
-fn print_config(config: &USBConfiguration) {
-    println!("  Configuration Descriptor:");
-    println!("    bLength              {:5}", config.length);
-    println!("    bDescriptorType      {:5}", 2); // type 2 for configuration
-    println!("    wTotalLength        0x{:04x}", config.total_length);
-    println!("    bNumInterfaces       {:5}", config.interfaces.len());
-    println!("    bConfigurationValue  {:5}", config.number);
-    println!(
-        "    iConfiguration       {:5} {}",
-        config.string_index, config.name
+fn print_config(config: &USBConfiguration, indent: usize) {
+    dump_title("Configuration Descriptor:", indent);
+    dump_value(config.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(2, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 2 for configuration
+    dump_value(config.total_length, "wTotalLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(config.interfaces.len(), "bNumInterfaces", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(config.number, "bConfigurationValue", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(
+        config.string_index,
+        "iConfiguration",
+        &config.name,
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "    bmAttributes          0x{:02x}",
-        config.attributes_value()
+    dump_value(
+        config.attributes_value(),
+        "bmAttributes",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
     // no attributes is bus powered
     if config.attributes.is_empty() {
-        println!("      (Bus Powered)");
+        dump_title("(Bus Powered)", indent + 4);
     } else {
         if config.attributes.contains(&ConfigAttributes::SelfPowered) {
-            println!("      Self Powered");
+            dump_title("Self Powered", indent + 4);
         }
         if config.attributes.contains(&ConfigAttributes::RemoteWakeup) {
-            println!("      Remote Wakeup");
+            dump_title("Remote Wakeup", indent + 4);
         }
     }
-    println!(
-        "    MaxPower           {:5}{}",
-        config.max_power.value, config.max_power.unit
+    dump_value(
+        format!("{}{}", config.max_power.value, config.max_power.unit),
+        "MaxPower",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
 
     // dump extra descriptors
@@ -429,7 +617,7 @@ fn print_config(config: &USBConfiguration) {
     }
 }
 
-fn print_interface(interface: &USBInterface) {
+fn print_interface(interface: &USBInterface, indent: usize) {
     let interface_name = names::class(interface.class.into());
     let sub_class_name = names::subclass(interface.class.into(), interface.sub_class);
     let protocol_name = names::protocol(
@@ -438,30 +626,39 @@ fn print_interface(interface: &USBInterface) {
         interface.protocol,
     );
 
-    println!("    Interface Descriptor:");
-    println!("      bLength              {:3}", interface.length);
-    println!("      bDescriptorType        4"); // type 4 for interface
-    println!("      bInterfaceNumber     {:3}", interface.number);
-    println!("      bAlternateSetting    {:3}", interface.alt_setting);
-    println!("      bNumEndpoints        {:3}", interface.endpoints.len());
-    println!(
-        "      bInterfaceClass      {:3} {}",
+    dump_title("Interface Descriptor:", indent);
+    dump_value(interface.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(4, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 4 for interface
+    dump_value(interface.number, "bInterfaceNumber", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(interface.alt_setting, "bAlternateSetting", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(interface.endpoints.len(), "bNumEndpoints", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(
         u8::from(interface.class.to_owned()),
-        interface_name.unwrap_or(String::from("[unknown]"))
+        "bInterfaceClass",
+        interface_name.unwrap_or(String::from("[unknown]")),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "      bInterfaceSubClass   {:3} {}",
+    dump_value_string(
         interface.sub_class,
-        sub_class_name.unwrap_or(String::from("[unknown]"))
+        "bInterfaceSubClass",
+        sub_class_name.unwrap_or(String::from("[unknown]")),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "      bInterfaceProtocol   {:3} {}",
+    dump_value_string(
         interface.protocol,
-        protocol_name.unwrap_or_default()
+        "bInterfaceProtocol",
+        protocol_name.unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "      iInterface           {:3} {}",
-        interface.string_index, interface.name
+    dump_value_string(
+        interface.string_index,
+        "iInterface",
+        &interface.name,
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
 
     // dump extra descriptors
@@ -527,41 +724,72 @@ fn print_interface(interface: &USBInterface) {
     }
 }
 
-fn print_endpoint(endpoint: &USBEndpoint) {
-    println!("      Endpoint Descriptor:");
-    println!("        bLength              {:3}", endpoint.length);
-    println!("        bDescriptorType        5"); // type 5 for endpoint
-    println!(
-        "        bEndpointAddress    0x{:02x} EP {} {}",
-        endpoint.address.address,
-        endpoint.address.number,
-        endpoint.address.direction.to_string().to_uppercase()
+fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
+    dump_title("Endpoint Descriptor:", indent);
+    dump_value(endpoint.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(5, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 5 for endpoint
+    dump_value_string(
+        format!("0x{:02x}", endpoint.address.address),
+        "bEndpointAddress",
+        format!(
+            "EP {} {}",
+            endpoint.address.number,
+            endpoint.address.direction.to_string().to_uppercase()
+        ),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!("        bmAttributes:        {:3}", endpoint.attributes());
-    println!(
-        "          Transfer Type          {:?}",
-        endpoint.transfer_type
+    // this is printed as int even though it's a bitmap
+    dump_value(
+        endpoint.attributes(),
+        "bmAttributes",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!("          Sync Type              {:?}", endpoint.sync_type);
-    println!("          Usage Type             {:?}", endpoint.usage_type);
-    println!(
-        "        wMaxPacketSize    0x{:04x} {} bytes",
-        endpoint.max_packet_size,
-        endpoint.max_packet_string()
+    dump_value_string(
+        "",
+        "Transfer Type",
+        endpoint.transfer_type.to_string(),
+        indent + 4,
+        LSUSB_DUMP_WIDTH,
     );
-    println!("        bInterval            {:3}", endpoint.interval);
+    println!("{:indent$}Transfer Type          {:?}", "", endpoint.transfer_type, indent = indent + 4);
+    println!("{:indent$}Sync Type              {:?}", "", endpoint.sync_type, indent = indent + 4);
+    println!("{:indent$}Usage Type             {:?}", "", endpoint.usage_type, indent = indent + 4);
+    dump_value_string(
+        format!("0x{:04x}", endpoint.max_packet_size),
+        "wMaxPacketSize",
+        format!("{} bytes", endpoint.max_packet_string()),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(endpoint.interval, "bInterval", indent + 2, LSUSB_DUMP_WIDTH);
 
     // dump extra descriptors
     // kind of messy but it's out lsusb does it
     if let Some(dt_vec) = &endpoint.extra {
         for dt in dt_vec {
             match dt {
-                DescriptorType::Endpoint(ClassDescriptor::Generic(cc, gd)) => match cc {
-                    Some((ClassCode::Audio, 2, p)) => {
-                        dump_audiostreaming_endpoint(gd, *p);
+                DescriptorType::Endpoint(cd) => match cd {
+                    ClassDescriptor::Audio(ad, _) => {
+                        dump_audiostreaming_endpoint(ad);
                     }
-                    Some((ClassCode::Audio, 3, _)) => {
-                        dump_midistreaming_endpoint(gd);
+                    ClassDescriptor::Midi(md, _) => {
+                        if let Ok(gd) = GenericDescriptor::try_from(md.to_owned()) {
+                            dump_midistreaming_endpoint(&gd);
+                        }
+                    }
+                    // legacy as context should have been added to the descriptor
+                    ClassDescriptor::Generic(cc, gd) => match cc {
+                        Some((ClassCode::Audio, 2, p)) => {
+                            if let Ok(uacd) = UacDescriptor::try_from((gd.to_owned(), 2, *p)) {
+                                dump_audiostreaming_endpoint(&uacd);
+                            }
+                        }
+                        Some((ClassCode::Audio, 3, _)) => {
+                            dump_midistreaming_endpoint(gd);
+                        }
+                        _ => (),
                     }
                     _ => (),
                 },
@@ -572,12 +800,14 @@ fn print_endpoint(endpoint: &USBEndpoint) {
                     }
                     _ => {
                         println!(
-                            "        DEVICE CLASS: {}",
+                            "{:indent$}DEVICE CLASS: {}",
+                            "",
                             Vec::<u8>::from(cd.to_owned())
                                 .iter()
                                 .map(|b| format!("{:02x}", b))
                                 .collect::<Vec<String>>()
-                                .join(" ")
+                                .join(" "),
+                            indent = indent + 2
                         );
                     }
                 },
@@ -594,24 +824,28 @@ fn print_endpoint(endpoint: &USBEndpoint) {
                         }
                         _ => {
                             println!(
-                                "        INTERFACE CLASS: {}",
+                                "{:indent$}INTERFACE CLASS: {}",
+                                "",
                                 Vec::<u8>::from(cd.to_owned())
                                     .iter()
                                     .map(|b| format!("{:02x}", b))
                                     .collect::<Vec<String>>()
-                                    .join(" ")
+                                    .join(" "),
+                                indent = indent + 2
                             );
                         }
                     },
                     ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, 6),
                     _ => {
                         println!(
-                            "        INTERFACE CLASS: {}",
+                            "{:indent$}INTERFACE CLASS: {}",
+                            "",
                             Vec::<u8>::from(cd.to_owned())
                                 .iter()
                                 .map(|b| format!("{:02x}", b))
                                 .collect::<Vec<String>>()
-                                .join(" ")
+                                .join(" "),
+                            indent = indent + 2
                         );
                     }
                 },
@@ -619,23 +853,23 @@ fn print_endpoint(endpoint: &USBEndpoint) {
                     dump_interface_association(iad);
                 }
                 DescriptorType::SsEndpointCompanion(ss) => {
-                    println!("        bMaxBurst {:>14}", ss.max_burst);
+                    println!("{:indent$}bMaxBurst {:>14}", "", ss.max_burst, indent = indent + 2);
                     match endpoint.transfer_type {
                         TransferType::Bulk => {
                             if ss.attributes & 0x1f != 0 {
-                                println!("        MaxStreams {:>13}", 1 << ss.attributes);
+                                println!("{:indent$}MaxStreams {:>13}", "", 1 << ss.attributes, indent = indent + 2);
                             }
                         }
                         TransferType::Isochronous => {
                             if ss.attributes & 0x03 != 0 {
-                                println!("        Mult {:>19}", ss.attributes & 0x3);
+                                println!("{:indent$}Mult {:>19}", "", ss.attributes & 0x3, indent = indent + 2);
                             }
                         }
                         _ => (),
                     }
                 }
                 DescriptorType::Unknown(junk) | DescriptorType::Junk(junk) => {
-                    dump_unrecognised(junk, 8);
+                    dump_unrecognised(junk, indent + 2);
                 }
                 _ => (),
             }
@@ -643,52 +877,23 @@ fn print_endpoint(endpoint: &USBEndpoint) {
     }
 }
 
-fn dump_junk(extra: &[u8], indent: usize, reported_len: usize, expected_len: usize) {
-    if reported_len > expected_len && extra.len() >= reported_len {
-        println!(
-            "{:^indent$}junk at descriptor end: {}",
-            "",
-            extra[expected_len..reported_len]
-                .iter()
-                .map(|b| format!("{:02x}", b))
-                .collect::<Vec<String>>()
-                .join(" ")
-        )
-    }
-}
-
-fn dump_unrecognised(extra: &[u8], indent: usize) {
-    println!(
-        "{:^indent$}** UNRECOGNIZED: {}",
-        "",
-        extra
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<Vec<String>>()
-            .join(" ")
-    )
-}
-
-fn dump_audiostreaming_endpoint(gd: &GenericDescriptor, protocol: u8) {
+fn dump_audiostreaming_endpoint(ad: &UacDescriptor) {
     // audio streaming endpoint is only EP_GENERAL
-    let subtype_string = match gd.descriptor_subtype {
-        1 => "EP_GENERAL",
+    let subtype_string = match ad.subtype {
+        UacType::Streaming(StreamingSubtype::General) => "EP_GENERAL",
         // lowercase in lsusb
         _ => "invalid",
     };
     println!("        AudioStreaming Endpoint Descriptor:");
-    println!("          bLength              {:3}", gd.length);
-    println!("          bDescriptorType      {:3}", gd.descriptor_type);
+    println!("          bLength              {:3}", ad.length);
+    println!("          bDescriptorType      {:3}", ad.descriptor_type);
     println!(
         "          bDescriptorSubType   {:3} ({})",
-        gd.descriptor_subtype, subtype_string
+        u8::from(ad.subtype.to_owned()), subtype_string
     );
 
-    if let Some(data) = gd.data.as_ref() {
-        let uacp = UacProtocol::from(protocol);
-        if let Ok(uaci) = UacInterfaceDescriptor::from_uac_as_iso_data_endpoint(&uacp, data) {
-            dump_audio_subtype(&uaci, 10);
-        }
+    if matches!(ad.subtype, UacType::Streaming(StreamingSubtype::General)) {
+        dump_audio_subtype(&ad.interface, 10);
     }
 }
 
@@ -934,126 +1139,6 @@ fn dump_printer_desc(pd: &PrinterDescriptor) {
     }
 }
 
-fn dump_array<T: std::fmt::Display>(array: &[T], field_name: &str, indent: usize, width: usize) {
-    for (i, b) in array.iter().enumerate() {
-        dump_value(b, &format!("{}({:2})", field_name, i), indent, width);
-    }
-}
-
-fn dump_bitmap_array<T: std::fmt::LowerHex + Into<u64> + Copy>(
-    array: &[T],
-    field_name: &str,
-    indent: usize,
-    width: usize,
-) {
-    for (i, b) in array.iter().enumerate() {
-        dump_hex(*b, &format!("{}({:2})", field_name, i), indent, width);
-    }
-}
-
-fn dump_title(field_name: &str, indent: usize) {
-    println!("{:indent$}{}", "", field_name, indent = indent);
-}
-
-fn dump_value<T: std::fmt::Display>(value: T, field_name: &str, indent: usize, width: usize) {
-    let value = value.to_string();
-    let spaces = " ".repeat(
-        (width - value.len())
-            .saturating_sub(field_name.len())
-            .max(1),
-    );
-    println!(
-        "{:indent$}{}{}{}",
-        "",
-        field_name,
-        spaces,
-        value,
-        indent = indent
-    );
-}
-
-fn dump_hex<T: std::fmt::LowerHex + Into<u64>>(
-    value: T,
-    field_name: &str,
-    indent: usize,
-    width: usize,
-) {
-    let value_as_u64: u64 = value.into();
-    let hex_value = format!(
-        "0x{:0width$x}",
-        value_as_u64,
-        width = (std::mem::size_of::<T>() * 2)
-    );
-    dump_value(hex_value, field_name, indent, width);
-}
-
-fn dump_name<T: std::fmt::Display>(
-    value: T,
-    names_f: fn(T) -> Option<String>,
-    field_name: &str,
-    indent: usize,
-    width: usize,
-) {
-    let value_string = value.to_string();
-    let spaces = " ".repeat(
-        (width - value_string.len())
-            .saturating_sub(field_name.len())
-            .max(1),
-    );
-    let dump = format!(
-        "{:indent$}{}{}{}",
-        "",
-        field_name,
-        spaces,
-        value_string,
-        indent = indent
-    );
-    if let Some(name) = names_f(value) {
-        println!("{} {}", dump, name);
-    }
-}
-
-/// Dumps the value and the string representation of the value to the right of width
-fn dump_number_string<T: std::fmt::Display, S: std::fmt::Display>(
-    value: T,
-    field_name: &str,
-    value_string: S,
-    indent: usize,
-    width: usize,
-) {
-    let value = value.to_string();
-    let spaces = " ".repeat(
-        (width - value.len())
-            .saturating_sub(field_name.len())
-            .max(1),
-    );
-    println!(
-        "{:indent$}{}{}{} {}",
-        "",
-        field_name,
-        spaces,
-        value,
-        value_string,
-        indent = indent
-    );
-}
-
-/// Dumps strings matching the bits set in `bitmap` using `strings_f` function
-fn dump_bitmap_strings<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>, indent: usize)
-where
-    T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
-{
-    let bitmap_u64: u64 = bitmap.into();
-    let num_bits = std::mem::size_of::<T>() * 8;
-    for index in 0..num_bits {
-        if (bitmap_u64 >> index) & 0x1 != 0 {
-            if let Some(string) = strings_f(index) {
-                println!("{:indent$}{}", "", string, indent = indent);
-            }
-        }
-    }
-}
-
 fn dump_bmcontrols<T: Into<u32>>(
     controls: T,
     control_descriptions: &[&'static str],
@@ -1192,7 +1277,7 @@ fn dump_audio_selector_unit1(selector_unit: &SelectorUnit1, indent: usize, width
     dump_value(selector_unit.unit_id, "bUnitID", indent, width);
     dump_value(selector_unit.nr_in_pins, "bNrInPins", indent, width);
     dump_array(&selector_unit.source_ids, "baSourceID", indent, width);
-    dump_number_string(
+    dump_value_string(
         selector_unit.selector_index,
         "iSelector",
         selector_unit.selector.as_ref().unwrap_or(&"".into()),
@@ -1212,7 +1297,7 @@ fn dump_audio_selector_unit2(selector_unit: &SelectorUnit2, indent: usize, width
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_number_string(
+    dump_value_string(
         selector_unit.selector_index,
         "iSelector",
         selector_unit.selector.as_ref().unwrap_or(&"".into()),
@@ -1243,7 +1328,7 @@ fn dump_audio_selector_unit3(selector_unit: &SelectorUnit3, indent: usize, width
 /// Dumps the contents of a UAC1 Processing Unit Descriptor
 fn dump_audio_processing_unit1(unit: &ProcessingUnit1, indent: usize, width: usize) {
     dump_value(unit.unit_id, "bUnitID", indent, width);
-    dump_number_string(
+    dump_value_string(
         unit.process_type,
         "wProcessType",
         unit.processing_type(),
@@ -1259,7 +1344,7 @@ fn dump_audio_processing_unit1(unit: &ProcessingUnit1, indent: usize, width: usi
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_number_string(
+    dump_value_string(
         unit.channel_names_index,
         "iChannelNames",
         unit.channel_names.as_ref().unwrap_or(&"".into()),
@@ -1268,7 +1353,7 @@ fn dump_audio_processing_unit1(unit: &ProcessingUnit1, indent: usize, width: usi
     );
     dump_value(unit.control_size, "bControlSize", indent, width);
     dump_bitmap_array(&unit.controls, "bmControls", indent, width);
-    dump_number_string(
+    dump_value_string(
         unit.processing_index,
         "iProcessing",
         unit.processing.as_ref().unwrap_or(&"".into()),
@@ -1284,7 +1369,7 @@ fn dump_audio_processing_unit1(unit: &ProcessingUnit1, indent: usize, width: usi
 /// Dumps the contents of a UAC2 Processing Unit Descriptor
 fn dump_audio_processing_unit2(unit: &ProcessingUnit2, indent: usize, width: usize) {
     dump_value(unit.unit_id, "bUnitID", indent, width);
-    dump_number_string(
+    dump_value_string(
         unit.process_type,
         "wProcessType",
         unit.processing_type(),
@@ -1300,7 +1385,7 @@ fn dump_audio_processing_unit2(unit: &ProcessingUnit2, indent: usize, width: usi
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_number_string(
+    dump_value_string(
         unit.channel_names_index,
         "iChannelNames",
         unit.channel_names.as_ref().unwrap_or(&"".into()),
@@ -1308,7 +1393,7 @@ fn dump_audio_processing_unit2(unit: &ProcessingUnit2, indent: usize, width: usi
         width,
     );
     dump_value(unit.controls, "bmControls", indent, width);
-    dump_number_string(
+    dump_value_string(
         unit.processing_index,
         "iProcessing",
         unit.processing.as_ref().unwrap_or(&"".into()),
@@ -1332,7 +1417,7 @@ fn dump_audio_processing_unit2(unit: &ProcessingUnit2, indent: usize, width: usi
 /// Dumps the contents of a UAC3 Processing Unit Descriptor
 fn dump_audio_processing_unit3(unit: &ProcessingUnit3, indent: usize, width: usize) {
     dump_value(unit.unit_id, "bUnitID", indent, width);
-    dump_number_string(
+    dump_value_string(
         unit.process_type,
         "wProcessType",
         unit.processing_type(),
@@ -1406,7 +1491,7 @@ fn dump_audio_effect_unit2(unit: &EffectUnit2, indent: usize, width: usize) {
     dump_value(unit.source_id, "bSourceID", indent, width);
     dump_bitmap_array(&unit.controls, "bmaControls", indent, width);
     dump_value(unit.effect_index, "iEffects", indent, width);
-    dump_number_string(
+    dump_value_string(
         unit.effect_index,
         "iEffects",
         unit.effect.as_ref().unwrap_or(&"".into()),
@@ -1437,7 +1522,7 @@ fn dump_audio_feature_unit1(unit: &FeatureUnit1, indent: usize, width: usize) {
         indent,
         width,
     );
-    dump_number_string(
+    dump_value_string(
         unit.feature_index,
         "iFeature",
         unit.feature.as_ref().unwrap_or(&"".into()),
@@ -1458,7 +1543,7 @@ fn dump_audio_feature_unit2(unit: &FeatureUnit2, indent: usize, width: usize) {
         indent,
         width,
     );
-    dump_number_string(
+    dump_value_string(
         unit.feature_index,
         "iFeature",
         unit.feature.as_ref().unwrap_or(&"".into()),
@@ -1496,7 +1581,7 @@ fn dump_audio_extension_unit1(unit: &ExtensionUnit1, indent: usize, width: usize
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
     dump_value(unit.channel_names_index, "iChannelNames", indent, width);
-    dump_number_string(
+    dump_value_string(
         unit.channel_names_index,
         "iChannelNames",
         unit.channel_names.as_ref().unwrap_or(&"".into()),
@@ -1505,7 +1590,7 @@ fn dump_audio_extension_unit1(unit: &ExtensionUnit1, indent: usize, width: usize
     );
     dump_value(unit.control_size, "bControlSize", indent, width);
     dump_bitmap_array(&unit.controls, "bmControls", indent, width);
-    dump_number_string(
+    dump_value_string(
         unit.extension_index,
         "iExtension",
         unit.extension.as_ref().unwrap_or(&"".into()),
@@ -1527,7 +1612,7 @@ fn dump_audio_extension_unit2(unit: &ExtensionUnit2, indent: usize, width: usize
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_number_string(
+    dump_value_string(
         unit.channel_names_index,
         "iChannelNames",
         unit.channel_names.as_ref().unwrap_or(&"".into()),
@@ -1541,7 +1626,7 @@ fn dump_audio_extension_unit2(unit: &ExtensionUnit2, indent: usize, width: usize
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_number_string(
+    dump_value_string(
         unit.extension_index,
         "iExtension",
         unit.extension.as_ref().unwrap_or(&"".into()),
@@ -1595,7 +1680,7 @@ fn dump_audio_clock_source2(source: &ClockSource2, indent: usize, width: usize) 
         indent + 2,
     );
     dump_value(source.assoc_terminal, "bAssocTerminal", indent, width);
-    dump_number_string(
+    dump_value_string(
         source.clock_source_index,
         "iClockSource",
         source.clock_source.as_ref().unwrap_or(&"".into()),
@@ -1647,7 +1732,7 @@ fn dump_audio_clock_selector2(selector: &ClockSelector2, indent: usize, width: u
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_number_string(
+    dump_value_string(
         selector.clock_selector_index,
         "iClockSelector",
         selector.clock_selector.as_ref().unwrap_or(&"".into()),
@@ -1687,7 +1772,7 @@ fn dump_audio_clock_multiplier2(multiplier: &ClockMultiplier2, indent: usize, wi
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_number_string(
+    dump_value_string(
         multiplier.clock_multiplier_index,
         "iClockMultiplier",
         multiplier.clock_multiplier.as_ref().unwrap_or(&"".into()),
@@ -1724,7 +1809,7 @@ fn dump_audio_sample_rate_converter2(
     dump_value(converter.source_id, "bSourceID", indent, width);
     dump_value(converter.csource_in_id, "bCSourceInID", indent, width);
     dump_value(converter.csource_out_id, "bCSourceOutID", indent, width);
-    dump_number_string(
+    dump_value_string(
         converter.src_index,
         "iSRC",
         converter.src.as_ref().unwrap_or(&"".into()),
@@ -1793,14 +1878,14 @@ fn dump_audio_input_terminal1(ait: &InputTerminal1, indent: usize, width: usize)
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_number_string(
+    dump_value_string(
         ait.channel_names_index,
         "iChannelNames",
         ait.channel_names.as_ref().unwrap_or(&"".into()),
         indent,
         width,
     );
-    dump_number_string(
+    dump_value_string(
         ait.terminal_index,
         "iTerminal",
         ait.terminal.as_ref().unwrap_or(&"".into()),
@@ -1826,7 +1911,7 @@ fn dump_audio_input_terminal2(ait: &InputTerminal2, indent: usize, width: usize)
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_number_string(
+    dump_value_string(
         ait.channel_names_index,
         "iChannelNames",
         ait.channel_names.as_ref().unwrap_or(&"".into()),
@@ -1841,7 +1926,7 @@ fn dump_audio_input_terminal2(ait: &InputTerminal2, indent: usize, width: usize)
         indent + 2,
     );
     dump_value(ait.terminal_index, "iTerminal", indent, width);
-    dump_number_string(
+    dump_value_string(
         ait.terminal_index,
         "iTerminal",
         ait.terminal.as_ref().unwrap_or(&"".into()),
@@ -1890,7 +1975,7 @@ fn dump_audio_output_terminal1(a: &OutputTerminal1, indent: usize, width: usize)
     );
     dump_value(a.assoc_terminal, "bAssocTerminal", indent, width);
     dump_value(a.source_id, "bSourceID", indent, width);
-    dump_number_string(
+    dump_value_string(
         a.terminal_index,
         "iTerminal",
         a.terminal.as_ref().unwrap_or(&"".into()),
@@ -1917,7 +2002,7 @@ fn dump_audio_output_terminal2(a: &OutputTerminal2, indent: usize, width: usize)
         &ControlType::BmControl2,
         indent + 2,
     );
-    dump_number_string(
+    dump_value_string(
         a.terminal_index,
         "iTerminal",
         a.terminal.as_ref().unwrap_or(&"".into()),
@@ -1977,7 +2062,7 @@ fn dump_audio_streaming_interface2(asi: &StreamingInterface2, indent: usize, wid
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
-    dump_number_string(
+    dump_value_string(
         asi.channel_names_index,
         "iChannelNames",
         asi.channel_names.as_ref().unwrap_or(&"".into()),
@@ -2062,130 +2147,130 @@ fn dump_audio_data_streaming_endpoint3(
 fn dump_audio_subtype(uacid: &UacInterfaceDescriptor, indent: usize) {
     match uacid {
         UacInterfaceDescriptor::Header1(a) => {
-            dump_audio_header1(a, indent, 24);
+            dump_audio_header1(a, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::Header2(ach) => {
-            dump_audio_header2(ach, indent, 24);
+            dump_audio_header2(ach, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::Header3(ach) => {
-            dump_audio_header3(ach, indent, 24);
+            dump_audio_header3(ach, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::InputTerminal1(ait) => {
-            dump_audio_input_terminal1(ait, indent, 24);
+            dump_audio_input_terminal1(ait, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::InputTerminal2(ait) => {
-            dump_audio_input_terminal2(ait, indent, 24);
+            dump_audio_input_terminal2(ait, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::InputTerminal3(ait) => {
-            dump_audio_input_terminal3(ait, indent, 24);
+            dump_audio_input_terminal3(ait, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::OutputTerminal1(a) => {
-            dump_audio_output_terminal1(a, indent, 24);
+            dump_audio_output_terminal1(a, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::OutputTerminal2(a) => {
-            dump_audio_output_terminal2(a, indent, 24);
+            dump_audio_output_terminal2(a, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::OutputTerminal3(a) => {
-            dump_audio_output_terminal3(a, indent, 24);
+            dump_audio_output_terminal3(a, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ExtendedTerminalHeader(d) => {
-            dump_extended_terminal_header(d, indent, 24);
+            dump_extended_terminal_header(d, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::PowerDomain(power_domain) => {
-            dump_audio_power_domain(power_domain, indent, 24);
+            dump_audio_power_domain(power_domain, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::MixerUnit1(mixer_unit) => {
-            dump_audio_mixer_unit1(mixer_unit, indent, 24);
+            dump_audio_mixer_unit1(mixer_unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::MixerUnit2(mixer_unit) => {
-            dump_audio_mixer_unit2(mixer_unit, indent, 24);
+            dump_audio_mixer_unit2(mixer_unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::MixerUnit3(mixer_unit) => {
-            dump_audio_mixer_unit3(mixer_unit, indent, 24);
+            dump_audio_mixer_unit3(mixer_unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::SelectorUnit1(selector_unit) => {
-            dump_audio_selector_unit1(selector_unit, indent, 24);
+            dump_audio_selector_unit1(selector_unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::SelectorUnit2(selector_unit) => {
-            dump_audio_selector_unit2(selector_unit, indent, 24);
+            dump_audio_selector_unit2(selector_unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::SelectorUnit3(selector_unit) => {
-            dump_audio_selector_unit3(selector_unit, indent, 24);
+            dump_audio_selector_unit3(selector_unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ProcessingUnit1(unit) => {
-            dump_audio_processing_unit1(unit, indent, 24);
+            dump_audio_processing_unit1(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ProcessingUnit2(unit) => {
-            dump_audio_processing_unit2(unit, indent, 24);
+            dump_audio_processing_unit2(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ProcessingUnit3(unit) => {
-            dump_audio_processing_unit3(unit, indent, 24);
+            dump_audio_processing_unit3(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::EffectUnit2(unit) => {
-            dump_audio_effect_unit2(unit, indent, 24);
+            dump_audio_effect_unit2(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::EffectUnit3(unit) => {
-            dump_audio_effect_unit3(unit, indent, 24);
+            dump_audio_effect_unit3(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::FeatureUnit1(unit) => {
-            dump_audio_feature_unit1(unit, indent, 24);
+            dump_audio_feature_unit1(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::FeatureUnit2(unit) => {
-            dump_audio_feature_unit2(unit, indent, 24);
+            dump_audio_feature_unit2(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::FeatureUnit3(unit) => {
-            dump_audio_feature_unit3(unit, indent, 24);
+            dump_audio_feature_unit3(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ExtensionUnit1(unit) => {
-            dump_audio_extension_unit1(unit, indent, 24);
+            dump_audio_extension_unit1(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ExtensionUnit2(unit) => {
-            dump_audio_extension_unit2(unit, indent, 24);
+            dump_audio_extension_unit2(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ExtensionUnit3(unit) => {
-            dump_audio_extension_unit3(unit, indent, 24);
+            dump_audio_extension_unit3(unit, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ClockSource2(source) => {
-            dump_audio_clock_source2(source, indent, 24);
+            dump_audio_clock_source2(source, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ClockSource3(source) => {
-            dump_audio_clock_source3(source, indent, 24);
+            dump_audio_clock_source3(source, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ClockSelector2(selector) => {
-            dump_audio_clock_selector2(selector, indent, 24);
+            dump_audio_clock_selector2(selector, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ClockSelector3(selector) => {
-            dump_audio_clock_selector3(selector, indent, 24);
+            dump_audio_clock_selector3(selector, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ClockMultiplier2(multiplier) => {
-            dump_audio_clock_multiplier2(multiplier, indent, 24);
+            dump_audio_clock_multiplier2(multiplier, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::ClockMultiplier3(multiplier) => {
-            dump_audio_clock_multiplier3(multiplier, indent, 24);
+            dump_audio_clock_multiplier3(multiplier, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::SampleRateConverter2(converter) => {
-            dump_audio_sample_rate_converter2(converter, indent, 24);
+            dump_audio_sample_rate_converter2(converter, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::SampleRateConverter3(converter) => {
-            dump_audio_sample_rate_converter3(converter, indent, 24);
+            dump_audio_sample_rate_converter3(converter, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::StreamingInterface1(asi) => {
-            dump_audio_streaming_interface1(asi, indent, 24);
+            dump_audio_streaming_interface1(asi, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::StreamingInterface2(asi) => {
-            dump_audio_streaming_interface2(asi, indent, 24);
+            dump_audio_streaming_interface2(asi, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::StreamingInterface3(asi) => {
-            dump_audio_streaming_interface3(asi, indent, 24);
+            dump_audio_streaming_interface3(asi, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::DataStreamingEndpoint1(ads) => {
-            dump_audio_data_streaming_endpoint1(ads, indent, 24);
+            dump_audio_data_streaming_endpoint1(ads, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::DatastreamingEndpoint2(ads) => {
-            dump_audio_data_streaming_endpoint2(ads, indent, 24);
+            dump_audio_data_streaming_endpoint2(ads, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::DataStreamingEndpoint3(ads) => {
-            dump_audio_data_streaming_endpoint3(ads, indent, 24);
+            dump_audio_data_streaming_endpoint3(ads, indent, LSUSB_DUMP_WIDTH);
         }
         UacInterfaceDescriptor::Undefined(data) => {
             println!(
@@ -2207,13 +2292,15 @@ fn dump_audiocontrol_interface(
     uaci: &ControlSubtype,
     protocol: &UacProtocol,
 ) {
-    println!("      AudioControl Interface Descriptor:");
-    println!("        bLength              {:3}", uacd.length);
-    println!("        bDescriptorType      {:3}", uacd.descriptor_type);
-    println!(
-        "        bDescriptorSubType   {:3} ({:#})",
+    dump_title("AudioControl Interface Descriptor", 6);
+    dump_value(uacd.length, "bLength", 8, LSUSB_DUMP_WIDTH);
+    dump_value(uacd.descriptor_type, "bDescriptorType", 8, LSUSB_DUMP_WIDTH);
+    dump_value_string(
         uaci.to_owned() as u8,
-        uaci
+        "bDescriptorType",
+        uaci.to_string(),
+        8,
+        LSUSB_DUMP_WIDTH,
     );
 
     match &uacd.interface {

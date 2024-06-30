@@ -116,6 +116,15 @@ impl TryFrom<GenericDescriptor> for MidiDescriptor {
     }
 }
 
+impl TryFrom<MidiDescriptor> for GenericDescriptor {
+    type Error = Error;
+
+    fn try_from(md: MidiDescriptor) -> error::Result<Self> {
+        let data: Vec<u8> = md.into();
+        GenericDescriptor::try_from(data.as_slice())
+    }
+}
+
 /// Base USB Audio Class (UAC) interface descriptor that contains [`UacSubtype`] and [`UacInterfaceDescriptor`]
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -126,6 +135,7 @@ pub struct UacDescriptor {
     pub interface: UacInterfaceDescriptor,
 }
 
+/// Try from [`GenericDescriptor`], subclass and protocol
 impl TryFrom<(GenericDescriptor, u8, u8)> for UacDescriptor {
     type Error = Error;
 
@@ -158,6 +168,15 @@ impl From<UacDescriptor> for Vec<u8> {
         ret.extend(&data);
 
         ret
+    }
+}
+
+impl TryFrom<UacDescriptor> for GenericDescriptor {
+    type Error = Error;
+
+    fn try_from(ud: UacDescriptor) -> error::Result<Self> {
+        let data: Vec<u8> = ud.into();
+        GenericDescriptor::try_from(data.as_slice())
     }
 }
 
