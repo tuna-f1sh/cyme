@@ -750,7 +750,7 @@ fn print_interface(interface: &USBInterface, indent: usize) {
             match dt {
                 // Should only be Device or Interface as we mask out the rest
                 DescriptorType::Device(cd) | DescriptorType::Interface(cd) => match cd {
-                    ClassDescriptor::Hid(hidd) => dump_hid_device(hidd),
+                    ClassDescriptor::Hid(hidd) => dump_hid_device(hidd, indent + 2),
                     ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 2),
                     ClassDescriptor::Printer(pd) => dump_printer_desc(pd, indent + 2),
                     ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 2),
@@ -4204,27 +4204,28 @@ fn dump_interface_association(iad: &InterfaceAssociationDescriptor) {
     );
 }
 
-fn dump_hid_device(hidd: &HidDescriptor) {
-    println!("        HID Descriptor:");
-    println!("          bLength              {:3}", hidd.length);
-    println!("          bDescriptorType      {:3}", hidd.descriptor_type);
-    println!("          bcdHID               {}", hidd.bcd_hid);
-    println!(
-        "          bCountryCode         {:3} {}",
+fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
+    dump_title("HID Descriptor:", indent);
+    dump_value(hidd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(hidd.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(hidd.bcd_hid, "bcdHID", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(
         hidd.country_code,
-        names::countrycode(hidd.country_code).unwrap_or_default()
+        "bCountryCode",
+        names::countrycode(hidd.country_code).unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "          bNumDescriptors      {:3}",
-        hidd.descriptors.len()
-    );
+    dump_value(hidd.descriptors.len(), "bNumDescriptors", indent + 2, LSUSB_DUMP_WIDTH);
     for desc in &hidd.descriptors {
-        println!(
-            "          bDescriptorType:      {:3} {}",
+        dump_value_string(
             desc.descriptor_type,
-            names::hid(desc.descriptor_type).unwrap_or_default()
+            "bDescriptorType",
+            names::hid(desc.descriptor_type).unwrap_or_default(),
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
         );
-        println!("          wDescriptorLength:    {:3}", desc.length);
+        dump_value(desc.length, "wDescriptorLength", indent + 2, LSUSB_DUMP_WIDTH);
     }
 
     for desc in &hidd.descriptors {
@@ -4235,11 +4236,11 @@ fn dump_hid_device(hidd: &HidDescriptor) {
 
         match desc.data.as_ref() {
             Some(d) => {
-                dump_report_desc(d, 28);
+                dump_report_desc(d, indent + 2);
             }
             None => {
-                println!("          Report Descriptors:");
-                println!("            ** UNAVAILABLE **");
+                dump_title("Report Descriptors:", indent + 2);
+                dump_title("** UNAVAILABLE **", indent + 4);
             }
         }
     }
@@ -4317,6 +4318,8 @@ fn dump_unit(mut data: u16, len: usize) {
 
 // ported directly from lsusb - it's not pretty but works...
 fn dump_report_desc(desc: &[u8], indent: usize) {
+    // ported from lsusb - indented to 28 spaces for some reason...
+    const REPORT_INDENT: usize = 28;
     let types = |t: u8| match t {
         0x00 => "Main",
         0x01 => "Global",
@@ -4324,10 +4327,9 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         _ => "reserved",
     };
 
-    println!("          Report Descriptor: (length is {})", desc.len());
+    dump_title(&format!("Report Descriptor: (length is {})", desc.len()), indent);
 
     let mut i = 0;
-
     while i < desc.len() {
         let b = desc[i];
         let mut data = 0xffff;
@@ -4339,15 +4341,17 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         let btype = b & (0x03 << 2);
         let btag = b & !0x03;
         print!(
-            "            Item({:>6}): {}, data=",
+            "{:indent$}Item({:>6}): {}, data=",
+            "",
             types(btype >> 2),
-            names::report_tag(btag).unwrap_or_default()
+            names::report_tag(btag).unwrap_or_default(),
+            indent = indent + 2
         );
         if bsize > 0 {
             print!(" [ ");
             data = 0;
             for j in 0..bsize {
-                data |= (desc[i + 1 + j] as u16) << (j * 8);
+                data |= (desc[i + 1 + j] as u32) << (j * 8);
                 print!("{:02x} ", desc[i + 1 + j]);
             }
             println!("] {}", data);
@@ -4360,54 +4364,80 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
             0x04 => {
                 hut = data as u8;
                 println!(
-                    "{:^indent$}",
+                    "{:indent$}{}",
+                    "",
                     names::huts(hut).unwrap_or_default(),
-                    indent = indent
+                    indent = REPORT_INDENT
                 );
             }
             // usage, usage minimum, usage maximum
             0x08 | 0x18 | 0x28 => {
                 println!(
-                    "{:^indent$}",
-                    names::hutus(hut, data).unwrap_or_default(),
-                    indent = indent
+                    "{:indent$}{}",
+                    "",
+                    names::hutus(hut, data as u16).unwrap_or_default(),
+                    indent = REPORT_INDENT
                 );
             }
             // unit exponent
             0x54 => {
                 println!(
-                    "{:^indent$}: {}",
+                    "{:indent$}{}: {}",
+                    "",
                     "Unit Exponent",
                     data as u8,
-                    indent = indent
+                    indent = REPORT_INDENT
                 );
             }
             // unit
             0x64 => {
-                print!("{:^indent$}", "", indent = indent);
-                dump_unit(data, bsize)
+                print!("{:indent$}", "", indent = indent + 2);
+                dump_unit(data as u16, bsize)
             }
             // collection
             0xa0 => match data {
-                0x00 => println!("{:^indent$}", "Physical", indent = indent),
-                0x01 => println!("{:^indent$}", "Application", indent = indent),
-                0x02 => println!("{:^indent$}", "Logical", indent = indent),
-                0x03 => println!("{:^indent$}", "Report", indent = indent),
-                0x04 => println!("{:^indent$}", "Named Array", indent = indent),
-                0x05 => println!("{:^indent$}", "Usage Switch", indent = indent),
-                0x06 => println!("{:^indent$}", "Usage Modifier", indent = indent),
+                0x00 => println!("{:indent$}{}", "", "Physical", indent = REPORT_INDENT),
+                0x01 => println!("{:indent$}{}", "", "Application", indent = REPORT_INDENT),
+                0x02 => println!("{:indent$}{}", "", "Logical", indent = REPORT_INDENT),
+                0x03 => println!("{:indent$}{}", "", "Report", indent = REPORT_INDENT),
+                0x04 => println!("{:indent$}{}", "", "Named Array", indent = REPORT_INDENT),
+                0x05 => println!("{:indent$}{}", "", "Usage Switch", indent = REPORT_INDENT),
+                0x06 => println!("{:indent$}{}", "", "Usage Modifier", indent = REPORT_INDENT),
                 _ => {
                     if (data & 0x80) == 0x80 {
-                        println!("{:^indent$}", "Vendor defined", indent = indent)
+                        println!("{:indent$}{}", "", "Vendor defined", indent = REPORT_INDENT)
                     } else {
-                        println!("{:^indent$}", "Unknown", indent = indent)
+                        println!("{:indent$}{}", "", "Unknown", indent = REPORT_INDENT)
                     }
                 }
             },
             // input, output, feature
-            0x80 | 0x90 | 0xb0 => {}
+            0x80 | 0x90 | 0xb0 => {
+                let attributes_1 = format!(
+                    "{:indent$}{} {} {} {} {}",
+                    "",
+                    if data & 0x01 != 0 { "Constant" } else { "Data" },
+                    if data & 0x02 != 0 { "Variable" } else { "Array" },
+                    if data & 0x04 != 0 { "Relative" } else { "Absolute" },
+                    if data & 0x08 != 0 { "Wrap" } else { "No_Wrap" },
+                    if data & 0x10 != 0 { "Non_Linear" } else { "Linear" },
+                    indent = REPORT_INDENT
+                );
+
+                let attributes_2 = format!(
+                    "{:indent$}{} {} {} {}",
+                    "",
+                    if data & 0x20 != 0 { "No_Preferred_State" } else { "Preferred_State" },
+                    if data & 0x40 != 0 { "Null_State" } else { "No_Null_Position" },
+                    if data & 0x80 != 0 { "Volatile" } else { "Non_Volatile" },
+                    if data & 0x100 != 0 { "Buffered Bytes" } else { "Bitfield" },
+                    indent = REPORT_INDENT
+                );
+                println!("{}", attributes_1);
+                println!("{}", attributes_2);
+            },
             _ => (),
         }
-        i += bsize;
+        i += 1 + bsize;
     }
 }
