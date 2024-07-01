@@ -825,7 +825,7 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
             match dt {
                 DescriptorType::Endpoint(cd) => match cd {
                     ClassDescriptor::Audio(ad, _) => {
-                        dump_audiostreaming_endpoint(ad);
+                        dump_audiostreaming_endpoint(ad, indent + 2);
                     }
                     ClassDescriptor::Midi(md, _) => {
                         if let Ok(gd) = GenericDescriptor::try_from(md.to_owned()) {
@@ -836,7 +836,7 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((ClassCode::Audio, 2, p)) => {
                             if let Ok(uacd) = UacDescriptor::try_from((gd.to_owned(), 2, *p)) {
-                                dump_audiostreaming_endpoint(&uacd);
+                                dump_audiostreaming_endpoint(&uacd, indent + 2);
                             }
                         }
                         Some((ClassCode::Audio, 3, _)) => {
@@ -945,20 +945,22 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
     }
 }
 
-fn dump_audiostreaming_endpoint(ad: &UacDescriptor) {
+fn dump_audiostreaming_endpoint(ad: &UacDescriptor, indent: usize) {
     // audio streaming endpoint is only EP_GENERAL
     let subtype_string = match ad.subtype {
         UacType::Streaming(StreamingSubtype::General) => "EP_GENERAL",
         // lowercase in lsusb
         _ => "invalid",
     };
-    println!("        AudioStreaming Endpoint Descriptor:");
-    println!("          bLength              {:3}", ad.length);
-    println!("          bDescriptorType      {:3}", ad.descriptor_type);
-    println!(
-        "          bDescriptorSubType   {:3} ({})",
+    dump_title("AudioStreaming Endpoint Descriptor:", indent);
+    dump_value(ad.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(ad.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(
         u8::from(ad.subtype.to_owned()),
-        subtype_string
+        "bDescriptorSubType",
+        format!("({:#})", subtype_string),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
 
     if matches!(ad.subtype, UacType::Streaming(StreamingSubtype::General)) {
@@ -2362,8 +2364,8 @@ fn dump_audiocontrol_interface(
     dump_value(uacd.descriptor_type, "bDescriptorType", 8, LSUSB_DUMP_WIDTH);
     dump_value_string(
         uaci.to_owned() as u8,
-        "bDescriptorType",
-        uaci.to_string(),
+        "bDescriptorSubType",
+        format!("({:#})", uaci),
         8,
         LSUSB_DUMP_WIDTH,
     );
