@@ -110,11 +110,12 @@ impl DescriptorType {
         &mut self,
         class_triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
+        let dt = self.clone();
         match self {
-            DescriptorType::Device(d) => d.update_with_class_context(class_triplet),
-            DescriptorType::Config(c) => c.update_with_class_context(class_triplet),
-            DescriptorType::Interface(i) => i.update_with_class_context(class_triplet),
-            DescriptorType::Endpoint(e) => e.update_with_class_context(class_triplet),
+            DescriptorType::Device(d) => d.update_with_class_context(&dt, class_triplet),
+            DescriptorType::Config(c) => c.update_with_class_context(&dt, class_triplet),
+            DescriptorType::Interface(i) => i.update_with_class_context(&dt, class_triplet),
+            DescriptorType::Endpoint(e) => e.update_with_class_context(&dt, class_triplet),
             _ => Ok(()),
         }
     }
@@ -360,6 +361,7 @@ impl ClassDescriptor {
     /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`ClassCode`] and descriptor if it is not [`GenericDescriptor`]
     pub fn update_with_class_context<T: Into<ClassCode> + Copy>(
         &mut self,
+        descriptor_type: &DescriptorType,
         triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
         if let ClassDescriptor::Generic(_, gd) = self {
@@ -380,8 +382,10 @@ impl ClassDescriptor {
                 }
                 // MIDI - TODO include in UAC
                 (ClassCode::Audio, 3, p) => {
-                    *self =
-                        ClassDescriptor::Midi(audio::MidiDescriptor::try_from(gd.to_owned())?, p)
+                    // leave generic for Midi Endpoint - maybe should add MidiEndpointDescriptor
+                    if !matches!(descriptor_type, DescriptorType::Endpoint(_)) {
+                        *self = ClassDescriptor::Midi(audio::MidiDescriptor::try_from(gd.to_owned())?, p)
+                    }
                 }
                 // UAC
                 (ClassCode::Audio, s, p) => {
@@ -559,23 +563,23 @@ impl TryFrom<&[u8]> for HidDescriptor {
         let mut descriptors = Vec::<HidReportDescriptor>::with_capacity(num_descriptors);
 
         for _ in 0..num_descriptors {
-            if descriptors_vec.len() < 2 {
+            if descriptors_vec.len() < 3 {
                 return Err(Error::new(
                     ErrorKind::InvalidArg,
                     "HID report descriptor too short",
                 ));
             }
 
-            let len = u16::from_le_bytes([descriptors_vec[1], descriptors_vec[2]]) as usize;
+            // Report data requires read of report from device so allow HidReportDescriptor creation but with no data
+            //let len = u16::from_le_bytes([descriptors_vec[1], descriptors_vec[2]]) as usize;
+            //if len > descriptors_vec.len() {
+            //    return Err(Error::new(
+            //        ErrorKind::InvalidArg,
+            //        &format!("HID report descriptor reported length too long for available data! Expected {} but only have {}", len, descriptors_vec.len()),
+            //    ));
+            //}
 
-            if len > descriptors_vec.len() {
-                return Err(Error::new(
-                    ErrorKind::InvalidArg,
-                    &format!("HID report descriptor reported length too long for available data! Expected {} but only have {}", len, descriptors_vec.len()),
-                ));
-            }
-
-            descriptors.push(descriptors_vec.drain(..len).as_slice().try_into()?);
+            descriptors.push(descriptors_vec.drain(..3).as_slice().try_into()?);
         }
 
         Ok(HidDescriptor {

@@ -827,11 +827,6 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
                     ClassDescriptor::Audio(ad, _) => {
                         dump_audiostreaming_endpoint(ad, indent + 2);
                     }
-                    ClassDescriptor::Midi(md, _) => {
-                        if let Ok(gd) = GenericDescriptor::try_from(md.to_owned()) {
-                            dump_midistreaming_endpoint(&gd);
-                        }
-                    }
                     // legacy as context should have been added to the descriptor
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((ClassCode::Audio, 2, p)) => {
@@ -840,7 +835,7 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
                             }
                         }
                         Some((ClassCode::Audio, 3, _)) => {
-                            dump_midistreaming_endpoint(gd);
+                            dump_midistreaming_endpoint(gd, indent + 2);
                         }
                         _ => (),
                     },
@@ -957,40 +952,37 @@ fn dump_audiostreaming_endpoint(ad: &UacDescriptor, indent: usize) {
     dump_value(ad.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value_string(
         u8::from(ad.subtype.to_owned()),
-        "bDescriptorSubType",
+        "bDescriptorSubtype",
         format!("({:#})", subtype_string),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
 
     if matches!(ad.subtype, UacType::Streaming(StreamingSubtype::General)) {
-        dump_audio_subtype(&ad.interface, 10);
+        dump_audio_subtype(&ad.interface, indent + 2);
     }
 }
 
-fn dump_midistreaming_endpoint(gd: &GenericDescriptor) {
+fn dump_midistreaming_endpoint(gd: &GenericDescriptor, indent: usize) {
     let subtype_string = match gd.descriptor_subtype {
         2 => "GENERAL",
         _ => "Invalid",
     };
 
-    println!("        MIDIStreaming Endpoint Descriptor:");
-    println!("          bLength              {:5}", gd.length);
-    println!("          bDescriptorType      {:5}", gd.descriptor_type);
-    println!(
-        "          wDescriptorSubType   {:5} {}",
-        gd.descriptor_subtype, subtype_string
-    );
+    dump_title("MIDIStreaming Endpoint Descriptor:", indent);
+    dump_value(gd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(gd.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(gd.descriptor_subtype, subtype_string, "bDescriptorSubtype", indent + 2, LSUSB_DUMP_WIDTH);
 
     if let Some(data) = gd.data.as_ref() {
         if data.len() >= 2 {
-            let num_jacks: usize = data[0] as usize;
-            println!("          bNumEmbMIDIJack      {:5}", num_jacks);
-            for (i, jack_id) in data[1..num_jacks].iter().enumerate() {
-                println!("          baAssocJackID({:2})   {:3}", i, jack_id);
+            let num_jacks = data[0] as usize;
+            dump_value(num_jacks, "bNumEmbMIDIJack", indent + 2, LSUSB_DUMP_WIDTH);
+            if data.len() >= num_jacks {
+                dump_array(&data[1..num_jacks], "baAssocJackID", indent + 2, LSUSB_DUMP_WIDTH);
             }
         }
-        dump_junk(data, 8, gd.expected_data_length(), 1 + data[0] as usize);
+        dump_junk(data, indent, gd.expected_data_length(), 1 + data[0] as usize);
     }
 }
 
@@ -2364,7 +2356,7 @@ fn dump_audiocontrol_interface(
     dump_value(uacd.descriptor_type, "bDescriptorType", 8, LSUSB_DUMP_WIDTH);
     dump_value_string(
         uaci.to_owned() as u8,
-        "bDescriptorSubType",
+        "bDescriptorSubtype",
         format!("({:#})", uaci),
         8,
         LSUSB_DUMP_WIDTH,
@@ -2392,7 +2384,7 @@ fn dump_audiostreaming_interface(
     println!("      AudioStreaming Interface Descriptor:");
     println!("        bLength              {:3}", uacd.length);
     println!("        bDescriptorType      {:3}", uacd.descriptor_type);
-    print!("        bDescriptorSubType   {:3} ", uasi.to_owned() as u8);
+    print!("        bDescriptorSubtype   {:3} ", uasi.to_owned() as u8);
 
     match uasi {
         StreamingSubtype::General | StreamingSubtype::Undefined => {
@@ -2836,7 +2828,7 @@ fn dump_midistreaming_interface(md: &MidiDescriptor) {
     println!("        bLength              {:5}", md.length);
     println!("        bDescriptorType      {:5}", md.descriptor_type);
     print!(
-        "      bDescriptorSubType   {:5} ",
+        "      bDescriptorSubtype   {:5} ",
         md.midi_type.to_owned() as u8
     );
 
@@ -2984,7 +2976,7 @@ fn dump_videocontrol_interface(vcd: &UvcDescriptor, protocol: u8) {
     println!("        bLength             {:5}", vcd.length);
     println!("        bDescriptorType     {:5}", vcd.descriptor_type);
     print!(
-        "        bDescriptorSubType  {:5} ",
+        "        bDescriptorSubtype  {:5} ",
         (vcd.subtype.to_owned() as u8)
     );
 
@@ -3260,7 +3252,7 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor) {
     println!("      VideoStreaming Interface Descriptor:");
     println!("        bLength              {:5}", gd.length);
     println!("        bDescriptorType      {:5}", gd.descriptor_type);
-    print!("        bDescriptorSubType   {:5} ", gd.descriptor_subtype);
+    print!("        bDescriptorSubtype   {:5} ", gd.descriptor_subtype);
 
     let color_primatives = |c: u8| match c {
         1 => "BT.709,sRGB",

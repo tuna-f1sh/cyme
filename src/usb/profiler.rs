@@ -303,6 +303,12 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                     cdc.string = get_descriptor_string(string_index, handle);
                 }
             }
+            // TODO grab report descriptor data using usb_control_msg
+            //usb::ClassDescriptor::Hid(ref mut hd) => {
+            //    for rd in hd.descriptors.iter_mut() {
+            //        rd.data = 
+            //    }
+            //}
             usb::ClassDescriptor::Midi(ref mut md, _) => {
                 if let Some(string_index) = md.string_index {
                     md.string = get_descriptor_string(string_index, handle);
