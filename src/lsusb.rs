@@ -4340,6 +4340,8 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         }
         let btype = b & (0x03 << 2);
         let btag = b & !0x03;
+
+        // Item Header
         print!(
             "{:indent$}Item({:>6}): {}, data=",
             "",
@@ -4347,6 +4349,13 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
             names::report_tag(btag).unwrap_or_default(),
             indent = indent + 2
         );
+
+        // Check for descriptor bounds
+        if i + bsize >= desc.len() {
+            println!("Error: Descriptor too short");
+            break;
+        }
+
         if bsize > 0 {
             print!(" [ ");
             data = 0;
