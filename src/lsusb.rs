@@ -324,6 +324,44 @@ where
     }
 }
 
+/// Dump a single value and the string representation of the value to the right of width
+fn dump_bitmap_strings_inline<T, V>(
+    value: V,
+    bitmap: T,
+    field_name: &str,
+    strings_f: fn(usize) -> Option<&'static str>,
+    indent: usize,
+    width: usize,
+) where
+    T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
+    V: std::fmt::Display,
+{
+    let value = value.to_string();
+    let spaces = " ".repeat(
+        (width - value.len())
+            .saturating_sub(field_name.len())
+            .max(1),
+    );
+    print!(
+        "{:indent$}{}{}{}",
+        "",
+        field_name,
+        spaces,
+        value,
+        indent = indent
+    );
+    let bitmap_u64: u64 = bitmap.into();
+    let num_bits = std::mem::size_of::<T>() * 8;
+    for index in 0..num_bits {
+        if (bitmap_u64 >> index) & 0x1 != 0 {
+            if let Some(string) = strings_f(index) {
+                print!(" {}", string);
+            }
+        }
+    }
+    println!();
+}
+
 /// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
 pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
     fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, settings: &PrintSettings) {
@@ -713,9 +751,9 @@ fn print_interface(interface: &USBInterface, indent: usize) {
                 // Should only be Device or Interface as we mask out the rest
                 DescriptorType::Device(cd) | DescriptorType::Interface(cd) => match cd {
                     ClassDescriptor::Hid(hidd) => dump_hid_device(hidd),
-                    ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid),
-                    ClassDescriptor::Printer(pd) => dump_printer_desc(pd),
-                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, 6),
+                    ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 2),
+                    ClassDescriptor::Printer(pd) => dump_printer_desc(pd, indent + 2),
+                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 2),
                     ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md),
                     ClassDescriptor::Audio(uacd, uacp) => match &uacd.subtype {
                         UacType::Control(cs) => dump_audiocontrol_interface(uacd, cs, uacp),
@@ -844,7 +882,7 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
                 // Misplaced descriptors
                 DescriptorType::Device(cd) => match cd {
                     ClassDescriptor::Ccid(ccid) => {
-                        dump_ccid_desc(ccid);
+                        dump_ccid_desc(ccid, indent + 2);
                     }
                     _ => {
                         println!(
@@ -986,184 +1024,159 @@ fn dump_midistreaming_endpoint(gd: &GenericDescriptor, indent: usize) {
     }
 }
 
-fn dump_ccid_desc(ccid: &CcidDescriptor) {
-    println!("      ChipCard Interface Descriptor:");
-    println!("        bLength              {:3}", ccid.length);
-    println!("        bDescriptorType      {:3}", ccid.descriptor_type);
-    println!("        bcdCCID              {}", ccid.version);
+fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
+    dump_title("ChipCard Interface Descriptor:", indent);
+    dump_value(ccid.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(ccid.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(ccid.version, "bcdCCID", indent + 2, LSUSB_DUMP_WIDTH);
     if ccid.version.major() != 1 || ccid.version.minor() != 0 {
         println!("  (Warning: Only accurate for version 1.0)");
     }
 
-    println!("        bMaxSlotIndex        {:3}", ccid.max_slot_index);
-    print!("        bVoltageSupport      {:3} ", ccid.voltage_support);
-    if ccid.voltage_support & 0x01 != 0 {
-        print!("5.0V ");
-    }
-    if ccid.voltage_support & 0x02 != 0 {
-        print!("3.0V ");
-    }
-    if ccid.voltage_support & 0x04 != 0 {
-        print!("1.8V ");
-    }
-    println!();
-
-    print!("        dwProtocols           {:3} ", ccid.protocols);
-    if ccid.protocols & 0x01 != 0 {
-        print!("T=0 ");
-    }
-    if ccid.protocols & 0x02 != 0 {
-        print!("T=1 ");
-    }
-    if ccid.protocols & !0x03 != 0 {
-        print!(" (Invalid values detected)");
-    }
-    println!();
-
-    println!("        dwDefaultClock        {:3}", ccid.default_clock);
-    println!("        dwMaxiumumClock       {:3}", ccid.max_clock);
-    println!(
-        "        bNumClockSupported    {:3}",
-        ccid.num_clock_supported
+    dump_value(ccid.max_slot_index, "bMaxSlotIndex", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_bitmap_strings_inline(
+        ccid.voltage_support,
+        ccid.voltage_support,
+        "bVoltageSupport",
+        |index| match index {
+            0 => Some("5.0V"),
+            1 => Some("3.0V"),
+            2 => Some("1.8V"),
+            _ => None,
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!("        dwDataRate        {:5} bps", ccid.data_rate);
-    println!("        dwMaxDataRate     {:5} bps", ccid.max_data_rate);
-    println!(
-        "        bNumDataRatesSupp.    {:3}",
-        ccid.num_data_rates_supp
+
+    dump_bitmap_strings_inline(
+        ccid.protocols,
+        ccid.protocols,
+        "dwProtocols",
+        |index| match index {
+            0 => Some("T=0"),
+            1 => Some("T=1"),
+            _ => Some("(Invalid values detected)"),
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!("        dwMaxIFSD             {:3}", ccid.max_ifsd);
-    print!("        dwSyncProtocols       {:08X} ", ccid.sync_protocols);
-    if ccid.sync_protocols & 0x01 != 0 {
-        print!(" 2-wire");
-    }
-    if ccid.sync_protocols & 0x02 != 0 {
-        print!(" 3-wire");
-    }
-    if ccid.sync_protocols & 0x04 != 0 {
-        print!(" I2C");
-    }
-    println!();
 
-    print!("        dwMechanical          {:08X} ", ccid.mechanical);
-    if ccid.mechanical & 0x01 != 0 {
-        print!(" accept");
-    }
-    if ccid.mechanical & 0x02 != 0 {
-        print!(" eject");
-    }
-    if ccid.mechanical & 0x04 != 0 {
-        print!(" capture");
-    }
-    if ccid.mechanical & 0x08 != 0 {
-        print!(" lock");
-    }
-    println!();
+    dump_value(ccid.default_clock, "dwDefaultClock", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(ccid.max_clock, "dwMaxiumumClock", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(ccid.num_clock_supported, "bNumClockSupported", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(ccid.data_rate, "dwDataRate", "bps", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(ccid.max_data_rate, "dwMaxDataRate", "bps", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(ccid.num_data_rates_supp, "bNumDataRatesSupp.", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(ccid.max_ifsd, "dwMaxIFSD", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_bitmap_strings_inline(
+        format!("{:08X}", ccid.sync_protocols),
+        ccid.sync_protocols,
+        "dwSyncProtocols",
+        |index| match index {
+            0 => Some("2-wire"),
+            1 => Some("3-wire"),
+            2 => Some("I2C"),
+            _ => None,
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
 
-    println!("        dwFeatures            {:08X}", ccid.features);
-    if ccid.features & 0x0002 != 0 {
-        println!("          Auto configuration based on ATR ");
+    dump_bitmap_strings_inline(
+        format!("{:08X}", ccid.mechanical),
+        ccid.mechanical,
+        "dwMechanical",
+        |index| match index {
+            0 => Some("accept"),
+            1 => Some("eject"),
+            2 => Some("capture"),
+            3 => Some("lock"),
+            _ => None,
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value(format!("{:08X}", ccid.features), "dwFeatures", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_bitmap_strings(
+        ccid.features,
+        |index| match index {
+            0 => Some("Auto configuration based on ATR"),
+            1 => Some("Auto activation on insert"),
+            2 => Some("Auto voltage selection"),
+            3 => Some("Auto clock change"),
+            4 => Some("Auto baud rate change"),
+            5 => Some("Auto parameter negotiation made by CCID"),
+            6 => Some("Auto PPS made by CCID"),
+            7 => Some("CCID can set ICC in clock stop mode"),
+            8 => Some("NAD value other than 0x00 accepted"),
+            9 => Some("Auto IFSD exchange"),
+            16 => Some("TPDU level exchange"),
+            17 => Some("Short APDU level exchange"),
+            18 => Some("Short and extended APDU level exchange"),
+            _ => None,
+        },
+        indent + 2
+    );
+    if (ccid.features & (0x0040 | 0x0080)) != 0 {
+        println!("{:indent$}WARNING: conflicting negotiation features", "", indent = indent + 2);
     }
-    if ccid.features & 0x0004 != 0 {
-        println!("          Auto activation on insert ");
-    }
-    if ccid.features & 0x0008 != 0 {
-        println!("          Auto voltage selection ");
-    }
-    if ccid.features & 0x0010 != 0 {
-        println!("          Auto clock change ");
-    }
-    if ccid.features & 0x0020 != 0 {
-        println!("          Auto baud rate change ");
-    }
-    if ccid.features & 0x0040 != 0 {
-        println!("          Auto parameter negotiation made by CCID ");
-    } else if ccid.features & 0x0080 != 0 {
-        println!("          Auto PPS made by CCID ");
-    } else if (ccid.features & (0x0040 | 0x0080)) != 0 {
-        println!("        WARNING: conflicting negotiation features");
-    }
-    if ccid.features & 0x0100 != 0 {
-        println!("          CCID can set ICC in clock stop mode ");
-    }
-    if ccid.features & 0x0200 != 0 {
-        println!("          NAD value other than 0x00 accepted ");
-    }
-    if ccid.features & 0x0400 != 0 {
-        println!("          Auto IFSD exchange ");
-    }
-    if ccid.features & 0x00010000 != 0 {
-        println!("          TPDU level exchange ");
-    } else if ccid.features & 0x00020000 != 0 {
-        println!("          Short APDU level exchange ");
-    } else if ccid.features & 0x00040000 != 0 {
-        println!("          Short and extended APDU level exchange ");
-    } else if ccid.features & 0x00070000 != 0 {
-        println!("        WARNING: conflicting exchange levels");
+    if ccid.features & 0x00070000 != 0 {
+        println!("{:indent$}WARNING: conflicting exchange levels", "", indent = indent + 2);
     }
 
-    println!("        dwMaxCCIDMsgLen     {:3}", ccid.max_ccid_msg_len);
-    print!("        bClassGetResponse    ");
+    dump_value(ccid.max_ccid_msg_len, "dwMaxCCIDMsgLen", indent + 2, LSUSB_DUMP_WIDTH);
     if ccid.class_get_response == 0xff {
-        println!("echo");
+        dump_value("echo", "bClassGetResponse", indent + 2, LSUSB_DUMP_WIDTH);
     } else {
-        println!("  {:02X}", ccid.class_get_response);
+        dump_value(format!("{:02X}", ccid.class_get_response), "bClassGetResponse", indent + 2, LSUSB_DUMP_WIDTH);
     }
 
-    print!("        bClassEnvelope       ");
     if ccid.class_envelope == 0xff {
-        println!("echo");
+        dump_value("echo", "bClassEnvelope", indent + 2, LSUSB_DUMP_WIDTH);
     } else {
-        println!("  {:02X}", ccid.class_envelope);
+        dump_value(format!("{:02X}", ccid.class_envelope), "bClassEnvelope", indent + 2, LSUSB_DUMP_WIDTH);
     }
 
-    print!("        wlcdLayout           ");
     if ccid.lcd_layout == (0, 0) {
-        println!("none");
+        dump_value("none", "wlcdLayout", indent + 2, LSUSB_DUMP_WIDTH);
     } else {
-        println!("{} cols {} lines", ccid.lcd_layout.0, ccid.lcd_layout.1);
+        dump_value_string(ccid.lcd_layout.0, "wlcdLayout", format!(" cols {} lines", ccid.lcd_layout.1), indent + 2, LSUSB_DUMP_WIDTH);
     }
 
-    print!("        bPINSupport         {:3} ", ccid.pin_support);
-    if ccid.pin_support & 1 != 0 {
-        print!(" verification");
-    }
-    if ccid.pin_support & 2 != 0 {
-        print!(" modification");
-    }
-    println!();
+    dump_bitmap_strings_inline(
+        ccid.pin_support,
+        ccid.pin_support,
+        "bPINSupport",
+        |index| match index {
+            0 => Some("verification"),
+            1 => Some("modification"),
+            _ => None,
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
 
-    println!("        bMaxCCIDBusySlots   {:3}", ccid.max_ccid_busy_slots);
+    dump_value(ccid.max_ccid_busy_slots, "bMaxCCIDBusySlots", indent + 2, LSUSB_DUMP_WIDTH);
 }
 
-fn dump_printer_desc(pd: &PrinterDescriptor) {
-    println!("        IPP Printer Descriptor:");
-    println!("          bLength              {:3}", pd.length);
-    println!("          bDescriptorType      {:3}", pd.descriptor_type);
-    println!("          bcdReleaseNumber     {:3}", pd.release_number);
-    println!("          bcdNumDescriptors    {:3}", pd.descriptors.len());
+fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
+    dump_title("Printer Interface Descriptor:", indent);
+    dump_value(pd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(pd.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(pd.release_number, "bcdReleaseNumber", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(pd.descriptors.len(), "bcdNumDescriptors", indent + 2, LSUSB_DUMP_WIDTH);
 
     for desc in &pd.descriptors {
         // basic capabilities
         if desc.descriptor_type == 0x00 {
-            println!(
-                "            iIPPVersionsSupported {:3}",
-                desc.versions_supported
-            );
-            if let Some(uuid) = &desc.uuid_string {
-                println!(
-                    "            iIPPPrinterUUID       {:3} {}",
-                    desc.uuid_string_index, uuid
-                );
-            } else {
-                println!(
-                    "            iIPPPrinterUUID       {:3}",
-                    desc.uuid_string_index
-                );
-            }
+            dump_value(desc.versions_supported, "iIPPVersionsSupported", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value_string(desc.uuid_string_index, "iIPPPrinterUUID", desc.uuid_string.as_ref().unwrap_or(&String::new()), indent + 2, LSUSB_DUMP_WIDTH);  
             print!(
-                "            wBasicCapabilities   0x{:04x} ",
-                desc.capabilities
+                "{:indent$}wBasicCapabilities   0x{:04x} ",
+                "",
+                desc.capabilities,
+                indent = indent + 2
             );
 
             // capabilities
@@ -1194,10 +1207,7 @@ fn dump_printer_desc(pd: &PrinterDescriptor) {
             println!();
         // vendor specific
         } else {
-            println!(
-                "            UnknownCapabilities   {:3} {:3}\n",
-                desc.descriptor_type, desc.length
-            );
+            dump_value_string(desc.descriptor_type, "UnknownCapabilities", desc.length, indent + 2, LSUSB_DUMP_WIDTH);
         }
     }
 }
@@ -3686,7 +3696,7 @@ fn dump_bad_comm(cd: &CommunicationDescriptor, indent: usize) {
         _ => "",
     };
     println!(
-        "{:^indent$}  INVALID CDC ({}): {}",
+        "{:^indent$}INVALID CDC ({}): {}",
         "",
         type_str,
         data.iter()
