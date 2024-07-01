@@ -435,10 +435,12 @@ impl TryFrom<&[u8]> for HidReportDescriptor {
             ));
         }
 
+        let length = u16::from_le_bytes([value[1], value[2]]);
+
         Ok(HidReportDescriptor {
             descriptor_type: value[0],
-            length: u16::from_le_bytes([value[1], value[2]]),
-            data: value.get(3..).map(|d| d.to_vec()),
+            length,
+            data: value.get(3..3+length as usize).map(|d| d.to_vec()),
         })
     }
 }
