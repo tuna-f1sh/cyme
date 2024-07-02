@@ -890,6 +890,50 @@ pub enum CdcType {
     Unknown = 0xff,
 }
 
+impl std::fmt::Display for CdcType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // lsusb style
+        if f.alternate() {
+            match self {
+                CdcType::Header => write!(f, "Header"),
+                CdcType::CallManagement => write!(f, "Call Management"),
+                CdcType::AbstractControlManagement => write!(f, "ACM"),
+                CdcType::DirectLineManagement => write!(f, "DLM"),
+                CdcType::TelephoneRinger => write!(f, "Telephone Ringer"),
+                CdcType::TelephoneCall => write!(f, "Telephone Call"),
+                CdcType::Union => write!(f, "Union"),
+                CdcType::CountrySelection => write!(f, "Country Selection"),
+                CdcType::TelephoneOperationalModes => write!(f, "Telephone Operations"),
+                CdcType::UsbTerminal => write!(f, "USB Terminal"),
+                CdcType::NetworkChannel => write!(f, "Network Channel Terminal"),
+                CdcType::ProtocolUnit => write!(f, "Protocol Unit"),
+                CdcType::ExtensionUnit => write!(f, "Extension Unit"),
+                CdcType::MultiChannel => write!(f, "Multi Channel"),
+                CdcType::CapiControl => write!(f, "CAPI Control"),
+                CdcType::EthernetNetworking => write!(f, "Ethernet"),
+                CdcType::AtmNetworking => write!(f, "ATM Networking"),
+                CdcType::WirelessHandsetControlModel => write!(f, "WHCM version"),
+                CdcType::MobileDirectLineModelFunctional => {
+                    write!(f, "MDLM")
+                }
+                CdcType::MobileDirectLineModelDetail => write!(f, "MDLM detail"),
+                CdcType::DeviceManagement => write!(f, "Device Management"),
+                CdcType::Obex => write!(f, "OBEX"),
+                CdcType::CommandSet => write!(f, "Command Set"),
+                CdcType::CommandSetDetail => write!(f, "Command Set Detail"),
+                CdcType::TelephoneControlModel => write!(f, "Telephone Control Model"),
+                CdcType::ObexCommandSet => write!(f, "OBEX Command Set"),
+                CdcType::Ncm => write!(f, "NCM"),
+                CdcType::Mbim => write!(f, "MBIM"),
+                CdcType::MbimExtended => write!(f, "MBIM Extended"),
+                CdcType::Unknown => write!(f, ""),
+            }
+        } else {
+            write!(f, "{:?}", self)
+        }
+    }
+}
+
 impl From<u8> for CdcType {
     fn from(b: u8) -> Self {
         match b {

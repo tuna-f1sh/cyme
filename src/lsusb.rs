@@ -308,7 +308,7 @@ fn dump_unrecognised(extra: &[u8], indent: usize) {
     )
 }
 
-/// Dumps strings matching the bits set in `bitmap` using `strings_f` function
+/// Dumps strings matching the bits set in `bitmap` using `strings_f` function from LSB to MSB
 fn dump_bitmap_strings<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>, indent: usize)
 where
     T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
@@ -323,6 +323,23 @@ where
         }
     }
 }
+
+/// Dumps strings matching the bits set in `bitmap` using `strings_f` function from MSB to LSB
+fn dump_bitmap_strings_invert<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>, indent: usize)
+where
+    T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
+{
+    let bitmap_u64: u64 = bitmap.into();
+    let num_bits = std::mem::size_of::<T>() * 8;
+    for index in (0..num_bits).rev() {
+        if (bitmap_u64 >> index) & 0x1 != 0 {
+            if let Some(string) = strings_f(index) {
+                println!("{:indent$}{}", "", string, indent = indent);
+            }
+        }
+    }
+}
+
 
 /// Dump a single value and the string representation of the value to the right of width
 fn dump_bitmap_strings_inline<T, V>(
@@ -1116,7 +1133,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
             18 => Some("Short and extended APDU level exchange"),
             _ => None,
         },
-        indent + 2
+        indent + 4
     );
     if (ccid.features & (0x0040 | 0x0080)) != 0 {
         println!("{:indent$}WARNING: conflicting negotiation features", "", indent = indent + 2);
@@ -2171,10 +2188,10 @@ fn dump_audio_streaming_interface3(asi: &StreamingInterface3, indent: usize, wid
 
 fn dump_audio_data_streaming_endpoint1(ads: &DataStreamingEndpoint1, indent: usize, width: usize) {
     let uac1_attrs = |a: usize| match a {
-        0x00 => Some("Sampling Frequency"),
-        0x01 => Some("Pitch"),
-        0x02 => Some("Audio Data Format Control"),
-        0x07 => Some("MaxPacketsOnly"),
+        0 => Some("Sampling Frequency"),
+        1 => Some("Pitch"),
+        2 => Some("Audio Data Format Control"),
+        7 => Some("MaxPacketsOnly"),
         _ => None,
     };
     dump_hex(ads.attributes, "bmAttributes", indent, width);
@@ -3674,31 +3691,10 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor) {
 
 fn dump_bad_comm(cd: &CommunicationDescriptor, indent: usize) {
     let data = Into::<Vec<u8>>::into(cd.to_owned());
-    // convert to exact type str used by lsusb
-    let type_str = match cd.communication_type {
-        CdcType::Header => "Header",
-        CdcType::CallManagement => "Call Management",
-        CdcType::AbstractControlManagement => "ACM",
-        CdcType::Union => "Union",
-        CdcType::CountrySelection => "Country Selection",
-        CdcType::TelephoneOperationalModes => "Telephone Operations",
-        CdcType::NetworkChannel => "Network Channel Terminal",
-        CdcType::EthernetNetworking => "Ethernet",
-        CdcType::WirelessHandsetControlModel => "WHCM version",
-        CdcType::MobileDirectLineModelFunctional => "MDLM",
-        CdcType::MobileDirectLineModelDetail => "MDLM detail",
-        CdcType::DeviceManagement => "Device Management",
-        CdcType::Obex => "OBEX",
-        CdcType::CommandSet => "Command Set",
-        CdcType::Ncm => "NCM",
-        CdcType::Mbim => "MBIM",
-        CdcType::MbimExtended => "MBIM Extended",
-        _ => "",
-    };
     println!(
-        "{:^indent$}INVALID CDC ({}): {}",
+        "{:^indent$}INVALID CDC ({:#}): {}",
         "",
-        type_str,
+        cd.communication_type,
         data.iter()
             .map(|b| format!("{:02x}", b))
             .collect::<Vec<String>>()
@@ -3723,61 +3719,61 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
     match cd.communication_type {
         CdcType::Header => {
             if cd.data.len() >= 2 {
-                println!("{:^indent$}CDC Header:", "");
-                println!(
-                    "{:^indent$}  bcdCDC              {:x}.{:02x}",
-                    "", cd.data[1], cd.data[0]
-                );
+                dump_title("CDC Header:", indent);
+                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdCDC", indent + 2, LSUSB_DUMP_WIDTH);
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::CallManagement => {
             if cd.data.len() >= 2 {
-                println!("{:^indent$}CDC Call Management:", "");
-                println!("{:^indent$}  bmCapabilities      0x{:02x}", "", cd.data[0]);
-                if cd.data[0] & 0x01 != 0x00 {
-                    println!("{:^indent$}    call management", "");
-                }
-                if cd.data[0] & 0x02 != 0x00 {
-                    println!("{:^indent$}    use cd.dataInterface", "");
-                }
+                dump_title("CDC Call Management:", indent);
+                dump_hex(cd.data[0], "bmCapabilities", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_bitmap_strings(
+                    cd.data[0],
+                    |b| match b {
+                        0 => Some("call management"),
+                        1 => Some("dataInterface"),
+                        _ => None,
+                    },
+                    indent + 4
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::AbstractControlManagement => {
             if !cd.data.is_empty() {
-                println!("{:^indent$}CDC ACM:", "");
-                println!("{:^indent$}  bmCapabilities      0x{:02x}", "", cd.data[0]);
-                if cd.data[0] & 0x08 != 0x00 {
-                    println!("{:^indent$}    connection notifications", "");
-                }
-                if cd.data[0] & 0x04 != 0x00 {
-                    println!("{:^indent$}    sends break", "");
-                }
-                if cd.data[0] & 0x02 != 0x00 {
-                    println!("{:^indent$}    line coding and serial state", "");
-                }
-                if cd.data[0] & 0x01 != 0x00 {
-                    println!("{:^indent$}    get/set/clear comm features", "");
-                }
+                dump_title("CDC ACM:", indent);
+                dump_hex(cd.data[0], "bmCapabilities", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_bitmap_strings_invert(
+                    cd.data[0],
+                    |b| match b {
+                        0 => Some("get/set/clear comm features"),
+                        1 => Some("line coding and serial state"),
+                        2 => Some("sends break"),
+                        3 => Some("connection notifications"),
+                        _ => None,
+                    },
+                    indent + 4
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::Union => {
             if cd.data.len() >= 2 {
-                println!("{:^indent$}CDC Union:", "");
-                println!("{:^indent$}  bMasterInterface     {:3}", "", cd.data[0]);
+                dump_title("CDC Union:", indent);
+                dump_value(cd.data[0], "bMasterInterface", indent + 2, LSUSB_DUMP_WIDTH);
                 println!(
-                    "{:^indent$}  bSlaveInterface      {}",
+                    "{:indent$}bSlaveInterface      {}",
                     "",
                     cd.data[1..]
                         .iter()
                         .map(|b| format!("{:3}", b))
                         .collect::<Vec<String>>()
-                        .join(" ")
+                        .join(" "),
+                    indent = indent + 2
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3785,18 +3781,16 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         }
         CdcType::CountrySelection => {
             if cd.data.len() >= 3 || (cd.length & 0x01) != 0 {
-                println!("{:^indent$}Country Selection:", "");
-                println!(
-                    "{:^indent$}  iCountryCodeRelDate     {:3} {}",
-                    "",
+                dump_title("Country Selection:", indent);
+                dump_value_string(
                     cd.string_index.unwrap_or_default(),
-                    cd.string.as_ref().unwrap_or(&String::from("(?)"))
+                    "iCountryCodeRelDate",
+                    cd.string.as_ref().unwrap_or(&String::from("(?)")),
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH
                 );
                 cd.data.chunks(2).for_each(|d| {
-                    println!(
-                        "{:^indent$}  wCountryCode          {:02x}{:02x}",
-                        "", d[0], d[1]
-                    );
+                    dump_value(format!("{:02x}{:02x}", d[1], d[0]), "wCountryCode", indent + 2, LSUSB_DUMP_WIDTH);
                 });
             } else {
                 dump_bad_comm(cd, indent);
@@ -3804,88 +3798,75 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         }
         CdcType::TelephoneOperationalModes => {
             if !cd.data.is_empty() {
-                println!("{:^indent$}CDC Telephone operations:", "");
-                println!("{:^indent$}  bmCapabilities       0x{:02x}", "", cd.data[0]);
-                if cd.data[0] & 0x04 != 0x00 {
-                    println!("{:^indent$}    computer centric mode", "");
-                }
-                if cd.data[0] & 0x02 != 0x00 {
-                    println!("{:^indent$}    standalone mode", "");
-                }
-                if cd.data[0] & 0x01 != 0x00 {
-                    println!("{:^indent$}    simple mode", "");
-                }
+                dump_title("CDC Telephone operations:", indent);
+                dump_hex(cd.data[0], "bmCapabilities", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_bitmap_strings_invert(
+                    cd.data[0],
+                    |b| match b {
+                        0 => Some("simple mode"),
+                        1 => Some("standalone mode"),
+                        2 => Some("computer centric mode"),
+                        _ => None,
+                    },
+                    indent + 4
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::NetworkChannel => {
             if cd.data.len() >= 4 {
-                println!("{:^indent$}Network Channel Terminal:", "");
-                println!("{:^indent$}  bEntityId               {:3}", "", cd.data[0]);
-                println!(
-                    "{:^indent$}  iName                   {:3} {}",
-                    "",
+                dump_title("Network Channel Terminal:", indent);
+                dump_value(cd.data[0], "bEntityId", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value_string(
                     cd.string_index.unwrap_or_default(),
-                    cd.string.as_ref().unwrap_or(&String::from("(?)"))
+                    "iName",
+                    cd.string.as_ref().unwrap_or(&String::from("(?)")),
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH
                 );
-                println!("{:^indent$}  bChannelIndex           {:3}", "", cd.data[2]);
-                println!("{:^indent$}  bPhysicalInterface      {:3}", "", cd.data[3]);
+                dump_value(cd.data[2], "bChannelIndex", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(cd.data[3], "bPhysicalInterface", indent + 2, LSUSB_DUMP_WIDTH);
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::EthernetNetworking => {
-            if cd.data.len() >= 13 - 3 {
-                println!("{:^indent$}CDC Ethernet:", "");
-                println!(
-                    "{:^indent$}  iMacAddress             {:10} {}",
-                    "",
+            if cd.data.len() >= 10 {
+                dump_title("CDC Ethernet:", indent);
+                dump_value_string(
                     cd.string_index.unwrap_or_default(),
-                    cd.string.as_ref().unwrap_or(&String::from("(?)"))
+                    "iMacAddress",
+                    cd.string.as_ref().unwrap_or(&String::from("(?)")),
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH
                 );
-                println!(
-                    "{:^indent$}  bmEthernetStatistics    0x{:08x}",
-                    "",
-                    u32::from_le_bytes([cd.data[1], cd.data[2], cd.data[3], cd.data[4]])
-                );
-                println!(
-                    "{:^indent$}  wMaxSegmentSize         {:10}",
-                    "",
-                    u16::from_le_bytes([cd.data[5], cd.data[6]])
-                );
-                println!(
-                    "{:^indent$}  wNumberMCFilters            0x{:04x}",
-                    "",
-                    u16::from_le_bytes([cd.data[7], cd.data[8]])
-                );
-                println!("{:^indent$}  bNumberPowerFilters     {:10}", "", cd.data[9]);
+                dump_hex(u32::from_le_bytes([cd.data[1], cd.data[2], cd.data[3], cd.data[4]]), "bmEthernetStatistics", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(u16::from_le_bytes([cd.data[5], cd.data[6]]), "wMaxSegmentSize", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_hex(u16::from_le_bytes([cd.data[7], cd.data[8]]), "wNumberMCFilters", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_hex(cd.data[9], "bNumberPowerFilters", indent + 2, LSUSB_DUMP_WIDTH);
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::WirelessHandsetControlModel => {
             if cd.data.len() >= 2 {
-                println!("{:^indent$}CDC WHCM:", "");
-                println!(
-                    "{:^indent$}  bcdVersion           {:x}.{:02x}",
-                    "", cd.data[1], cd.data[0]
-                );
+                dump_title("CDC WHCM:", indent);
+                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::MobileDirectLineModelFunctional => {
             if cd.data.len() >= 18 {
-                println!("{:^indent$}CDC MDLM:", "");
-                println!(
-                    "{:^indent$}  bcdCDC               {:x}.{:02x}",
-                    "", cd.data[1], cd.data[0]
-                );
-                println!(
-                    "{:^indent$}  bGUID               {}",
+                dump_title("CDC MDLM:", indent);
+                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value_string(
                     "",
-                    get_guid(&cd.data[2..18])
+                    "bGUID",
+                    &get_guid(&cd.data[2..18]),
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3893,16 +3874,17 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         }
         CdcType::MobileDirectLineModelDetail => {
             if cd.data.len() >= 2 {
-                println!("{:^indent$}CDC MDLM detail:", "");
-                println!("{:^indent$}  bGuidDescriptorType  {:02x}", "", cd.data[0]);
+                dump_title("CDC MDLM detail:", indent);
+                dump_value(format!("{:02x}", cd.data[0]), "bGuidDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
                 println!(
-                    "{:^indent$}  bDetailData          {}",
+                    "{:indent$}bDetailData          {}",
                     "",
                     cd.data
                         .iter()
                         .map(|b| format!("{:02x}", b))
                         .collect::<Vec<String>>()
-                        .join(" ")
+                        .join(" "),
+                    indent = indent + 2
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3910,48 +3892,38 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         }
         CdcType::DeviceManagement => {
             if cd.data.len() >= 4 {
-                println!("{:^indent$}CDC MDLM:", "");
-                println!(
-                    "{:^indent$}  bcdVersion           {:x}.{:02x}",
-                    "", cd.data[1], cd.data[0]
-                );
-                println!(
-                    "{:^indent$}  wMaxCommand          {:3}",
-                    "",
-                    u16::from_le_bytes([cd.data[2], cd.data[3]])
-                );
+                dump_title("CDC MDLM:", indent);
+                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(u16::from_le_bytes([cd.data[2], cd.data[3]]), "wMaxCommand", indent + 2, LSUSB_DUMP_WIDTH);
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::Obex => {
             if cd.data.len() >= 2 {
-                println!("{:^indent$}CDC OBEX:", "");
-                println!(
-                    "{:^indent$}  bcdVersion           {:x}.{:02x}",
-                    "", cd.data[1], cd.data[0]
-                );
+                dump_title("CDC OBEX:", indent);
+                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::CommandSet => {
             if cd.data.len() >= 19 {
-                println!("{:^indent$}CDC Command Set:", "");
-                println!(
-                    "{:^indent$}  bcdVersion           {:x}.{:02x}",
-                    "", cd.data[1], cd.data[0]
-                );
-                println!(
-                    "{:^indent$}  iCommandSet          {:4} {}",
-                    "",
+                dump_title("CDC Command Set:", indent);
+                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value_string(
                     cd.string_index.unwrap_or_default(),
-                    cd.string.as_ref().unwrap_or(&String::from("(?)"))
+                    "iCommandSet",
+                    cd.string.as_ref().unwrap_or(&String::from("(?)")),
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH
                 );
-                println!(
-                    "{:^indent$}  bGUID               {}",
+                dump_value_string(
                     "",
-                    get_guid(&cd.data[3..19])
+                    "bGUID",
+                    &get_guid(&cd.data[3..19]),
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3959,86 +3931,54 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         }
         CdcType::Ncm => {
             if cd.data.len() >= 6 - 3 {
-                println!("{:^indent$}CDC NCM:", "");
-                println!(
-                    "{:^indent$}  bcdNcmVersion        {:x}.{:02x}",
-                    "", cd.data[1], cd.data[0]
+                dump_title("CDC NCM:", indent);
+                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdNcmVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_hex(cd.data[2], "bmNetworkCapabilities", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_bitmap_strings_invert(
+                    cd.data[2],
+                    |b| match b {
+                        0 => Some("packet filter"),
+                        1 => Some("net address"),
+                        2 => Some("encapsulated commands"),
+                        3 => Some("max cd.datagram size"),
+                        4 => Some("crc mode"),
+                        5 => Some("8-byte ntb input size"),
+                        _ => None,
+                    },
+                    indent + 4
                 );
-                println!(
-                    "{:^indent$}  bmNetworkCapabilities 0x{:02x}",
-                    "", cd.data[2]
-                );
-                if cd.data[2] & (1 << 5) != 0 {
-                    println!("{:^indent$}    8-byte ntb input size", "");
-                }
-                if cd.data[2] & (1 << 4) != 0 {
-                    println!("{:^indent$}    crc mode", "");
-                }
-                if cd.data[2] & (1 << 2) != 0 {
-                    println!("{:^indent$}    max cd.datagram size", "");
-                }
-                if cd.data[2] & (1 << 2) != 0 {
-                    println!("{:^indent$}    encapsulated commands", "");
-                }
-                if cd.data[2] & (1 << 1) != 0 {
-                    println!("{:^indent$}    net address", "");
-                }
-                if cd.data[2] & (1 << 0) != 0 {
-                    println!("{:^indent$}    packet filter", "");
-                }
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::Mbim => {
             if cd.data.len() >= 9 {
-                println!("{:^indent$}CDC MBIM:", "");
-                println!(
-                    "{:^indent$}  bcdMBIMVersion       {:x}.{:02x}",
-                    "", cd.data[1], cd.data[0]
+                dump_title("CDC MBIM:", indent);
+                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdMBIMVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(u16::from_le_bytes([cd.data[2], cd.data[3]]), "wMaxControlMessage", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(cd.data[4], "bNumberFilters", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(cd.data[5], "bMaxFilterSize", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(u16::from_le_bytes([cd.data[6], cd.data[7]]), "wMaxSegmentSize", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_hex(cd.data[8], "bmNetworkCapabilities", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_bitmap_strings_invert(
+                    cd.data[8],
+                    |b| match b {
+                        3 => Some("max cd.datagram size"),
+                        5 => Some("8-byte ntb input size"),
+                        _ => None,
+                    },
+                    indent + 4
                 );
-                println!(
-                    "{:^indent$}  wMaxControlMessage   {}",
-                    "",
-                    u16::from_le_bytes([cd.data[2], cd.data[3]])
-                );
-                println!("{:^indent$}  bNumberFilters       {}", "", cd.data[4]);
-                println!("{:^indent$}  bMaxFilterSize       {}", "", cd.data[5]);
-                println!(
-                    "{:^indent$}  wMaxSegmentSize      {}",
-                    "",
-                    u16::from_le_bytes([cd.data[6], cd.data[7]])
-                );
-                println!(
-                    "{:^indent$}  bmNetworkCapabilities 0x{:02x}",
-                    "", cd.data[8]
-                );
-                if cd.data[8] & 0x20 != 0x00 {
-                    println!("{:^indent$}    8-byte ntb input size", "");
-                }
-                if cd.data[8] & 0x08 != 0x00 {
-                    println!("{:^indent$}    max cd.datagram size", "");
-                }
             } else {
                 dump_bad_comm(cd, indent);
             }
         }
         CdcType::MbimExtended => {
             if cd.data.len() >= 5 {
-                println!("{:^indent$}CDC MBIM Extended:", "");
-                println!(
-                    "{:^indent$}  bcdMBIMExtendedVersion          {:x}.{:02x}",
-                    "", cd.data[1], cd.data[0]
-                );
-                println!(
-                    "{:^indent$}  bMaxOutstandingCommandMessages    {:3}",
-                    "", cd.data[2]
-                );
-                println!(
-                    "{:^indent$}  wMTU                            {:5}",
-                    "",
-                    u16::from_le_bytes([cd.data[3], cd.data[4]])
-                );
+                dump_title("CDC MBIM Extended:", indent);
+                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdMBIMExtendedVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(cd.data[2], "bMaxOutstandingCommandMessages", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(u16::from_le_bytes([cd.data[3], cd.data[4]]), "wMTU", indent + 2, LSUSB_DUMP_WIDTH);
             } else {
                 dump_bad_comm(cd, indent);
             }
