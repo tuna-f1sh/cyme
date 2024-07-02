@@ -67,7 +67,7 @@ brew install cyme
 
 More package managers to come/package distribution, please feel free to create a PR if you want to help out here.
 
-## Linux udev
+## Linux udev Information
 
 > [!NOTE]
 > Only supported on Linux targets.

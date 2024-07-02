@@ -11,6 +11,7 @@
 ### Changed
 
 - Replace [udev-rs](https://github.com/Smithay/udev-rs) and indirectly libudev-sys with Rust native [udev](https://github.com/cr8t/udev); libudev dependency (and system requirement) is now optional but can be used with `--no-default-features -F=udevlib`. ([#19](https://github.com/tuna-f1sh/cyme/pull/19))
+- `cyme` is now in [Homebrew core](https://formulae.brew.sh/formula/cyme). One can `brew uninstall cyme`, `brew untap tuna-f1sh/taps`, then install with `brew install cyme` ([#21](https://github.com/tuna-f1sh/cyme/pull/21)).
 
 ### Fixes
 
