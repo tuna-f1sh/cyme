@@ -668,16 +668,16 @@ fn print_config(config: &USBConfiguration, indent: usize) {
         for dt in dt_vec {
             match dt {
                 DescriptorType::InterfaceAssociation(iad) => {
-                    dump_interface_association(iad);
+                    dump_interface_association(iad, indent + 2);
                 }
                 DescriptorType::Security(sec) => {
-                    dump_security(sec);
+                    dump_security(sec, indent + 2);
                 }
                 DescriptorType::Encrypted(enc) => {
-                    dump_encryption_type(enc);
+                    dump_encryption_type(enc, indent + 2);
                 }
                 DescriptorType::Unknown(junk) | DescriptorType::Junk(junk) => {
-                    dump_unrecognised(junk, 4);
+                    dump_unrecognised(junk, indent + 2);
                 }
                 _ => (),
             }
@@ -790,11 +790,11 @@ fn print_interface(interface: &USBInterface, indent: usize) {
                             dump_videostreaming_interface(gd);
                         }
                         Some((ClassCode::ApplicationSpecificInterface, 1, _)) => {
-                            dump_dfu_interface(gd);
+                            dump_dfu_interface(gd, indent + 2);
                         }
                         _ => {
                             let junk = Vec::from(cd.to_owned());
-                            dump_unrecognised(&junk, 6);
+                            dump_unrecognised(&junk, indent + 2);
                         }
                     },
                 },
@@ -882,7 +882,7 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
                 // Misplaced descriptors
                 DescriptorType::Device(cd) => match cd {
                     ClassDescriptor::Ccid(ccid) => {
-                        dump_ccid_desc(ccid, indent + 2);
+                        dump_ccid_desc(ccid, indent);
                     }
                     _ => {
                         println!(
@@ -902,11 +902,11 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
                         Some((ClassCode::CDCData, _, _))
                         | Some((ClassCode::CDCCommunications, _, _)) => {
                             if let Ok(cd) = gd.to_owned().try_into() {
-                                dump_comm_descriptor(&cd, 6)
+                                dump_comm_descriptor(&cd, indent)
                             }
                         }
                         Some((ClassCode::MassStorage, _, _)) => {
-                            dump_pipe_desc(gd);
+                            dump_pipe_desc(gd, indent + 2);
                         }
                         _ => {
                             println!(
@@ -936,7 +936,7 @@ fn print_endpoint(endpoint: &USBEndpoint, indent: usize) {
                     }
                 },
                 DescriptorType::InterfaceAssociation(iad) => {
-                    dump_interface_association(iad);
+                    dump_interface_association(iad, indent + 2);
                 }
                 DescriptorType::SsEndpointCompanion(ss) => {
                     println!(
@@ -4058,65 +4058,69 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
     }
 }
 
-fn dump_dfu_interface(gd: &GenericDescriptor) {
-    println!("      Device Firmware Upgrade Interface Descriptor:");
-    println!("        bLength                        {:5}", gd.length);
-    println!(
-        "        bDescriptorType                {:5}",
-        gd.descriptor_type
-    );
-    println!(
-        "        bmAttributes                   {:5}",
-        gd.descriptor_subtype
-    );
+fn dump_dfu_interface(gd: &GenericDescriptor, indent: usize) {
+    const DFU_WIDTH: usize = 36;
+
+    dump_title("Device Firmware Upgrade Interface Descriptor:", indent);
+    dump_value(gd.length, "bLength", indent + 2, DFU_WIDTH);
+    dump_value(gd.descriptor_type, "bDescriptorType", indent + 2, DFU_WIDTH);
+    dump_value(gd.descriptor_subtype, "bmAttributes", indent + 2, DFU_WIDTH);
 
     if gd.descriptor_subtype & 0xf0 != 0 {
-        println!("          (unknown attributes!)");
+        println!("{:indent$}(unknown attributes!)", "", indent = indent + 4);
     }
     if gd.descriptor_subtype & 0x08 != 0 {
-        println!("          Will Detach");
+        println!("{:indent$}Will Detach", "", indent = indent + 4);
     } else {
-        println!("          Will Not Detach");
+        println!("{:indent$}Will Not Detach", "", indent = indent + 4);
     }
     if gd.descriptor_subtype & 0x04 != 0 {
-        println!("          Manifestation Tolerant");
+        println!("{:indent$}Manifestation Intolerant", "", indent = indent + 4);
     } else {
-        println!("          Manifestation Intolerant");
+        println!("{:indent$}Manifestation Tolerant", "", indent = indent + 4);
     }
     if gd.descriptor_subtype & 0x02 != 0 {
-        println!("          Upload Supported");
+        println!("{:indent$}Upload Supported", "", indent = indent + 4);
     } else {
-        println!("          Upload Unsupported");
+        println!("{:indent$}Upload Unsupported", "", indent = indent + 4);
     }
     if gd.descriptor_subtype & 0x01 != 0 {
-        println!("          Download Supported");
+        println!("{:indent$}Download Supported", "", indent = indent + 4);
     } else {
-        println!("          Download Unsupported");
+        println!("{:indent$}Download Unsupported", "", indent = indent + 4);
     }
 
     if let Some(data) = &gd.data {
         if data.len() >= 4 {
             let detach_timeout = u16::from_le_bytes([data[0], data[1]]);
-            println!(
-                "        wDetachTimeout                 {:5} milliseconds",
-                detach_timeout
+            dump_value_string(
+                detach_timeout,
+                "wDetachTimeout",
+                "milliseconds",
+                indent + 2,
+                DFU_WIDTH,
             );
             let transfer_size = u16::from_le_bytes([data[2], data[3]]);
-            println!(
-                "        wTransferSize                  {:5} bytes",
-                transfer_size
+            dump_value_string(
+                transfer_size,
+                "wTransferSize",
+                "bytes",
+                indent + 2,
+                DFU_WIDTH,
             );
         }
         if data.len() >= 6 {
-            println!(
-                "        bcdDFUVersion                  {:x}.{:02x}",
-                data[4], data[5]
+            dump_value(
+                format!("{:x}.{:02x}", data[5], data[4]),
+                "bcdDFUVersion",
+                indent + 2,
+                DFU_WIDTH,
             );
         }
     }
 }
 
-fn dump_pipe_desc(gd: &GenericDescriptor) {
+fn dump_pipe_desc(gd: &GenericDescriptor, indent: usize) {
     if gd.length == 4 && gd.descriptor_type == 0x24 {
         let subtype_string = match gd.descriptor_subtype {
             1 => "Command pipe",
@@ -4128,30 +4132,31 @@ fn dump_pipe_desc(gd: &GenericDescriptor) {
         };
 
         println!(
-            "        {} (0x{:02x})",
-            subtype_string, gd.descriptor_subtype
+            "{:indent$}{} (0x{:02x})", "",
+            subtype_string, gd.descriptor_subtype, indent = indent
         );
     } else {
         println!(
-            "        INTERFACE CLASS: {}",
+            "{:indent$}INTERFACE CLASS: {}", "",
             Vec::<u8>::from(gd.to_owned())
                 .iter()
                 .map(|b| format!("{:02x}", b))
                 .collect::<Vec<String>>()
-                .join(" ")
+                .join(" "),
+            indent = indent
         );
     }
 }
 
-fn dump_security(sec: &SecurityDescriptor) {
-    println!("    Security Descriptor:");
-    println!("      bLength              {:5}", sec.length);
-    println!("      bDescriptorType      {:5}", sec.descriptor_type);
-    println!("      wTotalLength        0x{:04x}", sec.total_length);
-    println!("      bNumEncryptionTypes  {:5}", sec.encryption_types);
+fn dump_security(sec: &SecurityDescriptor, indent: usize) {
+    dump_title("Security Descriptor:", indent);
+    dump_value(sec.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(sec.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_hex(sec.total_length, "wTotalLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(sec.encryption_types, "bNumEncryptionTypes", indent + 2, LSUSB_DUMP_WIDTH);
 }
 
-fn dump_encryption_type(enc: &EncryptionDescriptor) {
+fn dump_encryption_type(enc: &EncryptionDescriptor, indent: usize) {
     let enct_string = match enc.encryption_type as u8 {
         0 => "UNSECURE",
         1 => "WIRED",
@@ -4160,47 +4165,58 @@ fn dump_encryption_type(enc: &EncryptionDescriptor) {
         _ => "RESERVED",
     };
 
-    println!("     Encryption Type:");
-    println!("      bLength              {:3}", enc.length);
-    println!("      bDescriptorType      {:3}", enc.descriptor_type);
-    println!(
-        "      bEncryptionType      {:3} {}",
-        enc.encryption_type as u8, enct_string
+    dump_title("Encryption Type:", indent);
+    dump_value(enc.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(enc.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(
+        enc.encryption_type as u8,
+        "bEncryptionType",
+        enct_string,
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!("      bEncryptionValue     {:3}", enc.encryption_value);
-    println!("      bAuthKeyIndex        {:3}", enc.auth_key_index);
+    dump_value(enc.encryption_value, "bEncryptionValue", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(enc.auth_key_index, "bAuthKeyIndex", indent + 2, LSUSB_DUMP_WIDTH);
 }
 
-fn dump_interface_association(iad: &InterfaceAssociationDescriptor) {
-    println!("    Interface Association:");
-    println!("      bLength              {:3}", iad.length);
-    println!("      bDescriptorType      {:3}", iad.descriptor_type);
-    println!("      bFirstInterface      {:3}", iad.first_interface);
-    println!("      bInterfaceCount      {:3}", iad.interface_count);
-    println!(
-        "      bFunctionClass       {:3} {}",
+fn dump_interface_association(iad: &InterfaceAssociationDescriptor, indent: usize) {
+    dump_title("Interface Association:", indent);
+    dump_value(iad.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(iad.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(iad.first_interface, "bFirstInterface", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(iad.interface_count, "bInterfaceCount", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(
         iad.function_class,
-        names::class(iad.function_class).unwrap_or_default()
+        "bFunctionClass",
+        names::class(iad.function_class).unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "      bFunctionSubClass    {:3} {}",
+    dump_value_string(
         iad.function_sub_class,
-        names::subclass(iad.function_class, iad.function_sub_class).unwrap_or_default()
+        "bFunctionSubClass",
+        names::subclass(iad.function_class, iad.function_sub_class).unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "      bFunctionProtocol    {:3} {}",
+    dump_value_string(
         iad.function_protocol,
+        "bFunctionProtocol",
         names::protocol(
             iad.function_class,
             iad.function_sub_class,
-            iad.function_protocol
+            iad.function_protocol,
         )
-        .unwrap_or_default()
+        .unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "      iFunction            {:3} {}",
+    dump_value_string(
         iad.function_string_index,
-        iad.function_string.as_ref().unwrap_or(&String::new())
+        "iFunction",
+        iad.function_string.as_ref().unwrap_or(&String::new()),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
     );
 }
 
@@ -4316,7 +4332,7 @@ fn dump_unit(mut data: u16, len: usize) {
     println!();
 }
 
-// ported directly from lsusb - it's not pretty but works...
+/// Dumps HID report data ported directly from lsusb - it's not pretty but works...
 fn dump_report_desc(desc: &[u8], indent: usize) {
     // ported from lsusb - indented to 28 spaces for some reason...
     const REPORT_INDENT: usize = 28;

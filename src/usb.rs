@@ -152,6 +152,8 @@ pub enum ConfigAttributes {
     SelfPowered,
     /// Supports remote wake-up
     RemoteWakeup,
+    /// Device is battery powered
+    BatteryPowered,
 }
 
 impl fmt::Display for ConfigAttributes {
@@ -1014,6 +1016,7 @@ impl USBConfiguration {
             match attr {
                 ConfigAttributes::SelfPowered => ret |= 0x40,
                 ConfigAttributes::RemoteWakeup => ret |= 0x20,
+                ConfigAttributes::BatteryPowered => ret |= 0x10,
             }
         }
 
