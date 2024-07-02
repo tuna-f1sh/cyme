@@ -276,7 +276,7 @@ lazy_static! {
             (Icon::Vid(0x1fc9), "\u{f2db}"), // nxp 
             (Icon::Vid(0x1050), "\u{f084}"), // yubikey 
             (Icon::Vid(0x0781), "\u{f129e}"), // sandisk 󱊞
-            (Icon::Name(r".*sd\scard\sreader.*".to_string()), "\u{ef61}"), // sd card reader 
+            (Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()), "\u{ef61}"), // sd card reader 
             (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"), // android dev 
             (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
             (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
@@ -445,7 +445,7 @@ impl IconTheme {
             .iter()
             .find(|(k, _)| {
                 if let Icon::Name(s) = k {
-                    regex::Regex::new(s).map_or(false, |r| r.is_match(&name.to_lowercase()))
+                    regex::Regex::new(s).map_or(false, |r| r.is_match(name))
                 } else {
                     false
                 }
@@ -462,7 +462,7 @@ impl IconTheme {
                 .iter()
                 .find(|(k, _)| {
                     if let Icon::Name(s) = k {
-                        regex::Regex::new(s).map_or(false, |r| r.is_match(&name.to_lowercase()))
+                        regex::Regex::new(s).map_or(false, |r| r.is_match(name))
                     } else {
                         false
                     }
@@ -511,7 +511,7 @@ pub fn example() -> HashMap<Icon, String> {
         ), // serial 
         (Icon::UndefinedClassifier, "\u{2636}".into()), //☶
         (
-            Icon::Name(r".*sd\scard\sreader.*".to_string()),
+            Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()),
             "\u{ef61}".into(),
         ), // sd card reader 
     ])
@@ -622,8 +622,11 @@ mod tests {
         let icon = Icon::from_str(str);
         assert_eq!(icon.unwrap(), Icon::Name("test".to_string()));
 
-        let str = r"name#sd\s+card";
+        let str = r"name#.*^[sS][dD]\s[cC]ard\s[rR]eader.*";
         let icon = Icon::from_str(str);
-        assert_eq!(icon.unwrap(), Icon::Name("sd\\s+card".to_string()));
+        assert_eq!(
+            icon.unwrap(),
+            Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string())
+        );
     }
 }
