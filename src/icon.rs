@@ -379,15 +379,17 @@ impl IconTheme {
 
     /// Get icon for USBDevice `d` by checking `Self` using Name, Vendor ID and Product ID
     pub fn get_device_icon(&self, d: &USBDevice) -> String {
-        if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
-            // try name first since vidpid will return UnknownVendor default icon if not found
-            // does mean regex will be built/checked for every device
-            match self.get_name_icon(&d.name) {
-                s if !s.is_empty() => s,
-                _ => self.get_vidpid_icon(vid, pid),
+        // try name first since vidpid will return UnknownVendor default icon if not found
+        // does mean regex will be built/checked for every device
+        match self.get_name_icon(&d.name) {
+            s if !s.is_empty() => s,
+            _ => {
+                if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
+                    self.get_vidpid_icon(vid, pid)
+                } else {
+                    String::new()
+                }
             }
-        } else {
-            String::new()
         }
     }
 
@@ -628,5 +630,24 @@ mod tests {
             icon.unwrap(),
             Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string())
         );
+    }
+
+    #[test]
+    fn icon_match_name() {
+        let device = USBDevice {
+            name: "SD Card Reader".to_string(),
+            ..Default::default()
+        };
+
+        let theme = IconTheme {
+            user: Some(HashMap::from([(
+                Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()),
+                "\u{ef61}".into(),
+            )])),
+            ..Default::default()
+        };
+
+        let icon = theme.get_device_icon(&device);
+        assert_eq!(icon, "\u{ef61}");
     }
 }
