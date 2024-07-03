@@ -29,7 +29,7 @@ impl fmt::Display for MidiSubtype {
                 MidiSubtype::Undefined => write!(f, "Invalid"),
                 MidiSubtype::InputJack => write!(f, "MIDI_IN_JACK"),
                 MidiSubtype::OutputJack => write!(f, "MIDI_OUT_JACK"),
-                _ => write!(f, "{}", heck::AsShoutySnakeCase(self.to_string()))
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self))),
             }
         } else {
             write!(f, "{:?}", self)
@@ -982,7 +982,7 @@ impl std::fmt::Display for ControlSubtype {
             // uppercase with _ instead of space for lsusb dump
             match self {
                 ControlSubtype::Undefined => write!(f, "unknown"),
-                _ => write!(f, "{}", heck::AsShoutySnakeCase(self.to_string()))
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self))),
             }
         } else {
             write!(f, "{:?}", self)
@@ -1085,7 +1085,7 @@ impl fmt::Display for StreamingSubtype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             // uppercase with _ instead of space for lsusb dump
-            write!(f, "{}", heck::AsShoutySnakeCase(self.to_string()))
+            write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self)))
         } else {
             write!(f, "{:?}", self)
         }

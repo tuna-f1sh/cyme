@@ -13,10 +13,10 @@ use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
 use crate::system_profiler;
 
-use crate::usb::*;
-use crate::usb::descriptors::*;
 use crate::usb::descriptors::audio;
 use crate::usb::descriptors::video;
+use crate::usb::descriptors::*;
+use crate::usb::*;
 
 pub mod names;
 
@@ -202,13 +202,7 @@ fn dump_value<T: std::fmt::Display>(value: T, field_name: &str, indent: usize, w
             .saturating_sub(field_name.len())
             .max(1),
     );
-    println!(
-        "{:indent$}{}{}{}",
-        "",
-        field_name,
-        spaces,
-        value,
-    );
+    println!("{:indent$}{}{}{}", "", field_name, spaces, value,);
 }
 
 /// Dump a single hex value like lsusb
@@ -241,13 +235,7 @@ fn dump_name<T: std::fmt::Display>(
             .saturating_sub(field_name.len())
             .max(1),
     );
-    let dump = format!(
-        "{:indent$}{}{}{}",
-        "",
-        field_name,
-        spaces,
-        value_string,
-    );
+    let dump = format!("{:indent$}{}{}{}", "", field_name, spaces, value_string,);
     if let Some(name) = names_f(value) {
         println!("{} {}", dump, name);
     }
@@ -269,11 +257,7 @@ fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
     );
     println!(
         "{:indent$}{}{}{} {}",
-        "",
-        field_name,
-        spaces,
-        value,
-        value_string,
+        "", field_name, spaces, value, value_string,
     );
 }
 
@@ -322,8 +306,11 @@ where
 }
 
 /// Dumps strings matching the bits set in `bitmap` using `strings_f` function from MSB to LSB
-fn dump_bitmap_strings_invert<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>, indent: usize)
-where
+fn dump_bitmap_strings_invert<T>(
+    bitmap: T,
+    strings_f: fn(usize) -> Option<&'static str>,
+    indent: usize,
+) where
     T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
 {
     let bitmap_u64: u64 = bitmap.into();
@@ -336,7 +323,6 @@ where
         }
     }
 }
-
 
 /// Dump a single value and the string representation of the value to the right of width
 fn dump_bitmap_strings_inline<T, V>(
@@ -356,13 +342,7 @@ fn dump_bitmap_strings_inline<T, V>(
             .saturating_sub(field_name.len())
             .max(1),
     );
-    print!(
-        "{:indent$}{}{}{}",
-        "",
-        field_name,
-        spaces,
-        value,
-    );
+    print!("{:indent$}{}{}{}", "", field_name, spaces, value,);
     let bitmap_u64: u64 = bitmap.into();
     let num_bits = std::mem::size_of::<T>() * 8;
     for index in 0..num_bits {
@@ -771,11 +751,17 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                     ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 2),
                     ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md, indent + 2),
                     ClassDescriptor::Audio(uacd, uacp) => match &uacd.subtype {
-                        audio::UacType::Control(cs) => dump_audiocontrol_interface(uacd, cs, uacp, indent + 2),
-                        audio::UacType::Streaming(ss) => dump_audiostreaming_interface(uacd, ss, uacp, indent + 2),
+                        audio::UacType::Control(cs) => {
+                            dump_audiocontrol_interface(uacd, cs, uacp, indent + 2)
+                        }
+                        audio::UacType::Streaming(ss) => {
+                            dump_audiostreaming_interface(uacd, ss, uacp, indent + 2)
+                        }
                         _ => (),
                     },
-                    ClassDescriptor::Video(vcd, p) => dump_videocontrol_interface(vcd, *p, indent + 2),
+                    ClassDescriptor::Video(vcd, p) => {
+                        dump_videocontrol_interface(vcd, *p, indent + 2)
+                    }
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((ClassCode::Audio, 3, _)) => {
                             if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {
@@ -783,7 +769,9 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                             }
                         }
                         Some((ClassCode::Audio, s, p)) => {
-                            if let Ok(uacd) = audio::UacDescriptor::try_from((gd.to_owned(), *s, *p)) {
+                            if let Ok(uacd) =
+                                audio::UacDescriptor::try_from((gd.to_owned(), *s, *p))
+                            {
                                 let uacp = audio::UacProtocol::from(*p);
                                 match &uacd.subtype {
                                     audio::UacType::Control(cs) => {
@@ -885,7 +873,8 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                     // legacy as context should have been added to the descriptor
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((ClassCode::Audio, 2, p)) => {
-                            if let Ok(uacd) = audio::UacDescriptor::try_from((gd.to_owned(), 2, *p)) {
+                            if let Ok(uacd) = audio::UacDescriptor::try_from((gd.to_owned(), 2, *p))
+                            {
                                 dump_audiostreaming_endpoint(&uacd, indent + 2);
                             }
                         }
@@ -1004,7 +993,12 @@ fn dump_audiostreaming_endpoint(ad: &audio::UacDescriptor, indent: usize) {
     };
     dump_string("AudioStreaming Endpoint Descriptor:", indent);
     dump_value(ad.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(ad.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        ad.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value_string(
         u8::from(ad.subtype.to_owned()),
         "bDescriptorSubtype",
@@ -1013,7 +1007,10 @@ fn dump_audiostreaming_endpoint(ad: &audio::UacDescriptor, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
 
-    if matches!(ad.subtype, audio::UacType::Streaming(audio::StreamingSubtype::General)) {
+    if matches!(
+        ad.subtype,
+        audio::UacType::Streaming(audio::StreamingSubtype::General)
+    ) {
         dump_audio_subtype(&ad.interface, indent + 2);
     }
 }
@@ -1026,25 +1023,51 @@ fn dump_midistreaming_endpoint(gd: &GenericDescriptor, indent: usize) {
 
     dump_string("MIDIStreaming Endpoint Descriptor:", indent);
     dump_value(gd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(gd.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value_string(gd.descriptor_subtype, subtype_string, "bDescriptorSubtype", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        gd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        gd.descriptor_subtype,
+        subtype_string,
+        "bDescriptorSubtype",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
 
     if let Some(data) = gd.data.as_ref() {
         if data.len() >= 2 {
             let num_jacks = data[0] as usize;
             dump_value(num_jacks, "bNumEmbMIDIJack", indent + 2, LSUSB_DUMP_WIDTH);
             if data.len() >= num_jacks {
-                dump_array(&data[1..num_jacks], "baAssocJackID", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_array(
+                    &data[1..num_jacks],
+                    "baAssocJackID",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
             }
         }
-        dump_junk(data, indent, gd.expected_data_length(), 1 + data[0] as usize);
+        dump_junk(
+            data,
+            indent,
+            gd.expected_data_length(),
+            1 + data[0] as usize,
+        );
     }
 }
 
 fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
     dump_string("ChipCard Interface Descriptor:", indent);
     dump_value(ccid.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(ccid.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        ccid.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     if ccid.version.major() != 1 || ccid.version.minor() != 0 {
         dump_value_string(
             ccid.version,
@@ -1057,7 +1080,12 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         dump_value(ccid.version, "bcdCCID", indent + 2, LSUSB_DUMP_WIDTH);
     }
 
-    dump_value(ccid.max_slot_index, "bMaxSlotIndex", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        ccid.max_slot_index,
+        "bMaxSlotIndex",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_bitmap_strings_inline(
         ccid.voltage_support,
         ccid.voltage_support,
@@ -1085,12 +1113,44 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
 
-    dump_value(ccid.default_clock, "dwDefaultClock", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(ccid.max_clock, "dwMaxiumumClock", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(ccid.num_clock_supported, "bNumClockSupported", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value_string(ccid.data_rate, "dwDataRate", "bps", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value_string(ccid.max_data_rate, "dwMaxDataRate", "bps", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(ccid.num_data_rates_supp, "bNumDataRatesSupp.", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        ccid.default_clock,
+        "dwDefaultClock",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        ccid.max_clock,
+        "dwMaxiumumClock",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        ccid.num_clock_supported,
+        "bNumClockSupported",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        ccid.data_rate,
+        "dwDataRate",
+        "bps",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        ccid.max_data_rate,
+        "dwMaxDataRate",
+        "bps",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        ccid.num_data_rates_supp,
+        "bNumDataRatesSupp.",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value(ccid.max_ifsd, "dwMaxIFSD", indent + 2, LSUSB_DUMP_WIDTH);
     dump_bitmap_strings_inline(
         format!("{:08X}", ccid.sync_protocols),
@@ -1121,7 +1181,12 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
 
-    dump_value(format!("{:08X}", ccid.features), "dwFeatures", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        format!("{:08X}", ccid.features),
+        "dwFeatures",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_bitmap_strings(
         ccid.features,
         |index| match index {
@@ -1140,32 +1205,61 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
             18 => Some("Short and extended APDU level exchange"),
             _ => None,
         },
-        indent + 4
+        indent + 4,
     );
     if (ccid.features & (0x0040 | 0x0080)) != 0 {
-        println!("{:indent$}WARNING: conflicting negotiation features", "", indent = indent + 2);
+        println!(
+            "{:indent$}WARNING: conflicting negotiation features",
+            "",
+            indent = indent + 2
+        );
     }
     if ccid.features & 0x00070000 != 0 {
-        println!("{:indent$}WARNING: conflicting exchange levels", "", indent = indent + 2);
+        println!(
+            "{:indent$}WARNING: conflicting exchange levels",
+            "",
+            indent = indent + 2
+        );
     }
 
-    dump_value(ccid.max_ccid_msg_len, "dwMaxCCIDMsgLen", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        ccid.max_ccid_msg_len,
+        "dwMaxCCIDMsgLen",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     if ccid.class_get_response == 0xff {
         dump_value("echo", "bClassGetResponse", indent + 2, LSUSB_DUMP_WIDTH);
     } else {
-        dump_value(format!("{:02X}", ccid.class_get_response), "bClassGetResponse", indent + 2, LSUSB_DUMP_WIDTH);
+        dump_value(
+            format!("{:02X}", ccid.class_get_response),
+            "bClassGetResponse",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
     }
 
     if ccid.class_envelope == 0xff {
         dump_value("echo", "bClassEnvelope", indent + 2, LSUSB_DUMP_WIDTH);
     } else {
-        dump_value(format!("{:02X}", ccid.class_envelope), "bClassEnvelope", indent + 2, LSUSB_DUMP_WIDTH);
+        dump_value(
+            format!("{:02X}", ccid.class_envelope),
+            "bClassEnvelope",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
     }
 
     if ccid.lcd_layout == (0, 0) {
         dump_value("none", "wlcdLayout", indent + 2, LSUSB_DUMP_WIDTH);
     } else {
-        dump_value_string(ccid.lcd_layout.0, "wlcdLayout", format!(" cols {} lines", ccid.lcd_layout.1), indent + 2, LSUSB_DUMP_WIDTH);
+        dump_value_string(
+            ccid.lcd_layout.0,
+            "wlcdLayout",
+            format!(" cols {} lines", ccid.lcd_layout.1),
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
     }
 
     dump_bitmap_strings_inline(
@@ -1181,21 +1275,52 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
 
-    dump_value(ccid.max_ccid_busy_slots, "bMaxCCIDBusySlots", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        ccid.max_ccid_busy_slots,
+        "bMaxCCIDBusySlots",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
 }
 
 fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
     dump_string("Printer Interface Descriptor:", indent);
     dump_value(pd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(pd.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(pd.release_number, "bcdReleaseNumber", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(pd.descriptors.len(), "bcdNumDescriptors", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        pd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        pd.release_number,
+        "bcdReleaseNumber",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        pd.descriptors.len(),
+        "bcdNumDescriptors",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
 
     for desc in &pd.descriptors {
         // basic capabilities
         if desc.descriptor_type == 0x00 {
-            dump_value(desc.versions_supported, "iIPPVersionsSupported", indent + 2, LSUSB_DUMP_WIDTH);
-            dump_value_string(desc.uuid_string_index, "iIPPPrinterUUID", desc.uuid_string.as_ref().unwrap_or(&String::new()), indent + 2, LSUSB_DUMP_WIDTH);  
+            dump_value(
+                desc.versions_supported,
+                "iIPPVersionsSupported",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value_string(
+                desc.uuid_string_index,
+                "iIPPPrinterUUID",
+                desc.uuid_string.as_ref().unwrap_or(&String::new()),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
             print!(
                 "{:indent$}wBasicCapabilities   0x{:04x} ",
                 "",
@@ -1231,7 +1356,13 @@ fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
             println!();
         // vendor specific
         } else {
-            dump_value_string(desc.descriptor_type, "UnknownCapabilities", desc.length, indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value_string(
+                desc.descriptor_type,
+                "UnknownCapabilities",
+                desc.length,
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
         }
     }
 }
@@ -1481,8 +1612,10 @@ fn dump_audio_processing_unit2(unit: &audio::ProcessingUnit2, indent: usize, wid
     dump_array(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "bmChannelConfig", indent, width);
-    let channel_names =
-        audio::UacInterfaceDescriptor::get_channel_name_strings(&audio::UacProtocol::Uac2, unit.channel_config);
+    let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
+        &audio::UacProtocol::Uac2,
+        unit.channel_config,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -1710,8 +1843,10 @@ fn dump_audio_extension_unit2(unit: &audio::ExtensionUnit2, indent: usize, width
     dump_array(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "bmChannelConfig", indent, width);
-    let channel_names =
-        audio::UacInterfaceDescriptor::get_channel_name_strings(&audio::UacProtocol::Uac2, unit.channel_config);
+    let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
+        &audio::UacProtocol::Uac2,
+        unit.channel_config,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -2011,8 +2146,10 @@ fn dump_audio_input_terminal2(ait: &audio::InputTerminal2, indent: usize, width:
     dump_value(ait.assoc_terminal, "bAssocTerminal", indent, width);
     dump_value(ait.nr_channels, "bNrChannels", indent, width);
     dump_hex(ait.channel_config, "wChannelConfig", indent, width);
-    let channel_names =
-        audio::UacInterfaceDescriptor::get_channel_name_strings(&audio::UacProtocol::Uac2, ait.channel_config);
+    let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
+        &audio::UacProtocol::Uac2,
+        ait.channel_config,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -2162,8 +2299,10 @@ fn dump_audio_streaming_interface2(asi: &audio::StreamingInterface2, indent: usi
     dump_value(asi.format_type, "bFormatType", indent, width);
     dump_value(asi.nr_channels, "bNrChannels", indent, width);
     dump_hex(asi.channel_config, "bmChannelConfig", indent, width);
-    let channel_names =
-        audio::UacInterfaceDescriptor::get_channel_name_strings(&audio::UacProtocol::Uac2, asi.channel_config);
+    let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
+        &audio::UacProtocol::Uac2,
+        asi.channel_config,
+    );
     for name in channel_names.iter() {
         println!("{:indent$}{}", "", name, indent = indent + 2);
     }
@@ -2193,7 +2332,11 @@ fn dump_audio_streaming_interface3(asi: &audio::StreamingInterface3, indent: usi
     dump_value(asi.control_size, "bControlSize", indent, width);
 }
 
-fn dump_audio_data_streaming_endpoint1(ads: &audio::DataStreamingEndpoint1, indent: usize, width: usize) {
+fn dump_audio_data_streaming_endpoint1(
+    ads: &audio::DataStreamingEndpoint1,
+    indent: usize,
+    width: usize,
+) {
     let uac1_attrs = |a: usize| match a {
         0 => Some("Sampling Frequency"),
         1 => Some("Pitch"),
@@ -2207,7 +2350,11 @@ fn dump_audio_data_streaming_endpoint1(ads: &audio::DataStreamingEndpoint1, inde
     dump_value(ads.lock_delay, "wLockDelay", indent, width);
 }
 
-fn dump_audio_data_streaming_endpoint2(ads: &audio::DataStreamingEndpoint2, indent: usize, width: usize) {
+fn dump_audio_data_streaming_endpoint2(
+    ads: &audio::DataStreamingEndpoint2,
+    indent: usize,
+    width: usize,
+) {
     let uac2_attrs = |attr: usize| match attr {
         0x07 => Some("MaxPacketsOnly"),
         _ => None,
@@ -2225,7 +2372,11 @@ fn dump_audio_data_streaming_endpoint2(ads: &audio::DataStreamingEndpoint2, inde
     dump_value(ads.lock_delay, "wLockDelay", indent, width);
 }
 
-fn dump_audio_data_streaming_endpoint3(ads: &audio::DataStreamingEndpoint3, indent: usize, width: usize) {
+fn dump_audio_data_streaming_endpoint3(
+    ads: &audio::DataStreamingEndpoint3,
+    indent: usize,
+    width: usize,
+) {
     dump_hex(ads.controls, "bmControls", indent, width);
     dump_bitmap_controls(
         ads.controls,
@@ -2387,7 +2538,12 @@ fn dump_audiocontrol_interface(
 ) {
     dump_string("AudioControl Interface Descriptor", indent);
     dump_value(uacd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(uacd.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        uacd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value_string(
         uaci.to_owned() as u8,
         "bDescriptorSubtype",
@@ -2418,7 +2574,12 @@ fn dump_audiostreaming_interface(
 ) {
     dump_string("AudioStreaming Interface Descriptor:", indent);
     dump_value(uacd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(uacd.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        uacd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value_string(
         uasi.to_owned() as u8,
         "bDescriptorSubtype",
@@ -2512,17 +2673,12 @@ fn dump_audiostreaming_interface(
             }
             let fmttag = u16::from_le_bytes([data[0], data[1]]);
             let fmtptr = get_format_specific_string(fmttag);
-            dump_value_string(
-                fmttag,
-                "wFormatTag",
-                fmtptr,
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
+            dump_value_string(fmttag, "wFormatTag", fmtptr, indent + 2, LSUSB_DUMP_WIDTH);
             match fmttag {
                 0x1001 => dump_format_specific_mpeg(&data),
                 0x1002 => dump_format_specific_ac3(&data),
-                _ => println!("{:indent$}Invalid desc format type: {}",
+                _ => println!(
+                    "{:indent$}Invalid desc format type: {}",
                     "",
                     data[2..]
                         .iter()
@@ -2879,7 +3035,12 @@ fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: usize) {
 
     dump_string("MIDIStreaming Interface Descriptor:", indent);
     dump_value(md.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(md.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        md.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value_string(
         md.midi_type.to_owned() as u8,
         "bDescriptorSubtype",
@@ -2892,7 +3053,12 @@ fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: usize) {
         audio::MidiSubtype::Header => {
             if md.data.len() >= 4 {
                 let total_length = u16::from_le_bytes([md.data[2], md.data[3]]);
-                dump_value(format!("{:02x}.{:02x}", md.data[1], md.data[0]), "bcdADC", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:02x}.{:02x}", md.data[1], md.data[0]),
+                    "bcdADC",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 dump_hex(total_length, "wTotalLength", indent + 2, LSUSB_DUMP_WIDTH);
             }
             dump_junk(&md.data, 8, md.length as usize - 3, 4);
@@ -2933,8 +3099,18 @@ fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: usize) {
                     if i == md.data[2] as usize {
                         break;
                     }
-                    dump_value(b[0], &format!("baSourceID({:2})", i), indent + 2, LSUSB_DUMP_WIDTH);
-                    dump_value(b[1], &format!("baSourcePin({:2})", i), indent + 2, LSUSB_DUMP_WIDTH);
+                    dump_value(
+                        b[0],
+                        &format!("baSourceID({:2})", i),
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
+                    dump_value(
+                        b[1],
+                        &format!("baSourcePin({:2})", i),
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
                 }
 
                 dump_value_string(
@@ -2956,14 +3132,34 @@ fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: usize) {
                     if i == num_inputs {
                         break;
                     }
-                    dump_value(b[0], &format!("baSourceID({:2})", i), indent + 2, LSUSB_DUMP_WIDTH);
-                    dump_value(b[1], &format!("baSourcePin({:2})", i), indent + 2, LSUSB_DUMP_WIDTH);
+                    dump_value(
+                        b[0],
+                        &format!("baSourceID({:2})", i),
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
+                    dump_value(
+                        b[1],
+                        &format!("baSourcePin({:2})", i),
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
                 }
 
                 let j = 2 + num_inputs * 2;
                 dump_value(md.data[j], "bNrOutputPins", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(md.data[j + 1], "bInTerminalLink", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(md.data[j + 2], "bOutTerminalLink", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    md.data[j + 1],
+                    "bInTerminalLink",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_value(
+                    md.data[j + 2],
+                    "bOutTerminalLink",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 dump_value(md.data[j + 3], "bElCapsSize", indent + 2, LSUSB_DUMP_WIDTH);
                 let capsize = md.data[j + 3] as usize;
                 let mut caps: u16 = 0;
@@ -3002,7 +3198,8 @@ fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: usize) {
             }
         }
         _ => {
-            println!("{:indent$}Invalid desc subtype: {}",
+            println!(
+                "{:indent$}Invalid desc subtype: {}",
                 "",
                 md.data
                     .iter()
@@ -3018,7 +3215,12 @@ fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: usize) {
 fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, protocol: u8, indent: usize) {
     dump_string("VideoControl Interface Descriptor:", indent);
     dump_value(vcd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(vcd.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        vcd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value_string(
         vcd.subtype.to_owned() as u8,
         "bDescriptorSubtype",
@@ -3032,8 +3234,18 @@ fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, protocol: u8, indent:
             if vcd.data.len() >= 10 {
                 let n = vcd.data[8] as usize;
                 let freq = u32::from_le_bytes([vcd.data[4], vcd.data[5], vcd.data[6], vcd.data[7]]);
-                dump_value(format!("{:02x}.{:02x}", vcd.data[1], vcd.data[0]), "bcdUVC", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_hex(u16::from_le_bytes([vcd.data[2], vcd.data[3]]), "wTotalLength", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:02x}.{:02x}", vcd.data[1], vcd.data[0]),
+                    "bcdUVC",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_hex(
+                    u16::from_le_bytes([vcd.data[2], vcd.data[3]]),
+                    "wTotalLength",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 dump_value(
                     format!("{:5}.{:06}MHz", freq / 1000000, freq % 1000000),
                     "dwClockFrequency",
@@ -3073,9 +3285,24 @@ fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, protocol: u8, indent:
 
                 if term_type == 0x0201 {
                     n += vcd.data[11] as usize;
-                    dump_value(u16::from_le_bytes([vcd.data[5], vcd.data[6]]), "wObjectiveFocalLengthMin", indent + 2, LSUSB_DUMP_WIDTH);
-                    dump_value(u16::from_le_bytes([vcd.data[7], vcd.data[8]]), "wObjectiveFocalLengthMax", indent + 2, LSUSB_DUMP_WIDTH);
-                    dump_value(u16::from_le_bytes([vcd.data[9], vcd.data[10]]), "wOcularFocalLength", indent + 2, LSUSB_DUMP_WIDTH);
+                    dump_value(
+                        u16::from_le_bytes([vcd.data[5], vcd.data[6]]),
+                        "wObjectiveFocalLengthMin",
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
+                    dump_value(
+                        u16::from_le_bytes([vcd.data[7], vcd.data[8]]),
+                        "wObjectiveFocalLengthMax",
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
+                    dump_value(
+                        u16::from_le_bytes([vcd.data[9], vcd.data[10]]),
+                        "wOcularFocalLength",
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
                     dump_value(vcd.data[11], "bControlSize", indent + 2, LSUSB_DUMP_WIDTH);
 
                     let mut controls: u32 = 0;
@@ -3141,7 +3368,12 @@ fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, protocol: u8, indent:
                     if i == pins {
                         break;
                     }
-                    dump_value(*b, &format!("baSourceID({:2})", i), indent + 2, LSUSB_DUMP_WIDTH);
+                    dump_value(
+                        *b,
+                        &format!("baSourceID({:2})", i),
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
                 }
                 dump_value_string(
                     vcd.data[2 + pins],
@@ -3161,7 +3393,12 @@ fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, protocol: u8, indent:
                 let n = vcd.data[4] as usize;
                 dump_value(vcd.data[0], "bUnitID", indent + 2, LSUSB_DUMP_WIDTH);
                 dump_value(vcd.data[1], "bSourceID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(u16::from_le_bytes([vcd.data[2], vcd.data[3]]), "wMaxMultiplier", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    u16::from_le_bytes([vcd.data[2], vcd.data[3]]),
+                    "wMaxMultiplier",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 dump_value(vcd.data[4], "bControlSize", indent + 2, LSUSB_DUMP_WIDTH);
 
                 let mut controls: u32 = 0;
@@ -3192,7 +3429,12 @@ fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, protocol: u8, indent:
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
                 );
-                dump_hex(vcd.data[6 + n], "bmVideoStandards", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_hex(
+                    vcd.data[6 + n],
+                    "bmVideoStandards",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 for (i, n) in STD_NAMES.iter().enumerate().take(6) {
                     if (stds >> i) & 1 != 0 {
                         dump_string(n, indent + 4);
@@ -3219,11 +3461,26 @@ fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, protocol: u8, indent:
 
                 if vcd.data.len() >= 21 + p + n {
                     for (i, b) in vcd.data[19..19 + p].iter().enumerate() {
-                        dump_value(*b, &format!("baSourceID({:2})", i), indent + 2, LSUSB_DUMP_WIDTH);
+                        dump_value(
+                            *b,
+                            &format!("baSourceID({:2})", i),
+                            indent + 2,
+                            LSUSB_DUMP_WIDTH,
+                        );
                     }
-                    dump_value(vcd.data[19 + p], "bControlSize", indent + 2, LSUSB_DUMP_WIDTH);
+                    dump_value(
+                        vcd.data[19 + p],
+                        "bControlSize",
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
                     for (i, b) in vcd.data[20 + p..20 + p + n].iter().enumerate() {
-                        dump_hex(*b, &format!("bmControls({:2})", i), indent + 2, LSUSB_DUMP_WIDTH);
+                        dump_hex(
+                            *b,
+                            &format!("bmControls({:2})", i),
+                            indent + 2,
+                            LSUSB_DUMP_WIDTH,
+                        );
                     }
                     dump_value_string(
                         vcd.data[20 + p + n],
@@ -3295,7 +3552,12 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
     let subtype = video::StreamingSubtype::from(gd.descriptor_subtype);
     dump_string("VideoStreaming Interface Descriptor:", indent);
     dump_value(gd.length, "bLength", indent + 2, DUMP_WIDTH);
-    dump_value(gd.descriptor_type, "bDescriptorType", indent + 2, DUMP_WIDTH);
+    dump_value(
+        gd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        DUMP_WIDTH,
+    );
     dump_value_string(
         gd.descriptor_subtype,
         "bDescriptorSubtype",
@@ -3348,11 +3610,20 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                     let formats = data[0];
                     let control_size = data[9];
                     dump_value(formats, "bNumFormats", indent + 2, DUMP_WIDTH);
-                    dump_hex(u16::from_le_bytes([data[1], data[2]]), "wTotalLength", indent + 2, DUMP_WIDTH);
+                    dump_hex(
+                        u16::from_le_bytes([data[1], data[2]]),
+                        "wTotalLength",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
                     dump_value_string(
                         format!("0x{:02x}", data[3]),
                         "bEndpointAddress",
-                        format!("EP {} {}", data[3] & 0x0f, if data[3] & 0x80 != 0 { "IN" } else { "OUT" }),
+                        format!(
+                            "EP {} {}",
+                            data[3] & 0x0f,
+                            if data[3] & 0x80 != 0 { "IN" } else { "OUT" }
+                        ),
                         indent + 2,
                         DUMP_WIDTH,
                     );
@@ -3366,7 +3637,12 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                         if i == formats as usize {
                             break;
                         }
-                        dump_value(b[0], &format!("bmaControls({:2})", i), indent + 2, DUMP_WIDTH);
+                        dump_value(
+                            b[0],
+                            &format!("bmaControls({:2})", i),
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
                     }
 
                     dump_junk(
@@ -3382,11 +3658,20 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                     let formats = data[0];
                     let control_size = data[8];
                     dump_value(formats, "bNumFormats", indent + 2, DUMP_WIDTH);
-                    dump_hex(u16::from_le_bytes([data[1], data[2]]), "wTotalLength", indent + 2, DUMP_WIDTH);
+                    dump_hex(
+                        u16::from_le_bytes([data[1], data[2]]),
+                        "wTotalLength",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
                     dump_value_string(
                         format!("0x{:02x}", data[3]),
                         "bEndpointAddress",
-                        format!("EP {} {}", data[3] & 0x0f, if data[3] & 0x80 != 0 { "IN" } else { "OUT" }),
+                        format!(
+                            "EP {} {}",
+                            data[3] & 0x0f,
+                            if data[3] & 0x80 != 0 { "IN" } else { "OUT" }
+                        ),
                         indent + 2,
                         DUMP_WIDTH,
                     );
@@ -3396,7 +3681,12 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                         if i == formats as usize {
                             break;
                         }
-                        dump_value(b[0], &format!("bmaControls({:2})", i), indent + 2, DUMP_WIDTH);
+                        dump_value(
+                            b[0],
+                            &format!("bmaControls({:2})", i),
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
                     }
 
                     dump_junk(
@@ -3414,7 +3704,11 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                     dump_value_string(
                         data[0],
                         "bEndpointAddress",
-                        format!("EP {} {}", data[0] & 0x0f, if data[0] & 0x80 != 0 { "IN" } else { "OUT" }),
+                        format!(
+                            "EP {} {}",
+                            data[0] & 0x0f,
+                            if data[0] & 0x80 != 0 { "IN" } else { "OUT" }
+                        ),
                         indent + 2,
                         DUMP_WIDTH,
                     );
@@ -3428,13 +3722,23 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                         dump_value(w, &format!("wWidth({:2})", i), indent + 2, DUMP_WIDTH);
                         dump_value(h, &format!("wHeight({:2})", i), indent + 2, DUMP_WIDTH);
                     }
-                    dump_value(compression_num, "bNumCompressionPatterns", indent + 2, DUMP_WIDTH);
+                    dump_value(
+                        compression_num,
+                        "bNumCompressionPatterns",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
                     if data.len() >= 3 + image_num * 4 + compression_num as usize {
                         for (i, b) in data[3 + image_num * 4..].iter().enumerate() {
                             if i == compression_num as usize {
                                 break;
                             }
-                            dump_value(b, &format!("bCompression({:2})", i), indent + 2, DUMP_WIDTH);
+                            dump_value(
+                                b,
+                                &format!("bCompression({:2})", i),
+                                indent + 2,
+                                DUMP_WIDTH,
+                            );
                         }
                     }
 
@@ -3471,15 +3775,24 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                     dump_hex(flags, "bmInterlaceFlags", indent + 2, DUMP_WIDTH);
                     dump_value(data[23], "bCopyProtect", indent + 2, DUMP_WIDTH);
                     dump_string(
-                        &format!("Interlaced stream or variable: {}", if flags & 0x01 != 0 { "Yes" } else { "No" }),
+                        &format!(
+                            "Interlaced stream or variable: {}",
+                            if flags & 0x01 != 0 { "Yes" } else { "No" }
+                        ),
                         indent + 4,
                     );
                     dump_string(
-                        &format!("Fields per frame: {}", if flags & 0x02 != 0 { "Yes" } else { "No" }),
+                        &format!(
+                            "Fields per frame: {}",
+                            if flags & 0x02 != 0 { "Yes" } else { "No" }
+                        ),
                         indent + 4,
                     );
                     dump_string(
-                        &format!("Field 1 first: {}", if flags & 0x04 != 0 { "Yes" } else { "No" }),
+                        &format!(
+                            "Field 1 first: {}",
+                            if flags & 0x04 != 0 { "Yes" } else { "No" }
+                        ),
                         indent + 4,
                     );
                     dump_string(
@@ -3487,19 +3800,22 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                         indent + 4,
                     );
                     if gd.descriptor_subtype == 0x10 {
-                        dump_value(data.get(24).unwrap_or(&0), "bVariableSize", indent + 2, DUMP_WIDTH);
+                        dump_value(
+                            data.get(24).unwrap_or(&0),
+                            "bVariableSize",
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
                     }
                 }
 
                 dump_junk(data, 8, gd.expected_data_length(), len);
             }
             0x05 | 0x07 | 0x11 => {
-                let n = if gd.descriptor_subtype == 0x05 {
-                    22
-                } else if gd.descriptor_subtype == 0x07 {
-                    22
-                } else {
+                let n = if gd.descriptor_subtype == 0x11 {
                     18
+                } else {
+                    22
                 };
 
                 if data.len() >= 23 {
@@ -3519,29 +3835,89 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                     if flags & 0x02 != 0 {
                         dump_string("Fixed frame-rate", indent + 4);
                     }
-                    dump_value(u16::from_le_bytes([data[2], data[3]]), "wWidth", indent + 2, DUMP_WIDTH);
-                    dump_value(u16::from_le_bytes([data[4], data[5]]), "wHeight", indent + 2, DUMP_WIDTH);
-                    dump_value(u32::from_le_bytes([data[6], data[7], data[8], data[9]]), "dwMinBitRate", indent + 2, DUMP_WIDTH);
-                    dump_value(u32::from_le_bytes([data[10], data[11], data[12], data[13]]), "dwMaxBitRate", indent + 2, DUMP_WIDTH);
+                    dump_value(
+                        u16::from_le_bytes([data[2], data[3]]),
+                        "wWidth",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                    dump_value(
+                        u16::from_le_bytes([data[4], data[5]]),
+                        "wHeight",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                    dump_value(
+                        u32::from_le_bytes([data[6], data[7], data[8], data[9]]),
+                        "dwMinBitRate",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                    dump_value(
+                        u32::from_le_bytes([data[10], data[11], data[12], data[13]]),
+                        "dwMaxBitRate",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
                     if gd.descriptor_subtype == 0x11 {
-                        dump_value(u32::from_le_bytes([data[14], data[15], data[16], data[17]]), "dwDefaultFrameInterval", indent + 2, DUMP_WIDTH);
+                        dump_value(
+                            u32::from_le_bytes([data[14], data[15], data[16], data[17]]),
+                            "dwDefaultFrameInterval",
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
                         dump_value(data[18], "bFrameIntervalType", indent + 2, DUMP_WIDTH);
-                        dump_value(u32::from_le_bytes([data[19], data[20], data[21], data[22]]), "dwBytesPerLine", indent + 2, DUMP_WIDTH);
+                        dump_value(
+                            u32::from_le_bytes([data[19], data[20], data[21], data[22]]),
+                            "dwBytesPerLine",
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
                     } else {
-                        dump_value(u32::from_le_bytes([data[14], data[15], data[16], data[17]]), "dwMaxVideoFrameBufferSize", indent + 2, DUMP_WIDTH);
-                        dump_value(u32::from_le_bytes([data[18], data[19], data[20], data[21]]), "dwDefaultFrameInterval", indent + 2, DUMP_WIDTH);
+                        dump_value(
+                            u32::from_le_bytes([data[14], data[15], data[16], data[17]]),
+                            "dwMaxVideoFrameBufferSize",
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
+                        dump_value(
+                            u32::from_le_bytes([data[18], data[19], data[20], data[21]]),
+                            "dwDefaultFrameInterval",
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
                         dump_value(data[22], "bFrameIntervalType", indent + 2, DUMP_WIDTH);
                     }
                     if data[n] == 0 && data.len() >= 35 {
-                        dump_value(u32::from_le_bytes([data[23], data[24], data[25], data[26]]), "dwMinFrameInterval", indent + 2, DUMP_WIDTH);
-                        dump_value(u32::from_le_bytes([data[27], data[28], data[29], data[30]]), "dwMaxFrameInterval", indent + 2, DUMP_WIDTH);
-                        dump_value(u32::from_le_bytes([data[31], data[32], data[33], data[34]]), "dwFrameIntervalStep", indent + 2, DUMP_WIDTH);
+                        dump_value(
+                            u32::from_le_bytes([data[23], data[24], data[25], data[26]]),
+                            "dwMinFrameInterval",
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
+                        dump_value(
+                            u32::from_le_bytes([data[27], data[28], data[29], data[30]]),
+                            "dwMaxFrameInterval",
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
+                        dump_value(
+                            u32::from_le_bytes([data[31], data[32], data[33], data[34]]),
+                            "dwFrameIntervalStep",
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
                     } else {
                         for (i, b) in data[n..].chunks(4).enumerate() {
                             if i == data[n] as usize {
                                 break;
                             }
-                            dump_value(u32::from_le_bytes([b[0], b[1], b[2], b[3]]), &format!("dwFrameInterval({:2})", i), indent + 2, DUMP_WIDTH);
+                            dump_value(
+                                u32::from_le_bytes([b[0], b[1], b[2], b[3]]),
+                                &format!("dwFrameInterval({:2})", i),
+                                indent + 2,
+                                DUMP_WIDTH,
+                            );
                         }
                     }
 
@@ -3554,7 +3930,13 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                     dump_value(data[0], "bFormatIndex", indent + 2, DUMP_WIDTH);
                     dump_value(data[1], "bNumFrameDescriptors", indent + 2, DUMP_WIDTH);
                     dump_value(flags, "bmFlags", indent + 2, DUMP_WIDTH);
-                    dump_string(&format!("Fixed-size samples: {}", if flags & 0x01 != 0 { "Yes" } else { "No" }), indent + 2);
+                    dump_string(
+                        &format!(
+                            "Fixed-size samples: {}",
+                            if flags & 0x01 != 0 { "Yes" } else { "No" }
+                        ),
+                        indent + 2,
+                    );
                     dump_value(data[3], "bDefaultFrameIndex", indent + 2, DUMP_WIDTH);
                     dump_value(data[4], "bAspectRatioX", indent + 2, DUMP_WIDTH);
                     dump_value(data[5], "bAspectRatioY", indent + 2, DUMP_WIDTH);
@@ -3562,15 +3944,24 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
                     flags = data[6];
                     dump_hex(flags, "bmInterlaceFlags", indent + 2, DUMP_WIDTH);
                     dump_string(
-                        &format!("Interlaced stream or variable: {}", if flags & 0x01 != 0 { "Yes" } else { "No" }),
+                        &format!(
+                            "Interlaced stream or variable: {}",
+                            if flags & 0x01 != 0 { "Yes" } else { "No" }
+                        ),
                         indent + 4,
                     );
                     dump_string(
-                        &format!("Fields per frame: {}", if flags & 0x02 != 0 { "1" } else { "2" }),
+                        &format!(
+                            "Fields per frame: {}",
+                            if flags & 0x02 != 0 { "1" } else { "2" }
+                        ),
                         indent + 4,
                     );
                     dump_string(
-                        &format!("Field 1 first: {}", if flags & 0x04 != 0 { "Yes" } else { "No" }),
+                        &format!(
+                            "Field 1 first: {}",
+                            if flags & 0x04 != 0 { "Yes" } else { "No" }
+                        ),
                         indent + 4,
                     );
                     dump_string(
@@ -3693,7 +4084,12 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::Header => {
             if cd.data.len() >= 2 {
                 dump_string("CDC Header:", indent);
-                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdCDC", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:x}.{:02x}", cd.data[1], cd.data[0]),
+                    "bcdCDC",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
@@ -3709,7 +4105,7 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
                         1 => Some("dataInterface"),
                         _ => None,
                     },
-                    indent + 4
+                    indent + 4,
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3728,7 +4124,7 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
                         3 => Some("connection notifications"),
                         _ => None,
                     },
-                    indent + 4
+                    indent + 4,
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3760,10 +4156,15 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
                     "iCountryCodeRelDate",
                     cd.string.as_ref().unwrap_or(&String::from("(?)")),
                     indent + 2,
-                    LSUSB_DUMP_WIDTH
+                    LSUSB_DUMP_WIDTH,
                 );
                 cd.data.chunks(2).for_each(|d| {
-                    dump_value(format!("{:02x}{:02x}", d[1], d[0]), "wCountryCode", indent + 2, LSUSB_DUMP_WIDTH);
+                    dump_value(
+                        format!("{:02x}{:02x}", d[1], d[0]),
+                        "wCountryCode",
+                        indent + 2,
+                        LSUSB_DUMP_WIDTH,
+                    );
                 });
             } else {
                 dump_bad_comm(cd, indent);
@@ -3781,7 +4182,7 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
                         2 => Some("computer centric mode"),
                         _ => None,
                     },
-                    indent + 4
+                    indent + 4,
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3796,10 +4197,15 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
                     "iName",
                     cd.string.as_ref().unwrap_or(&String::from("(?)")),
                     indent + 2,
-                    LSUSB_DUMP_WIDTH
+                    LSUSB_DUMP_WIDTH,
                 );
                 dump_value(cd.data[2], "bChannelIndex", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(cd.data[3], "bPhysicalInterface", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    cd.data[3],
+                    "bPhysicalInterface",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
@@ -3812,12 +4218,32 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
                     "iMacAddress",
                     cd.string.as_ref().unwrap_or(&String::from("(?)")),
                     indent + 2,
-                    LSUSB_DUMP_WIDTH
+                    LSUSB_DUMP_WIDTH,
                 );
-                dump_hex(u32::from_le_bytes([cd.data[1], cd.data[2], cd.data[3], cd.data[4]]), "bmEthernetStatistics", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(u16::from_le_bytes([cd.data[5], cd.data[6]]), "wMaxSegmentSize", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_hex(u16::from_le_bytes([cd.data[7], cd.data[8]]), "wNumberMCFilters", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_hex(cd.data[9], "bNumberPowerFilters", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_hex(
+                    u32::from_le_bytes([cd.data[1], cd.data[2], cd.data[3], cd.data[4]]),
+                    "bmEthernetStatistics",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_value(
+                    u16::from_le_bytes([cd.data[5], cd.data[6]]),
+                    "wMaxSegmentSize",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_hex(
+                    u16::from_le_bytes([cd.data[7], cd.data[8]]),
+                    "wNumberMCFilters",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_hex(
+                    cd.data[9],
+                    "bNumberPowerFilters",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
@@ -3825,7 +4251,12 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::WirelessHandsetControlModel => {
             if cd.data.len() >= 2 {
                 dump_string("CDC WHCM:", indent);
-                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:x}.{:02x}", cd.data[1], cd.data[0]),
+                    "bcdVersion",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
@@ -3833,13 +4264,18 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::MobileDirectLineModelFunctional => {
             if cd.data.len() >= 18 {
                 dump_string("CDC MDLM:", indent);
-                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:x}.{:02x}", cd.data[1], cd.data[0]),
+                    "bcdVersion",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 dump_value_string(
                     "",
                     "bGUID",
-                    &get_guid(&cd.data[2..18]),
+                    get_guid(&cd.data[2..18]),
                     indent + 2,
-                    LSUSB_DUMP_WIDTH - 2
+                    LSUSB_DUMP_WIDTH - 2,
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3848,7 +4284,12 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::MobileDirectLineModelDetail => {
             if cd.data.len() >= 2 {
                 dump_string("CDC MDLM detail:", indent);
-                dump_value(format!("{:02x}", cd.data[0]), "bGuidDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:02x}", cd.data[0]),
+                    "bGuidDescriptorType",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 println!(
                     "{:indent$}bDetailData          {}",
                     "",
@@ -3866,8 +4307,18 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::DeviceManagement => {
             if cd.data.len() >= 4 {
                 dump_string("CDC MDLM:", indent);
-                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(u16::from_le_bytes([cd.data[2], cd.data[3]]), "wMaxCommand", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:x}.{:02x}", cd.data[1], cd.data[0]),
+                    "bcdVersion",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_value(
+                    u16::from_le_bytes([cd.data[2], cd.data[3]]),
+                    "wMaxCommand",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
@@ -3875,7 +4326,12 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::Obex => {
             if cd.data.len() >= 2 {
                 dump_string("CDC OBEX:", indent);
-                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:x}.{:02x}", cd.data[1], cd.data[0]),
+                    "bcdVersion",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
@@ -3883,20 +4339,25 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::CommandSet => {
             if cd.data.len() >= 19 {
                 dump_string("CDC Command Set:", indent);
-                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:x}.{:02x}", cd.data[1], cd.data[0]),
+                    "bcdVersion",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 dump_value_string(
                     cd.string_index.unwrap_or_default(),
                     "iCommandSet",
                     cd.string.as_ref().unwrap_or(&String::from("(?)")),
                     indent + 2,
-                    LSUSB_DUMP_WIDTH
+                    LSUSB_DUMP_WIDTH,
                 );
                 dump_value_string(
                     "",
                     "bGUID",
-                    &get_guid(&cd.data[3..19]),
+                    get_guid(&cd.data[3..19]),
                     indent + 2,
-                    LSUSB_DUMP_WIDTH - 2
+                    LSUSB_DUMP_WIDTH - 2,
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3905,8 +4366,18 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::Ncm => {
             if cd.data.len() >= 6 - 3 {
                 dump_string("CDC NCM:", indent);
-                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdNcmVersion", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_hex(cd.data[2], "bmNetworkCapabilities", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:x}.{:02x}", cd.data[1], cd.data[0]),
+                    "bcdNcmVersion",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_hex(
+                    cd.data[2],
+                    "bmNetworkCapabilities",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 dump_bitmap_strings_invert(
                     cd.data[2],
                     |b| match b {
@@ -3918,7 +4389,7 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
                         5 => Some("8-byte ntb input size"),
                         _ => None,
                     },
-                    indent + 4
+                    indent + 4,
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3927,12 +4398,32 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::Mbim => {
             if cd.data.len() >= 9 {
                 dump_string("CDC MBIM:", indent);
-                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdMBIMVersion", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(u16::from_le_bytes([cd.data[2], cd.data[3]]), "wMaxControlMessage", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:x}.{:02x}", cd.data[1], cd.data[0]),
+                    "bcdMBIMVersion",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_value(
+                    u16::from_le_bytes([cd.data[2], cd.data[3]]),
+                    "wMaxControlMessage",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 dump_value(cd.data[4], "bNumberFilters", indent + 2, LSUSB_DUMP_WIDTH);
                 dump_value(cd.data[5], "bMaxFilterSize", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(u16::from_le_bytes([cd.data[6], cd.data[7]]), "wMaxSegmentSize", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_hex(cd.data[8], "bmNetworkCapabilities", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    u16::from_le_bytes([cd.data[6], cd.data[7]]),
+                    "wMaxSegmentSize",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_hex(
+                    cd.data[8],
+                    "bmNetworkCapabilities",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
                 dump_bitmap_strings_invert(
                     cd.data[8],
                     |b| match b {
@@ -3940,7 +4431,7 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
                         5 => Some("8-byte ntb input size"),
                         _ => None,
                     },
-                    indent + 4
+                    indent + 4,
                 );
             } else {
                 dump_bad_comm(cd, indent);
@@ -3949,9 +4440,24 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
         CdcType::MbimExtended => {
             if cd.data.len() >= 5 {
                 dump_string("CDC MBIM Extended:", indent);
-                dump_value(format!("{:x}.{:02x}", cd.data[1], cd.data[0]), "bcdMBIMExtendedVersion", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(cd.data[2], "bMaxOutstandingCommandMessages", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(u16::from_le_bytes([cd.data[3], cd.data[4]]), "wMTU", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(
+                    format!("{:x}.{:02x}", cd.data[1], cd.data[0]),
+                    "bcdMBIMExtendedVersion",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_value(
+                    cd.data[2],
+                    "bMaxOutstandingCommandMessages",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_value(
+                    u16::from_le_bytes([cd.data[3], cd.data[4]]),
+                    "wMTU",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
             } else {
                 dump_bad_comm(cd, indent);
             }
@@ -3978,7 +4484,12 @@ fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
 
     dump_string("Device Firmware Upgrade Interface Descriptor:", indent);
     dump_value(dfud.length, "bLength", indent + 2, DFU_WIDTH);
-    dump_value(dfud.descriptor_type, "bDescriptorType", indent + 2, DFU_WIDTH);
+    dump_value(
+        dfud.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        DFU_WIDTH,
+    );
     dump_value(dfud.attributes, "bmAttributes", indent + 2, DFU_WIDTH);
 
     if dfud.attributes & 0xf0 != 0 {
@@ -3990,7 +4501,11 @@ fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
         println!("{:indent$}Will Not Detach", "", indent = indent + 4);
     }
     if dfud.attributes & 0x04 != 0 {
-        println!("{:indent$}Manifestation Intolerant", "", indent = indent + 4);
+        println!(
+            "{:indent$}Manifestation Intolerant",
+            "",
+            indent = indent + 4
+        );
     } else {
         println!("{:indent$}Manifestation Tolerant", "", indent = indent + 4);
     }
@@ -4020,12 +4535,7 @@ fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
         DFU_WIDTH,
     );
     if let Some(bcd) = dfud.dfu_version.as_ref() {
-        dump_value(
-            bcd,
-            "bcdDFUVersion",
-            indent + 2,
-            DFU_WIDTH,
-        );
+        dump_value(bcd, "bcdDFUVersion", indent + 2, DFU_WIDTH);
     }
 }
 
@@ -4041,12 +4551,16 @@ fn dump_pipe_desc(gd: &GenericDescriptor, indent: usize) {
         };
 
         println!(
-            "{:indent$}{} (0x{:02x})", "",
-            subtype_string, gd.descriptor_subtype, indent = indent
+            "{:indent$}{} (0x{:02x})",
+            "",
+            subtype_string,
+            gd.descriptor_subtype,
+            indent = indent
         );
     } else {
         println!(
-            "{:indent$}INTERFACE CLASS: {}", "",
+            "{:indent$}INTERFACE CLASS: {}",
+            "",
             Vec::<u8>::from(gd.to_owned())
                 .iter()
                 .map(|b| format!("{:02x}", b))
@@ -4060,9 +4574,24 @@ fn dump_pipe_desc(gd: &GenericDescriptor, indent: usize) {
 fn dump_security(sec: &SecurityDescriptor, indent: usize) {
     dump_string("Security Descriptor:", indent);
     dump_value(sec.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(sec.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_hex(sec.total_length, "wTotalLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(sec.encryption_types, "bNumEncryptionTypes", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        sec.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_hex(
+        sec.total_length,
+        "wTotalLength",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        sec.encryption_types,
+        "bNumEncryptionTypes",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
 }
 
 fn dump_encryption_type(enc: &EncryptionDescriptor, indent: usize) {
@@ -4076,7 +4605,12 @@ fn dump_encryption_type(enc: &EncryptionDescriptor, indent: usize) {
 
     dump_string("Encryption Type:", indent);
     dump_value(enc.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(enc.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        enc.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value_string(
         enc.encryption_type as u8,
         "bEncryptionType",
@@ -4084,16 +4618,41 @@ fn dump_encryption_type(enc: &EncryptionDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_value(enc.encryption_value, "bEncryptionValue", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(enc.auth_key_index, "bAuthKeyIndex", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        enc.encryption_value,
+        "bEncryptionValue",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        enc.auth_key_index,
+        "bAuthKeyIndex",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
 }
 
 fn dump_interface_association(iad: &InterfaceAssociationDescriptor, indent: usize) {
     dump_string("Interface Association:", indent);
     dump_value(iad.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(iad.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(iad.first_interface, "bFirstInterface", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(iad.interface_count, "bInterfaceCount", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        iad.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        iad.first_interface,
+        "bFirstInterface",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        iad.interface_count,
+        "bInterfaceCount",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value_string(
         iad.function_class,
         "bFunctionClass",
@@ -4132,7 +4691,12 @@ fn dump_interface_association(iad: &InterfaceAssociationDescriptor, indent: usiz
 fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
     dump_string("HID Descriptor:", indent);
     dump_value(hidd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(hidd.descriptor_type, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        hidd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value(hidd.bcd_hid, "bcdHID", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value_string(
         hidd.country_code,
@@ -4141,7 +4705,12 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_value(hidd.descriptors.len(), "bNumDescriptors", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        hidd.descriptors.len(),
+        "bNumDescriptors",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     for desc in &hidd.descriptors {
         dump_value_string(
             desc.descriptor_type,
@@ -4150,7 +4719,12 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
             indent + 2,
             LSUSB_DUMP_WIDTH,
         );
-        dump_value(desc.length, "wDescriptorLength", indent + 2, LSUSB_DUMP_WIDTH);
+        dump_value(
+            desc.length,
+            "wDescriptorLength",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
     }
 
     for desc in &hidd.descriptors {
@@ -4252,7 +4826,10 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         _ => "reserved",
     };
 
-    dump_string(&format!("Report Descriptor: (length is {})", desc.len()), indent);
+    dump_string(
+        &format!("Report Descriptor: (length is {})", desc.len()),
+        indent,
+    );
 
     let mut i = 0;
     while i < desc.len() {
@@ -4298,53 +4875,40 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
             0x04 => {
                 hut = data as u8;
                 if let Some(hut) = names::huts(hut) {
-                    println!(
-                        "{:indent$}{}",
-                        "",
-                        hut,
-                        indent = REPORT_INDENT
-                    );
+                    println!("{:indent$}{}", "", hut, indent = REPORT_INDENT);
                 }
             }
             // usage, usage minimum, usage maximum
             0x08 | 0x18 | 0x28 => {
                 if let Some(hutus) = names::hutus(hut, data as u16) {
-                    println!(
-                        "{:indent$}{}",
-                        "",
-                        hutus,
-                        indent = REPORT_INDENT
-                    );
+                    println!("{:indent$}{}", "", hutus, indent = REPORT_INDENT);
                 }
             }
             // unit exponent
             0x54 => {
                 println!(
-                    "{:indent$}{}: {}",
+                    "{:indent$}Unit Exponent: {}",
                     "",
-                    "Unit Exponent",
                     data as u8,
                     indent = REPORT_INDENT
                 );
             }
             // unit
-            0x64 => {
-                dump_unit(data as u16, bsize, REPORT_INDENT)
-            }
+            0x64 => dump_unit(data as u16, bsize, REPORT_INDENT),
             // collection
             0xa0 => match data {
-                0x00 => println!("{:indent$}{}", "", "Physical", indent = REPORT_INDENT),
-                0x01 => println!("{:indent$}{}", "", "Application", indent = REPORT_INDENT),
-                0x02 => println!("{:indent$}{}", "", "Logical", indent = REPORT_INDENT),
-                0x03 => println!("{:indent$}{}", "", "Report", indent = REPORT_INDENT),
-                0x04 => println!("{:indent$}{}", "", "Named Array", indent = REPORT_INDENT),
-                0x05 => println!("{:indent$}{}", "", "Usage Switch", indent = REPORT_INDENT),
-                0x06 => println!("{:indent$}{}", "", "Usage Modifier", indent = REPORT_INDENT),
+                0x00 => println!("{:indent$}Physical", "", indent = REPORT_INDENT),
+                0x01 => println!("{:indent$}Application", "", indent = REPORT_INDENT),
+                0x02 => println!("{:indent$}Logical", "", indent = REPORT_INDENT),
+                0x03 => println!("{:indent$}Report", "", indent = REPORT_INDENT),
+                0x04 => println!("{:indent$}Named Array", "", indent = REPORT_INDENT),
+                0x05 => println!("{:indent$}Usage Switch", "", indent = REPORT_INDENT),
+                0x06 => println!("{:indent$}Usage Modifier", "", indent = REPORT_INDENT),
                 _ => {
                     if (data & 0x80) == 0x80 {
-                        println!("{:indent$}{}", "", "Vendor defined", indent = REPORT_INDENT)
+                        println!("{:indent$}Vendor defined", "", indent = REPORT_INDENT)
                     } else {
-                        println!("{:indent$}{}", "", "Unknown", indent = REPORT_INDENT)
+                        println!("{:indent$}Unknown", "", indent = REPORT_INDENT)
                     }
                 }
             },
@@ -4354,25 +4918,53 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
                     "{:indent$}{} {} {} {} {}",
                     "",
                     if data & 0x01 != 0 { "Constant" } else { "Data" },
-                    if data & 0x02 != 0 { "Variable" } else { "Array" },
-                    if data & 0x04 != 0 { "Relative" } else { "Absolute" },
+                    if data & 0x02 != 0 {
+                        "Variable"
+                    } else {
+                        "Array"
+                    },
+                    if data & 0x04 != 0 {
+                        "Relative"
+                    } else {
+                        "Absolute"
+                    },
                     if data & 0x08 != 0 { "Wrap" } else { "No_Wrap" },
-                    if data & 0x10 != 0 { "Non_Linear" } else { "Linear" },
+                    if data & 0x10 != 0 {
+                        "Non_Linear"
+                    } else {
+                        "Linear"
+                    },
                     indent = REPORT_INDENT
                 );
 
                 let attributes_2 = format!(
                     "{:indent$}{} {} {} {}",
                     "",
-                    if data & 0x20 != 0 { "No_Preferred_State" } else { "Preferred_State" },
-                    if data & 0x40 != 0 { "Null_State" } else { "No_Null_Position" },
-                    if data & 0x80 != 0 { "Volatile" } else { "Non_Volatile" },
-                    if data & 0x100 != 0 { "Buffered Bytes" } else { "Bitfield" },
+                    if data & 0x20 != 0 {
+                        "No_Preferred_State"
+                    } else {
+                        "Preferred_State"
+                    },
+                    if data & 0x40 != 0 {
+                        "Null_State"
+                    } else {
+                        "No_Null_Position"
+                    },
+                    if data & 0x80 != 0 {
+                        "Volatile"
+                    } else {
+                        "Non_Volatile"
+                    },
+                    if data & 0x100 != 0 {
+                        "Buffered Bytes"
+                    } else {
+                        "Bitfield"
+                    },
                     indent = REPORT_INDENT
                 );
                 println!("{}", attributes_1);
                 println!("{}", attributes_2);
-            },
+            }
             _ => (),
         }
         i += 1 + bsize;

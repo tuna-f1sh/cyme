@@ -387,7 +387,10 @@ impl ClassDescriptor {
                 (ClassCode::Audio, 3, p) => {
                     // leave generic for Midi Endpoint - maybe should add MidiEndpointDescriptor
                     if !matches!(descriptor_type, DescriptorType::Endpoint(_)) {
-                        *self = ClassDescriptor::Midi(audio::MidiDescriptor::try_from(gd.to_owned())?, p)
+                        *self = ClassDescriptor::Midi(
+                            audio::MidiDescriptor::try_from(gd.to_owned())?,
+                            p,
+                        )
                     }
                 }
                 // UAC
@@ -446,7 +449,7 @@ impl TryFrom<&[u8]> for HidReportDescriptor {
         Ok(HidReportDescriptor {
             descriptor_type: value[0],
             length,
-            data: value.get(3..3+length as usize).map(|d| d.to_vec()),
+            data: value.get(3..3 + length as usize).map(|d| d.to_vec()),
         })
     }
 }

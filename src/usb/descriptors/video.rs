@@ -26,7 +26,7 @@ impl std::fmt::Display for ControlSubtype {
         if f.alternate() {
             match self {
                 ControlSubtype::Undefined => write!(f, "unknown"),
-                _ => write!(f, "{}", heck::AsShoutySnakeCase(self.to_string()))
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self))),
             }
         } else {
             write!(f, "{:?}", self)
@@ -76,7 +76,7 @@ impl std::fmt::Display for StreamingSubtype {
         if f.alternate() {
             match self {
                 StreamingSubtype::Undefined => write!(f, "unknown"),
-                _ => write!(f, "{}", heck::AsShoutySnakeCase(self.to_string()))
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self))),
             }
         } else {
             write!(f, "{:?}", self)

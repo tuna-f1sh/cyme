@@ -139,7 +139,7 @@ struct Args {
     #[arg(long, default_value_t = false, overrides_with = "lsusb")]
     json: bool,
 
-    /// Read from json output rather than profiling system - must use --tree json dump
+    /// Read from json output rather than profiling system
     #[arg(long)]
     from_json: Option<String>,
 
@@ -483,7 +483,16 @@ fn cyme() -> Result<()> {
     };
 
     let mut spusb = if let Some(file_path) = args.from_json {
-        system_profiler::read_json_dump(file_path.as_str())?
+        match system_profiler::read_json_dump(file_path.as_str()) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!(
+                    "Failed to read json dump, attemping as flattened with phony bus: Error({})",
+                    e
+                );
+                system_profiler::read_flat_json_to_phony_bus(file_path.as_str())?
+            }
+        }
     } else if cfg!(target_os = "macos") 
         && !args.force_libusb
         && args.device.is_none() // device path requires extra
