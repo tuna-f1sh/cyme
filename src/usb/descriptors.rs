@@ -385,7 +385,7 @@ impl ClassDescriptor {
                 }
                 // MIDI - TODO include in UAC
                 (ClassCode::Audio, 3, p) => {
-                    // leave generic for Midi Endpoint - maybe should add MidiEndpointDescriptor
+                    // leave generic for Midi Endpoint - TODO should add MidiEndpointDescriptor
                     if !matches!(descriptor_type, DescriptorType::Endpoint(_)) {
                         *self = ClassDescriptor::Midi(
                             audio::MidiDescriptor::try_from(gd.to_owned())?,

@@ -141,6 +141,68 @@ impl TryFrom<MidiDescriptor> for GenericDescriptor {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct MidiEndpointDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub descriptor_subtype: u8,
+    pub num_jacks: u8,
+    pub jacks: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for MidiEndpointDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "MidiEndpointDescriptor descriptor too short",
+            ));
+        }
+
+        let num_jacks = value[3] as usize;
+        if value.len() < 4 + num_jacks as usize {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "MidiEndpointDescriptor descriptor reported number of jacks too long for buffer",
+            ));
+        }
+        let jacks = value[4..4+num_jacks].to_vec();
+
+        Ok(MidiEndpointDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            descriptor_subtype: value[2],
+            num_jacks: value[3],
+            jacks,
+        })
+    }
+}
+
+impl From<MidiEndpointDescriptor> for Vec<u8> {
+    fn from(md: MidiEndpointDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(md.length);
+        ret.push(md.descriptor_type);
+        ret.push(md.descriptor_subtype);
+        ret.push(md.num_jacks);
+        ret.extend(md.jacks);
+
+        ret
+    }
+}
+
+impl TryFrom<GenericDescriptor> for MidiEndpointDescriptor {
+    type Error = Error;
+
+    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
+        let gd_vec: Vec<u8> = gd.into();
+        MidiEndpointDescriptor::try_from(gd_vec.as_slice())
+    }
+}
+
 /// Base USB Audio Class (UAC) interface descriptor that contains [`UacSubtype`] and [`UacInterfaceDescriptor`]
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]

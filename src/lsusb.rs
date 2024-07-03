@@ -879,7 +879,9 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                             }
                         }
                         Some((ClassCode::Audio, 3, _)) => {
-                            dump_midistreaming_endpoint(gd, indent + 2);
+                            if let Ok(md) = audio::MidiEndpointDescriptor::try_from(gd.to_owned()) {
+                                dump_midistreaming_endpoint(&md, indent + 2);
+                            }
                         }
                         _ => (),
                     },
@@ -1015,48 +1017,35 @@ fn dump_audiostreaming_endpoint(ad: &audio::UacDescriptor, indent: usize) {
     }
 }
 
-fn dump_midistreaming_endpoint(gd: &GenericDescriptor, indent: usize) {
-    let subtype_string = match gd.descriptor_subtype {
+fn dump_midistreaming_endpoint(med: &audio::MidiEndpointDescriptor, indent: usize) {
+    let subtype_string = match med.descriptor_subtype {
         2 => "GENERAL",
         _ => "Invalid",
     };
 
     dump_string("MIDIStreaming Endpoint Descriptor:", indent);
-    dump_value(gd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(med.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
-        gd.descriptor_type,
+        med.descriptor_type,
         "bDescriptorType",
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
     dump_value_string(
-        gd.descriptor_subtype,
+        med.descriptor_subtype,
         subtype_string,
         "bDescriptorSubtype",
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
 
-    if let Some(data) = gd.data.as_ref() {
-        if data.len() >= 2 {
-            let num_jacks = data[0] as usize;
-            dump_value(num_jacks, "bNumEmbMIDIJack", indent + 2, LSUSB_DUMP_WIDTH);
-            if data.len() >= num_jacks {
-                dump_array(
-                    &data[1..num_jacks],
-                    "baAssocJackID",
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-            }
-        }
-        dump_junk(
-            data,
-            indent,
-            gd.expected_data_length(),
-            1 + data[0] as usize,
-        );
-    }
+    dump_value(med.num_jacks, "bNumEmbMIDIJack", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_array(
+        &med.jacks,
+        "baAssocJackID",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
 }
 
 fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
