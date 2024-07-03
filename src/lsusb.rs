@@ -768,6 +768,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                     ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 2),
                     ClassDescriptor::Printer(pd) => dump_printer_desc(pd, indent + 2),
                     ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 2),
+                    ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 2),
                     ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md, indent + 2),
                     ClassDescriptor::Audio(uacd, uacp) => match &uacd.subtype {
                         audio::UacType::Control(cs) => dump_audiocontrol_interface(uacd, cs, uacp, indent + 2),
@@ -796,7 +797,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                             }
                         }
                         Some((ClassCode::Video, 1, p)) => {
-                            if let Ok(vcd) =video::UvcDescriptor::try_from(gd.to_owned()) {
+                            if let Ok(vcd) = video::UvcDescriptor::try_from(gd.to_owned()) {
                                 dump_videocontrol_interface(&vcd, *p, indent + 2);
                             }
                         }
@@ -804,7 +805,9 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                             dump_videostreaming_interface(gd, indent + 2);
                         }
                         Some((ClassCode::ApplicationSpecificInterface, 1, _)) => {
-                            dump_dfu_interface(gd, indent + 2);
+                            if let Ok(dfud) = DfuDescriptor::try_from(gd.to_owned()) {
+                                dump_dfu_interface(&dfud, indent + 2);
+                            }
                         }
                         _ => {
                             let junk = Vec::from(cd.to_owned());
@@ -3968,67 +3971,61 @@ fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
     }
 }
 
-fn dump_dfu_interface(gd: &GenericDescriptor, indent: usize) {
+fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
     // wider in lsusb but I prefer standard
     //const DFU_WIDTH: usize = 36;
     const DFU_WIDTH: usize = LSUSB_DUMP_WIDTH;
 
     dump_string("Device Firmware Upgrade Interface Descriptor:", indent);
-    dump_value(gd.length, "bLength", indent + 2, DFU_WIDTH);
-    dump_value(gd.descriptor_type, "bDescriptorType", indent + 2, DFU_WIDTH);
-    dump_value(gd.descriptor_subtype, "bmAttributes", indent + 2, DFU_WIDTH);
+    dump_value(dfud.length, "bLength", indent + 2, DFU_WIDTH);
+    dump_value(dfud.descriptor_type, "bDescriptorType", indent + 2, DFU_WIDTH);
+    dump_value(dfud.attributes, "bmAttributes", indent + 2, DFU_WIDTH);
 
-    if gd.descriptor_subtype & 0xf0 != 0 {
+    if dfud.attributes & 0xf0 != 0 {
         println!("{:indent$}(unknown attributes!)", "", indent = indent + 4);
     }
-    if gd.descriptor_subtype & 0x08 != 0 {
+    if dfud.attributes & 0x08 != 0 {
         println!("{:indent$}Will Detach", "", indent = indent + 4);
     } else {
         println!("{:indent$}Will Not Detach", "", indent = indent + 4);
     }
-    if gd.descriptor_subtype & 0x04 != 0 {
+    if dfud.attributes & 0x04 != 0 {
         println!("{:indent$}Manifestation Intolerant", "", indent = indent + 4);
     } else {
         println!("{:indent$}Manifestation Tolerant", "", indent = indent + 4);
     }
-    if gd.descriptor_subtype & 0x02 != 0 {
+    if dfud.attributes & 0x02 != 0 {
         println!("{:indent$}Upload Supported", "", indent = indent + 4);
     } else {
         println!("{:indent$}Upload Unsupported", "", indent = indent + 4);
     }
-    if gd.descriptor_subtype & 0x01 != 0 {
+    if dfud.attributes & 0x01 != 0 {
         println!("{:indent$}Download Supported", "", indent = indent + 4);
     } else {
         println!("{:indent$}Download Unsupported", "", indent = indent + 4);
     }
 
-    if let Some(data) = &gd.data {
-        if data.len() >= 4 {
-            let detach_timeout = u16::from_le_bytes([data[0], data[1]]);
-            dump_value_string(
-                detach_timeout,
-                "wDetachTimeout",
-                "milliseconds",
-                indent + 2,
-                DFU_WIDTH,
-            );
-            let transfer_size = u16::from_le_bytes([data[2], data[3]]);
-            dump_value_string(
-                transfer_size,
-                "wTransferSize",
-                "bytes",
-                indent + 2,
-                DFU_WIDTH,
-            );
-        }
-        if data.len() >= 6 {
-            dump_value(
-                format!("{:x}.{:02x}", data[5], data[4]),
-                "bcdDFUVersion",
-                indent + 2,
-                DFU_WIDTH,
-            );
-        }
+    dump_value_string(
+        dfud.detach_timeout,
+        "wDetachTimeout",
+        "milliseconds",
+        indent + 2,
+        DFU_WIDTH,
+    );
+    dump_value_string(
+        dfud.transfer_size,
+        "wTransferSize",
+        "bytes",
+        indent + 2,
+        DFU_WIDTH,
+    );
+    if let Some(bcd) = dfud.dfu_version.as_ref() {
+        dump_value(
+            bcd,
+            "bcdDFUVersion",
+            indent + 2,
+            DFU_WIDTH,
+        );
     }
 }
 

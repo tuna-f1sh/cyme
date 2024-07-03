@@ -318,6 +318,8 @@ pub enum ClassDescriptor {
     Audio(audio::UacDescriptor, audio::UacProtocol),
     /// USB Video extra descriptor
     Video(video::UvcDescriptor, u8),
+    /// Device Firmware Upgrade (DFU) descriptor
+    Dfu(DfuDescriptor),
     /// Generic descriptor with Option<ClassCode>
     ///
     /// Used for most descriptors and allows for TryFrom without knowing the [`ClassCode`]
@@ -353,6 +355,7 @@ impl From<ClassDescriptor> for Vec<u8> {
             ClassDescriptor::Midi(md, _) => md.into(),
             ClassDescriptor::Audio(ad, _) => ad.into(),
             ClassDescriptor::Video(vd, _) => vd.into(),
+            ClassDescriptor::Dfu(dd) => dd.into(),
         }
     }
 }
@@ -397,6 +400,9 @@ impl ClassDescriptor {
                 (ClassCode::Video, 1, p) => {
                     *self =
                         ClassDescriptor::Video(video::UvcDescriptor::try_from(gd.to_owned())?, p)
+                }
+                (ClassCode::ApplicationSpecificInterface, 1, _) => {
+                    *self = ClassDescriptor::Dfu(DfuDescriptor::try_from(gd.to_owned())?)
                 }
                 ct => *self = ClassDescriptor::Generic(Some(ct), gd.to_owned()),
             }
@@ -805,8 +811,8 @@ impl From<PrinterDescriptor> for Vec<u8> {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct PrinterReportDescriptor {
-    pub descriptor_type: u8,
     pub length: u8,
+    pub descriptor_type: u8,
     pub capabilities: u16,
     pub versions_supported: u8,
     pub uuid_string_index: u8,
@@ -826,8 +832,8 @@ impl TryFrom<&[u8]> for PrinterReportDescriptor {
         }
 
         Ok(PrinterReportDescriptor {
-            descriptor_type: value[0],
-            length: value[1],
+            length: value[0],
+            descriptor_type: value[1],
             capabilities: u16::from_le_bytes([value[2], value[3]]),
             versions_supported: value[4],
             uuid_string_index: value[5],
@@ -1103,5 +1109,70 @@ impl From<HubDescriptor> for Vec<u8> {
         ret.push(hd.port_power_ctrl_mask);
 
         ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct DfuDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub attributes: u8,
+    pub detach_timeout: u16,
+    pub transfer_size: u16,
+    // not all have version
+    pub dfu_version: Option<Version>,
+}
+
+impl TryFrom<&[u8]> for DfuDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 7 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "DFU descriptor too short",
+            ));
+        }
+
+        let dfu_version = if value.len() >= 9 {
+            Some(Version::from_bcd(u16::from_le_bytes([value[7], value[8]])))
+        } else {
+            None
+        };
+
+        Ok(DfuDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            attributes: value[2],
+            detach_timeout: u16::from_le_bytes([value[3], value[4]]),
+            transfer_size: u16::from_le_bytes([value[5], value[6]]),
+            dfu_version,
+        })
+    }
+}
+
+impl From<DfuDescriptor> for Vec<u8> {
+    fn from(dd: DfuDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(dd.length);
+        ret.push(dd.descriptor_type);
+        ret.push(dd.attributes);
+        ret.extend(dd.detach_timeout.to_le_bytes());
+        ret.extend(dd.transfer_size.to_le_bytes());
+        if let Some(v) = dd.dfu_version {
+            ret.extend(u16::from(v).to_le_bytes());
+        }
+
+        ret
+    }
+}
+
+impl TryFrom<GenericDescriptor> for DfuDescriptor {
+    type Error = Error;
+
+    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
+        let gd_vec: Vec<u8> = gd.into();
+        DfuDescriptor::try_from(&gd_vec[..])
     }
 }
