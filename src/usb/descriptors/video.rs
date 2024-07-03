@@ -10,6 +10,7 @@ use crate::error::{self, Error, ErrorKind};
 #[allow(missing_docs)]
 #[repr(u8)]
 #[non_exhaustive]
+#[serde(rename_all = "kebab-case")]
 pub enum ControlSubtype {
     Undefined = 0x00,
     Header = 0x01,
@@ -55,6 +56,7 @@ impl From<u8> for ControlSubtype {
 #[allow(missing_docs)]
 #[repr(u8)]
 #[non_exhaustive]
+#[serde(rename_all = "kebab-case")]
 pub enum StreamingSubtype {
     Undefined = 0x00,
     InputHeader = 0x01,
@@ -108,6 +110,7 @@ impl From<u8> for StreamingSubtype {
 
 /// USB Video Class (UVC) subtype based on the bDescriptorSubtype
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UvcType {
     /// Video Control Interface
     Control(ControlSubtype),

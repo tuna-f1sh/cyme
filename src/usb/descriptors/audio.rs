@@ -13,6 +13,7 @@ use crate::error::{self, Error, ErrorKind};
 #[allow(missing_docs)]
 #[repr(u8)]
 #[non_exhaustive]
+#[serde(rename_all = "kebab-case")]
 pub enum MidiSubtype {
     Undefined = 0x00,
     Header = 0x01,
@@ -269,6 +270,7 @@ impl UacDescriptor {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum UacInterfaceDescriptor {
     // Audio Controls bSubClass
     Header1(Header1),
@@ -380,6 +382,7 @@ impl From<UacInterfaceDescriptor> for Vec<u8> {
 /// Decoded as bitstring; each bit corresponds to a channel name
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, VariantArray)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum Uac1ChannelNames {
     LeftFront,
     RightFront,
@@ -433,6 +436,7 @@ impl Uac1ChannelNames {
 /// USB Audio Class (UAC) protocol 2 supported channel names based on the "wChannelConfig" bitmap
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, VariantArray)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum Uac2ChannelNames {
     FrontLeft,
     FrontRight,
@@ -520,6 +524,7 @@ impl Uac2ChannelNames {
 /// USB Audio Class (UAC) channel names based on the "wChannelConfig" field
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum ChannelNames {
     /// UAC1 channel names
     Uac1(Uac1ChannelNames),
@@ -883,6 +888,7 @@ impl UacInterfaceDescriptor {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum UacProtocol {
     Uac1 = 0x00,
     Uac2 = 0x20,
@@ -925,6 +931,7 @@ impl std::fmt::Display for UacProtocol {
 
 /// USB Audio Class (UAC) subtype based on the bDescriptorSubtype
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UacType {
     /// Audio Control (AC) subtype
     Control(ControlSubtype),
@@ -1020,6 +1027,7 @@ impl UacType {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum ControlSubtype {
     Undefined = 0x00,
     Header = 0x01,
@@ -1126,6 +1134,7 @@ impl ControlSubtype {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum StreamingSubtype {
     Undefined = 0x00,
     General = 0x01,
@@ -1171,6 +1180,7 @@ impl StreamingSubtype {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum ControlSetting {
     ReadOnly = 0b01,
     IllegalValue = 0b10,
@@ -1201,6 +1211,7 @@ impl fmt::Display for ControlSetting {
 /// UAC bmControl can be 1 bit for just the control type or 2 bits for control type and whether it's read-only
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum ControlType {
     BmControl1,
     BmControl2,
@@ -2094,6 +2105,7 @@ impl From<StreamingInterface3> for Vec<u8> {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum LockDelayUnits {
     Undefined,
     Milliseconds,
@@ -2456,6 +2468,7 @@ impl From<SelectorUnit3> for Vec<u8> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum AudioProcessingUnitType {
     Undefined,
     UpDownMix,
@@ -2736,6 +2749,7 @@ impl From<AudioProcessingUnit2DolbyPrologic> for Vec<u8> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum AudioProcessingUnit2Specific {
     UpDownMix(AudioProcessingUnit2UpDownMix),
     DolbyPrologic(AudioProcessingUnit2DolbyPrologic),
@@ -2866,6 +2880,7 @@ impl From<AudioProcessingUnit3MultiFunction> for Vec<u8> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum AudioProcessingUnit3Specific {
     UpDownMix(AudioProcessingUnit3UpDownMix),
     StereoExtender(AudioProcessingUnit3StereoExtender),
@@ -2984,6 +2999,7 @@ impl ProcessingUnit2 {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum AudioProcessingMultiFunction {
     AlgorithmUndefined,
     BeamForming,

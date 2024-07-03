@@ -53,6 +53,7 @@ pub fn guid_to_bytes(guid: &str) -> Result<[u8; 16], Error> {
 #[non_exhaustive]
 #[repr(u8)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 // TODO structs for others
 pub enum DescriptorType {
     Device(ClassDescriptor) = 0x01,
@@ -287,6 +288,7 @@ impl TryFrom<&[u8]> for SecurityDescriptor {
 #[repr(u8)]
 #[non_exhaustive]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum EncryptionType {
     Unsecure,
     Wired,
@@ -341,6 +343,7 @@ impl TryFrom<&[u8]> for EncryptionDescriptor {
 
 /// USB base class descriptor
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ClassDescriptor {
     /// USB HID extra descriptor
     Hid(HidDescriptor),
@@ -906,6 +909,7 @@ impl From<PrinterReportDescriptor> for Vec<u8> {
 #[repr(u8)]
 #[non_exhaustive]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum CdcType {
     Header = 0x00,
     CallManagement = 0x01,
