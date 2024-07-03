@@ -21,6 +21,22 @@ pub enum MidiSubtype {
     Element = 0x04,
 }
 
+impl fmt::Display for MidiSubtype {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // lsusb style
+        if f.alternate() {
+            match self {
+                MidiSubtype::Undefined => write!(f, "Invalid"),
+                MidiSubtype::InputJack => write!(f, "MIDI_IN_JACK"),
+                MidiSubtype::OutputJack => write!(f, "MIDI_OUT_JACK"),
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(self.to_string()))
+            }
+        } else {
+            write!(f, "{:?}", self)
+        }
+    }
+}
+
 impl From<u8> for MidiSubtype {
     fn from(b: u8) -> Self {
         match b {
@@ -849,11 +865,14 @@ impl std::fmt::Display for UacProtocol {
     }
 }
 
+/// USB Audio Class (UAC) subtype based on the bDescriptorSubtype
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
 pub enum UacType {
+    /// Audio Control (AC) subtype
     Control(ControlSubtype),
+    /// Audio Streaming (AS) subtype
     Streaming(StreamingSubtype),
+    /// MIDI subtype
     Midi(MidiSubtype),
 }
 
@@ -963,43 +982,10 @@ impl std::fmt::Display for ControlSubtype {
             // uppercase with _ instead of space for lsusb dump
             match self {
                 ControlSubtype::Undefined => write!(f, "unknown"),
-                ControlSubtype::Header => write!(f, "HEADER"),
-                ControlSubtype::InputTerminal => write!(f, "INPUT_TERMINAL"),
-                ControlSubtype::OutputTerminal => write!(f, "OUTPUT_TERMINAL"),
-                ControlSubtype::ExtendedTerminal => write!(f, "EXTENDED_TERMINAL"),
-                ControlSubtype::MixerUnit => write!(f, "MIXER_UNIT"),
-                ControlSubtype::SelectorUnit => write!(f, "SELECTOR_UNIT"),
-                ControlSubtype::FeatureUnit => write!(f, "FEATURE_UNIT"),
-                ControlSubtype::EffectUnit => write!(f, "EFFECT_UNIT"),
-                ControlSubtype::ProcessingUnit => write!(f, "PROCESSING_UNIT"),
-                ControlSubtype::ExtensionUnit => write!(f, "EXTENSION_UNIT"),
-                ControlSubtype::ClockSource => write!(f, "CLOCK_SOURCE"),
-                ControlSubtype::ClockSelector => write!(f, "CLOCK_SELECTOR"),
-                ControlSubtype::ClockMultiplier => write!(f, "CLOCK_MULTIPLIER"),
-                ControlSubtype::SampleRateConverter => write!(f, "SAMPLE_RATE_CONVERTER"),
-                ControlSubtype::Connectors => write!(f, "CONNECTORS"),
-                ControlSubtype::PowerDomain => write!(f, "POWER_DOMAIN"),
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(self.to_string()))
             }
         } else {
-            match self {
-                ControlSubtype::Undefined => write!(f, "Undefined"),
-                ControlSubtype::Header => write!(f, "Header"),
-                ControlSubtype::InputTerminal => write!(f, "Input Terminal"),
-                ControlSubtype::OutputTerminal => write!(f, "Output Terminal"),
-                ControlSubtype::ExtendedTerminal => write!(f, "Extended Terminal"),
-                ControlSubtype::MixerUnit => write!(f, "Mixer Unit"),
-                ControlSubtype::SelectorUnit => write!(f, "Selector Unit"),
-                ControlSubtype::FeatureUnit => write!(f, "Feature Unit"),
-                ControlSubtype::EffectUnit => write!(f, "Effect Unit"),
-                ControlSubtype::ProcessingUnit => write!(f, "Processing Unit"),
-                ControlSubtype::ExtensionUnit => write!(f, "Extension Unit"),
-                ControlSubtype::ClockSource => write!(f, "Clock Source"),
-                ControlSubtype::ClockSelector => write!(f, "Clock Selector"),
-                ControlSubtype::ClockMultiplier => write!(f, "Clock Multiplier"),
-                ControlSubtype::SampleRateConverter => write!(f, "Sample Rate Converter"),
-                ControlSubtype::Connectors => write!(f, "Connectors"),
-                ControlSubtype::PowerDomain => write!(f, "Power Domain"),
-            }
+            write!(f, "{:?}", self)
         }
     }
 }
@@ -1099,19 +1085,9 @@ impl fmt::Display for StreamingSubtype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             // uppercase with _ instead of space for lsusb dump
-            match self {
-                StreamingSubtype::Undefined => write!(f, "UNDEFINED"),
-                StreamingSubtype::General => write!(f, "GENERAL"),
-                StreamingSubtype::FormatType => write!(f, "FORMAT_TYPE"),
-                StreamingSubtype::FormatSpecific => write!(f, "FORMAT_SPECIFIC"),
-            }
+            write!(f, "{}", heck::AsShoutySnakeCase(self.to_string()))
         } else {
-            match self {
-                StreamingSubtype::Undefined => write!(f, "Undefined"),
-                StreamingSubtype::General => write!(f, "General"),
-                StreamingSubtype::FormatType => write!(f, "Format Type"),
-                StreamingSubtype::FormatSpecific => write!(f, "Format Specific"),
-            }
+            write!(f, "{:?}", self)
         }
     }
 }

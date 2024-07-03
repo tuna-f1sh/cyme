@@ -318,6 +318,7 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                                         libusb::Recipient::Interface,
                                     ),
                                     libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR,
+                                    // this is constant LIBUSB_DT_REPORT but HidReportDescriptor checks == to this
                                     (rd.descriptor_type as u16) << 8,
                                     interface_desc.map(|i| i.interface_number() as u16).unwrap_or(0),
                                     &mut buf,
