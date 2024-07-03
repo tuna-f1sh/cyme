@@ -1,4 +1,5 @@
 //! Icons and themeing of cyme output
+#[cfg(feature = "regex_icon")]
 use regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
@@ -91,13 +92,22 @@ impl FromStr for Icon {
             }
         // name#pattern
         } else if matches!(enum_name, "name") {
+            #[cfg(feature = "regex_icon")]
             match regex::Regex::new(value_split[1]) {
                 Ok(_) => Ok(Icon::Name(value_split[1].to_string())),
                 Err(_) => Err(Error::new(
                     ErrorKind::Parsing,
-                    "Invalid regex pattern in Icon enum string",
+                    &format!(
+                        "Invalid regex pattern in Icon::Name enum string: {}",
+                        value_split[1]
+                    ),
                 )),
             }
+            #[cfg(not(feature = "regex_icon"))]
+            Err(Error::new(
+                ErrorKind::Parsing,
+                "regex_icon feature not enabled for Icon::Name matching",
+            ))
         // enum contains value
         } else {
             let (parse_ints, errors): (Vec<Result<u32, _>>, Vec<_>) = value_split[1]
@@ -276,6 +286,7 @@ lazy_static! {
             (Icon::Vid(0x1fc9), "\u{f2db}"), // nxp 
             (Icon::Vid(0x1050), "\u{f084}"), // yubikey 
             (Icon::Vid(0x0781), "\u{f129e}"), // sandisk 󱊞
+            #[cfg(feature = "regex_icon")]
             (Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()), "\u{ef61}"), // sd card reader 
             (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"), // android dev 
             (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
@@ -378,6 +389,7 @@ impl IconTheme {
     }
 
     /// Get icon for USBDevice `d` by checking `Self` using Name, Vendor ID and Product ID
+    #[cfg(feature = "regex_icon")]
     pub fn get_device_icon(&self, d: &USBDevice) -> String {
         // try name first since vidpid will return UnknownVendor default icon if not found
         // does mean regex will be built/checked for every device
@@ -390,6 +402,16 @@ impl IconTheme {
                     String::new()
                 }
             }
+        }
+    }
+
+    /// Get icon for USBDevice `d` by checking `Self` using Vendor ID and Product ID
+    #[cfg(not(feature = "regex_icon"))]
+    pub fn get_device_icon(&self, d: &USBDevice) -> String {
+        if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
+            self.get_vidpid_icon(vid, pid)
+        } else {
+            String::new()
         }
     }
 
@@ -442,6 +464,7 @@ impl IconTheme {
     }
 
     /// Get default icon for device based on descriptor name pattern `[Icon::Name]` pattern match
+    #[cfg(feature = "regex_icon")]
     pub fn get_default_name_icon(name: &str) -> String {
         DEFAULT_ICONS
             .iter()
@@ -458,6 +481,7 @@ impl IconTheme {
     }
 
     /// Get icon for device based on descriptor name pattern `[Icon::Name]` pattern match
+    #[cfg(feature = "regex_icon")]
     pub fn get_name_icon(&self, name: &str) -> String {
         if let Some(user_icons) = self.user.as_ref() {
             user_icons
@@ -512,6 +536,7 @@ pub fn example() -> HashMap<Icon, String> {
             "\u{e795}".into(),
         ), // serial 
         (Icon::UndefinedClassifier, "\u{2636}".into()), //☶
+        #[cfg(feature = "regex_icon")]
         (
             Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()),
             "\u{ef61}".into(),
@@ -620,21 +645,24 @@ mod tests {
         let icon = Icon::from_str(str);
         assert_eq!(icon.unwrap(), Icon::UnknownVendor);
 
-        let str = "name#test";
-        let icon = Icon::from_str(str);
-        assert_eq!(icon.unwrap(), Icon::Name("test".to_string()));
+        if cfg!(feature = "regex_icon") {
+            let str = "name#test";
+            let icon = Icon::from_str(str);
+            assert_eq!(icon.unwrap(), Icon::Name("test".to_string()));
 
-        let str = r"name#.*^[sS][dD]\s[cC]ard\s[rR]eader.*";
-        let icon = Icon::from_str(str);
-        assert_eq!(
-            icon.unwrap(),
-            Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string())
-        );
+            let str = r"name#.*^[sS][dD]\s[cC]ard\s[rR]eader.*";
+            let icon = Icon::from_str(str);
+            assert_eq!(
+                icon.unwrap(),
+                Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string())
+            );
+        }
     }
 
     #[test]
+    #[cfg(feature = "regex_icon")]
     fn icon_match_name() {
-        let device = USBDevice {
+        let mut device = USBDevice {
             name: "SD Card Reader".to_string(),
             ..Default::default()
         };
@@ -647,6 +675,10 @@ mod tests {
             ..Default::default()
         };
 
+        let icon = theme.get_device_icon(&device);
+        assert_eq!(icon, "\u{ef61}");
+
+        device.name = "sD Card reader 2".to_string();
         let icon = theme.get_device_icon(&device);
         assert_eq!(icon, "\u{ef61}");
     }

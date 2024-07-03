@@ -154,6 +154,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "regex_icon")]
     fn test_deserialize_example_file() {
         let path = PathBuf::from("./doc").join("cyme_example_config.json");
         assert!(Config::from_file(path).is_ok());
