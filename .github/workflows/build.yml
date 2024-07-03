@@ -130,12 +130,13 @@ jobs:
           echo "BIN_PATH=${BIN_PATH}" >> "$GITHUB_OUTPUT"
           echo "BIN_NAME=${BIN_NAME}" >> "$GITHUB_OUTPUT"
 
-      - name: Generate bin outputs
+      - name: Generated files up to date
         id: generate
         shell: bash
         if: matrix.job.use-cross == false
         run: |
           "${{ steps.prepare.outputs.BIN_PATH }}" --gen
+          git diff --exit-code
 
       - name: Create tarball
         id: package
