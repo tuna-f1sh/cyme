@@ -3433,13 +3433,12 @@ fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, vct: &video::ControlS
         video::UvcInterfaceDescriptor::EncodingUnit(eu) => {
             dump_encoding_unit(&eu, indent, DUMP_WIDTH);
         }
-        _ => {
-            let data: Vec<u8> = vcd.interface.to_owned().into();
+        i => {
+            let data: Vec<u8> = i.to_owned().into();
             println!(
                 "{:indent$}Invalid desc subtype: {}",
                 "",
-                data
-                    .iter()
+                data.iter()
                     .map(|b| format!("{:02x}", b))
                     .collect::<Vec<String>>()
                     .join(" "),

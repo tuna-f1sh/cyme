@@ -1011,7 +1011,7 @@ impl UacType {
             Some(data) => match self.get_uac_descriptor(protocol, &data) {
                 Ok(d) => Ok(d),
                 Err(e) => {
-                    log::error!("Error parsing UVC descriptor: {}", e);
+                    log::warn!("Error parsing UVC descriptor: {}", e);
                     Ok(UacInterfaceDescriptor::Invalid(data))
                 }
             }

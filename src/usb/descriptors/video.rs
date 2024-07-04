@@ -246,7 +246,7 @@ impl UvcType {
             Some(data) => match self.get_uvc_descriptor(_protocol, &data) {
                 Ok(v) => Ok(v),
                 Err(e) => {
-                    log::error!("Error parsing UVC descriptor: {}", e);
+                    log::warn!("Error parsing UVC descriptor: {}", e);
                     Ok(UvcInterfaceDescriptor::Invalid(data))
                 }
             }
