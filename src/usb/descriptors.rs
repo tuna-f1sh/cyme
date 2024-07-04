@@ -8,6 +8,23 @@ use crate::error::{self, Error, ErrorKind};
 pub mod audio;
 pub mod video;
 
+/// Get the GUID String from a descriptor buffer slice
+pub fn get_guid(buf: &[u8]) -> Result<String, Error> {
+    if buf.len() < 16 {
+        return Err(Error::new(
+            ErrorKind::InvalidArg,
+            "GUID buffer too short, must be at least 16 bytes",
+        ));
+    }
+
+    Ok(format!("{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}", 
+        buf[3], buf[2], buf[1], buf[0],
+        buf[5], buf[4],
+        buf[7], buf[6],
+        buf[8], buf[9],
+        buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]))
+}
+
 /// USB Descriptor Types
 ///
 /// Can enclose struct of descriptor data
@@ -400,9 +417,11 @@ impl ClassDescriptor {
                         audio::UacProtocol::from(p),
                     )
                 }
-                (ClassCode::Video, 1, p) => {
-                    *self =
-                        ClassDescriptor::Video(video::UvcDescriptor::try_from(gd.to_owned())?, p)
+                (ClassCode::Video, s, p) => {
+                    *self = ClassDescriptor::Video(
+                        video::UvcDescriptor::try_from((gd.to_owned(), s, p))?,
+                        p,
+                    )
                 }
                 (ClassCode::ApplicationSpecificInterface, 1, _) => {
                     *self = ClassDescriptor::Dfu(DfuDescriptor::try_from(gd.to_owned())?)

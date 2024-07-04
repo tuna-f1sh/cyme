@@ -408,10 +408,26 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                 }
                 _ => (),
             },
-            usb::ClassDescriptor::Video(ref mut vd, _) => {
-                if let Some(string_index) = vd.string_index {
-                    vd.string = get_descriptor_string(string_index, handle);
+            usb::ClassDescriptor::Video(ref mut vd, _) => match vd.interface {
+                usb::descriptors::video::UvcInterfaceDescriptor::InputTerminal(ref mut vh) => {
+                    vh.terminal = get_descriptor_string(vh.terminal_index, handle);
                 }
+                usb::descriptors::video::UvcInterfaceDescriptor::OutputTerminal(ref mut vh) => {
+                    vh.terminal = get_descriptor_string(vh.terminal_index, handle);
+                }
+                usb::descriptors::video::UvcInterfaceDescriptor::SelectorUnit(ref mut vh) => {
+                    vh.selector = get_descriptor_string(vh.selector_index, handle);
+                }
+                usb::descriptors::video::UvcInterfaceDescriptor::ProcessingUnit(ref mut vh) => {
+                    vh.processing = get_descriptor_string(vh.processing_index, handle);
+                }
+                usb::descriptors::video::UvcInterfaceDescriptor::ExtensionUnit(ref mut vh) => {
+                    vh.extension = get_descriptor_string(vh.extension_index, handle);
+                }
+                usb::descriptors::video::UvcInterfaceDescriptor::EncodingUnit(ref mut vh) => {
+                    vh.encoding = get_descriptor_string(vh.encoding_index, handle);
+                }
+                _ => (),
             }
             _ => (),
         },

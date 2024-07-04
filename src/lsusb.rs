@@ -8,6 +8,8 @@
 //! - [ ] Implement do_hub: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2805
 //! - [ ] Implement do_debug: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2984
 //! - [ ] Implement do_dualspeed: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2933
+//! - [ ] Implement dump_device_status: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3078
+//! - [ ] Implement dump_bos_descriptor: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3437
 //! - [ ] Convert the 'in dump' descriptor decoding into concrete structs in [`crate::usb::descriptors`] and use that for printing - like the [`crate::usb::descriptors::audio`] module
 use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
@@ -259,6 +261,23 @@ fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
         "{:indent$}{}{}{} {}",
         "", field_name, spaces, value, value_string,
     );
+}
+
+/// Dumps a string starting at value position, right aligned
+fn dump_string_right<T: std::fmt::Display>(guid: T, field_name: &str, indent: usize, width: usize) {
+    // -1 to account for space
+    let spaces = " ".repeat((width - 1).saturating_sub(field_name.len())
+            .max(1),
+    );
+    println!(
+        "{:indent$}{}{}{}",
+        "", field_name, spaces, guid
+    );
+}
+
+/// Dumps GUID enclosed in braces like lsusb
+fn dump_guid(guid: &String, field_name: &str, indent: usize, width: usize) {
+    dump_string_right(format!("{{{:}}}", guid), field_name, indent, width);
 }
 
 /// Dumps junk descriptor bytes as hex like lsusb
@@ -759,8 +778,11 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                         }
                         _ => (),
                     },
-                    ClassDescriptor::Video(vcd, p) => {
-                        dump_videocontrol_interface(vcd, *p, indent + 2)
+                    ClassDescriptor::Video(vcd, p) => match &vcd.subtype {
+                        video::UvcType::Control(cs) => dump_videocontrol_interface(vcd, cs, *p, indent + 2),
+                        video::UvcType::Streaming(ss) => {
+                            dump_videostreaming_interface(vcd, ss, indent + 2);
+                        }
                     }
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((ClassCode::Audio, 3, _)) => {
@@ -784,13 +806,19 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                                 }
                             }
                         }
-                        Some((ClassCode::Video, 1, p)) => {
-                            if let Ok(vcd) = video::UvcDescriptor::try_from(gd.to_owned()) {
-                                dump_videocontrol_interface(&vcd, *p, indent + 2);
+                        Some((ClassCode::Video, s, p)) => {
+                            if let Ok(uvcd) =
+                                video::UvcDescriptor::try_from((gd.to_owned(), *s, *p))
+                            {
+                                match &uvcd.subtype {
+                                    video::UvcType::Control(cs) => {
+                                        dump_videocontrol_interface(&uvcd, cs, *p, indent + 2);
+                                    }
+                                    video::UvcType::Streaming(ss) => {
+                                        dump_videostreaming_interface(&uvcd, ss, indent + 2);
+                                    }
+                                }
                             }
-                        }
-                        Some((ClassCode::Video, 2, _)) => {
-                            dump_videostreaming_interface(gd, indent + 2);
                         }
                         Some((ClassCode::ApplicationSpecificInterface, 1, _)) => {
                             if let Ok(dfud) = DfuDescriptor::try_from(gd.to_owned()) {
@@ -3201,331 +3229,216 @@ fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: usize) {
     }
 }
 
-fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, protocol: u8, indent: usize) {
+fn dump_processing_unit(pu: &video::ProcessingUnit, protocol: u8, indent: usize, width: usize) {
+    dump_value(pu.unit_id, "bUnitID", indent + 2, width);
+    dump_value(pu.source_id, "bSourceID", indent + 2, width);
+    dump_value(pu.max_multiplier, "wMaxMultiplier", indent + 2, width);
+    dump_value(pu.control_size, "bControlSize", indent + 2, width);
+
+    dump_hex(pu.controls, "bmControls", indent + 2, width);
+    if protocol == 0x01 {
+        for (i, n) in CTRL_NAMES.iter().enumerate().take(19) {
+            if (pu.controls >> i) & 1 != 0 {
+                dump_string(n, indent + 4);
+            }
+        }
+    } else {
+        for (i, n) in CTRL_NAMES.iter().enumerate().take(18) {
+            if (pu.controls >> i) & 1 != 0 {
+                dump_string(n, indent + 4);
+            }
+        }
+    }
+
+    dump_value_string(
+        pu.processing_index,
+        "iProcessing",
+        pu.processing_index.to_string(),
+        indent + 2,
+        width,
+    );
+    dump_hex(pu.video_standards, "bmVideoStandards", indent + 2, width);
+    for (i, n) in STD_NAMES.iter().enumerate().take(6) {
+        if (pu.video_standards >> i) & 1 != 0 {
+            dump_string(n, indent + 4);
+        }
+    }
+}
+
+fn dump_extension_unit(eu: &video::ExtensionUnit, indent: usize, width: usize) {
+    dump_value(eu.unit_id, "bUnitID", indent + 2, width);
+    dump_guid(&eu.guid_extension_code, "guidExtensionCode", indent + 2, width);
+    dump_value(eu.num_controls, "bNumControls", indent + 2, width);
+    dump_value(eu.num_input_pins, "bNrInPins", indent + 2, width);
+
+    for (i, source_id) in eu.source_ids.iter().enumerate() {
+        dump_value(*source_id, &format!("baSourceID({:2})", i), indent + 2, width);
+    }
+
+    dump_value(eu.control_size, "bControlSize", indent + 2, width);
+
+    for (i, control) in eu.controls.iter().enumerate() {
+        dump_hex(*control, &format!("bmControls({:2})", i), indent + 2, width);
+    }
+
+    dump_value_string(
+        eu.extension_index,
+        "iExtension",
+        eu.extension.as_ref().unwrap_or(&String::new()),
+        indent + 2,
+        width,
+    );
+}
+
+fn dump_encoding_unit(eu: &video::EncodingUnit, indent: usize, width: usize) {
+    dump_value(eu.unit_id, "bUnitID", indent + 2, width);
+    dump_value(eu.source_id, "bSourceID", indent + 2, width);
+    dump_value_string(
+        eu.encoding_index,
+        "iEncoding",
+        eu.encoding.as_ref().unwrap_or(&String::new()),
+        indent + 2,
+        width,
+    );
+    dump_value(eu.control_size, "bControlSize", indent + 2, width);
+
+    dump_hex(eu.controls, "bmControls", indent + 2, width);
+    for (i, n) in EN_CTRL_NAMES.iter().enumerate().take(20) {
+        if (eu.controls >> i) & 1 != 0 {
+            dump_string(n, indent + 4);
+        }
+    }
+
+    dump_hex(eu.controls_runtime, "bmControlsRuntime", indent + 2, width);
+    for (i, n) in EN_CTRL_NAMES.iter().enumerate().take(20) {
+        if (eu.controls_runtime >> i) & 1 != 0 {
+            dump_string(n, indent + 4);
+        }
+    }
+}
+
+fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, vct: &video::ControlSubtype, protocol: u8, indent: usize) {
+    const DUMP_WIDTH: usize = 36; // wider in lsusb for long numbers
     dump_string("VideoControl Interface Descriptor:", indent);
-    dump_value(vcd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(vcd.length, "bLength", indent + 2, DUMP_WIDTH);
     dump_value(
         vcd.descriptor_type,
         "bDescriptorType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        DUMP_WIDTH,
     );
     dump_value_string(
-        vcd.subtype.to_owned() as u8,
+        vct.to_owned() as u8,
         "bDescriptorSubtype",
-        format!("({:#})", vcd.subtype),
+        format!("({:#})", vct),
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        DUMP_WIDTH,
     );
 
-    match vcd.subtype {
-        video::ControlSubtype::Header => {
-            if vcd.data.len() >= 10 {
-                let n = vcd.data[8] as usize;
-                let freq = u32::from_le_bytes([vcd.data[4], vcd.data[5], vcd.data[6], vcd.data[7]]);
+    match &vcd.interface {
+        video::UvcInterfaceDescriptor::Header(h) => {
+            dump_value(
+                h.version,
+                "bcdUVC",
+                indent + 2,
+                DUMP_WIDTH,
+            );
+            dump_hex(
+                h.total_length,
+                "wTotalLength",
+                indent + 2,
+                DUMP_WIDTH,
+            );
+            dump_value(
+                format!("{:5}.{:06}MHz", h.clock_frequency / 1000000, h.clock_frequency % 1000000),
+                "dwClockFrequency",
+                indent + 2,
+                DUMP_WIDTH + 10,
+            );
+            dump_value(h.collection_bytes, "bInCollection", indent + 2, DUMP_WIDTH);
+            dump_array(
+                &h.interfaces,
+                "baInterfaceNr",
+                indent + 2,
+                DUMP_WIDTH,
+            );
+        }
+        video::UvcInterfaceDescriptor::InputTerminal(d) => {
+            dump_value(d.terminal_id, "bTerminalID", indent + 2, DUMP_WIDTH);
+            dump_value_string(
+                format!("0x{:04x}", d.terminal_type),
+                "wTerminalType",
+                names::videoterminal(d.terminal_type).unwrap_or_default(),
+                indent + 2,
+                DUMP_WIDTH,
+            );
+            dump_value(d.associated_terminal, "bAssocTerminal", indent + 2, DUMP_WIDTH);
+            dump_value_string(
+                d.terminal_index,
+                "iTerminal",
+                d.terminal.as_ref().unwrap_or(&String::new()),
+                indent + 2,
+                DUMP_WIDTH,
+            );
+
+            if let Some(extra) = &d.extra {
                 dump_value(
-                    format!("{:02x}.{:02x}", vcd.data[1], vcd.data[0]),
-                    "bcdUVC",
+                    extra.objective_focal_length_min,
+                    "wObjectiveFocalLengthMin",
                     indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_hex(
-                    u16::from_le_bytes([vcd.data[2], vcd.data[3]]),
-                    "wTotalLength",
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
+                    DUMP_WIDTH,
                 );
                 dump_value(
-                    format!("{:5}.{:06}MHz", freq / 1000000, freq % 1000000),
-                    "dwClockFrequency",
+                    extra.objective_focal_length_max,
+                    "wObjectiveFocalLengthMax",
                     indent + 2,
-                    LSUSB_DUMP_WIDTH + 10,
+                    DUMP_WIDTH,
                 );
-                dump_value(n, "bInCollection", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_array(
-                    &vcd.data[9..],
-                    "baInterfaceNr",
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_junk(&vcd.data, 8, vcd.length as usize - 3, 9 + n);
-            }
-        }
-        video::ControlSubtype::InputTerminal => {
-            if vcd.data.len() >= 10 {
-                let term_type = u16::from_le_bytes([vcd.data[1], vcd.data[2]]);
-                let mut n = if term_type == 0x0201 { 7 } else { 0 };
-                dump_value(vcd.data[0], "bTerminalID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value_string(
-                    format!("0x{:04x}", term_type),
-                    "wTerminalType",
-                    names::videoterminal(term_type).unwrap_or_default(),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_value(vcd.data[3], "bAssocTerminal", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value_string(
-                    vcd.string_index.unwrap_or(0),
-                    "iTerminal",
-                    vcd.string.as_ref().unwrap_or(&String::new()),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-
-                if term_type == 0x0201 {
-                    n += vcd.data[11] as usize;
-                    dump_value(
-                        u16::from_le_bytes([vcd.data[5], vcd.data[6]]),
-                        "wObjectiveFocalLengthMin",
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                    dump_value(
-                        u16::from_le_bytes([vcd.data[7], vcd.data[8]]),
-                        "wObjectiveFocalLengthMax",
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                    dump_value(
-                        u16::from_le_bytes([vcd.data[9], vcd.data[10]]),
-                        "wOcularFocalLength",
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                    dump_value(vcd.data[11], "bControlSize", indent + 2, LSUSB_DUMP_WIDTH);
-
-                    let mut controls: u32 = 0;
-                    for i in 0..3 {
-                        if i < vcd.data[11] as usize {
-                            controls = (controls << 8) | vcd.data[5 + n - i - 1] as u32;
-                        }
-                    }
-                    dump_hex(controls, "bmControls", indent + 2, LSUSB_DUMP_WIDTH);
-
-                    if protocol == 0x01 {
-                        for (i, n) in CAM_CTRL_NAMES.iter().enumerate().take(22) {
-                            if (controls >> i) & 1 != 0 {
-                                dump_string(n, indent + 4);
-                            }
-                        }
-                    } else {
-                        for (i, n) in CAM_CTRL_NAMES.iter().enumerate().take(19) {
-                            if (controls >> i) & 1 != 0 {
-                                dump_string(n, indent + 4);
-                            }
-                        }
-                    }
-                }
-
-                dump_junk(&vcd.data, 8, vcd.length as usize - 3, 5 + n);
-            } else {
-                dump_string("Warning: Descriptor too short", indent);
-            }
-        }
-        video::ControlSubtype::OutputTerminal => {
-            if vcd.data.len() >= 6 {
-                let term_type = u16::from_le_bytes([vcd.data[1], vcd.data[2]]);
-                dump_value(vcd.data[0], "bTerminalID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value_string(
-                    format!("0x{:04x}", term_type),
-                    "wTerminalType",
-                    names::videoterminal(term_type).unwrap_or_default(),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_value(vcd.data[3], "bAssocTerminal", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(vcd.data[4], "bSourceID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value_string(
-                    vcd.string_index.unwrap_or(0),
-                    "iTerminal",
-                    vcd.string.as_ref().unwrap_or(&String::new()),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-            } else {
-                dump_string("Warning: Descriptor too short", indent);
-            }
-
-            dump_junk(&vcd.data, 8, vcd.length as usize - 3, 6);
-        }
-        video::ControlSubtype::SelectorUnit => {
-            if vcd.data.len() >= 4 {
-                let pins = vcd.data[1] as usize;
-                dump_value(vcd.data[0], "bUnitID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(vcd.data[1], "bNrInPins", indent + 2, LSUSB_DUMP_WIDTH);
-                for (i, b) in vcd.data[2..].iter().enumerate() {
-                    if i == pins {
-                        break;
-                    }
-                    dump_value(
-                        *b,
-                        &format!("baSourceID({:2})", i),
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                }
-                dump_value_string(
-                    vcd.data[2 + pins],
-                    "iSelector",
-                    vcd.string.as_ref().unwrap_or(&String::new()),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-
-                dump_junk(&vcd.data, 8, vcd.length as usize - 3, 3 + pins);
-            } else {
-                dump_string("Warning: Descriptor too short", indent);
-            }
-        }
-        video::ControlSubtype::ProcessingUnit => {
-            if vcd.data.len() >= 9 {
-                let n = vcd.data[4] as usize;
-                dump_value(vcd.data[0], "bUnitID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(vcd.data[1], "bSourceID", indent + 2, LSUSB_DUMP_WIDTH);
                 dump_value(
-                    u16::from_le_bytes([vcd.data[2], vcd.data[3]]),
-                    "wMaxMultiplier",
+                    extra.ocular_focal_length,
+                    "wOcularFocalLength",
                     indent + 2,
-                    LSUSB_DUMP_WIDTH,
+                    DUMP_WIDTH,
                 );
-                dump_value(vcd.data[4], "bControlSize", indent + 2, LSUSB_DUMP_WIDTH);
+                dump_value(extra.control_size, "bControlSize", indent + 2, DUMP_WIDTH);
+                dump_hex(extra.controls, "bmControls", indent + 2, DUMP_WIDTH);
 
-                let mut controls: u32 = 0;
-                for i in 0..3 {
-                    if i < n {
-                        controls = (controls << 8) | vcd.data[5 + n - i - 1] as u32;
-                    }
-                }
-                dump_hex(controls, "bmControls", indent + 2, LSUSB_DUMP_WIDTH);
                 if protocol == 0x01 {
-                    for (i, n) in CTRL_NAMES.iter().enumerate().take(19) {
-                        if (controls >> i) & 1 != 0 {
+                    for (i, n) in CAM_CTRL_NAMES.iter().enumerate().take(22) {
+                        if (extra.controls >> i) & 1 != 0 {
                             dump_string(n, indent + 4);
                         }
                     }
                 } else {
-                    for (i, n) in CTRL_NAMES.iter().enumerate().take(18) {
-                        if (controls >> i) & 1 != 0 {
+                    for (i, n) in CAM_CTRL_NAMES.iter().enumerate().take(19) {
+                        if (extra.controls >> i) & 1 != 0 {
                             dump_string(n, indent + 4);
                         }
                     }
                 }
-                let stds = vcd.data[6 + n] as usize;
-                dump_value_string(
-                    vcd.data[5 + n],
-                    "iProcessing",
-                    vcd.string.as_ref().unwrap_or(&String::new()),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_hex(
-                    vcd.data[6 + n],
-                    "bmVideoStandards",
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                for (i, n) in STD_NAMES.iter().enumerate().take(6) {
-                    if (stds >> i) & 1 != 0 {
-                        dump_string(n, indent + 4);
-                    }
-                }
-            } else {
-                dump_string("Warning: Descriptor too short", indent);
             }
         }
-        video::ControlSubtype::ExtensionUnit => {
-            if vcd.data.len() >= 21 {
-                let p = vcd.data[18] as usize;
-                let n = vcd.data[19 + p] as usize;
-                dump_value(vcd.data[0], "bUnitID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value_string(
-                    "",
-                    "guidExtensionCode",
-                    get_guid(&vcd.data[1..17]),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH - 2,
-                );
-                dump_value(vcd.data[17], "bNumControls", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(vcd.data[18], "bNrInPins", indent + 2, LSUSB_DUMP_WIDTH);
-
-                if vcd.data.len() >= 21 + p + n {
-                    for (i, b) in vcd.data[19..19 + p].iter().enumerate() {
-                        dump_value(
-                            *b,
-                            &format!("baSourceID({:2})", i),
-                            indent + 2,
-                            LSUSB_DUMP_WIDTH,
-                        );
-                    }
-                    dump_value(
-                        vcd.data[19 + p],
-                        "bControlSize",
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                    for (i, b) in vcd.data[20 + p..20 + p + n].iter().enumerate() {
-                        dump_hex(
-                            *b,
-                            &format!("bmControls({:2})", i),
-                            indent + 2,
-                            LSUSB_DUMP_WIDTH,
-                        );
-                    }
-                    dump_value_string(
-                        vcd.data[20 + p + n],
-                        "iExtension",
-                        vcd.string.as_ref().unwrap_or(&String::new()),
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                }
-
-                dump_junk(&vcd.data, 8, vcd.length as usize - 3, 21 + p + n);
-            } else {
-                dump_string("Warning: Descriptor too short", indent);
-            }
+        video::UvcInterfaceDescriptor::OutputTerminal(ot) => {
+            dump_audio_output_terminal1(&ot, indent, DUMP_WIDTH);
         }
-        video::ControlSubtype::EncodingUnit => {
-            if vcd.data.len() >= 10 {
-                dump_value(vcd.data[0], "bUnitID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(vcd.data[1], "bSourceID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value_string(
-                    vcd.data[2],
-                    "iEncoding",
-                    vcd.string.as_ref().unwrap_or(&String::new()),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_value(vcd.data[3], "bControlSize", indent + 2, LSUSB_DUMP_WIDTH);
-
-                let mut controls: u32 = 0;
-                for i in 0..3 {
-                    controls = (controls << 8) | vcd.data[6 - i] as u32;
-                }
-                dump_hex(controls, "bmControls", indent + 2, LSUSB_DUMP_WIDTH);
-                for (i, n) in EN_CTRL_NAMES.iter().enumerate().take(20) {
-                    if (controls >> i) & 1 != 0 {
-                        dump_string(n, indent + 4);
-                    }
-                }
-                for i in 0..3 {
-                    controls = (controls << 8) | vcd.data[9 - i] as u32;
-                }
-                dump_hex(controls, "bmControlsRuntime", indent + 2, LSUSB_DUMP_WIDTH);
-                for (i, n) in EN_CTRL_NAMES.iter().enumerate().take(20) {
-                    if (controls >> i) & 1 != 0 {
-                        dump_string(n, indent + 4);
-                    }
-                }
-            } else {
-                dump_string("Warning: Descriptor too short", indent);
-            }
+        video::UvcInterfaceDescriptor::SelectorUnit(su) => {
+            dump_audio_selector_unit1(&su, indent, DUMP_WIDTH);
+        }
+        video::UvcInterfaceDescriptor::ProcessingUnit(pu) => {
+            dump_processing_unit(&pu, protocol, indent, DUMP_WIDTH);
+        }
+        video::UvcInterfaceDescriptor::ExtensionUnit(eu) => {
+            dump_extension_unit(&eu, indent, DUMP_WIDTH);
+        }
+        video::UvcInterfaceDescriptor::EncodingUnit(eu) => {
+            dump_encoding_unit(&eu, indent, DUMP_WIDTH);
         }
         _ => {
+            let data: Vec<u8> = vcd.interface.to_owned().into();
             println!(
                 "{:indent$}Invalid desc subtype: {}",
                 "",
-                vcd.data
+                data
                     .iter()
                     .map(|b| format!("{:02x}", b))
                     .collect::<Vec<String>>()
@@ -3536,21 +3449,20 @@ fn dump_videocontrol_interface(vcd: &video::UvcDescriptor, protocol: u8, indent:
     }
 }
 
-fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
+fn dump_videostreaming_interface(vcd: &video::UvcDescriptor, vst: &video::StreamingSubtype, indent: usize) {
     const DUMP_WIDTH: usize = 36; // wider in lsusb for long numbers
-    let subtype = video::StreamingSubtype::from(gd.descriptor_subtype);
     dump_string("VideoStreaming Interface Descriptor:", indent);
-    dump_value(gd.length, "bLength", indent + 2, DUMP_WIDTH);
+    dump_value(vcd.length, "bLength", indent + 2, DUMP_WIDTH);
     dump_value(
-        gd.descriptor_type,
+        vcd.descriptor_type,
         "bDescriptorType",
         indent + 2,
         DUMP_WIDTH,
     );
     dump_value_string(
-        gd.descriptor_subtype,
+        vst.to_owned() as u8,
         "bDescriptorSubtype",
-        format!("({:#})", subtype),
+        format!("({:#})", vst),
         indent + 2,
         DUMP_WIDTH,
     );
@@ -3592,452 +3504,417 @@ fn dump_videostreaming_interface(gd: &GenericDescriptor, indent: usize) {
         _ => "Invalid",
     };
 
-    if let Some(data) = &gd.data {
-        match gd.descriptor_subtype {
-            0x01 => {
-                if data.len() >= 11 {
-                    let formats = data[0];
-                    let control_size = data[9];
-                    dump_value(formats, "bNumFormats", indent + 2, DUMP_WIDTH);
-                    dump_hex(
-                        u16::from_le_bytes([data[1], data[2]]),
-                        "wTotalLength",
+    let subtype_byte: u8 = vst.to_owned() as u8;
+    let data: Vec<u8> = vcd.interface.to_owned().into();
+    match vst {
+        video::StreamingSubtype::InputHeader => {
+            if data.len() >= 11 {
+                let formats = data[0];
+                let control_size = data[9];
+                dump_value(formats, "bNumFormats", indent + 2, DUMP_WIDTH);
+                dump_hex(
+                    u16::from_le_bytes([data[1], data[2]]),
+                    "wTotalLength",
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value_string(
+                    format!("0x{:02x}", data[3]),
+                    "bEndpointAddress",
+                    format!(
+                        "EP {} {}",
+                        data[3] & 0x0f,
+                        if data[3] & 0x80 != 0 { "IN" } else { "OUT" }
+                    ),
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value(data[4], "bmInfo", indent + 2, DUMP_WIDTH);
+                dump_value(data[5], "bTerminalLink", indent + 2, DUMP_WIDTH);
+                dump_value(data[6], "bStillCaptureMethod", indent + 2, DUMP_WIDTH);
+                dump_value(data[7], "bTriggerSupport", indent + 2, DUMP_WIDTH);
+                dump_value(data[8], "bTriggerUsage", indent + 2, DUMP_WIDTH);
+                dump_value(control_size, "bControlSize", indent + 2, DUMP_WIDTH);
+                for (i, b) in data[10..].chunks(control_size as usize).enumerate() {
+                    if i == formats as usize {
+                        break;
+                    }
+                    dump_value(
+                        b[0],
+                        &format!("bmaControls({:2})", i),
                         indent + 2,
                         DUMP_WIDTH,
                     );
-                    dump_value_string(
-                        format!("0x{:02x}", data[3]),
-                        "bEndpointAddress",
-                        format!(
-                            "EP {} {}",
-                            data[3] & 0x0f,
-                            if data[3] & 0x80 != 0 { "IN" } else { "OUT" }
-                        ),
+                }
+            }
+        }
+        video::StreamingSubtype::OutputHeader => {
+            if data.len() >= 7 {
+                let formats = data[0];
+                let control_size = data[8];
+                dump_value(formats, "bNumFormats", indent + 2, DUMP_WIDTH);
+                dump_hex(
+                    u16::from_le_bytes([data[1], data[2]]),
+                    "wTotalLength",
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value_string(
+                    format!("0x{:02x}", data[3]),
+                    "bEndpointAddress",
+                    format!(
+                        "EP {} {}",
+                        data[3] & 0x0f,
+                        if data[3] & 0x80 != 0 { "IN" } else { "OUT" }
+                    ),
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value(data[4], "bTerminalLink", indent + 2, DUMP_WIDTH);
+                dump_value(control_size, "bControlSize", indent + 2, DUMP_WIDTH);
+                for (i, b) in data[6..].chunks(control_size as usize).enumerate() {
+                    if i == formats as usize {
+                        break;
+                    }
+                    dump_value(
+                        b[0],
+                        &format!("bmaControls({:2})", i),
                         indent + 2,
                         DUMP_WIDTH,
                     );
-                    dump_value(data[4], "bmInfo", indent + 2, DUMP_WIDTH);
-                    dump_value(data[5], "bTerminalLink", indent + 2, DUMP_WIDTH);
-                    dump_value(data[6], "bStillCaptureMethod", indent + 2, DUMP_WIDTH);
-                    dump_value(data[7], "bTriggerSupport", indent + 2, DUMP_WIDTH);
-                    dump_value(data[8], "bTriggerUsage", indent + 2, DUMP_WIDTH);
-                    dump_value(control_size, "bControlSize", indent + 2, DUMP_WIDTH);
-                    for (i, b) in data[10..].chunks(control_size as usize).enumerate() {
-                        if i == formats as usize {
+                }
+            }
+        }
+        video::StreamingSubtype::StillImageFrame => {
+            if data.len() >= 3 {
+                let image_num = data[1] as usize;
+                let compression_num = data[2 + image_num * 4];
+                dump_value_string(
+                    data[0],
+                    "bEndpointAddress",
+                    format!(
+                        "EP {} {}",
+                        data[0] & 0x0f,
+                        if data[0] & 0x80 != 0 { "IN" } else { "OUT" }
+                    ),
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value(image_num, "bNumImageSizePatterns", indent + 2, DUMP_WIDTH);
+                for (i, b) in data[2..].chunks(4).enumerate() {
+                    if i == image_num {
+                        break;
+                    }
+                    let w = u16::from_le_bytes([b[0], b[1]]);
+                    let h = u16::from_le_bytes([b[2], b[3]]);
+                    dump_value(w, &format!("wWidth({:2})", i), indent + 2, DUMP_WIDTH);
+                    dump_value(h, &format!("wHeight({:2})", i), indent + 2, DUMP_WIDTH);
+                }
+                dump_value(
+                    compression_num,
+                    "bNumCompressionPatterns",
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                if data.len() >= 3 + image_num * 4 + compression_num as usize {
+                    for (i, b) in data[3 + image_num * 4..].iter().enumerate() {
+                        if i == compression_num as usize {
                             break;
                         }
                         dump_value(
-                            b[0],
-                            &format!("bmaControls({:2})", i),
+                            b,
+                            &format!("bCompression({:2})", i),
                             indent + 2,
                             DUMP_WIDTH,
                         );
                     }
-
-                    dump_junk(
-                        data,
-                        8,
-                        gd.expected_data_length(),
-                        10 + formats as usize * control_size as usize,
-                    );
                 }
             }
-            0x02 => {
-                if data.len() >= 7 {
-                    let formats = data[0];
-                    let control_size = data[8];
-                    dump_value(formats, "bNumFormats", indent + 2, DUMP_WIDTH);
-                    dump_hex(
-                        u16::from_le_bytes([data[1], data[2]]),
-                        "wTotalLength",
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    dump_value_string(
-                        format!("0x{:02x}", data[3]),
-                        "bEndpointAddress",
-                        format!(
-                            "EP {} {}",
-                            data[3] & 0x0f,
-                            if data[3] & 0x80 != 0 { "IN" } else { "OUT" }
-                        ),
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    dump_value(data[4], "bTerminalLink", indent + 2, DUMP_WIDTH);
-                    dump_value(control_size, "bControlSize", indent + 2, DUMP_WIDTH);
-                    for (i, b) in data[6..].chunks(control_size as usize).enumerate() {
-                        if i == formats as usize {
-                            break;
-                        }
-                        dump_value(
-                            b[0],
-                            &format!("bmaControls({:2})", i),
-                            indent + 2,
-                            DUMP_WIDTH,
-                        );
-                    }
+        }
+        video::StreamingSubtype::FormatUncompressed | video::StreamingSubtype::FormatFrameBased => {
+            let len = if subtype_byte == 0x04 {
+                24
+            } else {
+                25
+            };
 
-                    dump_junk(
-                        data,
-                        8,
-                        gd.expected_data_length(),
-                        6 + formats as usize * control_size as usize,
-                    );
-                }
-            }
-            0x03 => {
-                if data.len() >= 3 {
-                    let image_num = data[1] as usize;
-                    let compression_num = data[2 + image_num * 4];
-                    dump_value_string(
-                        data[0],
-                        "bEndpointAddress",
-                        format!(
-                            "EP {} {}",
-                            data[0] & 0x0f,
-                            if data[0] & 0x80 != 0 { "IN" } else { "OUT" }
-                        ),
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    dump_value(image_num, "bNumImageSizePatterns", indent + 2, DUMP_WIDTH);
-                    for (i, b) in data[2..].chunks(4).enumerate() {
-                        if i == image_num {
-                            break;
-                        }
-                        let w = u16::from_le_bytes([b[0], b[1]]);
-                        let h = u16::from_le_bytes([b[2], b[3]]);
-                        dump_value(w, &format!("wWidth({:2})", i), indent + 2, DUMP_WIDTH);
-                        dump_value(h, &format!("wHeight({:2})", i), indent + 2, DUMP_WIDTH);
-                    }
-                    dump_value(
-                        compression_num,
-                        "bNumCompressionPatterns",
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    if data.len() >= 3 + image_num * 4 + compression_num as usize {
-                        for (i, b) in data[3 + image_num * 4..].iter().enumerate() {
-                            if i == compression_num as usize {
-                                break;
-                            }
-                            dump_value(
-                                b,
-                                &format!("bCompression({:2})", i),
-                                indent + 2,
-                                DUMP_WIDTH,
-                            );
-                        }
-                    }
-
-                    dump_junk(
-                        data,
-                        8,
-                        gd.expected_data_length(),
-                        3 + image_num * 4 + compression_num as usize,
-                    );
-                }
-            }
-            0x04 | 0x010 => {
-                let len = if gd.descriptor_subtype == 0x04 {
-                    24
-                } else {
-                    25
-                };
-
-                if data.len() >= len {
-                    let flags = data[22];
-                    dump_value(data[0], "bFormatIndex", indent + 2, DUMP_WIDTH);
-                    dump_value(data[1], "bNumFrameDescriptors", indent + 2, DUMP_WIDTH);
-                    dump_value_string(
-                        "",
-                        "guidFormat",
-                        get_guid(&data[2..18]),
-                        indent + 2,
-                        DUMP_WIDTH - 2,
-                    );
-                    dump_value(data[18], "bBitsPerPixel", indent + 2, DUMP_WIDTH);
-                    dump_value(data[19], "bDefaultFrameIndex", indent + 2, DUMP_WIDTH);
-                    dump_value(data[20], "bAspectRatioX", indent + 2, DUMP_WIDTH);
-                    dump_value(data[21], "bAspectRatioY", indent + 2, DUMP_WIDTH);
-                    dump_hex(flags, "bmInterlaceFlags", indent + 2, DUMP_WIDTH);
-                    dump_value(data[23], "bCopyProtect", indent + 2, DUMP_WIDTH);
-                    dump_string(
-                        &format!(
-                            "Interlaced stream or variable: {}",
-                            if flags & 0x01 != 0 { "Yes" } else { "No" }
-                        ),
-                        indent + 4,
-                    );
-                    dump_string(
-                        &format!(
-                            "Fields per frame: {}",
-                            if flags & 0x02 != 0 { "Yes" } else { "No" }
-                        ),
-                        indent + 4,
-                    );
-                    dump_string(
-                        &format!(
-                            "Field 1 first: {}",
-                            if flags & 0x04 != 0 { "Yes" } else { "No" }
-                        ),
-                        indent + 4,
-                    );
-                    dump_string(
-                        &format!("Field pattern: {}", field_pattern((flags >> 4) & 0x03)),
-                        indent + 4,
-                    );
-                    if gd.descriptor_subtype == 0x10 {
-                        dump_value(
-                            data.get(24).unwrap_or(&0),
-                            "bVariableSize",
-                            indent + 2,
-                            DUMP_WIDTH,
-                        );
-                    }
-                }
-
-                dump_junk(data, 8, gd.expected_data_length(), len);
-            }
-            0x05 | 0x07 | 0x11 => {
-                let n = if gd.descriptor_subtype == 0x11 {
-                    18
-                } else {
-                    22
-                };
-
-                if data.len() >= 23 {
-                    let flags = data[1];
-                    let len = if data[n] != 0 {
-                        23 + data[n] as usize * 4
-                    } else {
-                        35
-                    };
-                    dump_value(data[0], "bFrameIndex", indent + 2, DUMP_WIDTH);
-                    dump_hex(flags, "bmCapabilities", indent + 2, DUMP_WIDTH);
-                    if flags & 0x01 != 0 {
-                        dump_string("Still image supported", indent + 4);
-                    } else {
-                        dump_string("Still image unsupported", indent + 4);
-                    }
-                    if flags & 0x02 != 0 {
-                        dump_string("Fixed frame-rate", indent + 4);
-                    }
-                    dump_value(
-                        u16::from_le_bytes([data[2], data[3]]),
-                        "wWidth",
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    dump_value(
-                        u16::from_le_bytes([data[4], data[5]]),
-                        "wHeight",
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    dump_value(
-                        u32::from_le_bytes([data[6], data[7], data[8], data[9]]),
-                        "dwMinBitRate",
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    dump_value(
-                        u32::from_le_bytes([data[10], data[11], data[12], data[13]]),
-                        "dwMaxBitRate",
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    if gd.descriptor_subtype == 0x11 {
-                        dump_value(
-                            u32::from_le_bytes([data[14], data[15], data[16], data[17]]),
-                            "dwDefaultFrameInterval",
-                            indent + 2,
-                            DUMP_WIDTH,
-                        );
-                        dump_value(data[18], "bFrameIntervalType", indent + 2, DUMP_WIDTH);
-                        dump_value(
-                            u32::from_le_bytes([data[19], data[20], data[21], data[22]]),
-                            "dwBytesPerLine",
-                            indent + 2,
-                            DUMP_WIDTH,
-                        );
-                    } else {
-                        dump_value(
-                            u32::from_le_bytes([data[14], data[15], data[16], data[17]]),
-                            "dwMaxVideoFrameBufferSize",
-                            indent + 2,
-                            DUMP_WIDTH,
-                        );
-                        dump_value(
-                            u32::from_le_bytes([data[18], data[19], data[20], data[21]]),
-                            "dwDefaultFrameInterval",
-                            indent + 2,
-                            DUMP_WIDTH,
-                        );
-                        dump_value(data[22], "bFrameIntervalType", indent + 2, DUMP_WIDTH);
-                    }
-                    if data[n] == 0 && data.len() >= 35 {
-                        dump_value(
-                            u32::from_le_bytes([data[23], data[24], data[25], data[26]]),
-                            "dwMinFrameInterval",
-                            indent + 2,
-                            DUMP_WIDTH,
-                        );
-                        dump_value(
-                            u32::from_le_bytes([data[27], data[28], data[29], data[30]]),
-                            "dwMaxFrameInterval",
-                            indent + 2,
-                            DUMP_WIDTH,
-                        );
-                        dump_value(
-                            u32::from_le_bytes([data[31], data[32], data[33], data[34]]),
-                            "dwFrameIntervalStep",
-                            indent + 2,
-                            DUMP_WIDTH,
-                        );
-                    } else {
-                        for (i, b) in data[n..].chunks(4).enumerate() {
-                            if i == data[n] as usize {
-                                break;
-                            }
-                            dump_value(
-                                u32::from_le_bytes([b[0], b[1], b[2], b[3]]),
-                                &format!("dwFrameInterval({:2})", i),
-                                indent + 2,
-                                DUMP_WIDTH,
-                            );
-                        }
-                    }
-
-                    dump_junk(data, 8, gd.expected_data_length(), len);
-                }
-            }
-            0x06 => {
-                let mut flags = data[2];
-                if data.len() >= 8 {
-                    dump_value(data[0], "bFormatIndex", indent + 2, DUMP_WIDTH);
-                    dump_value(data[1], "bNumFrameDescriptors", indent + 2, DUMP_WIDTH);
-                    dump_value(flags, "bmFlags", indent + 2, DUMP_WIDTH);
-                    dump_string(
-                        &format!(
-                            "Fixed-size samples: {}",
-                            if flags & 0x01 != 0 { "Yes" } else { "No" }
-                        ),
-                        indent + 2,
-                    );
-                    dump_value(data[3], "bDefaultFrameIndex", indent + 2, DUMP_WIDTH);
-                    dump_value(data[4], "bAspectRatioX", indent + 2, DUMP_WIDTH);
-                    dump_value(data[5], "bAspectRatioY", indent + 2, DUMP_WIDTH);
-
-                    flags = data[6];
-                    dump_hex(flags, "bmInterlaceFlags", indent + 2, DUMP_WIDTH);
-                    dump_string(
-                        &format!(
-                            "Interlaced stream or variable: {}",
-                            if flags & 0x01 != 0 { "Yes" } else { "No" }
-                        ),
-                        indent + 4,
-                    );
-                    dump_string(
-                        &format!(
-                            "Fields per frame: {}",
-                            if flags & 0x02 != 0 { "1" } else { "2" }
-                        ),
-                        indent + 4,
-                    );
-                    dump_string(
-                        &format!(
-                            "Field 1 first: {}",
-                            if flags & 0x04 != 0 { "Yes" } else { "No" }
-                        ),
-                        indent + 4,
-                    );
-                    dump_string(
-                        &format!("Field pattern: {}", field_pattern((flags >> 4) & 0x03)),
-                        indent + 4,
-                    );
-                    dump_value(data[7], "bCopyProtect", indent + 2, DUMP_WIDTH);
-                }
-
-                dump_junk(data, 8, gd.expected_data_length(), 8);
-            }
-            0x0a => {
-                if data.len() >= 4 {
-                    dump_value(data[0], "bFormatIndex", indent + 2, DUMP_WIDTH);
-                    dump_value(data[1], "bDataOffset", indent + 2, DUMP_WIDTH);
-                    dump_value(data[2], "bPacketLength", indent + 2, DUMP_WIDTH);
-                    dump_value(data[3], "bStrideLength", indent + 2, DUMP_WIDTH);
-                    if data.len() >= 20 {
-                        dump_value_string(
-                            "",
-                            "guidStrideFormat",
-                            get_guid(&data[4..20]),
-                            indent + 2,
-                            DUMP_WIDTH - 2,
-                        );
-                    }
-                }
-
-                if gd.len() < 23 {
-                    dump_junk(data, 8, gd.expected_data_length(), 4);
-                } else {
-                    dump_junk(data, 8, gd.expected_data_length(), 20);
-                }
-            }
-            0x0d => {
-                if data.len() >= 3 {
-                    dump_value_string(
-                        data[0],
-                        "bColorPrimaries",
-                        format!("({})", color_primatives(data[0])),
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    dump_value_string(
-                        data[1],
-                        "bTransferCharacteristics",
-                        format!("({})", transfer_characteristics(data[1])),
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                    dump_value_string(
-                        data[2],
-                        "bMatrixCoefficients",
-                        format!("({})", matrix_coefficients(data[2])),
-                        indent + 2,
-                        DUMP_WIDTH,
-                    );
-                }
-
-                dump_junk(data, 8, gd.expected_data_length(), 3);
-            }
-            0x12 => {
-                if data.len() >= 18 {
-                    dump_value(data[0], "bFormatIndex", indent + 2, DUMP_WIDTH);
-                    dump_value_string(
-                        "",
-                        "guidFormat",
-                        get_guid(&data[1..17]),
-                        indent + 2,
-                        DUMP_WIDTH - 2,
-                    );
-                    dump_value(data[17], "dwPacketLength", indent + 2, DUMP_WIDTH);
-                }
-
-                dump_junk(data, 8, gd.expected_data_length(), 21);
-            }
-            _ => {
-                println!(
-                    "{:indent$}Invalid desc subtype: {}",
+            if data.len() >= len {
+                let flags = data[22];
+                dump_value(data[0], "bFormatIndex", indent + 2, DUMP_WIDTH);
+                dump_value(data[1], "bNumFrameDescriptors", indent + 2, DUMP_WIDTH);
+                dump_value_string(
                     "",
-                    data.iter()
-                        .map(|b| format!("{:02x}", b))
-                        .collect::<Vec<String>>()
-                        .join(" "),
-                    indent = indent + 2,
+                    "guidFormat",
+                    get_guid(&data[2..18]),
+                    indent + 2,
+                    DUMP_WIDTH - 2,
+                );
+                dump_value(data[18], "bBitsPerPixel", indent + 2, DUMP_WIDTH);
+                dump_value(data[19], "bDefaultFrameIndex", indent + 2, DUMP_WIDTH);
+                dump_value(data[20], "bAspectRatioX", indent + 2, DUMP_WIDTH);
+                dump_value(data[21], "bAspectRatioY", indent + 2, DUMP_WIDTH);
+                dump_hex(flags, "bmInterlaceFlags", indent + 2, DUMP_WIDTH);
+                dump_value(data[23], "bCopyProtect", indent + 2, DUMP_WIDTH);
+                dump_string(
+                    &format!(
+                        "Interlaced stream or variable: {}",
+                        if flags & 0x01 != 0 { "Yes" } else { "No" }
+                    ),
+                    indent + 4,
+                );
+                dump_string(
+                    &format!(
+                        "Fields per frame: {}",
+                        if flags & 0x02 != 0 { "Yes" } else { "No" }
+                    ),
+                    indent + 4,
+                );
+                dump_string(
+                    &format!(
+                        "Field 1 first: {}",
+                        if flags & 0x04 != 0 { "Yes" } else { "No" }
+                    ),
+                    indent + 4,
+                );
+                dump_string(
+                    &format!("Field pattern: {}", field_pattern((flags >> 4) & 0x03)),
+                    indent + 4,
+                );
+                if subtype_byte == 0x10 {
+                    dump_value(
+                        data.get(24).unwrap_or(&0),
+                        "bVariableSize",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                }
+            }
+        }
+        video::StreamingSubtype::FrameUncompressed |
+            video::StreamingSubtype::FrameMJPEG |
+            video::StreamingSubtype::FrameFrameBased => {
+            let n = if subtype_byte == 0x11 {
+                18
+            } else {
+                22
+            };
+
+            if data.len() >= 23 {
+                let flags = data[1];
+                //let len = if data[n] != 0 {
+                //    23 + data[n] as usize * 4
+                //} else {
+                //    35
+                //};
+                dump_value(data[0], "bFrameIndex", indent + 2, DUMP_WIDTH);
+                dump_hex(flags, "bmCapabilities", indent + 2, DUMP_WIDTH);
+                if flags & 0x01 != 0 {
+                    dump_string("Still image supported", indent + 4);
+                } else {
+                    dump_string("Still image unsupported", indent + 4);
+                }
+                if flags & 0x02 != 0 {
+                    dump_string("Fixed frame-rate", indent + 4);
+                }
+                dump_value(
+                    u16::from_le_bytes([data[2], data[3]]),
+                    "wWidth",
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value(
+                    u16::from_le_bytes([data[4], data[5]]),
+                    "wHeight",
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value(
+                    u32::from_le_bytes([data[6], data[7], data[8], data[9]]),
+                    "dwMinBitRate",
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value(
+                    u32::from_le_bytes([data[10], data[11], data[12], data[13]]),
+                    "dwMaxBitRate",
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                if subtype_byte == 0x11 {
+                    dump_value(
+                        u32::from_le_bytes([data[14], data[15], data[16], data[17]]),
+                        "dwDefaultFrameInterval",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                    dump_value(data[18], "bFrameIntervalType", indent + 2, DUMP_WIDTH);
+                    dump_value(
+                        u32::from_le_bytes([data[19], data[20], data[21], data[22]]),
+                        "dwBytesPerLine",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                } else {
+                    dump_value(
+                        u32::from_le_bytes([data[14], data[15], data[16], data[17]]),
+                        "dwMaxVideoFrameBufferSize",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                    dump_value(
+                        u32::from_le_bytes([data[18], data[19], data[20], data[21]]),
+                        "dwDefaultFrameInterval",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                    dump_value(data[22], "bFrameIntervalType", indent + 2, DUMP_WIDTH);
+                }
+                if data[n] == 0 && data.len() >= 35 {
+                    dump_value(
+                        u32::from_le_bytes([data[23], data[24], data[25], data[26]]),
+                        "dwMinFrameInterval",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                    dump_value(
+                        u32::from_le_bytes([data[27], data[28], data[29], data[30]]),
+                        "dwMaxFrameInterval",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                    dump_value(
+                        u32::from_le_bytes([data[31], data[32], data[33], data[34]]),
+                        "dwFrameIntervalStep",
+                        indent + 2,
+                        DUMP_WIDTH,
+                    );
+                } else {
+                    for (i, b) in data[n..].chunks(4).enumerate() {
+                        if i == data[n] as usize {
+                            break;
+                        }
+                        dump_value(
+                            u32::from_le_bytes([b[0], b[1], b[2], b[3]]),
+                            &format!("dwFrameInterval({:2})", i),
+                            indent + 2,
+                            DUMP_WIDTH,
+                        );
+                    }
+                }
+            }
+        }
+        video::StreamingSubtype::FormatMJPEG => {
+            let mut flags = data[2];
+            if data.len() >= 8 {
+                dump_value(data[0], "bFormatIndex", indent + 2, DUMP_WIDTH);
+                dump_value(data[1], "bNumFrameDescriptors", indent + 2, DUMP_WIDTH);
+                dump_value(flags, "bmFlags", indent + 2, DUMP_WIDTH);
+                dump_string(
+                    &format!(
+                        "Fixed-size samples: {}",
+                        if flags & 0x01 != 0 { "Yes" } else { "No" }
+                    ),
+                    indent + 2,
+                );
+                dump_value(data[3], "bDefaultFrameIndex", indent + 2, DUMP_WIDTH);
+                dump_value(data[4], "bAspectRatioX", indent + 2, DUMP_WIDTH);
+                dump_value(data[5], "bAspectRatioY", indent + 2, DUMP_WIDTH);
+
+                flags = data[6];
+                dump_hex(flags, "bmInterlaceFlags", indent + 2, DUMP_WIDTH);
+                dump_string(
+                    &format!(
+                        "Interlaced stream or variable: {}",
+                        if flags & 0x01 != 0 { "Yes" } else { "No" }
+                    ),
+                    indent + 4,
+                );
+                dump_string(
+                    &format!(
+                        "Fields per frame: {}",
+                        if flags & 0x02 != 0 { "1" } else { "2" }
+                    ),
+                    indent + 4,
+                );
+                dump_string(
+                    &format!(
+                        "Field 1 first: {}",
+                        if flags & 0x04 != 0 { "Yes" } else { "No" }
+                    ),
+                    indent + 4,
+                );
+                dump_string(
+                    &format!("Field pattern: {}", field_pattern((flags >> 4) & 0x03)),
+                    indent + 4,
+                );
+                dump_value(data[7], "bCopyProtect", indent + 2, DUMP_WIDTH);
+            }
+        }
+        video::StreamingSubtype::FormatMPEG2TS => {
+            if data.len() >= 4 {
+                dump_value(data[0], "bFormatIndex", indent + 2, DUMP_WIDTH);
+                dump_value(data[1], "bDataOffset", indent + 2, DUMP_WIDTH);
+                dump_value(data[2], "bPacketLength", indent + 2, DUMP_WIDTH);
+                dump_value(data[3], "bStrideLength", indent + 2, DUMP_WIDTH);
+                if data.len() >= 20 {
+                    dump_value_string(
+                        "",
+                        "guidStrideFormat",
+                        get_guid(&data[4..20]),
+                        indent + 2,
+                        DUMP_WIDTH - 2,
+                    );
+                }
+            }
+        }
+        video::StreamingSubtype::ColorFormat => {
+            if data.len() >= 3 {
+                dump_value_string(
+                    data[0],
+                    "bColorPrimaries",
+                    format!("({})", color_primatives(data[0])),
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value_string(
+                    data[1],
+                    "bTransferCharacteristics",
+                    format!("({})", transfer_characteristics(data[1])),
+                    indent + 2,
+                    DUMP_WIDTH,
+                );
+                dump_value_string(
+                    data[2],
+                    "bMatrixCoefficients",
+                    format!("({})", matrix_coefficients(data[2])),
+                    indent + 2,
+                    DUMP_WIDTH,
                 );
             }
+        }
+        video::StreamingSubtype::FormatStreamBased => {
+            if data.len() >= 18 {
+                dump_value(data[0], "bFormatIndex", indent + 2, DUMP_WIDTH);
+                dump_value_string(
+                    "",
+                    "guidFormat",
+                    get_guid(&data[1..17]),
+                    indent + 2,
+                    DUMP_WIDTH - 2,
+                );
+                dump_value(data[17], "dwPacketLength", indent + 2, DUMP_WIDTH);
+            }
+        }
+        _ => {
+            println!(
+                "{:indent$}Invalid desc subtype: {}",
+                "",
+                data.iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<Vec<String>>()
+                    .join(" "),
+                indent = indent + 2,
+            );
         }
     }
 }

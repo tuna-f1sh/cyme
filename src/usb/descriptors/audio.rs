@@ -213,7 +213,7 @@ pub struct UacDescriptor {
     pub interface: UacInterfaceDescriptor,
 }
 
-/// Try from [`GenericDescriptor`], subclass and protocol
+/// Try from ([`GenericDescriptor`], SubClass, Protocol)
 impl TryFrom<(GenericDescriptor, u8, u8)> for UacDescriptor {
     type Error = Error;
 
@@ -222,6 +222,7 @@ impl TryFrom<(GenericDescriptor, u8, u8)> for UacDescriptor {
         let descriptor_type = gd.descriptor_type;
         let subtype: UacType = (subc, gd.descriptor_subtype, p).try_into()?;
         let interface = subtype.uac_descriptor_from_generic(gd, p)?;
+
         Ok(UacDescriptor {
             length,
             descriptor_type,
@@ -232,17 +233,12 @@ impl TryFrom<(GenericDescriptor, u8, u8)> for UacDescriptor {
 }
 
 impl From<UacDescriptor> for Vec<u8> {
-    fn from(val: UacDescriptor) -> Self {
+    fn from(acd: UacDescriptor) -> Self {
         let mut ret: Vec<u8> = Vec::new();
-        ret.push(val.length);
-        ret.push(val.descriptor_type);
-        let subtype: u8 = match val.subtype {
-            UacType::Control(aci) => aci as u8,
-            UacType::Streaming(asi) => asi as u8,
-            UacType::Midi(mi) => mi as u8,
-        };
-        ret.push(subtype);
-        let data: Vec<u8> = val.interface.into();
+        ret.push(acd.length);
+        ret.push(acd.descriptor_type);
+        ret.push(u8::from(acd.subtype));
+        let data: Vec<u8> = acd.interface.into();
         ret.extend(&data);
 
         ret
@@ -321,7 +317,7 @@ pub enum UacInterfaceDescriptor {
     DataStreamingEndpoint3(DataStreamingEndpoint3),
     /// Invalid descriptor for failing to parse matched
     Invalid(Vec<u8>),
-    /// Generic descriptor for unsupported descriptors
+    /// Generic descriptor for known but unsupported descriptors
     Generic(Vec<u8>),
     /// Undefined descriptor
     Undefined(Vec<u8>),
@@ -938,15 +934,7 @@ pub enum UacType {
     Midi(MidiSubtype),
 }
 
-/// From a [`GenericDescriptor`] and a protocol, get the UAC subtype
-impl TryFrom<(&GenericDescriptor, u8)> for UacType {
-    type Error = Error;
-
-    fn try_from((gd, p): (&GenericDescriptor, u8)) -> error::Result<Self> {
-        (gd.descriptor_type, gd.descriptor_subtype, p).try_into()
-    }
-}
-
+/// From a tuple of (SubClass, DescriptorSub, Protocol) get the UAC subtype
 impl TryFrom<(u8, u8, u8)> for UacType {
     type Error = Error;
 
@@ -972,10 +960,18 @@ impl From<UacType> for u8 {
 
 impl fmt::Display for UacType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            UacType::Control(aci) => write!(f, "{}", aci),
-            UacType::Streaming(asi) => write!(f, "{}", asi),
-            UacType::Midi(mi) => write!(f, "{:?}", mi),
+        if f.alternate() {
+            match self {
+                UacType::Control(aci) => write!(f, "{:#}", aci),
+                UacType::Streaming(asi) => write!(f, "{:#}", asi),
+                UacType::Midi(mi) => write!(f, "{:#}", mi),
+            }
+        } else {
+            match self {
+                UacType::Control(aci) => write!(f, "{}", aci),
+                UacType::Streaming(asi) => write!(f, "{}", asi),
+                UacType::Midi(mi) => write!(f, "{}", mi),
+            }
         }
     }
 }
@@ -1005,7 +1001,13 @@ impl UacType {
         protocol: u8,
     ) -> Result<UacInterfaceDescriptor, Error> {
         match gd.data {
-            Some(data) => self.get_uac_descriptor(protocol, &data),
+            Some(data) => match self.get_uac_descriptor(protocol, &data) {
+                Ok(d) => Ok(d),
+                Err(e) => {
+                    log::error!("Error parsing UVC descriptor: {}", e);
+                    Ok(UacInterfaceDescriptor::Invalid(data))
+                }
+            }
             None => Err(Error::new(
                 ErrorKind::InvalidArg,
                 "GenericDescriptor data is None",
@@ -1523,7 +1525,7 @@ impl TryFrom<&[u8]> for OutputTerminal1 {
         if value.len() < 6 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "Audio Output Terminal 1 descriptor too short",
+                &format!("Output Terminal 1 descriptor too short {} < {}", value.len(), 6),
             ));
         }
 
@@ -2297,7 +2299,7 @@ impl TryFrom<&[u8]> for SelectorUnit1 {
         if value.len() < 4 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "Audio Selector Unit 1 descriptor too short",
+                "Selector Unit 1 descriptor too short",
             ));
         }
 
@@ -2306,7 +2308,7 @@ impl TryFrom<&[u8]> for SelectorUnit1 {
         if value.len() < expected_length {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "Audio Selector Unit 1 descriptor too short",
+                "Selector Unit 1 descriptor too short",
             ));
         }
 
