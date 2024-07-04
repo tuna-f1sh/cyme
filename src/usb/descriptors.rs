@@ -25,6 +25,27 @@ pub fn get_guid(buf: &[u8]) -> Result<String, Error> {
         buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]))
 }
 
+
+/// Convert a GUID string back to a byte array
+pub fn guid_to_bytes(guid: &str) -> Result<[u8; 16], Error> {
+    let guid = guid.replace("-", "");
+
+    if guid.len() != 32 {
+        return Err(Error::new(
+            ErrorKind::InvalidArg,
+            "GUID string must be 32 characters long",
+        ));
+    }
+
+    let bytes = (0..16)
+        .map(|i| u8::from_str_radix(&guid[i * 2..i * 2 + 2], 16).unwrap_or(0))
+        .collect::<Vec<u8>>();
+
+    let mut array = [0; 16];
+    array.copy_from_slice(&bytes);
+    Ok(array)
+}
+
 /// USB Descriptor Types
 ///
 /// Can enclose struct of descriptor data

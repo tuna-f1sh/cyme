@@ -188,11 +188,48 @@ impl UvcType {
                         Ok(UvcInterfaceDescriptor::EncodingUnit(EncodingUnit::try_from(data)?))
                     }
                     ControlSubtype::Undefined => Ok(UvcInterfaceDescriptor::Undefined(data.to_vec())),
-                    //_ => Ok(UvcInterfaceDescriptor::Generic(data.to_vec())),
                 }
             }
-            UvcType::Streaming(_s) => {
-                Ok(UvcInterfaceDescriptor::Generic(data.to_vec()))
+            UvcType::Streaming(s) => {
+                match s {
+                    StreamingSubtype::InputHeader => {
+                        Ok(UvcInterfaceDescriptor::InputHeader(InputHeader::try_from(data)?))
+                    }
+                    StreamingSubtype::OutputHeader => {
+                        Ok(UvcInterfaceDescriptor::OutputHeader(OutputHeader::try_from(data)?))
+                    }
+                    StreamingSubtype::StillImageFrame => {
+                        Ok(UvcInterfaceDescriptor::StillImageFrame(StillImageFrame::try_from(data)?))
+                    }
+                    StreamingSubtype::FrameUncompressed => {
+                        Ok(UvcInterfaceDescriptor::FrameUncompressed(FrameUncompressed::try_from(data)?))
+                    }
+                    StreamingSubtype::FrameMJPEG => {
+                        Ok(UvcInterfaceDescriptor::FrameMJPEG(FrameMJPEG::try_from(data)?))
+                    }
+                    StreamingSubtype::FrameFrameBased => {
+                        Ok(UvcInterfaceDescriptor::FrameFrameBased(FrameFrameBased::try_from(data)?))
+                    }
+                    StreamingSubtype::FormatMJPEG => {
+                        Ok(UvcInterfaceDescriptor::FormatMJPEG(FormatMJPEG::try_from(data)?))
+                    }
+                    StreamingSubtype::FormatFrameBased => {
+                        Ok(UvcInterfaceDescriptor::FormatFrameBased(FormatFrame::try_from(data)?))
+                    }
+                    StreamingSubtype::FormatUncompressed => {
+                        Ok(UvcInterfaceDescriptor::FormatUncompressed(FormatFrame::try_from(data)?))
+                    }
+                    StreamingSubtype::FormatStreamBased => {
+                        Ok(UvcInterfaceDescriptor::FormatStreamBased(FormatStreamBased::try_from(data)?))
+                    }
+                    StreamingSubtype::FormatMPEG2TS => {
+                        Ok(UvcInterfaceDescriptor::FormatMPEG2TS(FormatMPEG2TS::try_from(data)?))
+                    }
+                    StreamingSubtype::ColorFormat => {
+                        Ok(UvcInterfaceDescriptor::ColorFormat(ColorFormat::try_from(data)?))
+                    }
+                    StreamingSubtype::Undefined => Ok(UvcInterfaceDescriptor::Undefined(data.to_vec())),
+                }
             }
         }
     }
@@ -271,6 +308,18 @@ pub enum UvcInterfaceDescriptor {
     ExtensionUnit(ExtensionUnit),
     EncodingUnit(EncodingUnit),
     // Streaming
+    InputHeader(InputHeader),
+    OutputHeader(OutputHeader),
+    StillImageFrame(StillImageFrame),
+    FrameUncompressed(FrameUncompressed),
+    FrameMJPEG(FrameMJPEG),
+    FrameFrameBased(FrameFrameBased),
+    FormatUncompressed(FormatFrame),
+    FormatFrameBased(FormatFrame),
+    FormatStreamBased(FormatStreamBased),
+    FormatMJPEG(FormatMJPEG),
+    FormatMPEG2TS(FormatMPEG2TS),
+    ColorFormat(ColorFormat),
     /// Invalid descriptor for failing to parse matched
     Invalid(Vec<u8>),
     /// Generic descriptor for known but unsupported descriptors
@@ -289,6 +338,18 @@ impl From<UvcInterfaceDescriptor> for Vec<u8> {
             UvcInterfaceDescriptor::ProcessingUnit(pu) => pu.into(),
             UvcInterfaceDescriptor::ExtensionUnit(eu) => eu.into(),
             UvcInterfaceDescriptor::EncodingUnit(eu) => eu.into(),
+            UvcInterfaceDescriptor::InputHeader(ih) => ih.into(),
+            UvcInterfaceDescriptor::OutputHeader(oh) => oh.into(),
+            UvcInterfaceDescriptor::StillImageFrame(sif) => sif.into(),
+            UvcInterfaceDescriptor::FrameFrameBased(ff) => ff.into(),
+            UvcInterfaceDescriptor::FrameUncompressed(fu) |
+                UvcInterfaceDescriptor::FrameMJPEG(fu) => fu.into(),
+            UvcInterfaceDescriptor::FormatUncompressed(fmt) |
+            UvcInterfaceDescriptor::FormatFrameBased(fmt) => fmt.into(),
+            UvcInterfaceDescriptor::FormatStreamBased(fsb) => fsb.into(),
+            UvcInterfaceDescriptor::FormatMJPEG(fmt) => fmt.into(),
+            UvcInterfaceDescriptor::FormatMPEG2TS(fmts) => fmts.into(),
+            UvcInterfaceDescriptor::ColorFormat(cf) => cf.into(),
             UvcInterfaceDescriptor::Invalid(data) => data,
             UvcInterfaceDescriptor::Generic(data) => data,
             UvcInterfaceDescriptor::Undefined(data) => data,
@@ -642,7 +703,7 @@ impl From<ExtensionUnit> for Vec<u8> {
     fn from(eu: ExtensionUnit) -> Self {
         let mut ret = Vec::new();
         ret.push(eu.unit_id);
-        ret.extend(eu.guid_extension_code.into_bytes());
+        ret.extend(&guid_to_bytes(&eu.guid_extension_code).unwrap());
         ret.push(eu.num_controls);
         ret.push(eu.num_input_pins);
         ret.extend_from_slice(&eu.source_ids);
@@ -729,6 +790,706 @@ impl From<EncodingUnit> for Vec<u8> {
 
         for i in 0..eu.control_size.min(3) {
             ret.push((eu.controls_runtime >> (i * 8)) as u8);
+        }
+
+        ret
+    }
+}
+
+/* Streaming Interface Descriptors */
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct InputHeader {
+    pub num_formats: u8,
+    pub total_length: u16,
+    pub endpoint_address: EndpointAddress,
+    pub info: u8,
+    pub terminal_link: u8,
+    pub still_capture_method: u8,
+    pub trigger_support: u8,
+    pub trigger_usage: u8,
+    pub control_size: u8,
+    pub controls: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for InputHeader {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 10 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Input Header descriptor too short {} < 10", value.len()),
+            ));
+        }
+
+        let num_formats = value[0];
+        let total_length = u16::from_le_bytes([value[1], value[2]]);
+        let endpoint_address = EndpointAddress::from(value[3]);
+        let info = value[4];
+        let terminal_link = value[5];
+        let still_capture_method = value[6];
+        let trigger_support = value[7];
+        let trigger_usage = value[8];
+        let control_size = value[9];
+
+        if value.len() < 10 + num_formats as usize * control_size as usize {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Input Header descriptor too short for reported formats",
+            ));
+        }
+
+        let controls = value[10..].to_vec();
+
+        Ok(InputHeader {
+            num_formats,
+            total_length,
+            endpoint_address,
+            info,
+            terminal_link,
+            still_capture_method,
+            trigger_support,
+            trigger_usage,
+            control_size,
+            controls,
+        })
+    }
+}
+
+impl From<InputHeader> for Vec<u8> {
+    fn from(ih: InputHeader) -> Self {
+        let mut ret = Vec::new();
+        ret.push(ih.num_formats);
+        ret.extend_from_slice(&ih.total_length.to_le_bytes());
+        ret.push(ih.endpoint_address.into());
+        ret.push(ih.info);
+        ret.push(ih.terminal_link);
+        ret.push(ih.still_capture_method);
+        ret.push(ih.trigger_support);
+        ret.push(ih.trigger_usage);
+        ret.push(ih.control_size);
+        ret.extend(ih.controls);
+
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct OutputHeader {
+    pub num_formats: u8,
+    pub total_length: u16,
+    pub endpoint_address: EndpointAddress,
+    pub terminal_link: u8,
+    pub control_size: u8,
+    pub controls: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for OutputHeader {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 6 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Output Header descriptor too short {} < 6", value.len()),
+            ));
+        }
+
+        let num_formats = value[0];
+        let total_length = u16::from_le_bytes([value[1], value[2]]);
+        let endpoint_address = EndpointAddress::from(value[3]);
+        let terminal_link = value[4];
+        let control_size = value[5];
+
+        if value.len() < 6 + num_formats as usize * control_size as usize {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!(
+                    "Output Header descriptor too short for formats {} < {}",
+                    value.len(),
+                    7 + num_formats as usize * control_size as usize
+                ),
+            ));
+        }
+
+        let controls = value[6..].to_vec();
+
+        Ok(OutputHeader {
+            num_formats,
+            total_length,
+            endpoint_address,
+            terminal_link,
+            control_size,
+            controls,
+        })
+    }
+}
+
+impl From<OutputHeader> for Vec<u8> {
+    fn from(oh: OutputHeader) -> Self {
+        let mut ret = Vec::new();
+        ret.push(oh.num_formats);
+        ret.extend_from_slice(&oh.total_length.to_le_bytes());
+        ret.push(oh.endpoint_address.into());
+        ret.push(oh.terminal_link);
+        ret.push(oh.control_size);
+        ret.extend(oh.controls);
+
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct StillImageFrame {
+    pub endpoint_address: EndpointAddress,
+    pub num_image_size_patterns: u8,
+    pub image_size_patterns: Vec<(u16, u16)>,
+    pub num_compression_patterns: u8,
+    pub compression_patterns: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for StillImageFrame {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Still Image Frame descriptor too short {} < 3", value.len()),
+            ));
+        }
+
+        let endpoint_address = EndpointAddress::from(value[0]);
+        let num_image_size_patterns = value[1];
+        let mut image_size_patterns = Vec::new();
+        let mut offset = 2;
+
+        if offset + num_image_size_patterns as usize * 4 > value.len() {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Still Image Frame descriptor too short for image size patterns",
+            ));
+        }
+
+        for (_, b) in value[offset..].chunks_exact(4).enumerate() {
+            let width = u16::from_le_bytes([b[0], b[1]]);
+            let height = u16::from_le_bytes([b[2], b[3]]);
+            image_size_patterns.push((width, height));
+            offset += 4;
+        }
+
+        let num_compression_patterns = value[offset];
+        offset += 1;
+
+        if offset + num_compression_patterns as usize > value.len() {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Still Image Frame descriptor too short for compression patterns",
+            ));
+        }
+
+        let compression_patterns = value[offset..offset + num_compression_patterns as usize].to_vec();
+
+        Ok(StillImageFrame {
+            endpoint_address,
+            num_image_size_patterns,
+            image_size_patterns,
+            num_compression_patterns,
+            compression_patterns,
+        })
+    }
+}
+
+impl From<StillImageFrame> for Vec<u8> {
+    fn from(sif: StillImageFrame) -> Self {
+        let mut ret = Vec::new();
+        ret.push(sif.endpoint_address.into());
+        ret.push(sif.num_image_size_patterns);
+        for (width, height) in sif.image_size_patterns {
+            ret.extend_from_slice(&width.to_le_bytes());
+            ret.extend_from_slice(&height.to_le_bytes());
+        }
+        ret.push(sif.num_compression_patterns);
+        ret.extend(sif.compression_patterns);
+
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct ColorFormat {
+    pub color_primaries: u8,
+    pub transfer_characteristics: u8,
+    pub matrix_coefficients: u8,
+}
+
+impl TryFrom<&[u8]> for ColorFormat {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Color Format descriptor too short {} < 3", value.len()),
+            ));
+        }
+
+        let color_primaries = value[0];
+        let transfer_characteristics = value[1];
+        let matrix_coefficients = value[2];
+
+        Ok(ColorFormat {
+            color_primaries,
+            transfer_characteristics,
+            matrix_coefficients,
+        })
+    }
+}
+
+impl From<ColorFormat> for Vec<u8> {
+    fn from(cf: ColorFormat) -> Self {
+        vec![cf.color_primaries, cf.transfer_characteristics, cf.matrix_coefficients]
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatStreamBased {
+    pub format_index: u8,
+    pub guid_format: String,
+    pub packet_length: u8,
+}
+
+impl TryFrom<&[u8]> for FormatStreamBased {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 18 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Format Stream Based descriptor too short {} < 18", value.len()),
+            ));
+        }
+
+        let format_index = value[0];
+        let guid_format = get_guid(&value[1..17])?;
+        let packet_length = value[17];
+
+        Ok(FormatStreamBased {
+            format_index,
+            guid_format,
+            packet_length,
+        })
+    }
+}
+
+impl From<FormatStreamBased> for Vec<u8> {
+    fn from(fsb: FormatStreamBased) -> Self {
+        let mut ret = Vec::new();
+        ret.push(fsb.format_index);
+        ret.extend(fsb.guid_format.into_bytes());
+        ret.push(fsb.packet_length);
+
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatMPEG2TS {
+    pub format_index: u8,
+    pub data_offset: u8,
+    pub packet_length: u8,
+    pub stride_length: u8,
+    pub guid_stride_format: Option<String>,
+}
+
+impl TryFrom<&[u8]> for FormatMPEG2TS {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Format MPEG2TS descriptor too short {} < 4", value.len()),
+            ));
+        }
+
+        let format_index = value[0];
+        let data_offset = value[1];
+        let packet_length = value[2];
+        let stride_length = value[3];
+
+        let guid_stride_format = if value.len() < 20 {
+            None
+        } else {
+            get_guid(&value[4..20]).ok()
+        };
+
+        Ok(FormatMPEG2TS {
+            format_index,
+            data_offset,
+            packet_length,
+            stride_length,
+            guid_stride_format,
+        })
+    }
+}
+
+impl From<FormatMPEG2TS> for Vec<u8> {
+    fn from(fmts: FormatMPEG2TS) -> Self {
+        let mut ret = Vec::new();
+        ret.push(fmts.format_index);
+        ret.push(fmts.data_offset);
+        ret.push(fmts.packet_length);
+        ret.push(fmts.stride_length);
+        if let Some(guid) = fmts.guid_stride_format {
+            ret.extend(guid_to_bytes(&guid).unwrap());
+        }
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatMJPEG {
+    pub format_index: u8,
+    pub num_frame_descriptors: u8,
+    pub flags: u8,
+    pub default_frame_index: u8,
+    pub aspect_ratio_x: u8,
+    pub aspect_ratio_y: u8,
+    pub interlace_flags: u8,
+    pub copy_protect: u8,
+}
+
+impl TryFrom<&[u8]> for FormatMJPEG {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Format MJPEG descriptor too short {} < 8", value.len()),
+            ));
+        }
+
+        let format_index = value[0];
+        let num_frame_descriptors = value[1];
+        let flags = value[2];
+        let default_frame_index = value[3];
+        let aspect_ratio_x = value[4];
+        let aspect_ratio_y = value[5];
+        let interlace_flags = value[6];
+        let copy_protect = value[7];
+
+        Ok(FormatMJPEG {
+            format_index,
+            num_frame_descriptors,
+            flags,
+            default_frame_index,
+            aspect_ratio_x,
+            aspect_ratio_y,
+            interlace_flags,
+            copy_protect,
+        })
+    }
+}
+
+impl From<FormatMJPEG> for Vec<u8> {
+    fn from(fmjpeg: FormatMJPEG) -> Self {
+        vec![
+            fmjpeg.format_index,
+            fmjpeg.num_frame_descriptors,
+            fmjpeg.flags,
+            fmjpeg.default_frame_index,
+            fmjpeg.aspect_ratio_x,
+            fmjpeg.aspect_ratio_y,
+            fmjpeg.interlace_flags,
+            fmjpeg.copy_protect,
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatFrame {
+    pub format_index: u8,
+    pub num_frame_descriptors: u8,
+    pub guid_format: String,
+    pub bits_per_pixel: u8,
+    pub default_frame_index: u8,
+    pub aspect_ratio_x: u8,
+    pub aspect_ratio_y: u8,
+    pub interlace_flags: u8,
+    pub copy_protect: u8,
+    pub variable_size: Option<u8>,
+}
+
+impl TryFrom<&[u8]> for FormatFrame {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 24 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!(
+                    "Format Uncompressed/Frame Based descriptor too short {} < 24",
+                    value.len()
+                ),
+            ));
+        }
+
+        let format_index = value[0];
+        let num_frame_descriptors = value[1];
+        let guid_format = get_guid(&value[2..18])?;
+        let bits_per_pixel = value[18];
+        let default_frame_index = value[19];
+        let aspect_ratio_x = value[20];
+        let aspect_ratio_y = value[21];
+        let interlace_flags = value[22];
+        let copy_protect = value[23];
+        // only present on frame based
+        let variable_size = value.get(24).map(|&v| v);
+
+        Ok(FormatFrame {
+            format_index,
+            num_frame_descriptors,
+            guid_format,
+            bits_per_pixel,
+            default_frame_index,
+            aspect_ratio_x,
+            aspect_ratio_y,
+            interlace_flags,
+            copy_protect,
+            variable_size,
+        })
+    }
+}
+
+impl From<FormatFrame> for Vec<u8> {
+    fn from(fufb: FormatFrame) -> Self {
+        let mut ret = Vec::new();
+        ret.push(fufb.format_index);
+        ret.push(fufb.num_frame_descriptors);
+        ret.extend_from_slice(&guid_to_bytes(&fufb.guid_format).unwrap());
+        ret.push(fufb.bits_per_pixel);
+        ret.push(fufb.default_frame_index);
+        ret.push(fufb.aspect_ratio_x);
+        ret.push(fufb.aspect_ratio_y);
+        ret.push(fufb.interlace_flags);
+        ret.push(fufb.copy_protect);
+        if let Some(variable_size) = fufb.variable_size {
+            ret.push(variable_size);
+        }
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FrameCommon {
+    pub frame_index: u8,
+    pub capabilities: u8,
+    pub width: u16,
+    pub height: u16,
+    pub min_bit_rate: u32,
+    pub max_bit_rate: u32,
+}
+
+impl TryFrom<&[u8]> for FrameCommon {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 23 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Frame descriptor too short {} < 23", value.len()),
+            ));
+        }
+
+        let frame_index = value[0];
+        let capabilities = value[1];
+        let width = u16::from_le_bytes([value[2], value[3]]);
+        let height = u16::from_le_bytes([value[4], value[5]]);
+        let min_bit_rate = u32::from_le_bytes([value[6], value[7], value[8], value[9]]);
+        let max_bit_rate = u32::from_le_bytes([value[10], value[11], value[12], value[13]]);
+
+        Ok(FrameCommon {
+            frame_index,
+            capabilities,
+            width,
+            height,
+            min_bit_rate,
+            max_bit_rate,
+        })
+    }
+}
+
+impl From<FrameCommon> for Vec<u8> {
+    fn from(fc: FrameCommon) -> Self {
+        let mut ret = Vec::new();
+        ret.push(fc.frame_index);
+        ret.push(fc.capabilities);
+        ret.extend_from_slice(&fc.width.to_le_bytes());
+        ret.extend_from_slice(&fc.height.to_le_bytes());
+        ret.extend_from_slice(&fc.min_bit_rate.to_le_bytes());
+        ret.extend_from_slice(&fc.max_bit_rate.to_le_bytes());
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FrameUncompressed {
+    pub common: FrameCommon,
+    pub max_video_frame_buffer_size: u32,
+    pub default_frame_interval: u32,
+    pub frame_interval_type: u8,
+    pub frame_intervals: Vec<u32>,
+}
+
+impl TryFrom<&[u8]> for FrameUncompressed {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        let common: FrameCommon = FrameCommon::try_from(value)?;
+
+        if value.len() < 24 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("FrameUncompressed descriptor too short {} < 24", value.len()),
+            ));
+        }
+
+        let max_video_frame_buffer_size = u32::from_le_bytes([value[14], value[15], value[16], value[17]]);
+        let default_frame_interval = u32::from_le_bytes([value[18], value[19], value[20], value[21]]);
+        let frame_interval_type = value[22];
+
+        let frame_intervals = if frame_interval_type == 0 && value.len() >= 35 {
+            vec![
+                u32::from_le_bytes([value[23], value[24], value[25], value[26]]),
+                u32::from_le_bytes([value[27], value[28], value[29], value[30]]),
+                u32::from_le_bytes([value[31], value[32], value[33], value[34]]),
+            ]
+        } else {
+            if value.len() < 23 + frame_interval_type as usize * 4 {
+                return Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    &format!(
+                        "FrameUncompressed descriptor too short for frame intervals {} < {}",
+                        value.len(),
+                        22 + frame_interval_type as usize * 4
+                    ),
+                ));
+            }
+            value[23..]
+                .chunks_exact(4)
+                .take(frame_interval_type as usize)
+                .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+                .collect()
+        };
+
+        Ok(FrameUncompressed {
+            common,
+            default_frame_interval,
+            frame_interval_type,
+            max_video_frame_buffer_size,
+            frame_intervals,
+        })
+    }
+}
+
+impl From<FrameUncompressed> for Vec<u8> {
+    fn from(fu: FrameUncompressed) -> Self {
+        let mut ret = Vec::from(fu.common);
+        ret.extend_from_slice(&fu.max_video_frame_buffer_size.to_le_bytes());
+        ret.extend_from_slice(&fu.default_frame_interval.to_le_bytes());
+        ret.push(fu.frame_interval_type);
+        for interval in fu.frame_intervals {
+            ret.extend_from_slice(&interval.to_le_bytes());
+        }
+        ret
+    }
+}
+
+#[allow(missing_docs)]
+pub type FrameMJPEG = FrameUncompressed;
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FrameFrameBased {
+    pub common: FrameCommon,
+    pub default_frame_interval: u32,
+    pub frame_interval_type: u8,
+    pub bytes_per_line: u32,
+    pub frame_intervals: Vec<u32>,
+}
+
+impl TryFrom<&[u8]> for FrameFrameBased {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        let common: FrameCommon = FrameCommon::try_from(value)?;
+
+        if value.len() < 24 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                &format!("FrameFrameBased descriptor too short {} < 24", value.len()),
+            ));
+        }
+
+        let default_frame_interval = u32::from_le_bytes([value[14], value[15], value[16], value[17]]);
+        let frame_interval_type = value[18];
+        let bytes_per_line = u32::from_le_bytes([value[19], value[20], value[21], value[22]]);
+
+        let frame_intervals = if frame_interval_type == 0 && value.len() >= 35 {
+            vec![
+                u32::from_le_bytes([value[23], value[24], value[25], value[26]]),
+                u32::from_le_bytes([value[27], value[28], value[29], value[30]]),
+                u32::from_le_bytes([value[31], value[32], value[33], value[34]]),
+            ]
+        } else {
+            if value.len() < 23 + frame_interval_type as usize * 4 {
+                return Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    &format!(
+                        "FrameFrameBased descriptor too short for frame intervals {} < {}",
+                        value.len(),
+                        23 + frame_interval_type as usize * 4
+                    ),
+                ));
+            }
+            value[23..]
+                .chunks_exact(4)
+                .take(frame_interval_type as usize)
+                .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+                .collect()
+        };
+
+        Ok(FrameFrameBased {
+            common,
+            default_frame_interval,
+            frame_interval_type,
+            bytes_per_line,
+            frame_intervals,
+        })
+    }
+}
+
+impl From<FrameFrameBased> for Vec<u8> {
+    fn from(ffb: FrameFrameBased) -> Self {
+        let mut ret = Vec::from(ffb.common);
+        ret.extend_from_slice(&ffb.default_frame_interval.to_le_bytes());
+        ret.push(ffb.frame_interval_type);
+        ret.extend_from_slice(&ffb.bytes_per_line.to_le_bytes());
+        for interval in ffb.frame_intervals {
+            ret.extend_from_slice(&interval.to_le_bytes());
         }
 
         ret

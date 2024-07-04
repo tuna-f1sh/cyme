@@ -752,7 +752,14 @@ pub enum Direction {
 
 impl fmt::Display for Direction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        if f.alternate() {
+            match self {
+                Direction::Out => write!(f, "OUT"),
+                Direction::In => write!(f, "IN"),
+            }
+        } else {
+            write!(f, "{:?}", self)
+        }
     }
 }
 
@@ -839,7 +846,8 @@ fn default_endpoint_desc_length() -> u8 {
 }
 
 /// Address information for a [`USBEndpoint`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// This struct could be one byte with getters using mask but this saves a custom Serialize impl for system_profiler
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EndpointAddress {
     /// Endpoint address byte
     pub address: u8,
@@ -847,6 +855,29 @@ pub struct EndpointAddress {
     pub number: u8,
     /// Data transfer direction 7b
     pub direction: Direction,
+}
+
+impl From<u8> for EndpointAddress {
+    fn from(b: u8) -> Self {
+        EndpointAddress {
+            address: b,
+            // 0..3b
+            number: b & 0x0f,
+            direction: if b & 0x80 == 0 { Direction::Out } else { Direction::In },
+        }
+    }
+}
+
+impl From<EndpointAddress> for u8 {
+    fn from(addr: EndpointAddress) -> u8 {
+        addr.address
+    }
+}
+
+impl fmt::Display for EndpointAddress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "EP {} {}", self.number, self.direction)
+    }
 }
 
 /// Endpoint for a [`USBInterface`]
