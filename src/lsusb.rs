@@ -382,12 +382,9 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                         dump_debug(debug, 0);
                     }
 
-                    dump_device_status(
-                        device_extra.status.unwrap_or(0),
-                        otg,
-                        device.bcd_usb.map_or(false, |v| v.major() >= 3),
-                        0,
-                    );
+                    if let Some(status) = device_extra.status {
+                        dump_device_status(status, otg, device.bcd_usb.map_or(false, |v| v.major() >= 3), 0);
+                    }
                 }
             }
         }

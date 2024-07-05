@@ -153,13 +153,17 @@ impl TryFrom<&[u8]> for BinaryObjectStoreDescriptor {
         let mut capabilities = Vec::new();
         let mut offset = 5;
         // probably a Rustier way to do this with drain but this works..
-        while offset < total_length as usize && value.len() > offset {
+        // already checked that the total length is correct
+        while offset < total_length as usize {
             let cd_len = value[offset] as usize;
             if value.len() < offset + cd_len {
+                // break if we're going to read past the end of the buffer rather than Err so all is not lost...
+                log::warn!("BOS capability has invalid length, breaking");
                 break
             }
             match BosCapability::try_from(&value[offset..offset + cd_len]) {
                 Ok(c) => capabilities.push(c),
+                // allow to continue parsing even if one fails
                 Err(e) => log::warn!("Failed to parse BOS capability: {:?}", e),
             }
             offset += cd_len;
