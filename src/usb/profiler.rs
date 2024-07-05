@@ -250,7 +250,7 @@ fn get_report_descriptor<T: libusb::UsbContext>(
 fn get_hub_descriptor<T: libusb::UsbContext>(
     handle: &mut Option<UsbDevice<T>>,
     index: u16,
-    super_speed: bool,
+    speed: super::Speed,
 ) -> Result<usb::HubDescriptor, Error> {
     let request_type = libusb::request_type(
         libusb::Direction::In,
@@ -258,7 +258,7 @@ fn get_hub_descriptor<T: libusb::UsbContext>(
         libusb::Recipient::Device,
     );
     let request = libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR;
-    let value = if super_speed {
+    let value = if speed as u8 >= 3 {
         (libusb::constants::LIBUSB_DT_SUPERSPEED_HUB as u16) << 8
     } else {
         (libusb::constants::LIBUSB_DT_HUB as u16) << 8
@@ -875,7 +875,7 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
                 .map(|v| v.name().to_owned()),
         ),
         configurations: build_configurations(device, handle, device_desc, sp_device, with_udev)?,
-        status: get_device_status(handle).unwrap_or(0),
+        status: get_device_status(handle).ok(),
         debug: get_debug_descriptor(handle).ok(),
         binary_object_store: None,
         qualifier: None,
@@ -900,8 +900,8 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
         log::info!("Device Qualifier: {:?}", extra.qualifier);
     }
     if device_desc.class_code() == usb::ClassCode::Hub as u8 {
-        // TODO superspeed flag
-        extra.hub = get_hub_descriptor(handle, 0, false).ok();
+        let speed = usb::Speed::from(device.speed());
+        extra.hub = get_hub_descriptor(handle, 0, speed).ok();
         log::info!("Hub: {:?}", extra.hub);
     }
 

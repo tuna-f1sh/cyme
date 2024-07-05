@@ -1082,19 +1082,14 @@ pub struct USBDeviceExtra {
     /// USB devices can be have a number of configurations
     pub configurations: Vec<USBConfiguration>,
     /// Device status
-    #[serde(default)]
-    pub status: u16,
+    pub status: Option<u16>,
     /// Debug descriptor if present
-    #[serde(default)]
     pub debug: Option<DebugDescriptor>,
     /// Binary Object Store (BOS) descriptor if present
-    #[serde(default)]
     pub binary_object_store: Option<bos::BinaryObjectStoreDescriptor>,
     /// Device qualifier descriptor if present
-    #[serde(default)]
     pub qualifier: Option<DeviceQualifierDescriptor>,
     /// Hub descriptor if present (is a hub)
-    #[serde(default)]
     pub hub: Option<HubDescriptor>,
 }
 
