@@ -199,7 +199,11 @@ fn dump_audio_power_domain(power_domain: &audio::PowerDomain, indent: usize, wid
     );
 }
 
-pub(crate) fn dump_audio_selector_unit1(selector_unit: &audio::SelectorUnit1, indent: usize, width: usize) {
+pub(crate) fn dump_audio_selector_unit1(
+    selector_unit: &audio::SelectorUnit1,
+    indent: usize,
+    width: usize,
+) {
     dump_value(selector_unit.unit_id, "bUnitID", indent, width);
     dump_value(selector_unit.nr_in_pins, "bNrInPins", indent, width);
     dump_array(&selector_unit.source_ids, "baSourceID", indent, width);
@@ -1212,7 +1216,8 @@ fn dump_audio_subtype(uacid: &audio::UacInterfaceDescriptor, indent: usize) {
         audio::UacInterfaceDescriptor::DataStreamingEndpoint3(ads) => {
             dump_audio_data_streaming_endpoint3(ads, indent, LSUSB_DUMP_WIDTH);
         }
-        audio::UacInterfaceDescriptor::Undefined(data) | audio::UacInterfaceDescriptor::Invalid(data) => {
+        audio::UacInterfaceDescriptor::Undefined(data)
+        | audio::UacInterfaceDescriptor::Invalid(data) => {
             println!(
                 "{:indent$}Invalid desc subtype: {}",
                 "",
@@ -1318,7 +1323,10 @@ fn dump_format_type_i(data: &[u8], indent: usize) {
     );
     if data[4] == 0 {
         if data.len() < 11 {
-            dump_string("Warning: Descriptor too short for continuous sample frequency", indent);
+            dump_string(
+                "Warning: Descriptor too short for continuous sample frequency",
+                indent,
+            );
             return;
         }
         dump_value(
@@ -1336,7 +1344,10 @@ fn dump_format_type_i(data: &[u8], indent: usize) {
     } else {
         for i in 0..data[4] {
             if data.len() < 5 + 3 * (i as usize + 1) {
-                dump_string("Warning: Descriptor too short for discrete sample frequency", indent);
+                dump_string(
+                    "Warning: Descriptor too short for discrete sample frequency",
+                    indent,
+                );
                 return;
             }
             dump_value(
@@ -1389,7 +1400,10 @@ fn dump_format_type_ii(data: &[u8], indent: usize) {
     );
     if data[5] == 0 {
         if data.len() < 12 {
-            dump_string("Warning: Descriptor too short for continuous sample frequency", indent);
+            dump_string(
+                "Warning: Descriptor too short for continuous sample frequency",
+                indent,
+            );
             return;
         }
         dump_value(
@@ -1407,7 +1421,10 @@ fn dump_format_type_ii(data: &[u8], indent: usize) {
     } else {
         for i in 0..data[5] {
             if data.len() < 6 + 3 * (i as usize + 1) {
-                dump_string("Warning: Descriptor too short for discrete sample frequency", indent);
+                dump_string(
+                    "Warning: Descriptor too short for discrete sample frequency",
+                    indent,
+                );
                 return;
             }
             dump_value(
@@ -1451,7 +1468,10 @@ fn dump_format_type_iii(data: &[u8], indent: usize) {
     );
     if data[4] == 0 {
         if data.len() < 11 {
-            dump_string("Warning: Descriptor too short for continuous sample frequency", indent);
+            dump_string(
+                "Warning: Descriptor too short for continuous sample frequency",
+                indent,
+            );
             return;
         }
         dump_value(
@@ -1469,7 +1489,10 @@ fn dump_format_type_iii(data: &[u8], indent: usize) {
     } else {
         for i in 0..data[4] {
             if data.len() < 5 + 3 * (i as usize + 1) {
-                dump_string("Warning: Descriptor too short for discrete sample frequency", indent);
+                dump_string(
+                    "Warning: Descriptor too short for discrete sample frequency",
+                    indent,
+                );
                 return;
             }
             dump_value(
@@ -1501,7 +1524,12 @@ fn dump_format_type_ii_uac2(data: &[u8], indent: usize) {
         dump_string("Warning: Descriptor too short", indent);
         return;
     }
-    dump_value(u16::from_le_bytes([data[1], data[2]]), "wMaxBitRate", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        u16::from_le_bytes([data[1], data[2]]),
+        "wMaxBitRate",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_value(
         u16::from_le_bytes([data[3], data[4]]),
         "wSlotsPerFrame",
@@ -1532,7 +1560,12 @@ fn dump_format_specific_mpeg(data: &[u8], indent: usize) {
         dump_string("Warning: Descriptor too short", indent);
         return;
     }
-    dump_hex(u16::from_le_bytes([data[3], data[4]]), "bmMPEGCapabilities", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_hex(
+        u16::from_le_bytes([data[3], data[4]]),
+        "bmMPEGCapabilities",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
     dump_bitmap_strings(
         data[2],
         |b| match b {
@@ -1608,7 +1641,6 @@ fn dump_format_specific_ac3(data: &[u8], indent: usize) {
         indent = indent + 4
     );
 }
-
 
 pub(crate) fn dump_audiostreaming_interface(
     uacd: &audio::UacDescriptor,
@@ -1986,11 +2018,11 @@ pub(crate) fn dump_midistreaming_endpoint(med: &audio::MidiEndpointDescriptor, i
         LSUSB_DUMP_WIDTH,
     );
 
-    dump_value(med.num_jacks, "bNumEmbMIDIJack", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_array(
-        &med.jacks,
-        "baAssocJackID",
+    dump_value(
+        med.num_jacks,
+        "bNumEmbMIDIJack",
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
+    dump_array(&med.jacks, "baAssocJackID", indent + 2, LSUSB_DUMP_WIDTH);
 }

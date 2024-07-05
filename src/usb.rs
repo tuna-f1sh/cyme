@@ -19,6 +19,9 @@ use crate::error::{self, Error, ErrorKind};
 use crate::types::NumericalUnit;
 use descriptors::*;
 
+const WEBUSB_GET_URL: u8 = 0x02;
+const USB_DT_WEBUSB_URL: u8 = 0x03;
+
 /// The version value (for BCD and USB) is in binary coded decimal with a format of 0xJJMN where JJ is the major version number, M is the minor version number and N is the sub minor version number. e.g. USB 2.0 is reported as 0x0200, USB 1.1 as 0x0110 and USB 1.0 as 0x0100. The type is a mirror of the one from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
 ///
 ///
@@ -863,7 +866,11 @@ impl From<u8> for EndpointAddress {
             address: b,
             // 0..3b
             number: b & 0x0f,
-            direction: if b & 0x80 == 0 { Direction::Out } else { Direction::In },
+            direction: if b & 0x80 == 0 {
+                Direction::Out
+            } else {
+                Direction::In
+            },
         }
     }
 }
@@ -1074,6 +1081,21 @@ pub struct USBDeviceExtra {
     pub string_indexes: (u8, u8, u8),
     /// USB devices can be have a number of configurations
     pub configurations: Vec<USBConfiguration>,
+    /// Device status
+    #[serde(default)]
+    pub status: u16,
+    /// Debug descriptor if present
+    #[serde(default)]
+    pub debug: Option<DebugDescriptor>,
+    /// Binary Object Store (BOS) descriptor if present
+    #[serde(default)]
+    pub binary_object_store: Option<bos::BinaryObjectStoreDescriptor>,
+    /// Device qualifier descriptor if present
+    #[serde(default)]
+    pub qualifier: Option<DeviceQualifierDescriptor>,
+    /// Hub descriptor if present (is a hub)
+    #[serde(default)]
+    pub hub: Option<HubDescriptor>,
 }
 
 /// Builds a replica of sysfs path; excludes config.interface

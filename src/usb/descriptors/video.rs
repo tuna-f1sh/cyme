@@ -2,8 +2,8 @@
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
-use super::*;
 use super::audio;
+use super::*;
 use crate::error::{self, Error, ErrorKind};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -167,73 +167,69 @@ impl UvcType {
         data: &[u8],
     ) -> error::Result<UvcInterfaceDescriptor> {
         match self {
-            UvcType::Control(c) => {
-                match c {
-                    ControlSubtype::Header => {
-                        Ok(UvcInterfaceDescriptor::Header(Header::try_from(data)?))
-                    }
-                    ControlSubtype::InputTerminal => {
-                        Ok(UvcInterfaceDescriptor::InputTerminal(InputTerminal::try_from(data)?))
-                    }
-                    ControlSubtype::OutputTerminal => {
-                        Ok(UvcInterfaceDescriptor::OutputTerminal(OutputTerminal::try_from(data)?))
-                    }
-                    ControlSubtype::SelectorUnit => {
-                        Ok(UvcInterfaceDescriptor::SelectorUnit(SelectorUnit::try_from(data)?))
-                    }
-                    ControlSubtype::ProcessingUnit => {
-                        Ok(UvcInterfaceDescriptor::ProcessingUnit(ProcessingUnit::try_from(data)?))
-                    }
-                    ControlSubtype::ExtensionUnit => {
-                        Ok(UvcInterfaceDescriptor::ExtensionUnit(ExtensionUnit::try_from(data)?))
-                    }
-                    ControlSubtype::EncodingUnit => {
-                        Ok(UvcInterfaceDescriptor::EncodingUnit(EncodingUnit::try_from(data)?))
-                    }
-                    ControlSubtype::Undefined => Ok(UvcInterfaceDescriptor::Undefined(data.to_vec())),
+            UvcType::Control(c) => match c {
+                ControlSubtype::Header => {
+                    Ok(UvcInterfaceDescriptor::Header(Header::try_from(data)?))
                 }
-            }
-            UvcType::Streaming(s) => {
-                match s {
-                    StreamingSubtype::InputHeader => {
-                        Ok(UvcInterfaceDescriptor::InputHeader(InputHeader::try_from(data)?))
-                    }
-                    StreamingSubtype::OutputHeader => {
-                        Ok(UvcInterfaceDescriptor::OutputHeader(OutputHeader::try_from(data)?))
-                    }
-                    StreamingSubtype::StillImageFrame => {
-                        Ok(UvcInterfaceDescriptor::StillImageFrame(StillImageFrame::try_from(data)?))
-                    }
-                    StreamingSubtype::FrameUncompressed => {
-                        Ok(UvcInterfaceDescriptor::FrameUncompressed(FrameUncompressed::try_from(data)?))
-                    }
-                    StreamingSubtype::FrameMJPEG => {
-                        Ok(UvcInterfaceDescriptor::FrameMJPEG(FrameMJPEG::try_from(data)?))
-                    }
-                    StreamingSubtype::FrameFrameBased => {
-                        Ok(UvcInterfaceDescriptor::FrameFrameBased(FrameFrameBased::try_from(data)?))
-                    }
-                    StreamingSubtype::FormatMJPEG => {
-                        Ok(UvcInterfaceDescriptor::FormatMJPEG(FormatMJPEG::try_from(data)?))
-                    }
-                    StreamingSubtype::FormatFrameBased => {
-                        Ok(UvcInterfaceDescriptor::FormatFrameBased(FormatFrame::try_from(data)?))
-                    }
-                    StreamingSubtype::FormatUncompressed => {
-                        Ok(UvcInterfaceDescriptor::FormatUncompressed(FormatFrame::try_from(data)?))
-                    }
-                    StreamingSubtype::FormatStreamBased => {
-                        Ok(UvcInterfaceDescriptor::FormatStreamBased(FormatStreamBased::try_from(data)?))
-                    }
-                    StreamingSubtype::FormatMPEG2TS => {
-                        Ok(UvcInterfaceDescriptor::FormatMPEG2TS(FormatMPEG2TS::try_from(data)?))
-                    }
-                    StreamingSubtype::ColorFormat => {
-                        Ok(UvcInterfaceDescriptor::ColorFormat(ColorFormat::try_from(data)?))
-                    }
-                    StreamingSubtype::Undefined => Ok(UvcInterfaceDescriptor::Undefined(data.to_vec())),
-                }
-            }
+                ControlSubtype::InputTerminal => Ok(UvcInterfaceDescriptor::InputTerminal(
+                    InputTerminal::try_from(data)?,
+                )),
+                ControlSubtype::OutputTerminal => Ok(UvcInterfaceDescriptor::OutputTerminal(
+                    OutputTerminal::try_from(data)?,
+                )),
+                ControlSubtype::SelectorUnit => Ok(UvcInterfaceDescriptor::SelectorUnit(
+                    SelectorUnit::try_from(data)?,
+                )),
+                ControlSubtype::ProcessingUnit => Ok(UvcInterfaceDescriptor::ProcessingUnit(
+                    ProcessingUnit::try_from(data)?,
+                )),
+                ControlSubtype::ExtensionUnit => Ok(UvcInterfaceDescriptor::ExtensionUnit(
+                    ExtensionUnit::try_from(data)?,
+                )),
+                ControlSubtype::EncodingUnit => Ok(UvcInterfaceDescriptor::EncodingUnit(
+                    EncodingUnit::try_from(data)?,
+                )),
+                ControlSubtype::Undefined => Ok(UvcInterfaceDescriptor::Undefined(data.to_vec())),
+            },
+            UvcType::Streaming(s) => match s {
+                StreamingSubtype::InputHeader => Ok(UvcInterfaceDescriptor::InputHeader(
+                    InputHeader::try_from(data)?,
+                )),
+                StreamingSubtype::OutputHeader => Ok(UvcInterfaceDescriptor::OutputHeader(
+                    OutputHeader::try_from(data)?,
+                )),
+                StreamingSubtype::StillImageFrame => Ok(UvcInterfaceDescriptor::StillImageFrame(
+                    StillImageFrame::try_from(data)?,
+                )),
+                StreamingSubtype::FrameUncompressed => Ok(
+                    UvcInterfaceDescriptor::FrameUncompressed(FrameUncompressed::try_from(data)?),
+                ),
+                StreamingSubtype::FrameMJPEG => Ok(UvcInterfaceDescriptor::FrameMJPEG(
+                    FrameMJPEG::try_from(data)?,
+                )),
+                StreamingSubtype::FrameFrameBased => Ok(UvcInterfaceDescriptor::FrameFrameBased(
+                    FrameFrameBased::try_from(data)?,
+                )),
+                StreamingSubtype::FormatMJPEG => Ok(UvcInterfaceDescriptor::FormatMJPEG(
+                    FormatMJPEG::try_from(data)?,
+                )),
+                StreamingSubtype::FormatFrameBased => Ok(UvcInterfaceDescriptor::FormatFrameBased(
+                    FormatFrame::try_from(data)?,
+                )),
+                StreamingSubtype::FormatUncompressed => Ok(
+                    UvcInterfaceDescriptor::FormatUncompressed(FormatFrame::try_from(data)?),
+                ),
+                StreamingSubtype::FormatStreamBased => Ok(
+                    UvcInterfaceDescriptor::FormatStreamBased(FormatStreamBased::try_from(data)?),
+                ),
+                StreamingSubtype::FormatMPEG2TS => Ok(UvcInterfaceDescriptor::FormatMPEG2TS(
+                    FormatMPEG2TS::try_from(data)?,
+                )),
+                StreamingSubtype::ColorFormat => Ok(UvcInterfaceDescriptor::ColorFormat(
+                    ColorFormat::try_from(data)?,
+                )),
+                StreamingSubtype::Undefined => Ok(UvcInterfaceDescriptor::Undefined(data.to_vec())),
+            },
         }
     }
     /// Get the UVC descriptor from a generic descriptor and protocol
@@ -249,7 +245,7 @@ impl UvcType {
                     log::warn!("Error parsing UVC descriptor: {}", e);
                     Ok(UvcInterfaceDescriptor::Invalid(data))
                 }
-            }
+            },
             None => Err(Error::new(
                 ErrorKind::InvalidArg,
                 "No data in generic descriptor",
@@ -345,10 +341,10 @@ impl From<UvcInterfaceDescriptor> for Vec<u8> {
             UvcInterfaceDescriptor::OutputHeader(oh) => oh.into(),
             UvcInterfaceDescriptor::StillImageFrame(sif) => sif.into(),
             UvcInterfaceDescriptor::FrameFrameBased(ff) => ff.into(),
-            UvcInterfaceDescriptor::FrameUncompressed(fu) |
-                UvcInterfaceDescriptor::FrameMJPEG(fu) => fu.into(),
-            UvcInterfaceDescriptor::FormatUncompressed(fmt) |
-            UvcInterfaceDescriptor::FormatFrameBased(fmt) => fmt.into(),
+            UvcInterfaceDescriptor::FrameUncompressed(fu)
+            | UvcInterfaceDescriptor::FrameMJPEG(fu) => fu.into(),
+            UvcInterfaceDescriptor::FormatUncompressed(fmt)
+            | UvcInterfaceDescriptor::FormatFrameBased(fmt) => fmt.into(),
             UvcInterfaceDescriptor::FormatStreamBased(fsb) => fsb.into(),
             UvcInterfaceDescriptor::FormatMJPEG(fmt) => fmt.into(),
             UvcInterfaceDescriptor::FormatMPEG2TS(fmts) => fmts.into(),
@@ -431,7 +427,7 @@ impl TryFrom<&[u8]> for TerminalExtra {
                     "Terminal Extra descriptor too short {} < {}",
                     value.len(),
                     8
-                )
+                ),
             ));
         }
 
@@ -447,7 +443,7 @@ impl TryFrom<&[u8]> for TerminalExtra {
                     "Terminal Extra descriptor too short for control size {} < {}",
                     value.len(),
                     7 + control_size
-                )
+                ),
             ));
         }
 
@@ -500,7 +496,11 @@ impl TryFrom<&[u8]> for InputTerminal {
         if value.len() < 5 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                &format!("Input Terminal descriptor too short {} < {}", value.len(), 5),
+                &format!(
+                    "Input Terminal descriptor too short {} < {}",
+                    value.len(),
+                    5
+                ),
             ));
         }
 
@@ -569,7 +569,11 @@ impl TryFrom<&[u8]> for ProcessingUnit {
         if value.len() < 9 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                &format!("Processing Unit descriptor too short {} < {}", value.len(), 9),
+                &format!(
+                    "Processing Unit descriptor too short {} < {}",
+                    value.len(),
+                    9
+                ),
             ));
         }
 
@@ -650,7 +654,11 @@ impl TryFrom<&[u8]> for ExtensionUnit {
         if value.len() < 21 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                &format!("Extension Unit descriptor too short {} < {}", value.len(), 21),
+                &format!(
+                    "Extension Unit descriptor too short {} < {}",
+                    value.len(),
+                    21
+                ),
             ));
         }
 
@@ -666,7 +674,7 @@ impl TryFrom<&[u8]> for ExtensionUnit {
                 &format!(
                     "Extension Unit descriptor too short for input pins {} < {}",
                     value.len(),
-                    19 + p  + 1
+                    19 + p + 1
                 ),
             ));
         }
@@ -781,11 +789,7 @@ impl TryFrom<&[u8]> for EncodingUnit {
 
 impl From<EncodingUnit> for Vec<u8> {
     fn from(eu: EncodingUnit) -> Self {
-        let mut ret = Vec::new();
-        ret.push(eu.unit_id);
-        ret.push(eu.source_id);
-        ret.push(eu.encoding_index);
-        ret.push(eu.control_size);
+        let mut ret = vec![eu.unit_id, eu.source_id, eu.encoding_index, eu.control_size];
 
         for i in 0..eu.control_size.min(3) {
             ret.push((eu.controls >> (i * 8)) as u8);
@@ -978,7 +982,7 @@ impl TryFrom<&[u8]> for StillImageFrame {
             ));
         }
 
-        for (_, b) in value[offset..].chunks_exact(4).enumerate() {
+        for b in value[offset..].chunks_exact(4) {
             let width = u16::from_le_bytes([b[0], b[1]]);
             let height = u16::from_le_bytes([b[2], b[3]]);
             image_size_patterns.push((width, height));
@@ -995,7 +999,8 @@ impl TryFrom<&[u8]> for StillImageFrame {
             ));
         }
 
-        let compression_patterns = value[offset..offset + num_compression_patterns as usize].to_vec();
+        let compression_patterns =
+            value[offset..offset + num_compression_patterns as usize].to_vec();
 
         Ok(StillImageFrame {
             endpoint_address,
@@ -1056,7 +1061,11 @@ impl TryFrom<&[u8]> for ColorFormat {
 
 impl From<ColorFormat> for Vec<u8> {
     fn from(cf: ColorFormat) -> Self {
-        vec![cf.color_primaries, cf.transfer_characteristics, cf.matrix_coefficients]
+        vec![
+            cf.color_primaries,
+            cf.transfer_characteristics,
+            cf.matrix_coefficients,
+        ]
     }
 }
 
@@ -1075,7 +1084,10 @@ impl TryFrom<&[u8]> for FormatStreamBased {
         if value.len() < 18 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                &format!("Format Stream Based descriptor too short {} < 18", value.len()),
+                &format!(
+                    "Format Stream Based descriptor too short {} < 18",
+                    value.len()
+                ),
             ));
         }
 
@@ -1146,11 +1158,7 @@ impl TryFrom<&[u8]> for FormatMPEG2TS {
 
 impl From<FormatMPEG2TS> for Vec<u8> {
     fn from(fmts: FormatMPEG2TS) -> Self {
-        let mut ret = Vec::new();
-        ret.push(fmts.format_index);
-        ret.push(fmts.data_offset);
-        ret.push(fmts.packet_length);
-        ret.push(fmts.stride_length);
+        let mut ret = vec![fmts.format_index, fmts.data_offset, fmts.packet_length, fmts.stride_length];
         if let Some(guid) = fmts.guid_stride_format {
             ret.extend(guid_to_bytes(&guid).unwrap());
         }
@@ -1258,7 +1266,7 @@ impl TryFrom<&[u8]> for FormatFrame {
         let interlace_flags = value[22];
         let copy_protect = value[23];
         // only present on frame based
-        let variable_size = value.get(24).map(|&v| v);
+        let variable_size = value.get(24).copied();
 
         Ok(FormatFrame {
             format_index,
@@ -1366,12 +1374,17 @@ impl TryFrom<&[u8]> for FrameUncompressed {
         if value.len() < 24 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                &format!("FrameUncompressed descriptor too short {} < 24", value.len()),
+                &format!(
+                    "FrameUncompressed descriptor too short {} < 24",
+                    value.len()
+                ),
             ));
         }
 
-        let max_video_frame_buffer_size = u32::from_le_bytes([value[14], value[15], value[16], value[17]]);
-        let default_frame_interval = u32::from_le_bytes([value[18], value[19], value[20], value[21]]);
+        let max_video_frame_buffer_size =
+            u32::from_le_bytes([value[14], value[15], value[16], value[17]]);
+        let default_frame_interval =
+            u32::from_le_bytes([value[18], value[19], value[20], value[21]]);
         let frame_interval_type = value[22];
 
         let frame_intervals = if frame_interval_type == 0 && value.len() >= 35 {
@@ -1447,7 +1460,8 @@ impl TryFrom<&[u8]> for FrameFrameBased {
             ));
         }
 
-        let default_frame_interval = u32::from_le_bytes([value[14], value[15], value[16], value[17]]);
+        let default_frame_interval =
+            u32::from_le_bytes([value[14], value[15], value[16], value[17]]);
         let frame_interval_type = value[18];
         let bytes_per_line = u32::from_le_bytes([value[19], value[20], value[21], value[22]]);
 

@@ -20,8 +20,8 @@ use crate::usb::descriptors::video;
 use crate::usb::descriptors::*;
 use crate::usb::*;
 
-pub mod names;
 mod audio_dumps;
+pub mod names;
 mod video_dumps;
 
 use audio_dumps::*;
@@ -128,13 +128,8 @@ fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
 /// Dumps a string starting at value position, right aligned
 fn dump_string_right<T: std::fmt::Display>(guid: T, field_name: &str, indent: usize, width: usize) {
     // -1 to account for space
-    let spaces = " ".repeat((width - 1).saturating_sub(field_name.len())
-            .max(1),
-    );
-    println!(
-        "{:indent$}{}{}{}",
-        "", field_name, spaces, guid
-    );
+    let spaces = " ".repeat((width - 1).saturating_sub(field_name.len()).max(1));
+    println!("{:indent$}{}{}{}", "", field_name, spaces, guid);
 }
 
 /// Dumps GUID enclosed in braces like lsusb
@@ -657,11 +652,13 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                         _ => (),
                     },
                     ClassDescriptor::Video(vcd, p) => match &vcd.subtype {
-                        video::UvcType::Control(cs) => dump_videocontrol_interface(vcd, cs, *p, indent + 2),
+                        video::UvcType::Control(cs) => {
+                            dump_videocontrol_interface(vcd, cs, *p, indent + 2)
+                        }
                         video::UvcType::Streaming(ss) => {
                             dump_videostreaming_interface(vcd, ss, *p, indent + 2);
                         }
-                    }
+                    },
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((ClassCode::Audio, 3, _)) => {
                             if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {

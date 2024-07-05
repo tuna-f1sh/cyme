@@ -164,13 +164,13 @@ impl TryFrom<&[u8]> for MidiEndpointDescriptor {
         }
 
         let num_jacks = value[3] as usize;
-        if value.len() < 4 + num_jacks as usize {
+        if value.len() < 4 + num_jacks {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
                 "MidiEndpointDescriptor descriptor reported number of jacks too long for buffer",
             ));
         }
-        let jacks = value[4..4+num_jacks].to_vec();
+        let jacks = value[4..4 + num_jacks].to_vec();
 
         Ok(MidiEndpointDescriptor {
             length: value[0],
@@ -184,11 +184,7 @@ impl TryFrom<&[u8]> for MidiEndpointDescriptor {
 
 impl From<MidiEndpointDescriptor> for Vec<u8> {
     fn from(md: MidiEndpointDescriptor) -> Self {
-        let mut ret = Vec::new();
-        ret.push(md.length);
-        ret.push(md.descriptor_type);
-        ret.push(md.descriptor_subtype);
-        ret.push(md.num_jacks);
+        let mut ret = vec![md.length, md.descriptor_type, md.descriptor_subtype, md.num_jacks];
         ret.extend(md.jacks);
 
         ret
@@ -1014,7 +1010,7 @@ impl UacType {
                     log::warn!("Error parsing UVC descriptor: {}", e);
                     Ok(UacInterfaceDescriptor::Invalid(data))
                 }
-            }
+            },
             None => Err(Error::new(
                 ErrorKind::InvalidArg,
                 "GenericDescriptor data is None",
@@ -1588,7 +1584,11 @@ impl TryFrom<&[u8]> for OutputTerminal1 {
         if value.len() < 6 {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                &format!("Output Terminal 1 descriptor too short {} < {}", value.len(), 6),
+                &format!(
+                    "Output Terminal 1 descriptor too short {} < {}",
+                    value.len(),
+                    6
+                ),
             ));
         }
 

@@ -6,6 +6,7 @@ use super::*;
 use crate::error::{self, Error, ErrorKind};
 
 pub mod audio;
+pub mod bos;
 pub mod video;
 
 /// Get the GUID String from a descriptor buffer slice
@@ -25,10 +26,9 @@ pub fn get_guid(buf: &[u8]) -> Result<String, Error> {
         buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]))
 }
 
-
 /// Convert a GUID string back to a byte array
 pub fn guid_to_bytes(guid: &str) -> Result<[u8; 16], Error> {
-    let guid = guid.replace("-", "");
+    let guid = guid.replace('-', "");
 
     if guid.len() != 32 {
         return Err(Error::new(
@@ -54,31 +54,29 @@ pub fn guid_to_bytes(guid: &str) -> Result<[u8; 16], Error> {
 #[repr(u8)]
 #[allow(missing_docs)]
 #[serde(rename_all = "kebab-case")]
-// TODO structs for others
 pub enum DescriptorType {
     Device(ClassDescriptor) = 0x01,
     Config(ClassDescriptor) = 0x02,
     String(String) = 0x03,
     Interface(ClassDescriptor) = 0x04,
     Endpoint(ClassDescriptor) = 0x05,
-    DeviceQualifier = 0x06,
+    DeviceQualifier(DeviceQualifierDescriptor) = 0x06,
     OtherSpeedConfiguration = 0x07,
     InterfacePower = 0x08,
     // TODO do_otg
     Otg = 0x09,
-    Debug = 0x0a,
+    Debug(DebugDescriptor) = 0x0a,
     InterfaceAssociation(InterfaceAssociationDescriptor) = 0x0b,
     Security(SecurityDescriptor) = 0x0c,
     Key = 0x0d,
     Encrypted(EncryptionDescriptor) = 0x0e,
-    Bos = 0x0f,
+    Bos(bos::BinaryObjectStoreDescriptor) = 0x0f,
     DeviceCapability = 0x10,
     WirelessEndpointCompanion = 0x11,
     WireAdaptor = 0x21,
     Report(HidReportDescriptor) = 0x22,
     Physical = 0x23,
     Pipe = 0x24,
-    // TODO do_hub
     Hub(HubDescriptor) = 0x29,
     SuperSpeedHub(HubDescriptor) = 0x2a,
     SsEndpointCompanion(SsEndpointCompanionDescriptor) = 0x30,
@@ -112,11 +110,13 @@ impl TryFrom<&[u8]> for DescriptorType {
             )),
             0x04 => Ok(DescriptorType::Interface(ClassDescriptor::try_from(v)?)),
             0x05 => Ok(DescriptorType::Endpoint(ClassDescriptor::try_from(v)?)),
-            0x06 => Ok(DescriptorType::DeviceQualifier),
+            0x06 => Ok(DescriptorType::DeviceQualifier(
+                DeviceQualifierDescriptor::try_from(v)?,
+            )),
             0x07 => Ok(DescriptorType::OtherSpeedConfiguration),
             0x08 => Ok(DescriptorType::InterfacePower),
             0x09 => Ok(DescriptorType::Otg),
-            0x0a => Ok(DescriptorType::Debug),
+            0x0a => Ok(DescriptorType::Debug(DebugDescriptor::try_from(v)?)),
             0x0b => Ok(DescriptorType::InterfaceAssociation(
                 InterfaceAssociationDescriptor::try_from(v)?,
             )),
@@ -125,7 +125,9 @@ impl TryFrom<&[u8]> for DescriptorType {
             0x0e => Ok(DescriptorType::Encrypted(EncryptionDescriptor::try_from(
                 v,
             )?)),
-            0x0f => Ok(DescriptorType::Bos),
+            0x0f => Ok(DescriptorType::Bos(
+                bos::BinaryObjectStoreDescriptor::try_from(v)?,
+            )),
             0x10 => Ok(DescriptorType::DeviceCapability),
             0x11 => Ok(DescriptorType::WirelessEndpointCompanion),
             0x21 => Ok(DescriptorType::WireAdaptor),
@@ -142,6 +144,74 @@ impl TryFrom<&[u8]> for DescriptorType {
         }
     }
 }
+
+impl From<DescriptorType> for Vec<u8> {
+    fn from(dt: DescriptorType) -> Self {
+        match dt {
+            DescriptorType::Device(d) => d.into(),
+            DescriptorType::Config(c) => c.into(),
+            DescriptorType::String(s) => s.into_bytes(),
+            DescriptorType::Interface(i) => i.into(),
+            DescriptorType::Endpoint(e) => e.into(),
+            DescriptorType::DeviceQualifier(dq) => dq.into(),
+            DescriptorType::OtherSpeedConfiguration => vec![],
+            DescriptorType::InterfacePower => vec![],
+            DescriptorType::Otg => vec![],
+            DescriptorType::Debug(d) => d.into(),
+            DescriptorType::InterfaceAssociation(ia) => ia.into(),
+            DescriptorType::Security(s) => s.into(),
+            DescriptorType::Key => vec![],
+            DescriptorType::Encrypted(e) => e.into(),
+            DescriptorType::Bos(b) => b.into(),
+            DescriptorType::DeviceCapability => vec![],
+            DescriptorType::WirelessEndpointCompanion => vec![],
+            DescriptorType::WireAdaptor => vec![],
+            DescriptorType::Report(r) => r.into(),
+            DescriptorType::Physical => vec![],
+            DescriptorType::Pipe => vec![],
+            DescriptorType::Hub(h) => h.into(),
+            DescriptorType::SuperSpeedHub(h) => h.into(),
+            DescriptorType::SsEndpointCompanion(s) => s.into(),
+            DescriptorType::SsIsocEndpointCompanion => vec![],
+            DescriptorType::Unknown(u) => u,
+            DescriptorType::Junk(j) => j,
+        }
+    }
+}
+
+//impl From<DescriptorType> for u8 {
+//    fn from(dt: DescriptorType) -> Self {
+//        match dt {
+//            DescriptorType::Device(_) => 0x01,
+//            DescriptorType::Config(_) => 0x02,
+//            DescriptorType::String(_) => 0x03,
+//            DescriptorType::Interface(_) => 0x04,
+//            DescriptorType::Endpoint(_) => 0x05,
+//            DescriptorType::DeviceQualifier(_) => 0x06,
+//            DescriptorType::OtherSpeedConfiguration => 0x07,
+//            DescriptorType::InterfacePower => 0x08,
+//            DescriptorType::Otg => 0x09,
+//            DescriptorType::Debug(_) => 0x0a,
+//            DescriptorType::InterfaceAssociation(_) => 0x0b,
+//            DescriptorType::Security(_) => 0x0c,
+//            DescriptorType::Key => 0x0d,
+//            DescriptorType::Encrypted(_) => 0x0e,
+//            DescriptorType::Bos(_) => 0x0f,
+//            DescriptorType::DeviceCapability => 0x10,
+//            DescriptorType::WirelessEndpointCompanion => 0x11,
+//            DescriptorType::WireAdaptor => 0x21,
+//            DescriptorType::Report(_) => 0x22,
+//            DescriptorType::Physical => 0x23,
+//            DescriptorType::Pipe => 0x24,
+//            DescriptorType::Hub(_) => 0x29,
+//            DescriptorType::SuperSpeedHub(_) => 0x2a,
+//            DescriptorType::SsEndpointCompanion(_) => 0x30,
+//            DescriptorType::SsIsocEndpointCompanion => 0x31,
+//            DescriptorType::Unknown(_) => 0xfe,
+//            DescriptorType::Junk(_) => 0xff,
+//        }
+//    }
+//}
 
 impl DescriptorType {
     /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`ClassCode`] for class specific descriptors
@@ -223,6 +293,21 @@ impl TryFrom<&[u8]> for InterfaceAssociationDescriptor {
     }
 }
 
+impl From<InterfaceAssociationDescriptor> for Vec<u8> {
+    fn from(iad: InterfaceAssociationDescriptor) -> Self {
+        vec![
+            iad.length,
+            iad.descriptor_type,
+            iad.first_interface,
+            iad.interface_count,
+            iad.function_class,
+            iad.function_sub_class,
+            iad.function_protocol,
+            iad.function_string_index,
+        ]
+    }
+}
+
 /// USB SS Endpoint Companion descriptor
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -250,6 +335,17 @@ impl TryFrom<&[u8]> for SsEndpointCompanionDescriptor {
             max_burst: value[2],
             attributes: value[3],
         })
+    }
+}
+
+impl From<SsEndpointCompanionDescriptor> for Vec<u8> {
+    fn from(sec: SsEndpointCompanionDescriptor) -> Self {
+        vec![
+            sec.length,
+            sec.descriptor_type,
+            sec.max_burst,
+            sec.attributes,
+        ]
     }
 }
 
@@ -283,6 +379,18 @@ impl TryFrom<&[u8]> for SecurityDescriptor {
     }
 }
 
+impl From<SecurityDescriptor> for Vec<u8> {
+    fn from(sd: SecurityDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(sd.length);
+        ret.push(sd.descriptor_type);
+        ret.extend(sd.total_length.to_le_bytes());
+        ret.push(sd.encryption_types);
+
+        ret
+    }
+}
+
 /// Encryption type for [`SecurityDescriptor`]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
@@ -305,6 +413,18 @@ impl From<u8> for EncryptionType {
             0x02 => EncryptionType::Ccm1,
             0x03 => EncryptionType::Rsa1,
             _ => EncryptionType::Reserved,
+        }
+    }
+}
+
+impl From<EncryptionType> for u8 {
+    fn from(et: EncryptionType) -> Self {
+        match et {
+            EncryptionType::Unsecure => 0x00,
+            EncryptionType::Wired => 0x01,
+            EncryptionType::Ccm1 => 0x02,
+            EncryptionType::Rsa1 => 0x03,
+            EncryptionType::Reserved => 0xff,
         }
     }
 }
@@ -338,6 +458,18 @@ impl TryFrom<&[u8]> for EncryptionDescriptor {
             encryption_value: value[3],
             auth_key_index: value[4],
         })
+    }
+}
+
+impl From<EncryptionDescriptor> for Vec<u8> {
+    fn from(ed: EncryptionDescriptor) -> Self {
+        vec![
+            ed.length,
+            ed.descriptor_type,
+            u8::from(ed.encryption_type),
+            ed.encryption_value,
+            ed.auth_key_index,
+        ]
     }
 }
 
@@ -1111,8 +1243,6 @@ pub struct HubDescriptor {
     pub control_current: u8,
     pub latancy: u8,
     pub delay: u8,
-    pub device_removable: u8,
-    pub port_power_ctrl_mask: u8,
 }
 
 impl TryFrom<&[u8]> for HubDescriptor {
@@ -1135,8 +1265,6 @@ impl TryFrom<&[u8]> for HubDescriptor {
             control_current: value[6],
             latancy: value[7],
             delay: value[8],
-            device_removable: value[9],
-            port_power_ctrl_mask: value[10],
         })
     }
 }
@@ -1152,8 +1280,6 @@ impl From<HubDescriptor> for Vec<u8> {
         ret.push(hd.control_current);
         ret.push(hd.latancy);
         ret.push(hd.delay);
-        ret.push(hd.device_removable);
-        ret.push(hd.port_power_ctrl_mask);
 
         ret
     }
@@ -1221,5 +1347,107 @@ impl TryFrom<GenericDescriptor> for DfuDescriptor {
     fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
         let gd_vec: Vec<u8> = gd.into();
         DfuDescriptor::try_from(&gd_vec[..])
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct DebugDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub debug_in_endpoint: u8,
+    pub debug_out_endpoint: u8,
+}
+
+impl TryFrom<&[u8]> for DebugDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Debug descriptor too short",
+            ));
+        }
+
+        if value[1] != 0x0a {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Debug descriptor must have descriptor type 0x0a",
+            ));
+        }
+
+        Ok(DebugDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            debug_in_endpoint: value[2],
+            debug_out_endpoint: value[3],
+        })
+    }
+}
+
+impl From<DebugDescriptor> for Vec<u8> {
+    fn from(dd: DebugDescriptor) -> Self {
+        vec![dd.length, dd.descriptor_type, dd.debug_in_endpoint, dd.debug_out_endpoint]
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct DeviceQualifierDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub version: Version,
+    pub device_class: ClassCode,
+    pub device_subclass: u8,
+    pub device_protocol: u8,
+    pub max_packet_size: u8,
+    pub num_configurations: u8,
+}
+
+impl TryFrom<&[u8]> for DeviceQualifierDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 10 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Device Qualifier descriptor too short",
+            ));
+        }
+
+        if value[1] != 0x06 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Device Qualifier descriptor must have descriptor type 0x06",
+            ));
+        }
+
+        Ok(DeviceQualifierDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            version: Version::from_bcd(u16::from_le_bytes([value[2], value[3]])),
+            device_class: ClassCode::from(value[4]),
+            device_subclass: value[5],
+            device_protocol: value[6],
+            max_packet_size: value[7],
+            num_configurations: value[8],
+        })
+    }
+}
+
+impl From<DeviceQualifierDescriptor> for Vec<u8> {
+    fn from(dqd: DeviceQualifierDescriptor) -> Self {
+        let mut ret = Vec::new();
+        ret.push(dqd.length);
+        ret.push(dqd.descriptor_type);
+        ret.extend(u16::from(dqd.version).to_le_bytes());
+        ret.push(dqd.device_class.into());
+        ret.push(dqd.device_subclass);
+        ret.push(dqd.device_protocol);
+        ret.push(dqd.max_packet_size);
+        ret.push(dqd.num_configurations);
+
+        ret
     }
 }

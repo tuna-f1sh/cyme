@@ -194,40 +194,204 @@ fn get_descriptor_string<T: libusb::UsbContext>(
     })
 }
 
+fn get_control_msg<T: libusb::UsbContext>(
+    handle: &mut Option<UsbDevice<T>>,
+    request_type: u8,
+    request: u8,
+    value: u16,
+    index: u16,
+    length: usize,
+) -> Result<Vec<u8>, Error> {
+    match handle.as_mut() {
+        Some(h) => {
+            let mut buf = vec![0; length];
+            h.handle
+                .read_control(request_type, request, value, index, &mut buf, h.timeout)
+                .and_then(|n| {
+                    if n < length {
+                        log::warn!(
+                            "Failed to read full control message for {}: {} < {}",
+                            request,
+                            n,
+                            length
+                        );
+                        Err(libusb::Error::Io)
+                    } else {
+                        Ok(buf)
+                    }
+                })
+                .map_err(|e| Error {
+                    kind: ErrorKind::LibUSB,
+                    message: format!("Failed to get control message: {}", e),
+                })
+        }
+        None => Err(Error {
+            kind: ErrorKind::LibUSB,
+            message: "Failed to get control message, no handle".to_string(),
+        }),
+    }
+}
+
 fn get_report_descriptor<T: libusb::UsbContext>(
     handle: &mut Option<UsbDevice<T>>,
     index: u16,
     length: u16,
 ) -> Result<Vec<u8>, Error> {
-    match handle.as_mut() {
-        Some(h) => {
-            let mut buf = vec![0; length as usize];
-            h.handle.read_control(
-                libusb::request_type(
-                    libusb::Direction::In,
-                    libusb::RequestType::Standard,
-                    libusb::Recipient::Interface,
-                ),
-                libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR,
-                (libusb::constants::LIBUSB_DT_REPORT as u16) << 8,
-                index,
-                &mut buf,
-                h.timeout,
-            ).and_then(|n| {
-                if n != length as usize {
-                    log::warn!("Failed to read full HID report descriptor");
-                    Err(libusb::Error::Io)
-                } else {
-                    Ok(buf)
-                }
-            }).map_err(|e| Error {
-                kind: ErrorKind::LibUSB,
-                message: format!("Failed to get report descriptor: {}", e),
-            })
-        },
-        None => Err(Error {
-            kind: ErrorKind::LibUSB,
-            message: "Failed to get report descriptor, no handle".to_string(),
+    let request_type = libusb::request_type(
+        libusb::Direction::In,
+        libusb::RequestType::Standard,
+        libusb::Recipient::Interface,
+    );
+    let request = libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR;
+    let value = (libusb::constants::LIBUSB_DT_REPORT as u16) << 8;
+    get_control_msg(handle, request_type, request, value, index, length as usize)
+}
+
+fn get_hub_descriptor<T: libusb::UsbContext>(
+    handle: &mut Option<UsbDevice<T>>,
+    index: u16,
+    super_speed: bool,
+) -> Result<usb::HubDescriptor, Error> {
+    let request_type = libusb::request_type(
+        libusb::Direction::In,
+        libusb::RequestType::Class,
+        libusb::Recipient::Device,
+    );
+    let request = libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR;
+    let value = if super_speed {
+        (libusb::constants::LIBUSB_DT_SUPERSPEED_HUB as u16) << 8
+    } else {
+        (libusb::constants::LIBUSB_DT_HUB as u16) << 8
+    };
+    let data = get_control_msg(handle, request_type, request, value, index, 9)?;
+    usb::HubDescriptor::try_from(data.as_slice())
+}
+
+fn get_device_status<T: libusb::UsbContext>(
+    handle: &mut Option<UsbDevice<T>>,
+) -> Result<u16, Error> {
+    let request_type = libusb::request_type(
+        libusb::Direction::In,
+        libusb::RequestType::Standard,
+        libusb::Recipient::Device,
+    );
+    let request = libusb::constants::LIBUSB_REQUEST_GET_STATUS;
+    let value = 0;
+    let data = get_control_msg(handle, request_type, request, value, 0, 2)?;
+    log::debug!("Device status: {:?}", data);
+    Ok(u16::from_le_bytes([data[0], data[1]]))
+}
+
+fn get_debug_descriptor<T: libusb::UsbContext>(
+    handle: &mut Option<UsbDevice<T>>,
+) -> Result<usb::DebugDescriptor, Error> {
+    let request_type = libusb::request_type(
+        libusb::Direction::In,
+        libusb::RequestType::Standard,
+        libusb::Recipient::Device,
+    );
+    let request = libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR;
+    let value = 0x0a << 8;
+    let data = get_control_msg(handle, request_type, request, value, 0, 2)?;
+    usb::DebugDescriptor::try_from(data.as_slice())
+}
+
+fn get_bos_descriptor<T: libusb::UsbContext>(
+    handle: &mut Option<UsbDevice<T>>,
+) -> Result<usb::descriptors::bos::BinaryObjectStoreDescriptor, Error> {
+    let request_type = libusb::request_type(
+        libusb::Direction::In,
+        libusb::RequestType::Standard,
+        libusb::Recipient::Device,
+    );
+    let request = libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR;
+    let value = 0x0f << 8;
+    let data = get_control_msg(handle, request_type, request, value, 0, 5)?;
+    let total_length = u16::from_le_bytes([data[2], data[3]]);
+    log::trace!("Attempt read BOS descriptor total length: {}", total_length);
+    // now get full descriptor
+    let data = get_control_msg(
+        handle,
+        request_type,
+        request,
+        value,
+        0,
+        total_length as usize,
+    )?;
+    log::trace!("BOS descriptor data: {:?}", data);
+    let bos = usb::descriptors::bos::BinaryObjectStoreDescriptor::try_from(data.as_slice())?;
+
+    // get any extra descriptor data now with handle
+    if let Some(webusb) = bos.capabilities.iter().find_map(|c| match c {
+        usb::descriptors::bos::BosCapability::WebUsbPlatform(w) => Some(w),
+        _ => None,
+    }) {
+        let url = get_webusb_url(handle, webusb.vendor_code, webusb.landing_page_index)?;
+        log::trace!("WebUSB URL: {}", url);
+    }
+
+    Ok(bos)
+}
+
+fn get_device_qualifier<T: libusb::UsbContext>(
+    handle: &mut Option<UsbDevice<T>>,
+) -> Result<usb::DeviceQualifierDescriptor, Error> {
+    let request_type = libusb::request_type(
+        libusb::Direction::In,
+        libusb::RequestType::Standard,
+        libusb::Recipient::Device,
+    );
+    let request = libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR;
+    let value = 0x06 << 8;
+    let data = get_control_msg(handle, request_type, request, value, 0, 10)?;
+    log::trace!("Device Qualifier descriptor data: {:?}", data);
+    usb::DeviceQualifierDescriptor::try_from(data.as_slice())
+}
+
+/// Gets the WebUSB URL from the device, parsed and formatted as a URL
+///
+/// https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3261
+fn get_webusb_url<T: libusb::UsbContext>(
+    handle: &mut Option<UsbDevice<T>>,
+    vendor_request: u8,
+    index: u8,
+) -> Result<String, Error> {
+    let request_type = libusb::request_type(
+        libusb::Direction::In,
+        libusb::RequestType::Vendor,
+        libusb::Recipient::Device,
+    );
+    let value = (usb::WEBUSB_GET_URL as u16) << 8;
+    let data = get_control_msg(handle, request_type, vendor_request, value, index as u16, 3)?;
+    log::trace!("WebUSB URL descriptor data: {:?}", data);
+    let len = data[0] as usize;
+
+    if data[1] != usb::USB_DT_WEBUSB_URL {
+        return Err(Error {
+            kind: ErrorKind::Parsing,
+            message: "Failed to parse WebUSB URL: Bad URL descriptor type".to_string(),
+        });
+    }
+
+    if data.len() < len {
+        return Err(Error {
+            kind: ErrorKind::Parsing,
+            message: "Failed to parse WebUSB URL: Data length mismatch".to_string(),
+        });
+    }
+
+    let url = String::from_utf8(data[3..len].to_vec()).map_err(|e| Error {
+        kind: ErrorKind::Parsing,
+        message: format!("Failed to parse WebUSB URL: {}", e),
+    })?;
+
+    match data[2] {
+        0x00 => Ok(format!("http://{}", url)),
+        0x01 => Ok(format!("https://{}", url)),
+        0xFF => Ok(url),
+        _ => Err(Error {
+            kind: ErrorKind::Parsing,
+            message: "Failed to parse WebUSB URL: Bad URL scheme".to_string(),
         }),
     }
 }
@@ -344,10 +508,9 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
             // grab report descriptor data using usb_control_msg
             usb::ClassDescriptor::Hid(ref mut hd) => {
                 for rd in hd.descriptors.iter_mut() {
-                    let index = interface_desc
-                        .map(|i| i.interface_number() as u16)
-                        .unwrap_or(0);
-                    rd.data = get_report_descriptor(handle, index, rd.length).ok();
+                    if let Some(index) = interface_desc.map(|i| i.interface_number() as u16) {
+                        rd.data = get_report_descriptor(handle, index, rd.length).ok();
+                    }
                 }
             }
             usb::ClassDescriptor::Midi(ref mut md, _) => {
@@ -442,7 +605,7 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                     vh.encoding = get_descriptor_string(vh.encoding_index, handle);
                 }
                 _ => (),
-            }
+            },
             _ => (),
         },
         _ => (),
@@ -712,6 +875,11 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
                 .map(|v| v.name().to_owned()),
         ),
         configurations: build_configurations(device, handle, device_desc, sp_device, with_udev)?,
+        status: get_device_status(handle).unwrap_or(0),
+        debug: get_debug_descriptor(handle).ok(),
+        binary_object_store: None,
+        qualifier: None,
+        hub: None,
     };
 
     // flag allows us to try again without udev if it raises an nting
@@ -720,6 +888,21 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
         let sysfs_name = sp_device.sysfs_name();
         extra.driver = get_udev_driver_name(&sysfs_name)?;
         extra.syspath = get_udev_syspath(&sysfs_name)?;
+    }
+
+    // Get device specific stuff: bos, hub, dualspeed, debug and status
+    if device_desc.usb_version() >= rusb::Version::from_bcd(0x0201) {
+        extra.binary_object_store = get_bos_descriptor(handle).ok();
+        log::info!("BOS: {:?}", extra.binary_object_store);
+    }
+    if device_desc.usb_version() >= rusb::Version::from_bcd(0x0200) {
+        extra.qualifier = get_device_qualifier(handle).ok();
+        log::info!("Device Qualifier: {:?}", extra.qualifier);
+    }
+    if device_desc.class_code() == usb::ClassCode::Hub as u8 {
+        // TODO superspeed flag
+        extra.hub = get_hub_descriptor(handle, 0, false).ok();
+        log::info!("Hub: {:?}", extra.hub);
     }
 
     Ok(extra)
