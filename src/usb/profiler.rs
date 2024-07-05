@@ -194,6 +194,44 @@ fn get_descriptor_string<T: libusb::UsbContext>(
     })
 }
 
+fn get_report_descriptor<T: libusb::UsbContext>(
+    handle: &mut Option<UsbDevice<T>>,
+    index: u16,
+    length: u16,
+) -> Result<Vec<u8>, Error> {
+    match handle.as_mut() {
+        Some(h) => {
+            let mut buf = vec![0; length as usize];
+            h.handle.read_control(
+                libusb::request_type(
+                    libusb::Direction::In,
+                    libusb::RequestType::Standard,
+                    libusb::Recipient::Interface,
+                ),
+                libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR,
+                (libusb::constants::LIBUSB_DT_REPORT as u16) << 8,
+                index,
+                &mut buf,
+                h.timeout,
+            ).and_then(|n| {
+                if n != length as usize {
+                    log::warn!("Failed to read full HID report descriptor");
+                    Err(libusb::Error::Io)
+                } else {
+                    Ok(buf)
+                }
+            }).map_err(|e| Error {
+                kind: ErrorKind::LibUSB,
+                message: format!("Failed to get report descriptor: {}", e),
+            })
+        },
+        None => Err(Error {
+            kind: ErrorKind::LibUSB,
+            message: "Failed to get report descriptor, no handle".to_string(),
+        }),
+    }
+}
+
 /// Covert to our crate speed
 impl From<libusb::Speed> for usb::Speed {
     fn from(libusb: libusb::Speed) -> Self {
@@ -306,34 +344,10 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
             // grab report descriptor data using usb_control_msg
             usb::ClassDescriptor::Hid(ref mut hd) => {
                 for rd in hd.descriptors.iter_mut() {
-                    rd.data = handle.as_mut().and_then(|h| {
-                        let mut buf = vec![0; rd.length as usize];
-                        h.handle
-                            .read_control(
-                                libusb::request_type(
-                                    libusb::Direction::In,
-                                    libusb::RequestType::Standard,
-                                    libusb::Recipient::Interface,
-                                ),
-                                libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR,
-                                // this is constant LIBUSB_DT_REPORT but HidReportDescriptor checks == to this
-                                (rd.descriptor_type as u16) << 8,
-                                interface_desc
-                                    .map(|i| i.interface_number() as u16)
-                                    .unwrap_or(0),
-                                &mut buf,
-                                h.timeout,
-                            )
-                            .and_then(|n| {
-                                if n != rd.length as usize {
-                                    log::warn!("Failed to read full HID report descriptor");
-                                    Err(libusb::Error::Io)
-                                } else {
-                                    Ok(buf)
-                                }
-                            })
-                            .ok()
-                    })
+                    let index = interface_desc
+                        .map(|i| i.interface_number() as u16)
+                        .unwrap_or(0);
+                    rd.data = get_report_descriptor(handle, index, rd.length).ok();
                 }
             }
             usb::ClassDescriptor::Midi(ref mut md, _) => {
