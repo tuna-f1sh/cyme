@@ -1176,6 +1176,58 @@ impl StreamingSubtype {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+#[repr(u8)]
+#[serde(rename_all = "kebab-case")]
+pub enum StreamingFormatType {
+    TypeI = 0x01,
+    TypeII = 0x02,
+    TypeIII = 0x03,
+    TypeIV = 0x04,
+    Undefined(u8),
+}
+
+impl From<u8> for StreamingFormatType {
+    fn from(b: u8) -> Self {
+        match b {
+            0x01 => StreamingFormatType::TypeI,
+            0x02 => StreamingFormatType::TypeII,
+            0x03 => StreamingFormatType::TypeIII,
+            0x04 => StreamingFormatType::TypeIV,
+            b => StreamingFormatType::Undefined(b),
+        }
+    }
+}
+
+impl From<StreamingFormatType> for u8 {
+    fn from(sft: StreamingFormatType) -> u8 {
+        match sft {
+            StreamingFormatType::TypeI => 0x01,
+            StreamingFormatType::TypeII => 0x02,
+            StreamingFormatType::TypeIII => 0x03,
+            StreamingFormatType::TypeIV => 0x04,
+            StreamingFormatType::Undefined(b) => b,
+        }
+    }
+}
+
+impl fmt::Display for StreamingFormatType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if f.alternate() {
+            match self {
+                StreamingFormatType::TypeI => write!(f, "FORMAT_TYPE_I"),
+                StreamingFormatType::TypeII => write!(f, "FORMAT_TYPE_II"),
+                StreamingFormatType::TypeIII => write!(f, "FORMAT_TYPE_III"),
+                StreamingFormatType::TypeIV => write!(f, "FORMAT_TYPE_IV"),
+                StreamingFormatType::Undefined(_) => write!(f, "invalid"),
+            }
+        } else {
+            write!(f, "{:?}", self)
+        }
+    }
+}
+
 /// The control setting for a UAC bmControls byte
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
