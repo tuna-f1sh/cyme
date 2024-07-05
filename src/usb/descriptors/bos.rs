@@ -318,12 +318,7 @@ impl TryFrom<&[u8]> for WebUsbPlatformCapability {
 
 impl From<WebUsbPlatformCapability> for Vec<u8> {
     fn from(wpc: WebUsbPlatformCapability) -> Self {
-        let mut ret = Vec::new();
-        ret.extend(Vec::<u8>::from(wpc.platform));
-        ret.push(u16::from(wpc.version).to_le_bytes()[0]);
-        ret.push(wpc.vendor_code);
-        ret.push(wpc.landing_page_index);
-
-        ret
+        // platform has all the data in data field
+        wpc.platform.into()
     }
 }
