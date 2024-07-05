@@ -184,7 +184,12 @@ impl TryFrom<&[u8]> for MidiEndpointDescriptor {
 
 impl From<MidiEndpointDescriptor> for Vec<u8> {
     fn from(md: MidiEndpointDescriptor) -> Self {
-        let mut ret = vec![md.length, md.descriptor_type, md.descriptor_subtype, md.num_jacks];
+        let mut ret = vec![
+            md.length,
+            md.descriptor_type,
+            md.descriptor_subtype,
+            md.num_jacks,
+        ];
         ret.extend(md.jacks);
 
         ret

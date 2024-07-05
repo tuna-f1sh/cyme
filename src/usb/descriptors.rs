@@ -1388,7 +1388,12 @@ impl TryFrom<&[u8]> for DebugDescriptor {
 
 impl From<DebugDescriptor> for Vec<u8> {
     fn from(dd: DebugDescriptor) -> Self {
-        vec![dd.length, dd.descriptor_type, dd.debug_in_endpoint, dd.debug_out_endpoint]
+        vec![
+            dd.length,
+            dd.descriptor_type,
+            dd.debug_in_endpoint,
+            dd.debug_out_endpoint,
+        ]
     }
 }
 

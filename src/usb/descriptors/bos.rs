@@ -152,14 +152,17 @@ impl TryFrom<&[u8]> for BinaryObjectStoreDescriptor {
 
         let mut capabilities = Vec::new();
         let mut offset = 5;
-        let mut cd_len = value[offset] as usize;
-        while offset < total_length as usize && value.len() >= offset + cd_len {
+        // probably a Rustier way to do this with drain but this works..
+        while offset < total_length as usize && value.len() > offset {
+            let cd_len = value[offset] as usize;
+            if value.len() < offset + cd_len {
+                break
+            }
             match BosCapability::try_from(&value[offset..offset + cd_len]) {
                 Ok(c) => capabilities.push(c),
                 Err(e) => log::warn!("Failed to parse BOS capability: {:?}", e),
             }
             offset += cd_len;
-            cd_len = value[offset] as usize;
         }
 
         Ok(BinaryObjectStoreDescriptor {

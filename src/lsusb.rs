@@ -7,8 +7,6 @@
 //! - [ ] Implement do_otg: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3036
 //! - [ ] Implement do_hub: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2805
 //! - [ ] Implement do_debug: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2984
-//! - [ ] Implement do_dualspeed: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2933
-//! - [ ] Implement dump_device_status: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3078
 //! - [ ] Implement dump_bos_descriptor: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3437
 //! - [ ] Convert the 'in dump' descriptor decoding into concrete structs in [`crate::usb::descriptors`] and use that for printing - like the [`crate::usb::descriptors::audio`] module
 use crate::display::PrintSettings;
@@ -344,6 +342,7 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                     }
                     dump_device(device);
 
+                    let otg = false;
                     for config in &device_extra.configurations {
                         // TODO do_otg for config 0
                         dump_config(config, LSUSB_DUMP_INDENT_BASE);
@@ -356,6 +355,39 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                             }
                         }
                     }
+
+                    if let Some(bos) = &device_extra.binary_object_store {
+                        // TODO dump_bos_descriptor
+                        println!(
+                            "{:indent$}BOS Descriptor: {:?}",
+                            "",
+                            bos,
+                            indent = 0
+                        );
+                    }
+                    if let Some(hub) = &device_extra.hub {
+                        // TODO do_hub
+                        println!(
+                            "{:indent$}Hub Descriptor: {:?}",
+                            "",
+                            hub,
+                            indent = 0
+                        );
+                    }
+                    // lsusb do_dualspeed: dump_device_qualifier
+                    if let Some(qualifier) = &device_extra.qualifier {
+                        dump_device_qualifier(qualifier, 0);
+                    }
+                    if let Some(debug) = &device_extra.debug {
+                        dump_debug(debug, 0);
+                    }
+
+                    dump_device_status(
+                        device_extra.status.unwrap_or(0),
+                        otg,
+                        device.bcd_usb.map_or(false, |v| v.major() >= 3),
+                        0,
+                    );
                 }
             }
         }
@@ -1874,6 +1906,117 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
                 dump_string("** UNAVAILABLE **", indent + 4);
             }
         }
+    }
+}
+
+fn dump_device_qualifier(dqd: &DeviceQualifierDescriptor, indent: usize) {
+    dump_string("Device Qualifier:", indent);
+    dump_value(dqd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        dqd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(dqd.version, "bcdUSB", indent + 2, LSUSB_DUMP_WIDTH);
+    let class: u8 = dqd.device_class as u8;
+    dump_value_string(
+        class,
+        "bDeviceClass",
+        dqd.device_class,
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        dqd.device_subclass,
+        "bDeviceSubClass",
+        names::subclass(class, dqd.device_subclass).unwrap_or(String::from("[unknown]")),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        dqd.device_protocol,
+        "bDeviceProtocol",
+        names::protocol(class, dqd.device_subclass, dqd.device_protocol)
+            .unwrap_or(String::from("[unknown]")),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        dqd.max_packet_size,
+        "bMaxPacketSize0",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        dqd.num_configurations,
+        "bNumConfigurations",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+}
+
+fn dump_debug(dd: &DebugDescriptor, indent: usize) {
+    dump_string("Debug Descriptor:", indent);
+    dump_value(dd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        dd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_hex(
+        dd.debug_in_endpoint,
+        "bDebugInEndpoint",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_hex(
+        dd.debug_out_endpoint,
+        "bDebugOutEndpoint",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+}
+
+fn dump_device_status(status: u16, otg: bool, super_speed: bool, indent: usize) {
+    dump_hex(status, "Device Status:", indent, LSUSB_DUMP_WIDTH);
+    if status & 0x01 != 0 {
+        println!("{:indent$}Self Powered", "", indent = indent + 2);
+    } else {
+        println!("{:indent$}(Bus Powered)", "", indent = indent + 2);
+    }
+    if status & 0x02 != 0 {
+        println!("{:indent$}Remote Wakeup Enabled", "", indent = indent + 2);
+    }
+    if super_speed {
+        if status & (1 << 2) != 0 {
+            println!("{:indent$}U1 Enabled", "", indent = indent + 2);
+        }
+        if status & (1 << 3) != 0 {
+            println!("{:indent$}U2 Enabled", "", indent = indent + 2);
+        }
+        if status & (1 << 4) != 0 {
+            println!(
+                "{:indent$}Latency Tolerance Messaging (LTM) Enabled",
+                "",
+                indent = indent + 2
+            );
+        }
+    }
+    if otg {
+        if status & (1 << 3) != 0 {
+            println!("{:indent$}HNP Enabled", "", indent = indent + 2);
+        }
+        if status & (1 << 4) != 0 {
+            println!("{:indent$}HNP Capable", "", indent = indent + 2);
+        }
+        if status & (1 << 5) != 0 {
+            println!("{:indent$}ALT port is HNP Capable", "", indent = indent + 2);
+        }
+    }
+    if status & (1 << 6) != 0 {
+        println!("{:indent$}Debug Mode", "", indent = indent + 2);
     }
 }
 

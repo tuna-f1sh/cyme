@@ -1158,7 +1158,12 @@ impl TryFrom<&[u8]> for FormatMPEG2TS {
 
 impl From<FormatMPEG2TS> for Vec<u8> {
     fn from(fmts: FormatMPEG2TS) -> Self {
-        let mut ret = vec![fmts.format_index, fmts.data_offset, fmts.packet_length, fmts.stride_length];
+        let mut ret = vec![
+            fmts.format_index,
+            fmts.data_offset,
+            fmts.packet_length,
+            fmts.stride_length,
+        ];
         if let Some(guid) = fmts.guid_stride_format {
             ret.extend(guid_to_bytes(&guid).unwrap());
         }

@@ -893,16 +893,13 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
     // Get device specific stuff: bos, hub, dualspeed, debug and status
     if device_desc.usb_version() >= rusb::Version::from_bcd(0x0201) {
         extra.binary_object_store = get_bos_descriptor(handle).ok();
-        log::info!("BOS: {:?}", extra.binary_object_store);
     }
     if device_desc.usb_version() >= rusb::Version::from_bcd(0x0200) {
         extra.qualifier = get_device_qualifier(handle).ok();
-        log::info!("Device Qualifier: {:?}", extra.qualifier);
     }
     if device_desc.class_code() == usb::ClassCode::Hub as u8 {
         let speed = usb::Speed::from(device.speed());
         extra.hub = get_hub_descriptor(handle, 0, speed).ok();
-        log::info!("Hub: {:?}", extra.hub);
     }
 
     Ok(extra)
