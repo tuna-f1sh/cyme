@@ -1,6 +1,7 @@
 //! Defines for the USB Video Class (UVC) interface descriptors
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
+use uuid::Uuid;
 
 use super::audio;
 use super::*;
@@ -637,7 +638,7 @@ impl From<ProcessingUnit> for Vec<u8> {
 #[allow(missing_docs)]
 pub struct ExtensionUnit {
     pub unit_id: u8,
-    pub guid_extension_code: String,
+    pub guid_extension_code: Uuid,
     pub num_controls: u8,
     pub num_input_pins: u8,
     pub source_ids: Vec<u8>,
@@ -663,7 +664,12 @@ impl TryFrom<&[u8]> for ExtensionUnit {
         }
 
         let unit_id = value[0];
-        let guid_extension_code = get_guid(&value[1..17])?;
+        let guid_extension_code = Uuid::from_slice_le(&value[1..17]).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidDescriptor,
+                &format!("Invalid GUID Extension Code: {}", e),
+            )
+        })?;
         let num_controls = value[17];
         let num_input_pins = value[18];
         let p = num_input_pins as usize;
@@ -714,7 +720,7 @@ impl From<ExtensionUnit> for Vec<u8> {
     fn from(eu: ExtensionUnit) -> Self {
         let mut ret = Vec::new();
         ret.push(eu.unit_id);
-        ret.extend(&guid_to_bytes(&eu.guid_extension_code).unwrap());
+        ret.extend(eu.guid_extension_code.to_bytes_le());
         ret.push(eu.num_controls);
         ret.push(eu.num_input_pins);
         ret.extend_from_slice(&eu.source_ids);
@@ -1073,7 +1079,7 @@ impl From<ColorFormat> for Vec<u8> {
 #[allow(missing_docs)]
 pub struct FormatStreamBased {
     pub format_index: u8,
-    pub guid_format: String,
+    pub guid_format: Uuid,
     pub packet_length: u8,
 }
 
@@ -1092,7 +1098,12 @@ impl TryFrom<&[u8]> for FormatStreamBased {
         }
 
         let format_index = value[0];
-        let guid_format = get_guid(&value[1..17])?;
+        let guid_format = Uuid::from_slice_le(&value[1..17]).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidDescriptor,
+                &format!("Invalid GUID Format: {}", e),
+            )
+        })?;
         let packet_length = value[17];
 
         Ok(FormatStreamBased {
@@ -1107,7 +1118,7 @@ impl From<FormatStreamBased> for Vec<u8> {
     fn from(fsb: FormatStreamBased) -> Self {
         let mut ret = Vec::new();
         ret.push(fsb.format_index);
-        ret.extend(fsb.guid_format.into_bytes());
+        ret.extend(fsb.guid_format.to_bytes_le());
         ret.push(fsb.packet_length);
 
         ret
@@ -1121,7 +1132,7 @@ pub struct FormatMPEG2TS {
     pub data_offset: u8,
     pub packet_length: u8,
     pub stride_length: u8,
-    pub guid_stride_format: Option<String>,
+    pub guid_stride_format: Option<Uuid>,
 }
 
 impl TryFrom<&[u8]> for FormatMPEG2TS {
@@ -1143,7 +1154,7 @@ impl TryFrom<&[u8]> for FormatMPEG2TS {
         let guid_stride_format = if value.len() < 20 {
             None
         } else {
-            get_guid(&value[4..20]).ok()
+            Uuid::from_slice_le(&value[4..20]).ok()
         };
 
         Ok(FormatMPEG2TS {
@@ -1165,7 +1176,7 @@ impl From<FormatMPEG2TS> for Vec<u8> {
             fmts.stride_length,
         ];
         if let Some(guid) = fmts.guid_stride_format {
-            ret.extend(guid_to_bytes(&guid).unwrap());
+            ret.extend(guid.to_bytes_le());
         }
         ret
     }
@@ -1237,7 +1248,7 @@ impl From<FormatMJPEG> for Vec<u8> {
 pub struct FormatFrame {
     pub format_index: u8,
     pub num_frame_descriptors: u8,
-    pub guid_format: String,
+    pub guid_format: Uuid,
     pub bits_per_pixel: u8,
     pub default_frame_index: u8,
     pub aspect_ratio_x: u8,
@@ -1263,7 +1274,12 @@ impl TryFrom<&[u8]> for FormatFrame {
 
         let format_index = value[0];
         let num_frame_descriptors = value[1];
-        let guid_format = get_guid(&value[2..18])?;
+        let guid_format = Uuid::from_slice_le(&value[2..18]).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidDescriptor,
+                &format!("Invalid GUID Format: {}", e),
+            )
+        })?;
         let bits_per_pixel = value[18];
         let default_frame_index = value[19];
         let aspect_ratio_x = value[20];
@@ -1293,7 +1309,7 @@ impl From<FormatFrame> for Vec<u8> {
         let mut ret = Vec::new();
         ret.push(fufb.format_index);
         ret.push(fufb.num_frame_descriptors);
-        ret.extend_from_slice(&guid_to_bytes(&fufb.guid_format).unwrap());
+        ret.extend_from_slice(&fufb.guid_format.to_bytes_le());
         ret.push(fufb.bits_per_pixel);
         ret.push(fufb.default_frame_index);
         ret.push(fufb.aspect_ratio_x);

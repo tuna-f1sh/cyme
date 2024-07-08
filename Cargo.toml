@@ -32,6 +32,7 @@ terminal_size = "0.2.5"
 strum = "0.26"
 strum_macros = "0.26"
 regex = { version = "1.10.5", optional = true }
+uuid = { version = "1.9.1", features = ["serde"] }
 
 [dev-dependencies]
 diff = "0.1"

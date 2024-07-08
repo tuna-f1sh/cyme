@@ -32,6 +32,8 @@ pub enum ErrorKind {
     InvalidArg,
     /// Error From other crate without enum variant
     Other(&'static str),
+    /// Invalid device descriptor
+    InvalidDescriptor,
 }
 
 #[derive(Debug, PartialEq)]

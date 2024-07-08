@@ -9,6 +9,7 @@
 //! - [ ] Implement do_debug: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2984
 //! - [ ] Implement dump_bos_descriptor: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3437
 //! - [ ] Convert the 'in dump' descriptor decoding into concrete structs in [`crate::usb::descriptors`] and use that for printing - like the [`crate::usb::descriptors::audio`] module
+use uuid::Uuid;
 use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
 use crate::system_profiler;
@@ -131,8 +132,8 @@ fn dump_string_right<T: std::fmt::Display>(guid: T, field_name: &str, indent: us
 }
 
 /// Dumps GUID enclosed in braces like lsusb
-fn dump_guid(guid: &String, field_name: &str, indent: usize, width: usize) {
-    dump_string_right(format!("{{{:}}}", guid), field_name, indent, width);
+fn dump_guid(guid: &Uuid, field_name: &str, indent: usize, width: usize) {
+    dump_string_right(guid.braced().to_string(), field_name, indent, width);
 }
 
 /// Dumps junk descriptor bytes as hex like lsusb

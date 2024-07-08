@@ -1,11 +1,12 @@
 //! Binary Object Store (BOS) descriptor types and capabilities parsing
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
+use uuid::{uuid, Uuid};
 
 use super::*;
 use crate::error::{self, Error, ErrorKind};
 
-const WEBUSB_GUID: &str = "{3408b638-09a9-47a0-8bfd-a0768815b665}";
+const WEBUSB_GUID: Uuid = uuid!("{3408b638-09a9-47a0-8bfd-a0768815b665}");
 
 /// The Binary Object Store descriptor type codes as defined in the USB 3.0 spec.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -242,7 +243,7 @@ pub struct PlatformDeviceCompatibility {
     pub descriptor_type: u8,
     pub compatibility_descriptor: u8,
     pub reserved: u8,
-    pub guid: String,
+    pub guid: Uuid,
     pub data: Vec<u8>,
 }
 
@@ -262,7 +263,13 @@ impl TryFrom<&[u8]> for PlatformDeviceCompatibility {
             descriptor_type: value[1],
             compatibility_descriptor: value[2],
             reserved: value[3],
-            guid: get_guid(&value[4..20])?,
+            //guid: get_guid(&value[4..20])?,
+            guid: Uuid::from_slice_le(&value[4..20]).map_err(|_| {
+                Error::new(
+                    ErrorKind::InvalidArg,
+                    "Platform Device Compatibility descriptor has invalid GUID",
+                )
+            })?,
             data: value[20..].to_vec(),
         })
     }
@@ -276,7 +283,7 @@ impl From<PlatformDeviceCompatibility> for Vec<u8> {
             pdc.compatibility_descriptor,
             pdc.reserved,
         ];
-        ret.extend(&guid_to_bytes(&pdc.guid).unwrap());
+        ret.extend(pdc.guid.to_bytes_le());
         ret.extend(pdc.data);
 
         ret
