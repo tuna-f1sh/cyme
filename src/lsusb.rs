@@ -19,12 +19,14 @@ use crate::usb::descriptors::video;
 use crate::usb::descriptors::*;
 use crate::usb::*;
 
-mod audio_dumps;
 pub mod names;
+mod audio_dumps;
 mod video_dumps;
+mod bos_dumps;
 
 use audio_dumps::*;
 use video_dumps::*;
+use bos_dumps::*;
 
 const TREE_LSUSB_BUS: &str = "/:  ";
 const TREE_LSUSB_DEVICE: &str = "|__ ";
@@ -358,22 +360,21 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                     }
 
                     if let Some(bos) = &device_extra.binary_object_store {
-                        // TODO dump_bos_descriptor
                         println!(
                             "{:indent$}BOS Descriptor: {:?}",
                             "",
                             bos,
                             indent = 0
                         );
+                        dump_bos_descriptor(bos, 0);
+                        //let has_ssp = bos
+                        //    .capabilities
+                        //    .iter()
+                        //    .any(|c| matches!(c, bos::BosCapability::SuperSpeedPlus(_)));
                     }
                     if let Some(hub) = &device_extra.hub {
-                        // TODO do_hub
-                        println!(
-                            "{:indent$}Hub Descriptor: {:?}",
-                            "",
-                            hub,
-                            indent = 0
-                        );
+                        dump_hub(hub, device.protocol.unwrap_or(1), 0);
+                        // TODO request port status etc: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2855
                     }
                     // lsusb do_dualspeed: dump_device_qualifier
                     if let Some(qualifier) = &device_extra.qualifier {
@@ -1975,6 +1976,107 @@ fn dump_debug(dd: &DebugDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
+}
+
+fn dump_hub(hd: &HubDescriptor, protocol: u8, indent: usize) {
+    dump_string("Hub Descriptor:", indent);
+    dump_value(hd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        hd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(hd.num_ports, "bNbrPorts", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_hex(
+        hd.characteristics,
+        "wHubCharacteristics",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    match hd.characteristics & 0x03 {
+        0 => println!("{:indent$}Ganged power switching", "", indent = indent + 4),
+        1 => println!("{:indent$}Per-port power switching", "", indent = indent + 4),
+        _ => println!("{:indent$}No power switching (usb 1.0)", "", indent = indent + 4),
+    }
+    match hd.characteristics & 0x04 {
+        0 => println!("{:indent$}Ganged overcurrent protection", "", indent = indent + 4),
+        1 => println!("{:indent$}Per-port overcurrent protection", "", indent = indent + 4),
+        _ => println!("{:indent$}No overcurrent protection", "", indent = indent + 4),
+    }
+
+    if protocol >= 1 && protocol <= 3 {
+        let l = (hd.characteristics >> 5) & 0x03;
+        dump_string(&format!("TT think time {} FS bits", (l + 1) * 8), indent + 4);
+    }
+    if protocol != 3 && hd.characteristics & (1 << 7) != 0 {
+        dump_string("Port indicators", indent + 4);
+    }
+    dump_value_string(
+        hd.power_on_to_power_good,
+        "bPwrOn2PwrGood",
+        "* 2 milli seconds",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    if protocol == 3 {
+        dump_value_string(
+            (hd.control_current as u32) * 4,
+            "bHubContrCurrent",
+            "milli Ampere",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    } else {
+        dump_value_string(
+            hd.control_current,
+            "bHubContrCurrent",
+            "milli Ampere",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    }
+
+    let offset = if protocol == 3 {
+        dump_value_string(
+            &format!("0.{:1}", hd.latency().unwrap_or(0)),
+            "bHubDecLat",
+            "micro seconds",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+        dump_value_string(
+            hd.delay().unwrap_or(0),
+            "wHubDelay",
+            "nano seconds",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+        3
+    } else {
+        0
+    };
+
+    // determine the number of bytes needed to represent the number of ports
+    let mut l = (hd.num_ports >> 3 + 1) as usize;
+    if l > 3 {
+        l = 3;
+    }
+    dump_value(
+        hd.data.iter().skip(offset).take(l).map(|b| format!("0x{:02x}", b)).collect::<Vec<String>>().join(" "),
+        "DeviceRemovable",
+        indent + 2,
+        LSUSB_DUMP_WIDTH
+    );
+    if protocol != 3 {
+        dump_value(
+            hd.data.iter().skip(offset+l).take(l).map(|b| format!("0x{:02x}", b)).collect::<Vec<String>>().join(" "),
+            "PortPwrCtrlMask",
+            indent + 2,
+            LSUSB_DUMP_WIDTH
+        );
+    }
 }
 
 fn dump_device_status(status: u16, otg: bool, super_speed: bool, indent: usize) {

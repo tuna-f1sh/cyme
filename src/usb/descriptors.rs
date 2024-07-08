@@ -1241,8 +1241,7 @@ pub struct HubDescriptor {
     pub characteristics: u16,
     pub power_on_to_power_good: u8,
     pub control_current: u8,
-    pub latancy: u8,
-    pub delay: u8,
+    pub data: Vec<u8>,
 }
 
 impl TryFrom<&[u8]> for HubDescriptor {
@@ -1263,8 +1262,7 @@ impl TryFrom<&[u8]> for HubDescriptor {
             characteristics: u16::from_le_bytes([value[3], value[4]]),
             power_on_to_power_good: value[5],
             control_current: value[6],
-            latancy: value[7],
-            delay: value[8],
+            data: value[7..].to_vec(),
         })
     }
 }
@@ -1278,10 +1276,24 @@ impl From<HubDescriptor> for Vec<u8> {
         ret.extend(hd.characteristics.to_le_bytes());
         ret.push(hd.power_on_to_power_good);
         ret.push(hd.control_current);
-        ret.push(hd.latancy);
-        ret.push(hd.delay);
+        ret.extend(hd.data);
 
         ret
+    }
+}
+
+impl HubDescriptor {
+    /// Type 3 devices have a delay field, which is a combination of latency in nano seconds
+    pub fn delay(&self) -> Option<u16> {
+        match (self.latency(), self.data.get(1)) {
+            (Some(l), Some(d)) => Some((*d as u16) << 4 + l),
+            _ => None,
+        }
+    }
+
+    /// Type 3 devices have a latency field
+    pub fn latency(&self) -> Option<u8> {
+        self.data.get(0).copied()
     }
 }
 

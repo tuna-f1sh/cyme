@@ -64,6 +64,7 @@ impl From<BosType> for u8 {
 #[allow(missing_docs)]
 pub enum BosCapability {
     Generic(GenericCapability),
+    Usb2Extension(ExtensionCapability),
     Platform(PlatformDeviceCompatibility),
     WebUsbPlatform(WebUsbPlatformCapability),
 }
@@ -84,6 +85,9 @@ impl TryFrom<&[u8]> for BosCapability {
                 ErrorKind::InvalidArg,
                 "BOS capability descriptor has unknown capability type",
             )),
+            BosType::Usb2Extension => Ok(BosCapability::Usb2Extension(ExtensionCapability::try_from(
+                value,
+            )?)),
             BosType::PlatformCapability => {
                 let pdc = PlatformDeviceCompatibility::try_from(value)?;
                 // WebUSB is a special case of PlatformCapability with a specific GUID: https://developer.chrome.com/docs/capabilities/build-for-webusb
@@ -105,6 +109,7 @@ impl From<BosCapability> for Vec<u8> {
     fn from(bcd: BosCapability) -> Self {
         match bcd {
             BosCapability::Generic(gcd) => Vec::<u8>::from(gcd),
+            BosCapability::Usb2Extension(ebd) => Vec::<u8>::from(ebd),
             BosCapability::Platform(pdc) => Vec::<u8>::from(pdc),
             BosCapability::WebUsbPlatform(wpc) => Vec::<u8>::from(wpc),
         }
@@ -327,5 +332,46 @@ impl From<WebUsbPlatformCapability> for Vec<u8> {
     fn from(wpc: WebUsbPlatformCapability) -> Self {
         // platform has all the data in data field
         wpc.platform.into()
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct ExtensionCapability {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub capability_type: BosType,
+    pub attributes: u32,
+}
+
+impl TryFrom<&[u8]> for ExtensionCapability {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 7 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Extension BOS descriptor too short",
+            ));
+        }
+
+        Ok(ExtensionCapability {
+            length: value[0],
+            descriptor_type: value[1],
+            capability_type: value[2].into(),
+            attributes: u32::from_le_bytes([value[3], value[4], value[5], value[6]]),
+        })
+    }
+}
+
+impl From<ExtensionCapability> for Vec<u8> {
+    fn from(ebd: ExtensionCapability) -> Self {
+        let mut ret = Vec::new();
+        ret.push(ebd.length);
+        ret.push(ebd.descriptor_type);
+        ret.push(u8::from(ebd.capability_type));
+        ret.extend(ebd.attributes.to_le_bytes());
+
+        ret
     }
 }
