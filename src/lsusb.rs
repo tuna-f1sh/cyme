@@ -2,31 +2,24 @@
 //! Printing functions for lsusb style output of USB data
 //!
 //! The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for a lot of the styling and content of the display module
-//!
-//! TODO:
-//! - [ ] Implement do_otg: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3036
-//! - [ ] Implement do_hub: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2805
-//! - [ ] Implement do_debug: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2984
-//! - [ ] Implement dump_bos_descriptor: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L3437
-//! - [ ] Convert the 'in dump' descriptor decoding into concrete structs in [`crate::usb::descriptors`] and use that for printing - like the [`crate::usb::descriptors::audio`] module
-use uuid::Uuid;
 use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
 use crate::system_profiler;
+use uuid::Uuid;
 
 use crate::usb::descriptors::audio;
 use crate::usb::descriptors::video;
 use crate::usb::descriptors::*;
 use crate::usb::*;
 
-pub mod names;
 mod audio_dumps;
-mod video_dumps;
 mod bos_dumps;
+pub mod names;
+mod video_dumps;
 
 use audio_dumps::*;
-use video_dumps::*;
 use bos_dumps::*;
+use video_dumps::*;
 
 const TREE_LSUSB_BUS: &str = "/:  ";
 const TREE_LSUSB_DEVICE: &str = "|__ ";
@@ -359,22 +352,17 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                         }
                     }
 
-                    if let Some(bos) = &device_extra.binary_object_store {
-                        println!(
-                            "{:indent$}BOS Descriptor: {:?}",
-                            "",
-                            bos,
-                            indent = 0
-                        );
+                    let has_ssp = if let Some(bos) = &device_extra.binary_object_store {
                         dump_bos_descriptor(bos, 0);
-                        //let has_ssp = bos
-                        //    .capabilities
-                        //    .iter()
-                        //    .any(|c| matches!(c, bos::BosCapability::SuperSpeedPlus(_)));
-                    }
+                        bos.capabilities
+                            .iter()
+                            .any(|c| matches!(c, bos::BosCapability::SuperSpeedPlus(_)))
+                    } else {
+                        false
+                    };
                     if let Some(hub) = &device_extra.hub {
-                        dump_hub(hub, device.protocol.unwrap_or(1), 0);
-                        // TODO request port status etc: https://github.com/gregkh/usbutils/blob/master/lsusb.c#L2855
+                        let bcd = device.bcd_usb.map_or(0x0100, |v| v.into());
+                        dump_hub(hub, device.protocol.unwrap_or(1), bcd, has_ssp, 0);
                     }
                     // lsusb do_dualspeed: dump_device_qualifier
                     if let Some(qualifier) = &device_extra.qualifier {
@@ -385,7 +373,12 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                     }
 
                     if let Some(status) = device_extra.status {
-                        dump_device_status(status, otg, device.bcd_usb.map_or(false, |v| v.major() >= 3), 0);
+                        dump_device_status(
+                            status,
+                            otg,
+                            device.bcd_usb.map_or(false, |v| v.major() >= 3),
+                            0,
+                        );
                     }
                 }
             }
@@ -1978,7 +1971,43 @@ fn dump_debug(dd: &DebugDescriptor, indent: usize) {
     );
 }
 
-fn dump_hub(hd: &HubDescriptor, protocol: u8, indent: usize) {
+const LINK_STATE_DESCRIPTIONS: [&str; 12] = [
+    "U0",
+    "U1",
+    "U2",
+    "suspend",
+    "SS.disabled",
+    "Rx.Detect",
+    "SS.Inactive",
+    "Polling",
+    "Recovery",
+    "Hot Reset",
+    "Compliance",
+    "Loopback",
+];
+
+/// Dump a single value and the string representation of the value to the right of width
+fn bitmap_strings_port<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>) -> String
+where
+    T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
+{
+    let bitmap_u64: u64 = bitmap.into();
+    let num_bits = std::mem::size_of::<T>() * 8;
+    let mut ret = String::new();
+    for index in (0..num_bits).rev() {
+        if (bitmap_u64 >> index) & 0x1 != 0 {
+            if let Some(string) = strings_f(index) {
+                ret.push_str(string);
+                ret.push(' ');
+            }
+        }
+    }
+
+    ret
+}
+
+fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: usize) {
+    let is_ext_status = protocol == 3 && bcd >= 0x0310 && has_ssp;
     dump_string("Hub Descriptor:", indent);
     dump_value(hd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
@@ -1996,18 +2025,41 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, indent: usize) {
     );
     match hd.characteristics & 0x03 {
         0 => println!("{:indent$}Ganged power switching", "", indent = indent + 4),
-        1 => println!("{:indent$}Per-port power switching", "", indent = indent + 4),
-        _ => println!("{:indent$}No power switching (usb 1.0)", "", indent = indent + 4),
+        1 => println!(
+            "{:indent$}Per-port power switching",
+            "",
+            indent = indent + 4
+        ),
+        _ => println!(
+            "{:indent$}No power switching (usb 1.0)",
+            "",
+            indent = indent + 4
+        ),
     }
     match hd.characteristics & 0x04 {
-        0 => println!("{:indent$}Ganged overcurrent protection", "", indent = indent + 4),
-        1 => println!("{:indent$}Per-port overcurrent protection", "", indent = indent + 4),
-        _ => println!("{:indent$}No overcurrent protection", "", indent = indent + 4),
+        0 => println!(
+            "{:indent$}Ganged overcurrent protection",
+            "",
+            indent = indent + 4
+        ),
+        1 => println!(
+            "{:indent$}Per-port overcurrent protection",
+            "",
+            indent = indent + 4
+        ),
+        _ => println!(
+            "{:indent$}No overcurrent protection",
+            "",
+            indent = indent + 4
+        ),
     }
 
-    if protocol >= 1 && protocol <= 3 {
+    if (1..=3).contains(&protocol) {
         let l = (hd.characteristics >> 5) & 0x03;
-        dump_string(&format!("TT think time {} FS bits", (l + 1) * 8), indent + 4);
+        dump_string(
+            &format!("TT think time {} FS bits", (l + 1) * 8),
+            indent + 4,
+        );
     }
     if protocol != 3 && hd.characteristics & (1 << 7) != 0 {
         dump_string("Port indicators", indent + 4);
@@ -2040,7 +2092,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, indent: usize) {
 
     let offset = if protocol == 3 {
         dump_value_string(
-            &format!("0.{:1}", hd.latency().unwrap_or(0)),
+            format!("0.{:1}", hd.latency().unwrap_or(0)),
             "bHubDecLat",
             "micro seconds",
             indent + 2,
@@ -2059,23 +2111,157 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, indent: usize) {
     };
 
     // determine the number of bytes needed to represent the number of ports
-    let mut l = (hd.num_ports >> 3 + 1) as usize;
+    let mut l = (hd.num_ports >> (3 + 1)) as usize;
     if l > 3 {
         l = 3;
     }
     dump_value(
-        hd.data.iter().skip(offset).take(l).map(|b| format!("0x{:02x}", b)).collect::<Vec<String>>().join(" "),
+        hd.data
+            .iter()
+            .skip(offset)
+            .take(l)
+            .map(|b| format!("0x{:02x}", b))
+            .collect::<Vec<String>>()
+            .join(" "),
         "DeviceRemovable",
         indent + 2,
-        LSUSB_DUMP_WIDTH
+        LSUSB_DUMP_WIDTH,
     );
     if protocol != 3 {
         dump_value(
-            hd.data.iter().skip(offset+l).take(l).map(|b| format!("0x{:02x}", b)).collect::<Vec<String>>().join(" "),
+            hd.data
+                .iter()
+                .skip(offset + l)
+                .take(l)
+                .map(|b| format!("0x{:02x}", b))
+                .collect::<Vec<String>>()
+                .join(" "),
             "PortPwrCtrlMask",
             indent + 2,
-            LSUSB_DUMP_WIDTH
+            LSUSB_DUMP_WIDTH,
         );
+    }
+
+    if let Some(ps) = hd.port_statuses.as_ref() {
+        dump_string("Hub Port Status:", indent + 2);
+        for (i, p) in ps.iter().enumerate() {
+            let port_status_string = format!(
+                "Port {}: {:02x}{:02x}.{:02x}{:02x}",
+                i + 1,
+                p[3],
+                p[2],
+                p[1],
+                p[0]
+            );
+            if bcd < 0x0300 {
+                let s2_string = bitmap_strings_port(p[2], |b| match b {
+                    0 => Some("C_CONNECT"),
+                    1 => Some("C_ENABLE"),
+                    2 => Some("C_SUSPEND"),
+                    3 => Some("C_OC"),
+                    4 => Some("C_RESET"),
+                    _ => None,
+                });
+                let s1_string = bitmap_strings_port(p[1], |b| match b {
+                    0 => Some("power"),
+                    1 => Some("lowspeed"),
+                    2 => Some("highspeed"),
+                    3 => Some("test"),
+                    4 => Some("indicator"),
+                    _ => None,
+                });
+                let s0_string = bitmap_strings_port(p[0], |b| match b {
+                    0 => Some("connect"),
+                    1 => Some("enable"),
+                    2 => Some("suspend"),
+                    3 => Some("oc"),
+                    4 => Some("RESET"),
+                    5 => Some("L1"),
+                    _ => None,
+                });
+                dump_string(
+                    &format!(
+                        "{}: {}{}{}",
+                        port_status_string, s2_string, s1_string, s0_string
+                    ),
+                    indent + 4,
+                );
+            } else {
+                let link_state = (((p[0] & 0xe0) >> 5) + ((p[1] & 0x01) << 3)) as usize;
+                let s2_string = bitmap_strings_port(p[2], |b| match b {
+                    0 => Some("C_CONNECT"),
+                    3 => Some("C_OC"),
+                    4 => Some("C_RESET"),
+                    5 => Some("C_BH_RESET"),
+                    6 => Some("C_LINK_STATE"),
+                    7 => Some("C_CONFIG_ERROR"),
+                    _ => None,
+                });
+                let s1_string = format!(
+                    "{} {}",
+                    if p[1] & 0x1c == 0 {
+                        "5Gbps"
+                    } else {
+                        "Unknown Speed"
+                    },
+                    if p[1] & 0x02 != 0 { "power " } else { " " },
+                );
+                let s0_string = bitmap_strings_port(p[0], |b| match b {
+                    0 => Some("connect"),
+                    1 => Some("enable"),
+                    3 => Some("oc"),
+                    4 => Some("RESET"),
+                    _ => None,
+                });
+                if link_state < LINK_STATE_DESCRIPTIONS.len() {
+                    dump_string(
+                        &format!(
+                            "{}: {}{}{}{}",
+                            port_status_string,
+                            s2_string,
+                            s1_string,
+                            LINK_STATE_DESCRIPTIONS[link_state],
+                            s0_string
+                        ),
+                        indent + 4,
+                    );
+                } else {
+                    dump_string(
+                        &format!(
+                            "{}: {}{}{}",
+                            port_status_string, s2_string, s1_string, s0_string
+                        ),
+                        indent + 4,
+                    );
+                }
+            }
+
+            if is_ext_status && (p[0] & 0x01 == 0x01) {
+                dump_string(
+                    &format!(
+                        "Ext Status: {:02x}{:02x}{:02x}{:02x}",
+                        p[7], p[6], p[5], p[4]
+                    ),
+                    indent + 8,
+                );
+                dump_string(
+                    &format!(
+                        "RX Speed Attribute ID: {} Lanes: {}",
+                        p[4] & 0x0f,
+                        (p[5] & 0x0f) + 1
+                    ),
+                    indent + 8,
+                );
+                dump_string(
+                    &format!(
+                        "TX Speed Attribute ID: {} Lanes: {}",
+                        (p[4] >> 4) & 0x0f,
+                        ((p[5] >> 4) & 0x0f) + 1
+                    ),
+                    indent + 8,
+                );
+            }
+        }
     }
 }
 

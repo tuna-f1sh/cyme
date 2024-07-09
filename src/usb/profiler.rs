@@ -249,22 +249,58 @@ fn get_report_descriptor<T: libusb::UsbContext>(
 
 fn get_hub_descriptor<T: libusb::UsbContext>(
     handle: &mut Option<UsbDevice<T>>,
-    index: u16,
-    speed: super::Speed,
+    protocol: u8,
+    bcd: u16,
+    has_ssp: bool,
 ) -> Result<usb::HubDescriptor, Error> {
     let request_type = libusb::request_type(
         libusb::Direction::In,
         libusb::RequestType::Class,
         libusb::Recipient::Device,
     );
+    let is_ext_status = protocol == 3 && bcd >= 0x0310 && has_ssp;
     let request = libusb::constants::LIBUSB_REQUEST_GET_DESCRIPTOR;
-    let value = if speed as u8 >= 3 {
+    let value = if bcd >= 0x0300 {
         (libusb::constants::LIBUSB_DT_SUPERSPEED_HUB as u16) << 8
     } else {
         (libusb::constants::LIBUSB_DT_HUB as u16) << 8
     };
-    let data = get_control_msg(handle, request_type, request, value, index, 9)?;
-    usb::HubDescriptor::try_from(data.as_slice())
+    let data = get_control_msg(handle, request_type, request, value, 0, 9)?;
+    let mut hub = usb::HubDescriptor::try_from(data.as_slice())?;
+
+    // get port statuses
+    let port_request_type = libusb::request_type(
+        libusb::Direction::In,
+        libusb::RequestType::Class,
+        libusb::Recipient::Other,
+    );
+    let mut port_statues: Vec<[u8; 8]> = Vec::with_capacity(hub.num_ports as usize);
+    for p in 0..hub.num_ports {
+        match get_control_msg(
+            handle,
+            port_request_type,
+            libusb::constants::LIBUSB_REQUEST_GET_STATUS,
+            if is_ext_status { 2 } else { 0 },
+            p as u16 + 1,
+            if is_ext_status { 8 } else { 4 },
+        ) {
+            Ok(mut data) => {
+                if data.len() < 8 {
+                    let remaining = 8 - data.len();
+                    data.extend(vec![0; remaining]);
+                }
+                port_statues.push(data.try_into().unwrap());
+            }
+            Err(e) => {
+                log::warn!("Failed to get port {} status: {}", p + 1, e);
+                return Ok(hub);
+            }
+        }
+    }
+
+    hub.port_statuses = Some(port_statues);
+
+    Ok(hub)
 }
 
 fn get_device_status<T: libusb::UsbContext>(
@@ -319,15 +355,24 @@ fn get_bos_descriptor<T: libusb::UsbContext>(
         total_length as usize,
     )?;
     log::trace!("BOS descriptor data: {:?}", data);
-    let bos = usb::descriptors::bos::BinaryObjectStoreDescriptor::try_from(data.as_slice())?;
+    let mut bos = usb::descriptors::bos::BinaryObjectStoreDescriptor::try_from(data.as_slice())?;
 
     // get any extra descriptor data now with handle
-    if let Some(webusb) = bos.capabilities.iter().find_map(|c| match c {
-        usb::descriptors::bos::BosCapability::WebUsbPlatform(w) => Some(w),
-        _ => None,
-    }) {
-        let url = get_webusb_url(handle, webusb.vendor_code, webusb.landing_page_index)?;
-        log::trace!("WebUSB URL: {}", url);
+    for c in bos.capabilities.iter_mut() {
+        match c {
+            usb::descriptors::bos::BosCapability::WebUsbPlatform(w) => {
+                w.url = get_webusb_url(handle, w.vendor_code, w.landing_page_index).ok();
+                log::trace!("WebUSB URL: {:?}", w.url);
+            }
+            usb::descriptors::bos::BosCapability::Billboard(ref mut b) => {
+                b.additional_info_url = get_descriptor_string(b.additional_info_url_index, handle);
+                for a in b.alternate_modes.iter_mut() {
+                    a.alternate_mode_string =
+                        get_descriptor_string(a.alternate_mode_string_index, handle);
+                }
+            }
+            _ => (),
+        }
     }
 
     Ok(bos)
@@ -898,8 +943,15 @@ fn build_spdevice_extra<T: libusb::UsbContext>(
         extra.qualifier = get_device_qualifier(handle).ok();
     }
     if device_desc.class_code() == usb::ClassCode::Hub as u8 {
-        let speed = usb::Speed::from(device.speed());
-        extra.hub = get_hub_descriptor(handle, 0, speed).ok();
+        let has_ssp = if let Some(bos) = &extra.binary_object_store {
+            bos.capabilities
+                .iter()
+                .any(|c| matches!(c, usb::descriptors::bos::BosCapability::SuperSpeedPlus(_)))
+        } else {
+            false
+        };
+        let bcd = sp_device.bcd_usb.map_or(0x0100, |v| v.into());
+        extra.hub = get_hub_descriptor(handle, device_desc.protocol_code(), bcd, has_ssp).ok();
     }
 
     Ok(extra)
