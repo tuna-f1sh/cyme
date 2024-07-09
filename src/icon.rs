@@ -1,4 +1,6 @@
 //! Icons and themeing of cyme output
+#[cfg(feature = "regex_icon")]
+use regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::collections::HashMap;
@@ -35,6 +37,8 @@ pub enum Icon {
     Classifier(ClassCode),
     /// Class classifier lookup with SubClass and Protocol
     ClassifierSubProtocol((ClassCode, u8, u8)),
+    /// Pattern match device name icon
+    Name(String),
     /// Icon for unknown vendors
     UnknownVendor,
     /// Icon for undefined classifier
@@ -86,6 +90,24 @@ impl FromStr for Icon {
                     "Invalid Icon enum name or valued enum without value",
                 )),
             }
+        // name#pattern
+        } else if matches!(enum_name, "name") {
+            #[cfg(feature = "regex_icon")]
+            match regex::Regex::new(value_split[1]) {
+                Ok(_) => Ok(Icon::Name(value_split[1].to_string())),
+                Err(_) => Err(Error::new(
+                    ErrorKind::Parsing,
+                    &format!(
+                        "Invalid regex pattern in Icon::Name enum string: {}",
+                        value_split[1]
+                    ),
+                )),
+            }
+            #[cfg(not(feature = "regex_icon"))]
+            Err(Error::new(
+                ErrorKind::Parsing,
+                "regex_icon feature not enabled for Icon::Name matching",
+            ))
         // enum contains value
         } else {
             let (parse_ints, errors): (Vec<Result<u32, _>>, Vec<_>) = value_split[1]
@@ -161,6 +183,7 @@ impl fmt::Display for Icon {
                 c.1,
                 c.2
             ),
+            Icon::Name(s) => write!(f, "name#{}", s),
             Icon::Endpoint(Direction::In) => write!(f, "endpoint_in"),
             Icon::Endpoint(Direction::Out) => write!(f, "endpoint_out"),
             _ => {
@@ -263,8 +286,8 @@ lazy_static! {
             (Icon::Vid(0x1fc9), "\u{f2db}"), // nxp 
             (Icon::Vid(0x1050), "\u{f084}"), // yubikey 
             (Icon::Vid(0x0781), "\u{f129e}"), // sandisk 󱊞
-            (Icon::VidPid((0x05ac, 0x8409)), "\u{ef61}"), // Apple sd card reader 
-            (Icon::VidPid((0x05e3, 0x0749)), "\u{ef61}"), // USB 3.0 SD Card reader 
+            #[cfg(feature = "regex_icon")]
+            (Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()), "\u{ef61}"), // sd card reader 
             (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"), // android dev 
             (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
             (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
@@ -365,7 +388,25 @@ impl IconTheme {
         }
     }
 
+    /// Get icon for USBDevice `d` by checking `Self` using Name, Vendor ID and Product ID
+    #[cfg(feature = "regex_icon")]
+    pub fn get_device_icon(&self, d: &USBDevice) -> String {
+        // try name first since vidpid will return UnknownVendor default icon if not found
+        // does mean regex will be built/checked for every device
+        match self.get_name_icon(&d.name) {
+            s if !s.is_empty() => s,
+            _ => {
+                if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
+                    self.get_vidpid_icon(vid, pid)
+                } else {
+                    String::new()
+                }
+            }
+        }
+    }
+
     /// Get icon for USBDevice `d` by checking `Self` using Vendor ID and Product ID
+    #[cfg(not(feature = "regex_icon"))]
     pub fn get_device_icon(&self, d: &USBDevice) -> String {
         if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
             self.get_vidpid_icon(vid, pid)
@@ -421,6 +462,43 @@ impl IconTheme {
             IconTheme::get_default_classifier_icon(class, sub, protocol)
         }
     }
+
+    /// Get default icon for device based on descriptor name pattern `[Icon::Name]` pattern match
+    #[cfg(feature = "regex_icon")]
+    pub fn get_default_name_icon(name: &str) -> String {
+        DEFAULT_ICONS
+            .iter()
+            .find(|(k, _)| {
+                if let Icon::Name(s) = k {
+                    regex::Regex::new(s).map_or(false, |r| r.is_match(name))
+                } else {
+                    false
+                }
+            })
+            .map(|(_, v)| v.to_owned())
+            .unwrap_or("")
+            .to_string()
+    }
+
+    /// Get icon for device based on descriptor name pattern `[Icon::Name]` pattern match
+    #[cfg(feature = "regex_icon")]
+    pub fn get_name_icon(&self, name: &str) -> String {
+        if let Some(user_icons) = self.user.as_ref() {
+            user_icons
+                .iter()
+                .find(|(k, _)| {
+                    if let Icon::Name(s) = k {
+                        regex::Regex::new(s).map_or(false, |r| r.is_match(name))
+                    } else {
+                        false
+                    }
+                })
+                .map(|(_, v)| v.to_owned())
+                .unwrap_or(String::new())
+        } else {
+            IconTheme::get_default_name_icon(name)
+        }
+    }
 }
 
 /// Gets tree icon from [`DEFAULT_UTF8_TREE`] or [`DEFAULT_ASCII_TREE`] (depanding on [`Encoding`]) as `String` with `unwrap` because should panic if missing from there
@@ -458,6 +536,11 @@ pub fn example() -> HashMap<Icon, String> {
             "\u{e795}".into(),
         ), // serial 
         (Icon::UndefinedClassifier, "\u{2636}".into()), //☶
+        #[cfg(feature = "regex_icon")]
+        (
+            Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()),
+            "\u{ef61}".into(),
+        ), // sd card reader 
     ])
 }
 
@@ -561,5 +644,42 @@ mod tests {
         let str = "unknown-vendor";
         let icon = Icon::from_str(str);
         assert_eq!(icon.unwrap(), Icon::UnknownVendor);
+
+        if cfg!(feature = "regex_icon") {
+            let str = "name#test";
+            let icon = Icon::from_str(str);
+            assert_eq!(icon.unwrap(), Icon::Name("test".to_string()));
+
+            let str = r"name#.*^[sS][dD]\s[cC]ard\s[rR]eader.*";
+            let icon = Icon::from_str(str);
+            assert_eq!(
+                icon.unwrap(),
+                Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string())
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "regex_icon")]
+    fn icon_match_name() {
+        let mut device = USBDevice {
+            name: "SD Card Reader".to_string(),
+            ..Default::default()
+        };
+
+        let theme = IconTheme {
+            user: Some(HashMap::from([(
+                Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()),
+                "\u{ef61}".into(),
+            )])),
+            ..Default::default()
+        };
+
+        let icon = theme.get_device_icon(&device);
+        assert_eq!(icon, "\u{ef61}");
+
+        device.name = "sD Card reader 2".to_string();
+        let icon = theme.get_device_icon(&device);
+        assert_eq!(icon, "\u{ef61}");
     }
 }

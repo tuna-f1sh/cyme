@@ -31,6 +31,7 @@ rand = "0.8.5"
 terminal_size = "0.2.5"
 strum = "0.24.1"
 strum_macros = "0.24.3"
+regex = { version = "1.10.5", optional = true }
 
 [dev-dependencies]
 diff = "0.1"
@@ -58,8 +59,9 @@ udev_hwdb = ["libusb", "udevlib?/hwdb"]
 # libudev C binding
 udevlib = ["libusb", "dep:udevlib"]
 usb_test = []
+regex_icon = ["dep:regex"]
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
-default = ["libusb", "udev"]
+default = ["libusb", "udev", "regex_icon"]
 
 [[bin]]
 name = "cyme"

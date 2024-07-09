@@ -3,6 +3,7 @@
     "user": {
       "classifier#02": "",
       "classifier-sub-protocol#fe:01:01": "",
+      "name#.*^[sS][dD]\\s[cC]ard\\s[rR]eader.*": "",
       "undefined-classifier": "☶",
       "unknown-vendor": "",
       "vid#05ac": "",
