@@ -9,84 +9,163 @@ pub mod audio;
 pub mod bos;
 pub mod video;
 
-/// Get the GUID String from a descriptor buffer slice
-pub fn get_guid(buf: &[u8]) -> Result<String, Error> {
-    if buf.len() < 16 {
-        return Err(Error::new(
-            ErrorKind::InvalidArg,
-            "GUID buffer too short, must be at least 16 bytes",
-        ));
-    }
-
-    Ok(format!("{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}", 
-        buf[3], buf[2], buf[1], buf[0],
-        buf[5], buf[4],
-        buf[7], buf[6],
-        buf[8], buf[9],
-        buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]))
-}
-
-/// Convert a GUID string back to a byte array
-pub fn guid_to_bytes(guid: &str) -> Result<[u8; 16], Error> {
-    let guid = guid.replace('-', "");
-
-    if guid.len() != 32 {
-        return Err(Error::new(
-            ErrorKind::InvalidArg,
-            "GUID string must be 32 characters long",
-        ));
-    }
-
-    let bytes = (0..16)
-        .map(|i| u8::from_str_radix(&guid[i * 2..i * 2 + 2], 16).unwrap_or(0))
-        .collect::<Vec<u8>>();
-
-    let mut array = [0; 16];
-    array.copy_from_slice(&bytes);
-    Ok(array)
-}
-
-/// USB Descriptor Types
-///
-/// Can enclose struct of descriptor data
+/// USB descritor types
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 #[repr(u8)]
 #[allow(missing_docs)]
 #[serde(rename_all = "kebab-case")]
 pub enum DescriptorType {
-    Device(ClassDescriptor) = 0x01,
-    Config(ClassDescriptor) = 0x02,
-    String(String) = 0x03,
-    Interface(ClassDescriptor) = 0x04,
-    Endpoint(ClassDescriptor) = 0x05,
-    DeviceQualifier(DeviceQualifierDescriptor) = 0x06,
+    Device = 0x01,
+    Config = 0x02,
+    String = 0x03,
+    Interface = 0x04,
+    Endpoint = 0x05,
+    DeviceQualifier = 0x06,
     OtherSpeedConfiguration = 0x07,
     InterfacePower = 0x08,
-    // TODO do_otg
     Otg = 0x09,
-    Debug(DebugDescriptor) = 0x0a,
-    InterfaceAssociation(InterfaceAssociationDescriptor) = 0x0b,
-    Security(SecurityDescriptor) = 0x0c,
+    Debug = 0x0a,
+    InterfaceAssociation = 0x0b,
+    Security = 0x0c,
     Key = 0x0d,
-    Encrypted(EncryptionDescriptor) = 0x0e,
-    Bos(bos::BinaryObjectStoreDescriptor) = 0x0f,
+    Encrypted = 0x0e,
+    Bos = 0x0f,
     DeviceCapability = 0x10,
     WirelessEndpointCompanion = 0x11,
     WireAdaptor = 0x21,
-    Report(HidReportDescriptor) = 0x22,
+    Report = 0x22,
     Physical = 0x23,
     Pipe = 0x24,
-    Hub(HubDescriptor) = 0x29,
-    SuperSpeedHub(HubDescriptor) = 0x2a,
-    SsEndpointCompanion(SsEndpointCompanionDescriptor) = 0x30,
+    Hub = 0x29,
+    SuperSpeedHub = 0x2a,
+    SsEndpointCompanion = 0x30,
     SsIsocEndpointCompanion = 0x31,
-    // these are internal
-    Unknown(Vec<u8>) = 0xfe,
-    Junk(Vec<u8>) = 0xff,
+    Unknown(u8),
 }
 
-impl TryFrom<&[u8]> for DescriptorType {
+impl From<u8> for DescriptorType {
+    fn from(b: u8) -> Self {
+        match b {
+            0x01 => DescriptorType::Device,
+            0x02 => DescriptorType::Config,
+            0x03 => DescriptorType::String,
+            0x04 => DescriptorType::Interface,
+            0x05 => DescriptorType::Endpoint,
+            0x06 => DescriptorType::DeviceQualifier,
+            0x07 => DescriptorType::OtherSpeedConfiguration,
+            0x08 => DescriptorType::InterfacePower,
+            0x09 => DescriptorType::Otg,
+            0x0a => DescriptorType::Debug,
+            0x0b => DescriptorType::InterfaceAssociation,
+            0x0c => DescriptorType::Security,
+            0x0d => DescriptorType::Key,
+            0x0e => DescriptorType::Encrypted,
+            0x0f => DescriptorType::Bos,
+            0x10 => DescriptorType::DeviceCapability,
+            0x11 => DescriptorType::WirelessEndpointCompanion,
+            0x21 => DescriptorType::WireAdaptor,
+            0x22 => DescriptorType::Report,
+            0x23 => DescriptorType::Physical,
+            0x24 => DescriptorType::Pipe,
+            0x29 => DescriptorType::Hub,
+            0x2a => DescriptorType::SuperSpeedHub,
+            0x30 => DescriptorType::SsEndpointCompanion,
+            0x31 => DescriptorType::SsIsocEndpointCompanion,
+            _ => DescriptorType::Unknown(b),
+        }
+    }
+}
+
+impl From<DescriptorType> for u8 {
+    fn from(dt: DescriptorType) -> Self {
+        match dt {
+            DescriptorType::Device => 0x01,
+            DescriptorType::Config => 0x02,
+            DescriptorType::String => 0x03,
+            DescriptorType::Interface => 0x04,
+            DescriptorType::Endpoint => 0x05,
+            DescriptorType::DeviceQualifier => 0x06,
+            DescriptorType::OtherSpeedConfiguration => 0x07,
+            DescriptorType::InterfacePower => 0x08,
+            DescriptorType::Otg => 0x09,
+            DescriptorType::Debug => 0x0a,
+            DescriptorType::InterfaceAssociation => 0x0b,
+            DescriptorType::Security => 0x0c,
+            DescriptorType::Key => 0x0d,
+            DescriptorType::Encrypted => 0x0e,
+            DescriptorType::Bos => 0x0f,
+            DescriptorType::DeviceCapability => 0x10,
+            DescriptorType::WirelessEndpointCompanion => 0x11,
+            DescriptorType::WireAdaptor => 0x21,
+            DescriptorType::Report => 0x22,
+            DescriptorType::Physical => 0x23,
+            DescriptorType::Pipe => 0x24,
+            DescriptorType::Hub => 0x29,
+            DescriptorType::SuperSpeedHub => 0x2a,
+            DescriptorType::SsEndpointCompanion => 0x30,
+            DescriptorType::SsIsocEndpointCompanion => 0x31,
+            DescriptorType::Unknown(b) => b,
+        }
+    }
+}
+
+/// USB descriptor encloses type specific descriptor structs
+///
+/// Not all descriptors are implemented
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+#[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
+pub enum Descriptor {
+    Device(ClassDescriptor),
+    Config(ClassDescriptor),
+    String(String),
+    Interface(ClassDescriptor),
+    Endpoint(ClassDescriptor),
+    DeviceQualifier(DeviceQualifierDescriptor),
+    Otg(OnTheGoDescriptor),
+    Debug(DebugDescriptor),
+    InterfaceAssociation(InterfaceAssociationDescriptor),
+    Security(SecurityDescriptor),
+    Encrypted(EncryptionDescriptor),
+    Bos(bos::BinaryObjectStoreDescriptor),
+    Report(HidReportDescriptor),
+    Hub(HubDescriptor),
+    SuperSpeedHub(HubDescriptor),
+    SsEndpointCompanion(SsEndpointCompanionDescriptor),
+    // these are internal
+    Unknown(Vec<u8>),
+    Junk(Vec<u8>),
+}
+
+impl Descriptor {
+    /// Returns the [`DescriptorType`] of the descriptor
+    pub fn descriptor_type(&self) -> DescriptorType {
+        match self {
+            Descriptor::Device(_) => DescriptorType::Device,
+            Descriptor::Config(_) => DescriptorType::Config,
+            Descriptor::String(_) => DescriptorType::String,
+            Descriptor::Interface(_) => DescriptorType::Interface,
+            Descriptor::Endpoint(_) => DescriptorType::Endpoint,
+            Descriptor::DeviceQualifier(_) => DescriptorType::DeviceQualifier,
+            Descriptor::Otg(_) => DescriptorType::Otg,
+            Descriptor::Debug(_) => DescriptorType::Debug,
+            Descriptor::InterfaceAssociation(_) => DescriptorType::InterfaceAssociation,
+            Descriptor::Security(_) => DescriptorType::Security,
+            Descriptor::Encrypted(_) => DescriptorType::Encrypted,
+            Descriptor::Bos(_) => DescriptorType::Bos,
+            Descriptor::Report(_) => DescriptorType::Report,
+            Descriptor::Hub(_) => DescriptorType::Hub,
+            Descriptor::SuperSpeedHub(_) => DescriptorType::SuperSpeedHub,
+            Descriptor::SsEndpointCompanion(_) => DescriptorType::SsEndpointCompanion,
+            Descriptor::Unknown(d) => DescriptorType::Unknown(d.get(1).copied().unwrap_or(0)),
+            Descriptor::Junk(d) => DescriptorType::Unknown(d.get(1).copied().unwrap_or(0)),
+        }
+    }
+}
+
+impl TryFrom<&[u8]> for Descriptor {
     type Error = Error;
 
     fn try_from(v: &[u8]) -> error::Result<Self> {
@@ -99,121 +178,71 @@ impl TryFrom<&[u8]> for DescriptorType {
 
         // junk length
         if v[0] < 2 {
-            return Ok(DescriptorType::Junk(v.to_vec()));
+            return Ok(Descriptor::Junk(v.to_vec()));
         }
 
-        match v[1] {
-            0x01 => Ok(DescriptorType::Device(ClassDescriptor::try_from(v)?)),
-            0x02 => Ok(DescriptorType::Config(ClassDescriptor::try_from(v)?)),
-            0x03 => Ok(DescriptorType::String(
-                String::from_utf8_lossy(v).to_string(),
-            )),
-            0x04 => Ok(DescriptorType::Interface(ClassDescriptor::try_from(v)?)),
-            0x05 => Ok(DescriptorType::Endpoint(ClassDescriptor::try_from(v)?)),
-            0x06 => Ok(DescriptorType::DeviceQualifier(
+        match v[1].into() {
+            DescriptorType::Device => Ok(Descriptor::Device(ClassDescriptor::try_from(v)?)),
+            DescriptorType::Config => Ok(Descriptor::Config(ClassDescriptor::try_from(v)?)),
+            DescriptorType::String => {
+                Ok(Descriptor::String(String::from_utf8_lossy(v).to_string()))
+            }
+            DescriptorType::Interface => Ok(Descriptor::Interface(ClassDescriptor::try_from(v)?)),
+            DescriptorType::Endpoint => Ok(Descriptor::Endpoint(ClassDescriptor::try_from(v)?)),
+            DescriptorType::DeviceQualifier => Ok(Descriptor::DeviceQualifier(
                 DeviceQualifierDescriptor::try_from(v)?,
             )),
-            0x07 => Ok(DescriptorType::OtherSpeedConfiguration),
-            0x08 => Ok(DescriptorType::InterfacePower),
-            0x09 => Ok(DescriptorType::Otg),
-            0x0a => Ok(DescriptorType::Debug(DebugDescriptor::try_from(v)?)),
-            0x0b => Ok(DescriptorType::InterfaceAssociation(
+            DescriptorType::Otg => Ok(Descriptor::Otg(OnTheGoDescriptor::try_from(v)?)),
+            DescriptorType::Debug => Ok(Descriptor::Debug(DebugDescriptor::try_from(v)?)),
+            DescriptorType::InterfaceAssociation => Ok(Descriptor::InterfaceAssociation(
                 InterfaceAssociationDescriptor::try_from(v)?,
             )),
-            0x0c => Ok(DescriptorType::Security(SecurityDescriptor::try_from(v)?)),
-            0x0d => Ok(DescriptorType::Key),
-            0x0e => Ok(DescriptorType::Encrypted(EncryptionDescriptor::try_from(
+            DescriptorType::Security => Ok(Descriptor::Security(SecurityDescriptor::try_from(v)?)),
+            DescriptorType::Encrypted => {
+                Ok(Descriptor::Encrypted(EncryptionDescriptor::try_from(v)?))
+            }
+            DescriptorType::Bos => Ok(Descriptor::Bos(bos::BinaryObjectStoreDescriptor::try_from(
                 v,
             )?)),
-            0x0f => Ok(DescriptorType::Bos(
-                bos::BinaryObjectStoreDescriptor::try_from(v)?,
-            )),
-            0x10 => Ok(DescriptorType::DeviceCapability),
-            0x11 => Ok(DescriptorType::WirelessEndpointCompanion),
-            0x21 => Ok(DescriptorType::WireAdaptor),
-            0x22 => Ok(DescriptorType::Report(HidReportDescriptor::try_from(v)?)),
-            0x23 => Ok(DescriptorType::Physical),
-            0x24 => Ok(DescriptorType::Pipe),
-            0x29 => Ok(DescriptorType::Hub(HubDescriptor::try_from(v)?)),
-            0x2a => Ok(DescriptorType::SuperSpeedHub(HubDescriptor::try_from(v)?)),
-            0x30 => Ok(DescriptorType::SsEndpointCompanion(
+            DescriptorType::Report => Ok(Descriptor::Report(HidReportDescriptor::try_from(v)?)),
+            DescriptorType::Hub => Ok(Descriptor::Hub(HubDescriptor::try_from(v)?)),
+            DescriptorType::SuperSpeedHub => {
+                Ok(Descriptor::SuperSpeedHub(HubDescriptor::try_from(v)?))
+            }
+            DescriptorType::SsEndpointCompanion => Ok(Descriptor::SsEndpointCompanion(
                 SsEndpointCompanionDescriptor::try_from(v)?,
             )),
-            0x31 => Ok(DescriptorType::SsIsocEndpointCompanion),
-            _ => Ok(DescriptorType::Unknown(v.to_vec())),
+            _ => Ok(Descriptor::Unknown(v.to_vec())),
         }
     }
 }
 
-impl From<DescriptorType> for Vec<u8> {
-    fn from(dt: DescriptorType) -> Self {
+impl From<Descriptor> for Vec<u8> {
+    fn from(dt: Descriptor) -> Self {
         match dt {
-            DescriptorType::Device(d) => d.into(),
-            DescriptorType::Config(c) => c.into(),
-            DescriptorType::String(s) => s.into_bytes(),
-            DescriptorType::Interface(i) => i.into(),
-            DescriptorType::Endpoint(e) => e.into(),
-            DescriptorType::DeviceQualifier(dq) => dq.into(),
-            DescriptorType::OtherSpeedConfiguration => vec![],
-            DescriptorType::InterfacePower => vec![],
-            DescriptorType::Otg => vec![],
-            DescriptorType::Debug(d) => d.into(),
-            DescriptorType::InterfaceAssociation(ia) => ia.into(),
-            DescriptorType::Security(s) => s.into(),
-            DescriptorType::Key => vec![],
-            DescriptorType::Encrypted(e) => e.into(),
-            DescriptorType::Bos(b) => b.into(),
-            DescriptorType::DeviceCapability => vec![],
-            DescriptorType::WirelessEndpointCompanion => vec![],
-            DescriptorType::WireAdaptor => vec![],
-            DescriptorType::Report(r) => r.into(),
-            DescriptorType::Physical => vec![],
-            DescriptorType::Pipe => vec![],
-            DescriptorType::Hub(h) => h.into(),
-            DescriptorType::SuperSpeedHub(h) => h.into(),
-            DescriptorType::SsEndpointCompanion(s) => s.into(),
-            DescriptorType::SsIsocEndpointCompanion => vec![],
-            DescriptorType::Unknown(u) => u,
-            DescriptorType::Junk(j) => j,
+            Descriptor::Device(d) => d.into(),
+            Descriptor::Config(c) => c.into(),
+            Descriptor::String(s) => s.into_bytes(),
+            Descriptor::Interface(i) => i.into(),
+            Descriptor::Endpoint(e) => e.into(),
+            Descriptor::DeviceQualifier(dq) => dq.into(),
+            Descriptor::Debug(d) => d.into(),
+            Descriptor::InterfaceAssociation(ia) => ia.into(),
+            Descriptor::Security(s) => s.into(),
+            Descriptor::Encrypted(e) => e.into(),
+            Descriptor::Bos(b) => b.into(),
+            Descriptor::Report(r) => r.into(),
+            Descriptor::Hub(h) => h.into(),
+            Descriptor::Otg(o) => o.into(),
+            Descriptor::SuperSpeedHub(h) => h.into(),
+            Descriptor::SsEndpointCompanion(s) => s.into(),
+            Descriptor::Unknown(u) => u,
+            Descriptor::Junk(j) => j,
         }
     }
 }
 
-//impl From<DescriptorType> for u8 {
-//    fn from(dt: DescriptorType) -> Self {
-//        match dt {
-//            DescriptorType::Device(_) => 0x01,
-//            DescriptorType::Config(_) => 0x02,
-//            DescriptorType::String(_) => 0x03,
-//            DescriptorType::Interface(_) => 0x04,
-//            DescriptorType::Endpoint(_) => 0x05,
-//            DescriptorType::DeviceQualifier(_) => 0x06,
-//            DescriptorType::OtherSpeedConfiguration => 0x07,
-//            DescriptorType::InterfacePower => 0x08,
-//            DescriptorType::Otg => 0x09,
-//            DescriptorType::Debug(_) => 0x0a,
-//            DescriptorType::InterfaceAssociation(_) => 0x0b,
-//            DescriptorType::Security(_) => 0x0c,
-//            DescriptorType::Key => 0x0d,
-//            DescriptorType::Encrypted(_) => 0x0e,
-//            DescriptorType::Bos(_) => 0x0f,
-//            DescriptorType::DeviceCapability => 0x10,
-//            DescriptorType::WirelessEndpointCompanion => 0x11,
-//            DescriptorType::WireAdaptor => 0x21,
-//            DescriptorType::Report(_) => 0x22,
-//            DescriptorType::Physical => 0x23,
-//            DescriptorType::Pipe => 0x24,
-//            DescriptorType::Hub(_) => 0x29,
-//            DescriptorType::SuperSpeedHub(_) => 0x2a,
-//            DescriptorType::SsEndpointCompanion(_) => 0x30,
-//            DescriptorType::SsIsocEndpointCompanion => 0x31,
-//            DescriptorType::Unknown(_) => 0xfe,
-//            DescriptorType::Junk(_) => 0xff,
-//        }
-//    }
-//}
-
-impl DescriptorType {
+impl Descriptor {
     /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`ClassCode`] for class specific descriptors
     pub fn update_with_class_context<T: Into<ClassCode> + Copy>(
         &mut self,
@@ -221,10 +250,10 @@ impl DescriptorType {
     ) -> Result<(), Error> {
         let dt = self.clone();
         match self {
-            DescriptorType::Device(d) => d.update_with_class_context(&dt, class_triplet),
-            DescriptorType::Config(c) => c.update_with_class_context(&dt, class_triplet),
-            DescriptorType::Interface(i) => i.update_with_class_context(&dt, class_triplet),
-            DescriptorType::Endpoint(e) => e.update_with_class_context(&dt, class_triplet),
+            Descriptor::Device(d) => d.update_with_class_context(&dt, class_triplet),
+            Descriptor::Config(c) => c.update_with_class_context(&dt, class_triplet),
+            Descriptor::Interface(i) => i.update_with_class_context(&dt, class_triplet),
+            Descriptor::Endpoint(e) => e.update_with_class_context(&dt, class_triplet),
             _ => Ok(()),
         }
     }
@@ -537,7 +566,7 @@ impl ClassDescriptor {
     /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`ClassCode`] and descriptor if it is not [`GenericDescriptor`]
     pub fn update_with_class_context<T: Into<ClassCode> + Copy>(
         &mut self,
-        descriptor_type: &DescriptorType,
+        descriptor_type: &Descriptor,
         triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
         if let ClassDescriptor::Generic(_, gd) = self {
@@ -559,7 +588,7 @@ impl ClassDescriptor {
                 // MIDI - TODO include in UAC
                 (ClassCode::Audio, 3, p) => {
                     // leave generic for Midi Endpoint - TODO should add MidiEndpointDescriptor
-                    if !matches!(descriptor_type, DescriptorType::Endpoint(_)) {
+                    if !matches!(descriptor_type, Descriptor::Endpoint(_)) {
                         *self = ClassDescriptor::Midi(
                             audio::MidiDescriptor::try_from(gd.to_owned())?,
                             p,
@@ -569,6 +598,7 @@ impl ClassDescriptor {
                 // UAC
                 (ClassCode::Audio, s, p) => {
                     *self = ClassDescriptor::Audio(
+                        // endpoint is included in UacInterfaceDescriptor::try_from
                         audio::UacDescriptor::try_from((gd.to_owned(), s, p))?,
                         audio::UacProtocol::from(p),
                     )
@@ -1468,5 +1498,45 @@ impl From<DeviceQualifierDescriptor> for Vec<u8> {
         ret.push(dqd.num_configurations);
 
         ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct OnTheGoDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub attributes: u8,
+}
+
+impl TryFrom<&[u8]> for OnTheGoDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() != 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "On-The-Go descriptor not 3 bytes",
+            ));
+        }
+
+        if value[1] != 0x09 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "On-The-Go descriptor must have descriptor type 0x09",
+            ));
+        }
+
+        Ok(OnTheGoDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            attributes: value[2],
+        })
+    }
+}
+
+impl From<OnTheGoDescriptor> for Vec<u8> {
+    fn from(otg: OnTheGoDescriptor) -> Self {
+        vec![otg.length, otg.descriptor_type, otg.attributes]
     }
 }

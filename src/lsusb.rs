@@ -314,6 +314,17 @@ pub fn dump_one_device(
     ))
 }
 
+fn find_otg(extra: &[Descriptor]) -> Option<&OnTheGoDescriptor> {
+    extra.iter().find_map(|d| match d {
+        Descriptor::Otg(otg) => {
+            log::debug!("Found OTG descriptor: {:?}", otg);
+            dump_otg(otg, LSUSB_DUMP_INDENT_BASE);
+            Some(otg)
+        }
+        _ => None,
+    })
+}
+
 /// Print USB devices in lsusb style flat dump
 ///
 /// `verbose` flag enables verbose printing like lsusb (configs, interfaces and endpoints) - a huge dump!
@@ -338,16 +349,18 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                     }
                     dump_device(device);
 
-                    let otg = false;
+                    let mut otg = None;
                     for config in &device_extra.configurations {
-                        // TODO do_otg for config 0
                         dump_config(config, LSUSB_DUMP_INDENT_BASE);
+                        otg = config.extra.as_ref().map(|e| find_otg(e));
 
                         for interface in &config.interfaces {
                             dump_interface(interface, LSUSB_DUMP_INDENT_BASE * 2);
+                            otg = config.extra.as_ref().map(|e| find_otg(e));
 
                             for endpoint in &interface.endpoints {
                                 dump_endpoint(endpoint, LSUSB_DUMP_INDENT_BASE * 3);
+                                otg = config.extra.as_ref().map(|e| find_otg(e));
                             }
                         }
                     }
@@ -375,7 +388,7 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                     if let Some(status) = device_extra.status {
                         dump_device_status(
                             status,
-                            otg,
+                            otg.is_some(),
                             device.bcd_usb.map_or(false, |v| v.major() >= 3),
                             0,
                         );
@@ -576,16 +589,16 @@ fn dump_config(config: &USBConfiguration, indent: usize) {
     if let Some(dt_vec) = &config.extra {
         for dt in dt_vec {
             match dt {
-                DescriptorType::InterfaceAssociation(iad) => {
+                Descriptor::InterfaceAssociation(iad) => {
                     dump_interface_association(iad, indent + 2);
                 }
-                DescriptorType::Security(sec) => {
+                Descriptor::Security(sec) => {
                     dump_security(sec, indent + 2);
                 }
-                DescriptorType::Encrypted(enc) => {
+                Descriptor::Encrypted(enc) => {
                     dump_encryption_type(enc, indent + 2);
                 }
-                DescriptorType::Unknown(junk) | DescriptorType::Junk(junk) => {
+                Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
                     dump_unrecognised(junk, indent + 2);
                 }
                 _ => (),
@@ -659,7 +672,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
         for dt in dt_vec {
             match dt {
                 // Should only be Device or Interface as we mask out the rest
-                DescriptorType::Device(cd) | DescriptorType::Interface(cd) => match cd {
+                Descriptor::Device(cd) | Descriptor::Interface(cd) => match cd {
                     ClassDescriptor::Hid(hidd) => dump_hid_device(hidd, indent + 2),
                     ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 2),
                     ClassDescriptor::Printer(pd) => dump_printer_desc(pd, indent + 2),
@@ -730,7 +743,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                         }
                     },
                 },
-                DescriptorType::Unknown(junk) | DescriptorType::Junk(junk) => {
+                Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
                     dump_unrecognised(junk, 6);
                 }
                 _ => (),
@@ -794,7 +807,7 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
     if let Some(dt_vec) = &endpoint.extra {
         for dt in dt_vec {
             match dt {
-                DescriptorType::Endpoint(cd) => match cd {
+                Descriptor::Endpoint(cd) => match cd {
                     ClassDescriptor::Audio(ad, _) => {
                         dump_audiostreaming_endpoint(ad, indent + 2);
                     }
@@ -816,7 +829,7 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                     _ => (),
                 },
                 // Misplaced descriptors
-                DescriptorType::Device(cd) => match cd {
+                Descriptor::Device(cd) => match cd {
                     ClassDescriptor::Ccid(ccid) => {
                         dump_ccid_desc(ccid, indent);
                     }
@@ -833,7 +846,7 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                         );
                     }
                 },
-                DescriptorType::Interface(cd) => match cd {
+                Descriptor::Interface(cd) => match cd {
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((ClassCode::CDCData, _, _))
                         | Some((ClassCode::CDCCommunications, _, _)) => {
@@ -871,10 +884,10 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                         );
                     }
                 },
-                DescriptorType::InterfaceAssociation(iad) => {
+                Descriptor::InterfaceAssociation(iad) => {
                     dump_interface_association(iad, indent + 2);
                 }
-                DescriptorType::SsEndpointCompanion(ss) => {
+                Descriptor::SsEndpointCompanion(ss) => {
                     println!(
                         "{:indent$}bMaxBurst {:>14}",
                         "",
@@ -905,7 +918,7 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                         _ => (),
                     }
                 }
-                DescriptorType::Unknown(junk) | DescriptorType::Junk(junk) => {
+                Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
                     dump_unrecognised(junk, indent + 2);
                 }
                 _ => (),
@@ -1236,6 +1249,7 @@ fn dump_bad_comm(cd: &CommunicationDescriptor, indent: usize) {
 }
 
 fn dump_comm_descriptor(cd: &CommunicationDescriptor, indent: usize) {
+    // TODO CDC structs for subtypes
     match cd.communication_type {
         CdcType::Header => {
             if cd.data.len() >= 2 {
@@ -1969,6 +1983,24 @@ fn dump_debug(dd: &DebugDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
+}
+
+fn dump_otg(otg: &OnTheGoDescriptor, indent: usize) {
+    dump_string("OTG Descriptor:", indent);
+    dump_value(otg.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        otg.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_hex(otg.attributes, "bmAttributes", indent + 2, LSUSB_DUMP_WIDTH);
+    if otg.attributes & 0x01 != 0 {
+        dump_string("SRP (Session Request Protocol)", indent + 4);
+    }
+    if otg.attributes & 0x02 != 0 {
+        dump_string("HNP (Host Negotiation Protocol)", indent + 4);
+    }
 }
 
 const LINK_STATE_DESCRIPTIONS: [&str; 12] = [

@@ -508,9 +508,9 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
     handle: &mut Option<UsbDevice<T>>,
     interface_desc: Option<&libusb::InterfaceDescriptor>,
     extra_bytes: &[u8],
-) -> Result<usb::DescriptorType, Error> {
+) -> Result<usb::Descriptor, Error> {
     // Get any extra descriptors into a known type and add any handle data while we have it
-    let mut dt = match usb::DescriptorType::try_from(extra_bytes) {
+    let mut dt = match usb::Descriptor::try_from(extra_bytes) {
         Ok(d) => d,
         Err(e) => {
             log::debug!("Failed to convert extra descriptor bytes: {}", e);
@@ -534,12 +534,12 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
 
     // get any strings at string indexes while we have handle
     match dt {
-        usb::DescriptorType::InterfaceAssociation(ref mut iad) => {
+        usb::Descriptor::InterfaceAssociation(ref mut iad) => {
             iad.function_string = get_descriptor_string(iad.function_string_index, handle);
         }
-        usb::DescriptorType::Device(ref mut c)
-        | usb::DescriptorType::Interface(ref mut c)
-        | usb::DescriptorType::Endpoint(ref mut c) => match c {
+        usb::Descriptor::Device(ref mut c)
+        | usb::Descriptor::Interface(ref mut c)
+        | usb::Descriptor::Endpoint(ref mut c) => match c {
             usb::ClassDescriptor::Printer(ref mut p) => {
                 for pd in p.descriptors.iter_mut() {
                     pd.uuid_string = get_descriptor_string(pd.uuid_string_index, handle);
@@ -662,7 +662,7 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
 fn build_config_descriptor_extra<T: libusb::UsbContext>(
     handle: &mut Option<UsbDevice<T>>,
     config_desc: &libusb::ConfigDescriptor,
-) -> Result<Vec<usb::DescriptorType>, Error> {
+) -> Result<Vec<usb::Descriptor>, Error> {
     let mut extra_bytes = config_desc.extra().to_owned();
     let extra_len = extra_bytes.len();
     let mut taken = 0;
@@ -687,7 +687,7 @@ fn build_config_descriptor_extra<T: libusb::UsbContext>(
 fn build_interface_descriptor_extra<T: libusb::UsbContext>(
     handle: &mut Option<UsbDevice<T>>,
     interface_desc: &libusb::InterfaceDescriptor,
-) -> Result<Vec<usb::DescriptorType>, Error> {
+) -> Result<Vec<usb::Descriptor>, Error> {
     let mut extra_bytes = interface_desc.extra().to_owned();
     let extra_len = extra_bytes.len();
     let mut taken = 0;
@@ -723,7 +723,7 @@ fn build_endpoint_descriptor_extra<T: libusb::UsbContext>(
     handle: &mut Option<UsbDevice<T>>,
     interface_desc: &libusb::InterfaceDescriptor,
     endpoint_desc: &libusb::EndpointDescriptor,
-) -> Result<Option<Vec<usb::DescriptorType>>, Error> {
+) -> Result<Option<Vec<usb::Descriptor>>, Error> {
     match endpoint_desc.extra() {
         Some(extra_bytes) => {
             let mut extra_bytes = extra_bytes.to_owned();

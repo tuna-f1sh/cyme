@@ -907,7 +907,7 @@ pub struct USBEndpoint {
     pub interval: u8,
     /// Extra descriptors data based on type
     #[serde(default)] // default for legacy json
-    pub extra: Option<Vec<DescriptorType>>,
+    pub extra: Option<Vec<Descriptor>>,
 }
 
 impl USBEndpoint {
@@ -981,7 +981,7 @@ pub struct USBInterface {
     pub length: u8,
     /// Extra descriptors for interface based on type
     #[serde(default)] // default for legacy json
-    pub extra: Option<Vec<DescriptorType>>,
+    pub extra: Option<Vec<Descriptor>>,
 }
 
 impl USBInterface {
@@ -1038,7 +1038,7 @@ pub struct USBConfiguration {
     pub total_length: u16,
     /// Extra descriptors for configuration based on type
     #[serde(default)] // default for legacy json
-    pub extra: Option<Vec<DescriptorType>>,
+    pub extra: Option<Vec<Descriptor>>,
 }
 
 impl USBConfiguration {
