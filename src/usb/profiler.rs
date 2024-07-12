@@ -558,11 +558,18 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                     }
                 }
             }
-            usb::ClassDescriptor::Midi(ref mut md, _) => {
-                if let Some(string_index) = md.string_index {
-                    md.string = get_descriptor_string(string_index, handle);
+            usb::ClassDescriptor::Midi(ref mut md, _) => match md.interface {
+                usb::descriptors::audio::MidiInterfaceDescriptor::InputJack(ref mut mh) => {
+                    mh.jack_string = get_descriptor_string(mh.jack_string_index, handle);
                 }
-            }
+                usb::descriptors::audio::MidiInterfaceDescriptor::OutputJack(ref mut mh) => {
+                    mh.jack_string = get_descriptor_string(mh.jack_string_index, handle);
+                }
+                usb::descriptors::audio::MidiInterfaceDescriptor::Element(ref mut mh) => {
+                    mh.element_string = get_descriptor_string(mh.element_string_index, handle);
+                }
+                _ => (),
+            },
             usb::ClassDescriptor::Audio(ref mut ad, _) => match ad.interface {
                 usb::descriptors::audio::UacInterfaceDescriptor::InputTerminal1(ref mut ah) => {
                     ah.channel_names = get_descriptor_string(ah.channel_names_index, handle);

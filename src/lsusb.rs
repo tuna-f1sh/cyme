@@ -679,7 +679,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                     ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 2),
                     ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 2),
                     ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md, indent + 2),
-                    ClassDescriptor::Audio(uacd, uacp) => match &uacd.subtype {
+                    ClassDescriptor::Audio(uacd, uacp) => match &uacd.descriptor_subtype {
                         audio::UacType::Control(cs) => {
                             dump_audiocontrol_interface(uacd, cs, uacp, indent + 2)
                         }
@@ -688,7 +688,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                         }
                         _ => (),
                     },
-                    ClassDescriptor::Video(vcd, p) => match &vcd.subtype {
+                    ClassDescriptor::Video(vcd, p) => match &vcd.descriptor_subtype {
                         video::UvcType::Control(cs) => {
                             dump_videocontrol_interface(vcd, cs, *p, indent + 2)
                         }
@@ -707,7 +707,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                                 audio::UacDescriptor::try_from((gd.to_owned(), *s, *p))
                             {
                                 let uacp = audio::UacProtocol::from(*p);
-                                match &uacd.subtype {
+                                match &uacd.descriptor_subtype {
                                     audio::UacType::Control(cs) => {
                                         dump_audiocontrol_interface(&uacd, cs, &uacp, indent + 2)
                                     }
@@ -722,7 +722,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                             if let Ok(uvcd) =
                                 video::UvcDescriptor::try_from((gd.to_owned(), *s, *p))
                             {
-                                match &uvcd.subtype {
+                                match &uvcd.descriptor_subtype {
                                     video::UvcType::Control(cs) => {
                                         dump_videocontrol_interface(&uvcd, cs, *p, indent + 2);
                                     }
@@ -811,6 +811,9 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                     ClassDescriptor::Audio(ad, _) => {
                         dump_audiostreaming_endpoint(ad, indent + 2);
                     }
+                    ClassDescriptor::Midi(md, _) => {
+                        dump_midistreaming_endpoint(md, indent + 2);
+                    }
                     // legacy as context should have been added to the descriptor
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((ClassCode::Audio, 2, p)) => {
@@ -820,7 +823,7 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                             }
                         }
                         Some((ClassCode::Audio, 3, _)) => {
-                            if let Ok(md) = audio::MidiEndpointDescriptor::try_from(gd.to_owned()) {
+                            if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {
                                 dump_midistreaming_endpoint(&md, indent + 2);
                             }
                         }

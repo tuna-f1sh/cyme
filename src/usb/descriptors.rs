@@ -51,7 +51,7 @@ impl From<u8> for DescriptorType {
             0x02 => DescriptorType::Config,
             0x03 => DescriptorType::String,
             0x04 => DescriptorType::Interface,
-            0x05 => DescriptorType::Endpoint,
+            0x05 | 0x25 => DescriptorType::Endpoint,
             0x06 => DescriptorType::DeviceQualifier,
             0x07 => DescriptorType::OtherSpeedConfiguration,
             0x08 => DescriptorType::InterfacePower,
@@ -248,12 +248,11 @@ impl Descriptor {
         &mut self,
         class_triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
-        let dt = self.clone();
         match self {
-            Descriptor::Device(d) => d.update_with_class_context(&dt, class_triplet),
-            Descriptor::Config(c) => c.update_with_class_context(&dt, class_triplet),
-            Descriptor::Interface(i) => i.update_with_class_context(&dt, class_triplet),
-            Descriptor::Endpoint(e) => e.update_with_class_context(&dt, class_triplet),
+            Descriptor::Device(d) => d.update_with_class_context(class_triplet),
+            Descriptor::Config(c) => c.update_with_class_context(class_triplet),
+            Descriptor::Interface(i) => i.update_with_class_context(class_triplet),
+            Descriptor::Endpoint(e) => e.update_with_class_context(class_triplet),
             _ => Ok(()),
         }
     }
@@ -514,7 +513,9 @@ pub enum ClassDescriptor {
     Ccid(CcidDescriptor),
     /// USB Printer extra descriptor
     Printer(PrinterDescriptor),
-    /// USB MIDI extra descriptor (AudioVideoAVDataAudio)
+    /// USB MIDI extra descriptor
+    ///
+    /// For legacy purposes, MIDI is defined as a SubClass (3) of Audio Class [1](https://www.usb.org/sites/default/files/USB%20MIDI%20v2_0.pdf) but we define at as a separate ClassDescriptor
     Midi(audio::MidiDescriptor, u8),
     /// USB Audio extra descriptor
     Audio(audio::UacDescriptor, audio::UacProtocol),
@@ -566,7 +567,6 @@ impl ClassDescriptor {
     /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`ClassCode`] and descriptor if it is not [`GenericDescriptor`]
     pub fn update_with_class_context<T: Into<ClassCode> + Copy>(
         &mut self,
-        descriptor_type: &Descriptor,
         triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
         if let ClassDescriptor::Generic(_, gd) = self {
@@ -585,15 +585,11 @@ impl ClassDescriptor {
                         gd.to_owned(),
                     )?)
                 }
-                // MIDI - TODO include in UAC
+                // For legacy purposes, MIDI is defined as a SubClass of Audio Class
+                // but we define at as a separate ClassDescriptor
                 (ClassCode::Audio, 3, p) => {
-                    // leave generic for Midi Endpoint - TODO should add MidiEndpointDescriptor
-                    if !matches!(descriptor_type, Descriptor::Endpoint(_)) {
-                        *self = ClassDescriptor::Midi(
-                            audio::MidiDescriptor::try_from(gd.to_owned())?,
-                            p,
-                        )
-                    }
+                    *self =
+                        ClassDescriptor::Midi(audio::MidiDescriptor::try_from(gd.to_owned())?, p)
                 }
                 // UAC
                 (ClassCode::Audio, s, p) => {

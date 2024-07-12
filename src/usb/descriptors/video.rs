@@ -260,7 +260,7 @@ impl UvcType {
 pub struct UvcDescriptor {
     pub length: u8,
     pub descriptor_type: u8,
-    pub subtype: UvcType,
+    pub descriptor_subtype: UvcType,
     pub interface: UvcInterfaceDescriptor,
 }
 
@@ -271,13 +271,13 @@ impl TryFrom<(GenericDescriptor, u8, u8)> for UvcDescriptor {
     fn try_from((gd, subc, p): (GenericDescriptor, u8, u8)) -> error::Result<Self> {
         let length = gd.length;
         let descriptor_type = gd.descriptor_type;
-        let subtype: UvcType = (subc, gd.descriptor_subtype, p).try_into()?;
-        let interface = subtype.uvc_descriptor_from_generic(gd.to_owned(), p)?;
+        let descriptor_subtype: UvcType = (subc, gd.descriptor_subtype, p).try_into()?;
+        let interface = descriptor_subtype.uvc_descriptor_from_generic(gd.to_owned(), p)?;
 
         Ok(UvcDescriptor {
             length,
             descriptor_type,
-            subtype,
+            descriptor_subtype,
             interface,
         })
     }
@@ -288,7 +288,7 @@ impl From<UvcDescriptor> for Vec<u8> {
         let mut ret = Vec::new();
         ret.push(vcd.length);
         ret.push(vcd.descriptor_type);
-        ret.push(u8::from(vcd.subtype));
+        ret.push(u8::from(vcd.descriptor_subtype));
         let data: Vec<u8> = vcd.interface.into();
         ret.extend(data);
 

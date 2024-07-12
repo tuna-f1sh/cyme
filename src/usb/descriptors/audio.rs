@@ -51,15 +51,26 @@ impl From<u8> for MidiSubtype {
     }
 }
 
+impl From<MidiSubtype> for u8 {
+    fn from(b: MidiSubtype) -> Self {
+        b as u8
+    }
+}
+
+impl MidiSubtype {
+    /// Get the [`MidiInterfaceDescriptor`] from the descriptor data for this subtype
+    pub fn get_interface_descriptor(&self, data: &[u8]) -> Result<MidiInterfaceDescriptor, Error> {
+        MidiInterfaceDescriptor::from_midi_interface(self, data)
+    }
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct MidiDescriptor {
     pub length: u8,
     pub descriptor_type: u8,
-    pub midi_type: MidiSubtype,
-    pub string_index: Option<u8>,
-    pub string: Option<String>,
-    pub data: Vec<u8>,
+    pub descriptor_subtype: MidiSubtype,
+    pub interface: MidiInterfaceDescriptor,
 }
 
 impl TryFrom<&[u8]> for MidiDescriptor {
@@ -81,33 +92,28 @@ impl TryFrom<&[u8]> for MidiDescriptor {
             ));
         }
 
-        let midi_type = MidiSubtype::from(value[2]);
-
-        let string_index = match midi_type {
-            MidiSubtype::InputJack => value.get(5).copied(),
-            MidiSubtype::OutputJack => value.get(5).map(|v| 6 + *v * 2),
-            MidiSubtype::Element => {
-                // don't ask...
-                if let Some(j) = value.get(4) {
-                    if let Some(capsize) = value.get((5 + *j as usize * 2) + 3) {
-                        value.get(9 + 2 * *j as usize + *capsize as usize).copied()
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
+        let descriptor_type = DescriptorType::from(value[1]);
+        let descriptor_subtype = MidiSubtype::from(value[2]);
+        let interface = MidiInterfaceDescriptor::from_midi_descriptor(
+            &descriptor_type,
+            &descriptor_subtype,
+            &value[3..],
+        )
+        .unwrap_or_else(|_| {
+            log::warn!(
+                "Failed to parse MIDI interface descriptor for {:?} {:?}: {:?}",
+                descriptor_type,
+                descriptor_subtype,
+                &value[3..]
+            );
+            MidiInterfaceDescriptor::Invalid(value[3..].to_vec())
+        });
 
         Ok(MidiDescriptor {
             length,
             descriptor_type: value[1],
-            midi_type,
-            string_index,
-            string: None,
-            data: value[3..].to_vec(),
+            descriptor_subtype,
+            interface,
         })
     }
 }
@@ -117,8 +123,9 @@ impl From<MidiDescriptor> for Vec<u8> {
         let mut ret = Vec::new();
         ret.push(md.length);
         ret.push(md.descriptor_type);
-        ret.push(md.midi_type as u8);
-        ret.extend(md.data);
+        ret.push(md.descriptor_subtype as u8);
+        let data: Vec<u8> = md.interface.into();
+        ret.extend(&data);
 
         ret
     }
@@ -144,10 +151,240 @@ impl TryFrom<MidiDescriptor> for GenericDescriptor {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+pub struct Header {
+    pub version: Version,
+    pub total_length: u16,
+}
+
+impl TryFrom<&[u8]> for Header {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Header descriptor too short",
+            ));
+        }
+
+        Ok(Header {
+            version: Version::from_bcd(u16::from_le_bytes([value[0], value[1]])),
+            total_length: u16::from_le_bytes([value[2], value[3]]),
+        })
+    }
+}
+
+impl From<Header> for Vec<u8> {
+    fn from(h: Header) -> Self {
+        let mut ret = Vec::new();
+        ret.extend_from_slice(&(u16::from(h.version)).to_le_bytes());
+        ret.extend_from_slice(&h.total_length.to_le_bytes());
+
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct InputJack {
+    pub jack_type: u8,
+    pub jack_id: u8,
+    pub jack_string_index: u8,
+    pub jack_string: Option<String>,
+}
+
+impl TryFrom<&[u8]> for InputJack {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "InputJack descriptor too short",
+            ));
+        }
+
+        Ok(InputJack {
+            jack_type: value[0],
+            jack_id: value[1],
+            jack_string_index: value[2],
+            jack_string: None,
+        })
+    }
+}
+
+impl From<InputJack> for Vec<u8> {
+    fn from(ij: InputJack) -> Self {
+        vec![ij.jack_type, ij.jack_id, ij.jack_string_index]
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct OutputJack {
+    pub jack_type: u8,
+    pub jack_id: u8,
+    pub num_input_pins: u8,
+    pub source_ids: Vec<(u8, u8)>,
+    pub jack_string_index: u8,
+    pub jack_string: Option<String>,
+}
+
+impl TryFrom<&[u8]> for OutputJack {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "OutputJack descriptor too short",
+            ));
+        }
+
+        let num_input_pins = value[2] as usize;
+        if value.len() < 3 + num_input_pins * 2 + 1 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "OutputJack descriptor reported number of source pins too long for buffer",
+            ));
+        }
+
+        let mut source_ids = Vec::with_capacity(num_input_pins);
+        for chunk in value[3..3 + num_input_pins * 2].chunks_exact(2) {
+            source_ids.push((chunk[0], chunk[1]));
+        }
+
+        Ok(OutputJack {
+            jack_type: value[0],
+            jack_id: value[1],
+            num_input_pins: value[2],
+            source_ids,
+            jack_string_index: value[3 + num_input_pins * 2],
+            jack_string: None,
+        })
+    }
+}
+
+impl From<OutputJack> for Vec<u8> {
+    fn from(oj: OutputJack) -> Self {
+        let mut ret = vec![oj.jack_type, oj.jack_id, oj.num_input_pins];
+        for (a, b) in oj.source_ids {
+            ret.push(a);
+            ret.push(b);
+        }
+        ret.push(oj.jack_string_index);
+
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct Element {
+    pub element_id: u8,
+    pub num_input_pins: u8,
+    pub source_ids: Vec<(u8, u8)>,
+    pub num_output_pins: u8,
+    pub in_terminal_link: u8,
+    pub out_terminal_link: u8,
+    pub el_caps_size: u8,
+    pub element_caps: u16,
+    pub element_string_index: u8,
+    pub element_string: Option<String>,
+}
+
+impl TryFrom<&[u8]> for Element {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Element descriptor too short",
+            ));
+        }
+
+        let element_id = value[0];
+        let num_input_pins = value[1] as usize;
+
+        let expected_len = 6 + 2 * num_input_pins;
+        if value.len() < expected_len {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Element descriptor reported number of input pins too long for buffer",
+            ));
+        }
+
+        let mut source_ids = Vec::with_capacity(num_input_pins);
+        for chunk in value[2..2 + num_input_pins * 2].chunks_exact(2) {
+            source_ids.push((chunk[0], chunk[1]));
+        }
+
+        let j = 2 + num_input_pins * 2;
+        let num_output_pins = value[j];
+        let in_terminal_link = value[j + 1];
+        let out_terminal_link = value[j + 2];
+        let el_caps_size = value[j + 3];
+        let capsize = el_caps_size as usize;
+
+        if value.len() < j + 4 + capsize + 1 {
+            return Err(Error::new(
+                ErrorKind::InvalidArg,
+                "Element descriptor reported caps size too long for buffer",
+            ));
+        }
+
+        let mut element_caps: u16 = 0;
+        for i in 0..capsize {
+            element_caps |= (value[j + 4 + i] as u16) << (i * 8);
+        }
+
+        let element_string_index = value[j + 4 + capsize];
+        let element_string = None;
+
+        Ok(Element {
+            element_id,
+            num_input_pins: value[1],
+            source_ids,
+            num_output_pins,
+            in_terminal_link,
+            out_terminal_link,
+            el_caps_size,
+            element_caps,
+            element_string_index,
+            element_string,
+        })
+    }
+}
+
+impl From<Element> for Vec<u8> {
+    fn from(el: Element) -> Self {
+        let mut ret = Vec::new();
+        ret.push(el.element_id);
+        ret.push(el.num_input_pins);
+
+        for (source_id, source_pin) in el.source_ids {
+            ret.push(source_id);
+            ret.push(source_pin);
+        }
+
+        ret.push(el.num_output_pins);
+        ret.push(el.in_terminal_link);
+        ret.push(el.out_terminal_link);
+        ret.push(el.el_caps_size);
+
+        for i in 0..el.el_caps_size {
+            ret.push((el.element_caps >> (i * 8)) as u8);
+        }
+
+        ret.push(el.element_string_index);
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct MidiEndpointDescriptor {
-    pub length: u8,
-    pub descriptor_type: u8,
-    pub descriptor_subtype: u8,
     pub num_jacks: u8,
     pub jacks: Vec<u8>,
 }
@@ -156,27 +393,24 @@ impl TryFrom<&[u8]> for MidiEndpointDescriptor {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 4 {
+        if value.is_empty() {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
                 "MidiEndpointDescriptor descriptor too short",
             ));
         }
 
-        let num_jacks = value[3] as usize;
-        if value.len() < 4 + num_jacks {
+        let num_jacks = value[0] as usize;
+        if value.len() < 1 + num_jacks {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
                 "MidiEndpointDescriptor descriptor reported number of jacks too long for buffer",
             ));
         }
-        let jacks = value[4..4 + num_jacks].to_vec();
+        let jacks = value[1..1 + num_jacks].to_vec();
 
         Ok(MidiEndpointDescriptor {
-            length: value[0],
-            descriptor_type: value[1],
-            descriptor_subtype: value[2],
-            num_jacks: value[3],
+            num_jacks: value[0],
             jacks,
         })
     }
@@ -184,15 +418,72 @@ impl TryFrom<&[u8]> for MidiEndpointDescriptor {
 
 impl From<MidiEndpointDescriptor> for Vec<u8> {
     fn from(md: MidiEndpointDescriptor) -> Self {
-        let mut ret = vec![
-            md.length,
-            md.descriptor_type,
-            md.descriptor_subtype,
-            md.num_jacks,
-        ];
+        let mut ret = vec![md.num_jacks];
         ret.extend(md.jacks);
 
         ret
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+#[non_exhaustive]
+#[serde(rename_all = "kebab-case")]
+pub enum MidiInterfaceDescriptor {
+    Header(Header),
+    InputJack(InputJack),
+    OutputJack(OutputJack),
+    Element(Element),
+    Endpoint(MidiEndpointDescriptor),
+    Invalid(Vec<u8>),
+    Undefined(Vec<u8>),
+}
+
+impl MidiInterfaceDescriptor {
+    /// Try to parse the MIDI interface descriptor from the main descriptor data
+    pub fn from_midi_descriptor(
+        descriptor_type: &DescriptorType,
+        subtype: &MidiSubtype,
+        data: &[u8],
+    ) -> Result<Self, Error> {
+        match descriptor_type {
+            DescriptorType::Endpoint => Self::from_midi_endpoint(data),
+            _ => subtype.get_interface_descriptor(data),
+        }
+    }
+
+    /// Try to parse the MIDI interface descriptor for an Endpoint from the provided data
+    pub fn from_midi_endpoint(data: &[u8]) -> Result<Self, Error> {
+        MidiEndpointDescriptor::try_from(data).map(MidiInterfaceDescriptor::Endpoint)
+    }
+
+    /// Try to parse the MIDI interface descriptor for an Interface from the provided data
+    pub fn from_midi_interface(subtype: &MidiSubtype, data: &[u8]) -> Result<Self, Error> {
+        match subtype {
+            MidiSubtype::Header => Header::try_from(data).map(MidiInterfaceDescriptor::Header),
+            MidiSubtype::InputJack => {
+                InputJack::try_from(data).map(MidiInterfaceDescriptor::InputJack)
+            }
+            MidiSubtype::OutputJack => {
+                OutputJack::try_from(data).map(MidiInterfaceDescriptor::OutputJack)
+            }
+            MidiSubtype::Element => Element::try_from(data).map(MidiInterfaceDescriptor::Element),
+            MidiSubtype::Undefined => Ok(MidiInterfaceDescriptor::Undefined(data.to_vec())),
+        }
+    }
+}
+
+impl From<MidiInterfaceDescriptor> for Vec<u8> {
+    fn from(mid: MidiInterfaceDescriptor) -> Self {
+        match mid {
+            MidiInterfaceDescriptor::Header(a) => a.into(),
+            MidiInterfaceDescriptor::InputJack(a) => a.into(),
+            MidiInterfaceDescriptor::OutputJack(a) => a.into(),
+            MidiInterfaceDescriptor::Element(a) => a.into(),
+            MidiInterfaceDescriptor::Endpoint(a) => a.into(),
+            MidiInterfaceDescriptor::Invalid(a) => a,
+            MidiInterfaceDescriptor::Undefined(a) => a,
+        }
     }
 }
 
@@ -211,7 +502,7 @@ impl TryFrom<GenericDescriptor> for MidiEndpointDescriptor {
 pub struct UacDescriptor {
     pub length: u8,
     pub descriptor_type: u8,
-    pub subtype: UacType,
+    pub descriptor_subtype: UacType,
     pub interface: UacInterfaceDescriptor,
 }
 
@@ -222,13 +513,13 @@ impl TryFrom<(GenericDescriptor, u8, u8)> for UacDescriptor {
     fn try_from((gd, subc, p): (GenericDescriptor, u8, u8)) -> error::Result<Self> {
         let length = gd.length;
         let descriptor_type = gd.descriptor_type;
-        let subtype: UacType = (subc, gd.descriptor_subtype, p).try_into()?;
-        let interface = subtype.uac_descriptor_from_generic(gd, p)?;
+        let descriptor_subtype: UacType = (subc, gd.descriptor_subtype, p).try_into()?;
+        let interface = descriptor_subtype.uac_descriptor_from_generic(gd, p)?;
 
         Ok(UacDescriptor {
             length,
             descriptor_type,
-            subtype,
+            descriptor_subtype,
             interface,
         })
     }
@@ -239,7 +530,7 @@ impl From<UacDescriptor> for Vec<u8> {
         let mut ret: Vec<u8> = Vec::new();
         ret.push(acd.length);
         ret.push(acd.descriptor_type);
-        ret.push(u8::from(acd.subtype));
+        ret.push(u8::from(acd.descriptor_subtype));
         let data: Vec<u8> = acd.interface.into();
         ret.extend(&data);
 
@@ -994,10 +1285,9 @@ impl UacType {
         match self {
             UacType::Control(aci) => aci.get_descriptor(&UacProtocol::from(protocol), data),
             UacType::Streaming(asi) => asi.get_descriptor(&UacProtocol::from(protocol), data),
-            // TODO decode all MidiInterface types like Control and Streaming
             UacType::Midi(_) => Err(Error::new(
                 ErrorKind::InvalidArg,
-                "Midi descriptor to UAC not yet supported, use MidiDescriptor.data",
+                "Midi descriptor to UAC not supported, use MidiInterfaceDescriptor",
             )),
         }
     }

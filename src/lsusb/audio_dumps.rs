@@ -1260,7 +1260,7 @@ pub(crate) fn dump_audiocontrol_interface(
             println!(
                 "{:indent$}Warning: {:#} descriptors are illegal for {}",
                 "",
-                uacd.subtype,
+                uacd.descriptor_subtype,
                 u8::from(protocol.to_owned()),
                 indent = indent
             );
@@ -1671,7 +1671,7 @@ pub(crate) fn dump_audiostreaming_interface(
                     println!(
                         "{:indent$}Warning: {:#} descriptors are illegal for {}",
                         "",
-                        uacd.subtype,
+                        uacd.descriptor_subtype,
                         u8::from(protocol.to_owned()),
                         indent = indent + 2
                     );
@@ -1780,7 +1780,7 @@ pub(crate) fn dump_audiostreaming_interface(
 
 pub(crate) fn dump_audiostreaming_endpoint(ad: &audio::UacDescriptor, indent: usize) {
     // audio streaming endpoint is only EP_GENERAL
-    let subtype_string = match ad.subtype {
+    let subtype_string = match ad.descriptor_subtype {
         audio::UacType::Streaming(audio::StreamingSubtype::General) => "EP_GENERAL",
         // lowercase in lsusb
         _ => "invalid",
@@ -1794,7 +1794,7 @@ pub(crate) fn dump_audiostreaming_endpoint(ad: &audio::UacDescriptor, indent: us
         LSUSB_DUMP_WIDTH,
     );
     dump_value_string(
-        u8::from(ad.subtype.to_owned()),
+        u8::from(ad.descriptor_subtype.to_owned()),
         "bDescriptorSubtype",
         format!("({:#})", subtype_string),
         indent + 2,
@@ -1802,7 +1802,7 @@ pub(crate) fn dump_audiostreaming_endpoint(ad: &audio::UacDescriptor, indent: us
     );
 
     if matches!(
-        ad.subtype,
+        ad.descriptor_subtype,
         audio::UacType::Streaming(audio::StreamingSubtype::General)
     ) {
         dump_audio_subtype(&ad.interface, indent + 2);
@@ -1826,167 +1826,157 @@ pub(crate) fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: u
         LSUSB_DUMP_WIDTH,
     );
     dump_value_string(
-        md.midi_type.to_owned() as u8,
+        md.descriptor_subtype.to_owned() as u8,
         "bDescriptorSubtype",
-        format!("({:#})", md.midi_type),
+        format!("({:#})", md.descriptor_subtype),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
 
-    match md.midi_type {
-        audio::MidiSubtype::Header => {
-            if md.data.len() >= 4 {
-                let total_length = u16::from_le_bytes([md.data[2], md.data[3]]);
+    match &md.interface {
+        audio::MidiInterfaceDescriptor::Header(d) => {
+            dump_value(d.version, "bcdADC", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_hex(d.total_length, "wTotalLength", indent + 2, LSUSB_DUMP_WIDTH);
+        }
+        audio::MidiInterfaceDescriptor::InputJack(d) => {
+            dump_value_string(
+                d.jack_type,
+                "bJackType",
+                jack_types(d.jack_type),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(d.jack_id, "bJackID", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value_string(
+                d.jack_string_index,
+                "iJack",
+                d.jack_string.as_ref().unwrap_or(&"".into()),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+        }
+        audio::MidiInterfaceDescriptor::OutputJack(d) => {
+            dump_value_string(
+                d.jack_type,
+                "bJackType",
+                jack_types(d.jack_type),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(d.jack_id, "bJackID", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value(
+                d.num_input_pins,
+                "bNrInputPins",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+
+            for (i, p) in d.source_ids.iter() {
                 dump_value(
-                    format!("{:02x}.{:02x}", md.data[1], md.data[0]),
-                    "bcdADC",
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_hex(total_length, "wTotalLength", indent + 2, LSUSB_DUMP_WIDTH);
-            }
-            dump_junk(&md.data, 8, md.length as usize - 3, 4);
-        }
-        audio::MidiSubtype::InputJack => {
-            if md.data.len() >= 3 {
-                dump_value_string(
-                    md.data[0],
-                    "bJackType",
-                    jack_types(md.data[0]),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_value(md.data[1], "bJackID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value_string(
-                    md.data[2],
-                    "iJack",
-                    md.string.as_ref().unwrap_or(&"".into()),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-            }
-            dump_junk(&md.data, 8, md.length as usize - 3, 4);
-        }
-        audio::MidiSubtype::OutputJack => {
-            if md.data.len() >= md.length as usize - 3 {
-                dump_value_string(
-                    md.data[0],
-                    "bJackType",
-                    jack_types(md.data[0]),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_value(md.data[1], "bJackID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(md.data[2], "bNrInputPins", indent + 2, LSUSB_DUMP_WIDTH);
-
-                for (i, b) in md.data[3..].chunks(2).enumerate() {
-                    if i == md.data[2] as usize {
-                        break;
-                    }
-                    dump_value(
-                        b[0],
-                        &format!("baSourceID({:2})", i),
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                    dump_value(
-                        b[1],
-                        &format!("baSourcePin({:2})", i),
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                }
-
-                dump_value_string(
-                    md.data[3 + md.data[2] as usize],
-                    "iJack",
-                    md.string.as_ref().unwrap_or(&String::new()),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_junk(&md.data, 8, md.length as usize - 3, 4 + md.data[2] as usize);
-            }
-        }
-        audio::MidiSubtype::Element => {
-            if md.data.len() >= md.length as usize - 3 {
-                let num_inputs = md.data[1] as usize;
-                dump_value(md.data[0], "bElementID", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(md.data[1], "bNrInputPins", indent + 2, LSUSB_DUMP_WIDTH);
-                for (i, b) in md.data[2..].chunks(2).enumerate() {
-                    if i == num_inputs {
-                        break;
-                    }
-                    dump_value(
-                        b[0],
-                        &format!("baSourceID({:2})", i),
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                    dump_value(
-                        b[1],
-                        &format!("baSourcePin({:2})", i),
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                }
-
-                let j = 2 + num_inputs * 2;
-                dump_value(md.data[j], "bNrOutputPins", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_value(
-                    md.data[j + 1],
-                    "bInTerminalLink",
+                    i,
+                    &format!("baSourceID({:2})", i),
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
                 );
                 dump_value(
-                    md.data[j + 2],
-                    "bOutTerminalLink",
+                    p,
+                    &format!("baSourcePin({:2})", i),
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
                 );
-                dump_value(md.data[j + 3], "bElCapsSize", indent + 2, LSUSB_DUMP_WIDTH);
-                let capsize = md.data[j + 3] as usize;
-                let mut caps: u16 = 0;
-                for j in 0..capsize {
-                    caps |= (md.data[j + 6 + num_inputs * 2] as u16) << (j * 8);
-                }
-                dump_hex(caps, "bmElementCaps", indent + 2, LSUSB_DUMP_WIDTH);
-                dump_bitmap_strings(
-                    caps,
-                    |b| match b {
-                        0 => Some("Undefined"),
-                        1 => Some("MIDI Clock"),
-                        2 => Some("MTC (MIDI Time Code)"),
-                        3 => Some("MMC (MIDI Machine Control)"),
-                        4 => Some("GM1 (General MIDI v.1)"),
-                        5 => Some("GM2 (General MIDI v.2)"),
-                        6 => Some("GS MIDI Extension"),
-                        7 => Some("XG MIDI Extension"),
-                        8 => Some("EFX"),
-                        9 => Some("MIDI Patch Bay"),
-                        10 => Some("DLS1 (Downloadable Sounds Level 1)"),
-                        11 => Some("DLS2 (Downloadable Sounds Level 2)"),
-                        _ => None,
-                    },
-                    indent + 2,
-                );
-
-                dump_value_string(
-                    md.string_index.unwrap_or(0),
-                    "iElement",
-                    md.string.as_ref().unwrap_or(&String::new()),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
-                dump_junk(&md.data, 8, md.length as usize - 3, j + 1_usize);
             }
+            dump_value_string(
+                d.jack_string_index,
+                "iJack",
+                d.jack_string.as_ref().unwrap_or(&"".into()),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
         }
-        _ => {
+        audio::MidiInterfaceDescriptor::Element(d) => {
+            dump_value(d.element_id, "bElementID", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value(
+                d.num_input_pins,
+                "bNrInputPins",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+
+            for (i, p) in d.source_ids.iter() {
+                dump_value(
+                    i,
+                    &format!("baSourceID({:2})", i),
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+                dump_value(
+                    p,
+                    &format!("baSourcePin({:2})", i),
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+            }
+
+            dump_value(
+                d.num_output_pins,
+                "bNrOutputPins",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(
+                d.in_terminal_link,
+                "bInTerminalLink",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(
+                d.out_terminal_link,
+                "bOutTerminalLink",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(d.el_caps_size, "bElCapsSize", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_hex(
+                d.element_caps,
+                "bmElementCaps",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_bitmap_strings(
+                d.element_caps,
+                |b| match b {
+                    0 => Some("Undefined"),
+                    1 => Some("MIDI Clock"),
+                    2 => Some("MTC (MIDI Time Code)"),
+                    3 => Some("MMC (MIDI Machine Control)"),
+                    4 => Some("GM1 (General MIDI v.1)"),
+                    5 => Some("GM2 (General MIDI v.2)"),
+                    6 => Some("GS MIDI Extension"),
+                    7 => Some("XG MIDI Extension"),
+                    8 => Some("EFX"),
+                    9 => Some("MIDI Patch Bay"),
+                    10 => Some("DLS1 (Downloadable Sounds Level 1)"),
+                    11 => Some("DLS2 (Downloadable Sounds Level 2)"),
+                    _ => None,
+                },
+                indent + 2,
+            );
+
+            dump_value_string(
+                d.element_string_index,
+                "iElement",
+                d.element_string.as_ref().unwrap_or(&String::new()),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+        }
+        audio::MidiInterfaceDescriptor::Undefined(_) => (),
+        invalid => {
+            let data: Vec<u8> = invalid.to_owned().into();
             println!(
                 "{:indent$}Invalid desc subtype: {}",
                 "",
-                md.data
-                    .iter()
+                data.iter()
                     .map(|b| format!("{:02x}", b))
                     .collect::<Vec<String>>()
                     .join(" "),
@@ -1996,33 +1986,30 @@ pub(crate) fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: u
     }
 }
 
-pub(crate) fn dump_midistreaming_endpoint(med: &audio::MidiEndpointDescriptor, indent: usize) {
-    let subtype_string = match med.descriptor_subtype {
-        2 => "GENERAL",
+pub(crate) fn dump_midistreaming_endpoint(md: &audio::MidiDescriptor, indent: usize) {
+    let subtype_string = match u8::from(md.descriptor_subtype.to_owned()) {
+        1 | 2 => "GENERAL",
         _ => "Invalid",
     };
 
     dump_string("MIDIStreaming Endpoint Descriptor:", indent);
-    dump_value(med.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(md.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
-        med.descriptor_type,
+        md.descriptor_type,
         "bDescriptorType",
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
     dump_value_string(
-        med.descriptor_subtype,
-        subtype_string,
+        u8::from(md.descriptor_subtype.to_owned()),
         "bDescriptorSubtype",
+        subtype_string,
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
 
-    dump_value(
-        med.num_jacks,
-        "bNumEmbMIDIJack",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
-    );
-    dump_array(&med.jacks, "baAssocJackID", indent + 2, LSUSB_DUMP_WIDTH);
+    if let audio::MidiInterfaceDescriptor::Endpoint(ep) = &md.interface {
+        dump_value(ep.num_jacks, "bNumEmbMIDIJack", indent + 2, LSUSB_DUMP_WIDTH);
+        dump_array(&ep.jacks, "baAssocJackID", indent + 2, LSUSB_DUMP_WIDTH);
+    }
 }
