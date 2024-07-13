@@ -2009,7 +2009,12 @@ pub(crate) fn dump_midistreaming_endpoint(md: &audio::MidiDescriptor, indent: us
     );
 
     if let audio::MidiInterfaceDescriptor::Endpoint(ep) = &md.interface {
-        dump_value(ep.num_jacks, "bNumEmbMIDIJack", indent + 2, LSUSB_DUMP_WIDTH);
+        dump_value(
+            ep.num_jacks,
+            "bNumEmbMIDIJack",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
         dump_array(&ep.jacks, "baAssocJackID", indent + 2, LSUSB_DUMP_WIDTH);
     }
 }

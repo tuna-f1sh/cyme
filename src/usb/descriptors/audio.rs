@@ -78,17 +78,15 @@ impl TryFrom<&[u8]> for MidiDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "MidiDescriptor descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("MidiDescriptor", 4, value.len()));
         }
 
         let length = value[0];
         if length as usize > value.len() {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "MidiDescriptor descriptor reported length too long for buffer",
+            return Err(Error::new_descriptor_len(
+                "MidiDescriptor reported",
+                length as usize,
+                value.len(),
             ));
         }
 
@@ -161,10 +159,7 @@ impl TryFrom<&[u8]> for Header {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Header descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("Header", 4, value.len()));
         }
 
         Ok(Header {
@@ -198,10 +193,7 @@ impl TryFrom<&[u8]> for InputJack {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "InputJack descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("InputJack", 3, value.len()));
         }
 
         Ok(InputJack {
@@ -235,16 +227,13 @@ impl TryFrom<&[u8]> for OutputJack {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "OutputJack descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("OutputJack", 4, value.len()));
         }
 
         let num_input_pins = value[2] as usize;
         if value.len() < 3 + num_input_pins * 2 + 1 {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 "OutputJack descriptor reported number of source pins too long for buffer",
             ));
         }
@@ -298,10 +287,7 @@ impl TryFrom<&[u8]> for Element {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Element descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("Element", 8, value.len()));
         }
 
         let element_id = value[0];
@@ -310,7 +296,7 @@ impl TryFrom<&[u8]> for Element {
         let expected_len = 6 + 2 * num_input_pins;
         if value.len() < expected_len {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 "Element descriptor reported number of input pins too long for buffer",
             ));
         }
@@ -329,7 +315,7 @@ impl TryFrom<&[u8]> for Element {
 
         if value.len() < j + 4 + capsize + 1 {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 "Element descriptor reported caps size too long for buffer",
             ));
         }
@@ -394,16 +380,13 @@ impl TryFrom<&[u8]> for MidiEndpointDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.is_empty() {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "MidiEndpointDescriptor descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("MidiEndpointDescriptor", 1, 0));
         }
 
         let num_jacks = value[0] as usize;
         if value.len() < 1 + num_jacks {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 "MidiEndpointDescriptor descriptor reported number of jacks too long for buffer",
             ));
         }
@@ -1575,10 +1558,7 @@ impl TryFrom<&[u8]> for Header1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Header 1 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("Header1", 6, value.len()));
         }
 
         let total_length = u16::from_le_bytes([value[2], value[3]]);
@@ -1620,10 +1600,7 @@ impl TryFrom<&[u8]> for Header2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Header 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("Header2", 6, value.len()));
         }
 
         let total_length = u16::from_le_bytes([value[3], value[4]]);
@@ -1663,10 +1640,7 @@ impl TryFrom<&[u8]> for Header3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 7 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Header 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("Header3", 7, value.len()));
         }
 
         let total_length = u16::from_le_bytes([value[1], value[2]]);
@@ -1710,10 +1684,7 @@ impl TryFrom<&[u8]> for InputTerminal1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 9 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Input Terminal 1 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("InputTerminal1", 9, value.len()));
         }
 
         Ok(InputTerminal1 {
@@ -1766,10 +1737,7 @@ impl TryFrom<&[u8]> for InputTerminal2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 14 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Input Terminal 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("InputTerminal2", 14, value.len()));
         }
 
         Ok(InputTerminal2 {
@@ -1824,10 +1792,7 @@ impl TryFrom<&[u8]> for InputTerminal3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 17 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Input Terminal 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("InputTerminal3", 17, value.len()));
         }
 
         Ok(InputTerminal3 {
@@ -1877,14 +1842,7 @@ impl TryFrom<&[u8]> for OutputTerminal1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!(
-                    "Output Terminal 1 descriptor too short {} < {}",
-                    value.len(),
-                    6
-                ),
-            ));
+            return Err(Error::new_descriptor_len("OutputTerminal1", 6, value.len()));
         }
 
         Ok(OutputTerminal1 {
@@ -1929,10 +1887,7 @@ impl TryFrom<&[u8]> for OutputTerminal2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 9 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Output Terminal 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("OutputTerminal2", 9, value.len()));
         }
 
         Ok(OutputTerminal2 {
@@ -1981,10 +1936,11 @@ impl TryFrom<&[u8]> for OutputTerminal3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 17 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Output Terminal 3 descriptor too short",
+        if value.len() < 16 {
+            return Err(Error::new_descriptor_len(
+                "OutputTerminal3",
+                16,
+                value.len(),
             ));
         }
 
@@ -2031,9 +1987,10 @@ impl TryFrom<&[u8]> for ExtendedTerminalHeader {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 2 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Extended Terminal Header descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "ExtendedTerminalHeader",
+                2,
+                value.len(),
             ));
         }
 
@@ -2067,18 +2024,15 @@ impl TryFrom<&[u8]> for PowerDomain {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Power Domain 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("PowerDomain", 8, value.len()));
         }
 
         let nr_entities = value[5] as usize;
         let expected_len = 8 + nr_entities;
         if value.len() < expected_len {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Power Domain 3 descriptor too short for the number of entities",
+                ErrorKind::InvalidDescriptor,
+                "PowerDomain3 descriptor too short for the number of entities",
             ));
         }
 
@@ -2125,10 +2079,7 @@ impl TryFrom<&[u8]> for MixerUnit1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Mixer Unit 1 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("MixerUnit1", 6, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
@@ -2136,8 +2087,8 @@ impl TryFrom<&[u8]> for MixerUnit1 {
         let expected_len = 6 + nr_in_pins + nr_channels;
         if value.len() < expected_len {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Mixer Unit 1 descriptor too short for the number of pins and channels",
+                ErrorKind::InvalidDescriptor,
+                "MixerUnit1 descriptor too short for the number of pins and channels",
             ));
         }
 
@@ -2189,10 +2140,7 @@ impl TryFrom<&[u8]> for MixerUnit2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 10 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Mixer Unit 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("MixerUnit2", 10, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
@@ -2200,8 +2148,8 @@ impl TryFrom<&[u8]> for MixerUnit2 {
         let expected_len = 10 + nr_in_pins + nr_channels;
         if value.len() < expected_len {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Mixer Unit 2 descriptor too short for the number of pins and channels",
+                ErrorKind::InvalidDescriptor,
+                "MixerUnit2 descriptor too short for the number of pins and channels",
             ));
         }
 
@@ -2258,18 +2206,15 @@ impl TryFrom<&[u8]> for MixerUnit3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Mixer Unit 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("MixerUnit3", 8, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
         let expected_len = 8 + nr_in_pins;
         if value.len() < expected_len {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Mixer Unit 3 descriptor too short for the number of pins",
+                ErrorKind::InvalidDescriptor,
+                "MixerUnit3 descriptor too short for the number of pins",
             ));
         }
 
@@ -2317,9 +2262,10 @@ impl TryFrom<&[u8]> for StreamingInterface1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Streaming Interface 1 descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "StreamingInterface1",
+                4,
+                value.len(),
             ));
         }
 
@@ -2359,12 +2305,10 @@ impl TryFrom<&[u8]> for StreamingInterface2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 13 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!(
-                    "Audio Streaming Interface 2 descriptor too short {} < 13",
-                    value.len()
-                ),
+            return Err(Error::new_descriptor_len(
+                "StreamingInterface2",
+                13,
+                value.len(),
             ));
         }
 
@@ -2413,9 +2357,10 @@ impl TryFrom<&[u8]> for StreamingInterface3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 20 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Streaming Interface 3 descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "StreamingInterface3",
+                20,
+                value.len(),
             ));
         }
 
@@ -2507,10 +2452,11 @@ impl TryFrom<&[u8]> for DataStreamingEndpoint1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < Self::EXPECTED_LENGTH {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Data Streaming Endpoint 1 descriptor too short",
+        if value.len() < Self::size() {
+            return Err(Error::new_descriptor_len(
+                "DataStreamingEndpoint1",
+                Self::size(),
+                value.len(),
             ));
         }
 
@@ -2561,10 +2507,11 @@ impl TryFrom<&[u8]> for DataStreamingEndpoint2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < Self::EXPECTED_LENGTH {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Data Streaming Endpoint 2 descriptor too short",
+        if value.len() < Self::size() {
+            return Err(Error::new_descriptor_len(
+                "DataStreamingEndpoint2",
+                Self::size(),
+                value.len(),
             ));
         }
 
@@ -2616,10 +2563,11 @@ impl TryFrom<&[u8]> for DataStreamingEndpoint3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 7 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Data Streaming Endpoint 3 descriptor too short",
+        if value.len() < Self::size() {
+            return Err(Error::new_descriptor_len(
+                "DataStreamingEndpoint3",
+                Self::size(),
+                value.len(),
             ));
         }
 
@@ -2656,18 +2604,15 @@ impl TryFrom<&[u8]> for SelectorUnit1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Selector Unit 1 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("SelectorUnit1", 4, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
         let expected_length = 3 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Selector Unit 1 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "SelectorUnit1 descriptor too short",
             ));
         }
 
@@ -2710,18 +2655,15 @@ impl TryFrom<&[u8]> for SelectorUnit2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 5 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Selector Unit 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("SelectorUnit2", 5, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
         let expected_length = 4 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Selector Unit 2 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "SelectorUnit2 descriptor too short",
             ));
         }
 
@@ -2765,18 +2707,15 @@ impl TryFrom<&[u8]> for SelectorUnit3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Selector Unit 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("SelectorUnit3", 8, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
         let expected_length = 6 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Selector Unit 3 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "SelectorUnit3 descriptor too short",
             ));
         }
 
@@ -2889,9 +2828,10 @@ impl TryFrom<&[u8]> for AudioProcessingUnitExtended1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit Extended 1 descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "AudioProcessingUnitExtended1",
+                3,
+                value.len(),
             ));
         }
 
@@ -2940,9 +2880,10 @@ impl TryFrom<&[u8]> for ProcessingUnit1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 10 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 1 descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "ProcessingUnit1",
+                10,
+                value.len(),
             ));
         }
 
@@ -2951,8 +2892,8 @@ impl TryFrom<&[u8]> for ProcessingUnit1 {
         let expected_length = 10 + nr_in_pins as usize + control_size as usize;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 1 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "ProcessingUnit1 descriptor too short for the number of pins and controls",
             ));
         }
 
@@ -3027,9 +2968,10 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2UpDownMix {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 5 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 2 Up/Down-mix descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "AudioProcessingUnit2UpDownMix",
+                5,
+                value.len(),
             ));
         }
 
@@ -3067,9 +3009,10 @@ impl TryFrom<&[u8]> for AudioProcessingUnit2DolbyPrologic {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 5 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 2 Dolby Prologic descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "AudioProcessingUnit2DolbyPrologic",
+                5,
+                value.len(),
             ));
         }
 
@@ -3125,9 +3068,10 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3UpDownMix {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 3 Up/Down-mix descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "AudioProcessingUnit3UpDownMix",
+                6,
+                value.len(),
             ));
         }
 
@@ -3169,9 +3113,10 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3StereoExtender {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 3 Stereo Extender descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "AudioProcessingUnit3StereoExtender",
+                4,
+                value.len(),
             ));
         }
 
@@ -3201,9 +3146,10 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3MultiFunction {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 3 Multi Function descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "AudioProcessingUnit3MultiFunction",
+                8,
+                value.len(),
             ));
         }
 
@@ -3267,9 +3213,10 @@ impl TryFrom<&[u8]> for ProcessingUnit2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 12 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 2 descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "ProcessingUnit2",
+                12,
+                value.len(),
             ));
         }
 
@@ -3277,8 +3224,8 @@ impl TryFrom<&[u8]> for ProcessingUnit2 {
         let expected_length = 12 + nr_in_pins as usize;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 2 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "ProcessingUnit2 descriptor too short for the number of pins and controls",
             ));
         }
 
@@ -3443,10 +3390,7 @@ impl TryFrom<&[u8]> for ProcessingUnit3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 7 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Processing Unit 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("ProcessingUnit3", 7, value.len()));
         }
 
         let nr_in_pins = value[3];
@@ -3454,7 +3398,7 @@ impl TryFrom<&[u8]> for ProcessingUnit3 {
         if value.len() < expected_length {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "Audio Processing Unit 3 descriptor too short",
+                "ProcessingUnit3 descriptor too short for the number of pins and controls",
             ));
         }
 
@@ -3537,10 +3481,7 @@ impl TryFrom<&[u8]> for EffectUnit2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Effect Unit 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("EffectUnit2", 6, value.len()));
         }
 
         let controls = (4..value.len() - 1)
@@ -3589,10 +3530,7 @@ impl TryFrom<&[u8]> for EffectUnit3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 7 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Effect Unit 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("EffectUnit3", 7, value.len()));
         }
 
         let controls = (4..value.len() - 2)
@@ -3641,18 +3579,15 @@ impl TryFrom<&[u8]> for FeatureUnit1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Feature Unit 1 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("FeatureUnit1", 4, value.len()));
         }
 
         let control_size = value[2];
         let expected_length = 4 + control_size as usize;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Feature Unit 1 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "Audio Feature Unit 1 descriptor too short for the number of controls",
             ));
         }
 
@@ -3697,10 +3632,7 @@ impl TryFrom<&[u8]> for FeatureUnit2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 7 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Feature Unit 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("FeatureUnit2", 7, value.len()));
         }
 
         Ok(FeatureUnit2 {
@@ -3739,10 +3671,7 @@ impl TryFrom<&[u8]> for FeatureUnit3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Feature Unit 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("FeatureUnit3", 8, value.len()));
         }
 
         Ok(FeatureUnit3 {
@@ -3788,10 +3717,7 @@ impl TryFrom<&[u8]> for ExtensionUnit1 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 10 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Extension Unit 1 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("ExtensionUnit1", 10, value.len()));
         }
 
         let nr_in_pins = value[3] as usize;
@@ -3799,8 +3725,8 @@ impl TryFrom<&[u8]> for ExtensionUnit1 {
         let expected_length = 10 + nr_in_pins + control_size as usize;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Extension Unit 1 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "ExtensionUnit1 descriptor too short for the number of pins and controls",
             ));
         }
 
@@ -3863,18 +3789,15 @@ impl TryFrom<&[u8]> for ExtensionUnit2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 11 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Extension Unit 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("ExtensionUnit2", 11, value.len()));
         }
 
         let nr_in_pins = value[3] as usize;
         let expected_length = 10 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Extension Unit 2 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "ExtensionUnit2 descriptor too short for the number of pins and controls",
             ));
         }
 
@@ -3935,18 +3858,15 @@ impl TryFrom<&[u8]> for ExtensionUnit3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 10 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Extension Unit 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("ExtensionUnit3", 10, value.len()));
         }
 
         let nr_in_pins = value[3] as usize;
         let expected_length = 9 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Extension Unit 3 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "ExtensionUnit3 descriptor too short for the number of pins and controls",
             ));
         }
 
@@ -4000,10 +3920,7 @@ impl TryFrom<&[u8]> for ClockSource2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 5 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Clock Source 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("ClockSource2", 5, value.len()));
         }
 
         Ok(ClockSource2 {
@@ -4044,11 +3961,8 @@ impl TryFrom<&[u8]> for ClockSource3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Clock Source 3 descriptor too short",
-            ));
+        if value.len() < 9 {
+            return Err(Error::new_descriptor_len("ClockSource3", 9, value.len()));
         }
 
         Ok(ClockSource3 {
@@ -4090,18 +4004,15 @@ impl TryFrom<&[u8]> for ClockSelector2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Clock Selector 2 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("ClockSelector2", 4, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
         let expected_length = 3 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Clock Selector 2 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "ClockSelector2 descriptor too short for the number of pins and controls",
             ));
         }
 
@@ -4146,18 +4057,15 @@ impl TryFrom<&[u8]> for ClockSelector3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Clock Selector 3 descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("ClockSelector3", 6, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
         let expected_length = 5 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Clock Selector 3 descriptor too short",
+                ErrorKind::InvalidDescriptor,
+                "ClockSelector3 descriptor too short for the number of pins and controls",
             ));
         }
 
@@ -4210,9 +4118,10 @@ impl TryFrom<&[u8]> for ClockMultiplier2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Clock Multiplier 2 descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "ClockMultiplier2",
+                4,
+                value.len(),
             ));
         }
 
@@ -4252,9 +4161,10 @@ impl TryFrom<&[u8]> for ClockMultiplier3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Clock Multiplier 3 descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "ClockMultiplier3",
+                8,
+                value.len(),
             ));
         }
 
@@ -4295,9 +4205,10 @@ impl TryFrom<&[u8]> for SampleRateConverter2 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 5 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Sample Rate Converter 2 descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "SampleRateConverter2",
+                5,
+                value.len(),
             ));
         }
 
@@ -4340,9 +4251,10 @@ impl TryFrom<&[u8]> for SampleRateConverter3 {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Audio Sample Rate Converter 3 descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "SampleRateConverter3",
+                6,
+                value.len(),
             ));
         }
 

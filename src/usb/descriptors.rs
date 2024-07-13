@@ -170,10 +170,7 @@ impl TryFrom<&[u8]> for Descriptor {
 
     fn try_from(v: &[u8]) -> error::Result<Self> {
         if v.len() < 2 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Descriptor type too short, must be at least 2 bytes",
-            ));
+            return Err(Error::new_descriptor_len("Descriptor", 2, v.len()));
         }
 
         // junk length
@@ -301,9 +298,10 @@ impl TryFrom<&[u8]> for InterfaceAssociationDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Interface Association descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "InterfaceAssociationDescriptor",
+                8,
+                value.len(),
             ));
         }
 
@@ -350,10 +348,11 @@ impl TryFrom<&[u8]> for SsEndpointCompanionDescriptor {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "SS Endpoint Companion descriptor too short",
+        if value.len() < 4 {
+            return Err(Error::new_descriptor_len(
+                "SsEndpointCompanionDescriptor",
+                4,
+                value.len(),
             ));
         }
 
@@ -392,9 +391,10 @@ impl TryFrom<&[u8]> for SecurityDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 5 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Security descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "SecurityDescriptor",
+                5,
+                value.len(),
             ));
         }
 
@@ -473,9 +473,10 @@ impl TryFrom<&[u8]> for EncryptionDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 5 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Encryption Type descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "EncryptionDescriptor",
+                5,
+                value.len(),
             ));
         }
 
@@ -534,10 +535,7 @@ impl TryFrom<&[u8]> for ClassDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Class descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("ClassDescriptor", 3, value.len()));
         }
 
         Ok(ClassDescriptor::Generic(
@@ -632,9 +630,10 @@ impl TryFrom<&[u8]> for HidReportDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "HID report descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "HidReportDescriptor",
+                3,
+                value.len(),
             ));
         }
 
@@ -685,17 +684,19 @@ impl TryFrom<&[u8]> for GenericDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Generic descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "GenericDescriptor",
+                3,
+                value.len(),
             ));
         }
 
         let length = value[0];
         if length as usize > value.len() {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Generic descriptor reported length too long for data returned",
+            return Err(Error::new_descriptor_len(
+                "GenericDescriptor reported",
+                length as usize,
+                value.len(),
             ));
         }
 
@@ -764,10 +765,7 @@ impl TryFrom<&[u8]> for HidDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "HID descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("HidDescriptor", 6, value.len()));
         }
 
         let num_descriptors = value[5] as usize;
@@ -776,21 +774,13 @@ impl TryFrom<&[u8]> for HidDescriptor {
 
         for _ in 0..num_descriptors {
             if descriptors_vec.len() < 3 {
-                return Err(Error::new(
-                    ErrorKind::InvalidArg,
-                    "HID report descriptor too short",
+                return Err(Error::new_descriptor_len(
+                    "HidReportDescriptor",
+                    3,
+                    descriptors_vec.len(),
                 ));
             }
-
             // Report data requires read of report from device so allow HidReportDescriptor creation but with no data
-            //let len = u16::from_le_bytes([descriptors_vec[1], descriptors_vec[2]]) as usize;
-            //if len > descriptors_vec.len() {
-            //    return Err(Error::new(
-            //        ErrorKind::InvalidArg,
-            //        &format!("HID report descriptor reported length too long for available data! Expected {} but only have {}", len, descriptors_vec.len()),
-            //    ));
-            //}
-
             descriptors.push(descriptors_vec.drain(..3).as_slice().try_into()?);
         }
 
@@ -861,10 +851,7 @@ impl TryFrom<&[u8]> for CcidDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 54 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "CCID descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("CcidDescriptor", 54, value.len()));
         }
 
         let lcd_layout = (value[50], value[51]);
@@ -950,10 +937,11 @@ impl TryFrom<&[u8]> for PrinterDescriptor {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Printer descriptor too short",
+        if value.len() < 5 {
+            return Err(Error::new_descriptor_len(
+                "PrinterDescriptor",
+                5,
+                value.len(),
             ));
         }
 
@@ -963,9 +951,10 @@ impl TryFrom<&[u8]> for PrinterDescriptor {
 
         for _ in 0..num_descriptors {
             if descriptors_vec.len() < 2 {
-                return Err(Error::new(
-                    ErrorKind::InvalidArg,
-                    "Printer report descriptor too short",
+                return Err(Error::new_descriptor_len(
+                    "PrinterReportDescriptor",
+                    2,
+                    descriptors_vec.len(),
                 ));
             }
 
@@ -1029,9 +1018,10 @@ impl TryFrom<&[u8]> for PrinterReportDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Printer report descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "PrinterReportDescriptor",
+                6,
+                value.len(),
             ));
         }
 
@@ -1201,17 +1191,19 @@ impl TryFrom<&[u8]> for CommunicationDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Communication descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "CommunicationDescriptor",
+                4,
+                value.len(),
             ));
         }
 
         let length = value[0];
         if length as usize > value.len() {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Communication descriptor reported length too long for buffer",
+            return Err(Error::new_descriptor_len(
+                "CommunicationDescriptor reported",
+                length as usize,
+                value.len(),
             ));
         }
 
@@ -1276,10 +1268,7 @@ impl TryFrom<&[u8]> for HubDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 9 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Hub descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("HubDescriptor", 9, value.len()));
         }
 
         Ok(HubDescriptor {
@@ -1342,10 +1331,7 @@ impl TryFrom<&[u8]> for DfuDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 7 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "DFU descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("DfuDescriptor", 7, value.len()));
         }
 
         let dfu_version = if value.len() >= 9 {
@@ -1404,10 +1390,7 @@ impl TryFrom<&[u8]> for DebugDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Debug descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("DebugDescriptor", 4, value.len()));
         }
 
         if value[1] != 0x0a {
@@ -1454,10 +1437,11 @@ impl TryFrom<&[u8]> for DeviceQualifierDescriptor {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 10 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Device Qualifier descriptor too short",
+        if value.len() < 9 {
+            return Err(Error::new_descriptor_len(
+                "DeviceQualifierDescriptor",
+                9,
+                value.len(),
             ));
         }
 
@@ -1510,9 +1494,10 @@ impl TryFrom<&[u8]> for OnTheGoDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() != 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "On-The-Go descriptor not 3 bytes",
+            return Err(Error::new_descriptor_len(
+                "OnTheGoDescriptor",
+                3,
+                value.len(),
             ));
         }
 

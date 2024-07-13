@@ -80,10 +80,7 @@ impl TryFrom<&[u8]> for BosCapability {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "BOS capability descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("BosCapability", 3, value.len()));
         }
 
         match value[2].into() {
@@ -123,7 +120,6 @@ impl TryFrom<&[u8]> for BosCapability {
                     Ok(BosCapability::Platform(pdc))
                 }
             }
-            // TODO implement rest of types
             _ => Ok(BosCapability::Generic(GenericCapability::try_from(value)?)),
         }
     }
@@ -161,9 +157,10 @@ impl TryFrom<&[u8]> for BinaryObjectStoreDescriptor {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 5 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Binary Object Store descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "BinaryObjectStoreDescriptor",
+                5,
+                value.len(),
             ));
         }
 
@@ -173,15 +170,16 @@ impl TryFrom<&[u8]> for BinaryObjectStoreDescriptor {
         let num_device_capabilities = value[4];
 
         if value.len() < total_length as usize {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Binary Object Store descriptor reported length too long for data returned",
+            return Err(Error::new_descriptor_len(
+                "BinaryObjectStoreDescriptor total_length",
+                total_length as usize,
+                value.len(),
             ));
         }
 
         if total_length <= 5 && value[4] > 0 {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 "Binary Object Store descriptor reported num_device_capabilities but no data",
             ));
         }
@@ -244,9 +242,10 @@ impl TryFrom<&[u8]> for GenericCapability {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Generic BOS descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "GenericCapability",
+                3,
+                value.len(),
             ));
         }
 
@@ -287,9 +286,10 @@ impl TryFrom<&[u8]> for PlatformDeviceCompatibility {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 20 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Platform Device Compatibility descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "PlatformDeviceCompatibility",
+                20,
+                value.len(),
             ));
         }
 
@@ -298,10 +298,9 @@ impl TryFrom<&[u8]> for PlatformDeviceCompatibility {
             descriptor_type: value[1],
             compatibility_type: value[2],
             reserved: value[3],
-            //guid: get_guid(&value[4..20])?,
             guid: Uuid::from_slice_le(&value[4..20]).map_err(|_| {
                 Error::new(
-                    ErrorKind::InvalidArg,
+                    ErrorKind::InvalidDescriptor,
                     "Platform Device Compatibility descriptor has invalid GUID",
                 )
             })?,
@@ -340,9 +339,10 @@ impl TryFrom<&[u8]> for WebUsbPlatformCapability {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 24 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "WebUSB Platform Capability descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "WebUsbPlatformCapability",
+                24,
+                value.len(),
             ));
         }
 
@@ -379,9 +379,10 @@ impl TryFrom<&[u8]> for ExtensionCapability {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 7 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Extension BOS descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "ExtensionCapability",
+                7,
+                value.len(),
             ));
         }
 
@@ -424,9 +425,10 @@ impl TryFrom<&[u8]> for SuperSpeedCapability {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 10 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "SuperSpeed BOS descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "SuperSpeedCapability",
+                10,
+                value.len(),
             ));
         }
 
@@ -476,9 +478,10 @@ impl TryFrom<&[u8]> for SuperSpeedPlusCapability {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 12 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "SuperSpeedPlus BOS descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "SuperSpeedPlusCapability",
+                12,
+                value.len(),
             ));
         }
 
@@ -486,9 +489,10 @@ impl TryFrom<&[u8]> for SuperSpeedPlusCapability {
         let mut sublink_attributes = Vec::with_capacity(sublink_speed_attr_count);
 
         if value.len() < 12 + sublink_speed_attr_count * 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "SuperSpeedPlus BOS descriptor too short for sublink speed attributes",
+            return Err(Error::new_descriptor_len(
+                "SuperSpeedPlusCapability sublink_attributes",
+                12 + sublink_speed_attr_count * 4,
+                value.len(),
             ));
         }
 
@@ -582,9 +586,10 @@ impl TryFrom<&[u8]> for BillboardCapability {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value.len() < 48 {
-            return Err(Error::new(
-                ErrorKind::InvalidDescriptor,
-                "Billboard Capability descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "BillboardCapability",
+                48,
+                value.len(),
             ));
         }
 
@@ -680,9 +685,10 @@ impl TryFrom<&[u8]> for BillboardAltModeCapability {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value.len() != 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidDescriptor,
-                "Billboard Alt Mode Capability descriptor has invalid length",
+            return Err(Error::new_descriptor_len(
+                "BillboardAltModeCapability",
+                8,
+                value.len(),
             ));
         }
 
@@ -725,9 +731,10 @@ impl TryFrom<&[u8]> for ContainerIdCapability {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 20 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Container ID BOS descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "ContainerIdCapability",
+                20,
+                value.len(),
             ));
         }
 
@@ -738,7 +745,7 @@ impl TryFrom<&[u8]> for ContainerIdCapability {
             reserved: value[3],
             container_id: Uuid::from_slice_le(&value[4..20]).map_err(|_| {
                 Error::new(
-                    ErrorKind::InvalidArg,
+                    ErrorKind::InvalidDescriptor,
                     "Container ID BOS descriptor has invalid GUID",
                 )
             })?,
@@ -780,17 +787,19 @@ impl TryFrom<&[u8]> for ConfigurationSummaryCapability {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 10 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "USB 3.0 Configuration Summary BOS descriptor too short",
+            return Err(Error::new_descriptor_len(
+                "ConfigurationSummaryCapability",
+                10,
+                value.len(),
             ));
         }
 
         let configured_count = value[7];
         if value.len() < 10 + configured_count as usize {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "USB 3.0 Configuration Summary BOS descriptor too short for configured",
+            return Err(Error::new_descriptor_len(
+                "ConfigurationSummaryCapability configured_count",
+                10 + configured_count as usize,
+                value.len(),
             ));
         }
 

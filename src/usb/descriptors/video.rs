@@ -372,10 +372,7 @@ impl TryFrom<&[u8]> for Header {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 10 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                "Video Control descriptor too short",
-            ));
+            return Err(Error::new_descriptor_len("Video Control", 10, value.len()));
         }
 
         let version = Version::from_bcd(u16::from_le_bytes([value[0], value[1]]));
@@ -422,14 +419,7 @@ impl TryFrom<&[u8]> for TerminalExtra {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!(
-                    "Terminal Extra descriptor too short {} < {}",
-                    value.len(),
-                    8
-                ),
-            ));
+            return Err(Error::new_descriptor_len("TerminalExtra", 8, value.len()));
         }
 
         let objective_focal_length_min = u16::from_le_bytes([value[0], value[1]]);
@@ -439,7 +429,7 @@ impl TryFrom<&[u8]> for TerminalExtra {
 
         if value.len() < 7 + control_size as usize {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 &format!(
                     "Terminal Extra descriptor too short for control size {} < {}",
                     value.len(),
@@ -495,14 +485,7 @@ impl TryFrom<&[u8]> for InputTerminal {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 5 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!(
-                    "Input Terminal descriptor too short {} < {}",
-                    value.len(),
-                    5
-                ),
-            ));
+            return Err(Error::new_descriptor_len("InputTerminal", 5, value.len()));
         }
 
         let terminal_id = value[0];
@@ -568,14 +551,7 @@ impl TryFrom<&[u8]> for ProcessingUnit {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 9 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!(
-                    "Processing Unit descriptor too short {} < {}",
-                    value.len(),
-                    9
-                ),
-            ));
+            return Err(Error::new_descriptor_len("ProcessingUnit", 9, value.len()));
         }
 
         let unit_id = value[0];
@@ -583,6 +559,7 @@ impl TryFrom<&[u8]> for ProcessingUnit {
         let max_multiplier = u16::from_le_bytes([value[2], value[3]]);
         let control_size = value[4];
 
+        // 5 + 2 for bytes after
         if value.len() < 7 + control_size as usize {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
@@ -653,14 +630,7 @@ impl TryFrom<&[u8]> for ExtensionUnit {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 21 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!(
-                    "Extension Unit descriptor too short {} < {}",
-                    value.len(),
-                    21
-                ),
-            ));
+            return Err(Error::new_descriptor_len("ExtensionUnit", 21, value.len()));
         }
 
         let unit_id = value[0];
@@ -676,7 +646,7 @@ impl TryFrom<&[u8]> for ExtensionUnit {
 
         if value.len() < 19 + p + 1 {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 &format!(
                     "Extension Unit descriptor too short for input pins {} < {}",
                     value.len(),
@@ -690,7 +660,7 @@ impl TryFrom<&[u8]> for ExtensionUnit {
 
         if value.len() < 20 + p + 1 + control_size as usize {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 &format!(
                     "Extension Unit descriptor too short for control size {} < {}",
                     value.len(),
@@ -749,10 +719,7 @@ impl TryFrom<&[u8]> for EncodingUnit {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("Encoding Unit descriptor too short {} < 4", value.len()),
-            ));
+            return Err(Error::new_descriptor_len("EncodingUnit", 4, value.len()));
         }
 
         let unit_id = value[0];
@@ -762,7 +729,7 @@ impl TryFrom<&[u8]> for EncodingUnit {
 
         if value.len() < 4 + 2 * control_size {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 &format!(
                     "Encoding Unit descriptor too short for control size {} < {}",
                     value.len(),
@@ -831,10 +798,7 @@ impl TryFrom<&[u8]> for InputHeader {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 10 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("Input Header descriptor too short {} < 10", value.len()),
-            ));
+            return Err(Error::new_descriptor_len("InputHeader", 10, value.len()));
         }
 
         let num_formats = value[0];
@@ -849,7 +813,7 @@ impl TryFrom<&[u8]> for InputHeader {
 
         if value.len() < 10 + num_formats as usize * control_size as usize {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 "Input Header descriptor too short for reported formats",
             ));
         }
@@ -905,10 +869,7 @@ impl TryFrom<&[u8]> for OutputHeader {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 6 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("Output Header descriptor too short {} < 6", value.len()),
-            ));
+            return Err(Error::new_descriptor_len("OutputHeader", 6, value.len()));
         }
 
         let num_formats = value[0];
@@ -919,7 +880,7 @@ impl TryFrom<&[u8]> for OutputHeader {
 
         if value.len() < 6 + num_formats as usize * control_size as usize {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 &format!(
                     "Output Header descriptor too short for formats {} < {}",
                     value.len(),
@@ -970,10 +931,7 @@ impl TryFrom<&[u8]> for StillImageFrame {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("Still Image Frame descriptor too short {} < 3", value.len()),
-            ));
+            return Err(Error::new_descriptor_len("StillImageFrame", 3, value.len()));
         }
 
         let endpoint_address = EndpointAddress::from(value[0]);
@@ -983,7 +941,7 @@ impl TryFrom<&[u8]> for StillImageFrame {
 
         if offset + num_image_size_patterns as usize * 4 > value.len() {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 "Still Image Frame descriptor too short for image size patterns",
             ));
         }
@@ -1000,7 +958,7 @@ impl TryFrom<&[u8]> for StillImageFrame {
 
         if offset + num_compression_patterns as usize > value.len() {
             return Err(Error::new(
-                ErrorKind::InvalidArg,
+                ErrorKind::InvalidDescriptor,
                 "Still Image Frame descriptor too short for compression patterns",
             ));
         }
@@ -1047,10 +1005,7 @@ impl TryFrom<&[u8]> for ColorFormat {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 3 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("Color Format descriptor too short {} < 3", value.len()),
-            ));
+            return Err(Error::new_descriptor_len("ColorFormat", 3, value.len()));
         }
 
         let color_primaries = value[0];
@@ -1088,12 +1043,10 @@ impl TryFrom<&[u8]> for FormatStreamBased {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 18 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!(
-                    "Format Stream Based descriptor too short {} < 18",
-                    value.len()
-                ),
+            return Err(Error::new_descriptor_len(
+                "FormatStreamBased",
+                18,
+                value.len(),
             ));
         }
 
@@ -1140,10 +1093,7 @@ impl TryFrom<&[u8]> for FormatMPEG2TS {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 4 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("Format MPEG2TS descriptor too short {} < 4", value.len()),
-            ));
+            return Err(Error::new_descriptor_len("FormatMPEG2TS", 4, value.len()));
         }
 
         let format_index = value[0];
@@ -1200,10 +1150,7 @@ impl TryFrom<&[u8]> for FormatMJPEG {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 8 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("Format MJPEG descriptor too short {} < 8", value.len()),
-            ));
+            return Err(Error::new_descriptor_len("FormatMJPEG", 8, value.len()));
         }
 
         let format_index = value[0];
@@ -1263,13 +1210,7 @@ impl TryFrom<&[u8]> for FormatFrame {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 24 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!(
-                    "Format Uncompressed/Frame Based descriptor too short {} < 24",
-                    value.len()
-                ),
-            ));
+            return Err(Error::new_descriptor_len("FormatFrame", 24, value.len()));
         }
 
         let format_index = value[0];
@@ -1339,10 +1280,7 @@ impl TryFrom<&[u8]> for FrameCommon {
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
         if value.len() < 23 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("Frame descriptor too short {} < 23", value.len()),
-            ));
+            return Err(Error::new_descriptor_len("FrameCommon", 23, value.len()));
         }
 
         let frame_index = value[0];
@@ -1393,12 +1331,10 @@ impl TryFrom<&[u8]> for FrameUncompressed {
         let common: FrameCommon = FrameCommon::try_from(value)?;
 
         if value.len() < 24 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!(
-                    "FrameUncompressed descriptor too short {} < 24",
-                    value.len()
-                ),
+            return Err(Error::new_descriptor_len(
+                "FrameUncompressed",
+                24,
+                value.len(),
             ));
         }
 
@@ -1417,7 +1353,7 @@ impl TryFrom<&[u8]> for FrameUncompressed {
         } else {
             if value.len() < 23 + frame_interval_type as usize * 4 {
                 return Err(Error::new(
-                    ErrorKind::InvalidArg,
+                    ErrorKind::InvalidDescriptor,
                     &format!(
                         "FrameUncompressed descriptor too short for frame intervals {} < {}",
                         value.len(),
@@ -1475,9 +1411,10 @@ impl TryFrom<&[u8]> for FrameFrameBased {
         let common: FrameCommon = FrameCommon::try_from(value)?;
 
         if value.len() < 24 {
-            return Err(Error::new(
-                ErrorKind::InvalidArg,
-                &format!("FrameFrameBased descriptor too short {} < 24", value.len()),
+            return Err(Error::new_descriptor_len(
+                "FrameFrameBased",
+                24,
+                value.len(),
             ));
         }
 
@@ -1495,7 +1432,7 @@ impl TryFrom<&[u8]> for FrameFrameBased {
         } else {
             if value.len() < 23 + frame_interval_type as usize * 4 {
                 return Err(Error::new(
-                    ErrorKind::InvalidArg,
+                    ErrorKind::InvalidDescriptor,
                     &format!(
                         "FrameFrameBased descriptor too short for frame intervals {} < {}",
                         value.len(),
