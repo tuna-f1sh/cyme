@@ -4,7 +4,8 @@
 
 ### Addded
 
-- Full dumps of device descriptors for matching `--lsusb --verbose` ([#15](https://github.com/tuna-f1sh/cyme/issues/15))
+- Full dumps of device descriptors for matching `--lsusb --verbose` [#23](https://github.com/tuna-f1sh/cyme/pull/23) ([#15](https://github.com/tuna-f1sh/cyme/issues/15))
+- Device name pattern matching for icon with `Icon::name(String)` ([#22](https://github.com/tuna-f1sh/cyme/pull/22))
 
 ### Changed
 
