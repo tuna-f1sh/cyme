@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [1.8.0] - 2024-07-14
+
+`cyme` should now match `lsusb --verbose` mode with full device descriptor dumps, including using USB control messages to get BOS, Hub device status, HID reports and more. It's been a lot of grunt work and lines of code (not very creative lines!) creating all the types but it should be useful as a USB profiling crate moving forwards and I think more robust than `lsusb` in some cases. There may still be some formatting differences but the data _should_ be the same. `cyme` without `--lsusb --verbose` display isn't changed for the most part, since the dumping is extremely device specific and verbose. I may add device status as a display block in future.
 
 ### Addded
 
@@ -12,7 +14,7 @@
 - `cyme` is now in [Homebrew core](https://formulae.brew.sh/formula/cyme). One can `brew uninstall cyme`, `brew untap tuna-f1sh/taps`, then install with `brew install cyme` ([#21](https://github.com/tuna-f1sh/cyme/pull/21)).
 - Update `--lsusb` mode to match updated lsusb behaviour if driver/names missing (print '[none]'/'[unknown]').
 
-## [1.7.0] - 2024-25-06
+## [1.7.0] - 2024-06-25
 
 ### Changed
 
@@ -22,7 +24,7 @@
 
 - Replace more font-awesome icons in default look-up that have been deprecated ([#20](https://github.com/tuna-f1sh/cyme/issues/20))
 
-## [1.6.1] - 2024-13-06
+## [1.6.1] - 2024-06-13
 
 ### Fixes
 
