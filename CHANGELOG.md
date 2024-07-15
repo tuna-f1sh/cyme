@@ -10,6 +10,7 @@
 ### Changed
 
 - `cyme` is now in [Homebrew core](https://formulae.brew.sh/formula/cyme). One can `brew uninstall cyme`, `brew untap tuna-f1sh/taps`, then install with `brew install cyme` ([#21](https://github.com/tuna-f1sh/cyme/pull/21)).
+- Update `--lsusb` mode to match updated lsusb behaviour if driver/names missing (print '[none]'/'[unknown]').
 
 ## [1.7.0] - 2024-25-06
 

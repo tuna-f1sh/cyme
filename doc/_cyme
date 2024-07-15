@@ -14,7 +14,7 @@ _cyme() {
     fi
 
     local context curcontext="$curcontext" state line
-    _arguments "${_arguments_options[@]}" \
+    _arguments "${_arguments_options[@]}" : \
 '-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID: ' \
 '--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID: ' \
 '-s+[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW: ' \
@@ -157,7 +157,7 @@ ascii\:"Use only ASCII charactors for the output; 0x00 - 0x7F (127 chars)"))' \
 '--icon=[When to print icon blocks]:ICON:((auto\:"Show icon blocks if the \[\`Encoding\`\] supports icons matched in the \[\`icon\:\:IconTheme\`\]"
 always\:"Always print icon blocks if included in configured blocks"
 never\:"Never print icon blocks"))' \
-'--from-json=[Read from json output rather than profiling system - must use --tree json dump]:FROM_JSON: ' \
+'--from-json=[Read from json output rather than profiling system]:FROM_JSON: ' \
 '-c+[Path to user config file to use for custom icons, colours and default settings]:CONFIG: ' \
 '--config=[Path to user config file to use for custom icons, colours and default settings]:CONFIG: ' \
 '--mask-serials=[Mask serial numbers with '\''*'\'' or random chars]:MASK_SERIALS:((hide\:"Hide with '\''*'\'' char"

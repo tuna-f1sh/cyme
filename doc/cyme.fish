@@ -14,7 +14,7 @@ complete -c cyme -l group-devices -d 'Group devices by value when listing' -r -f
 complete -c cyme -l color -d 'Output coloring mode' -r -f -a "{auto	'Show colours if the output goes to an interactive console',always	'Always apply colouring to the output',never	'Never apply colouring to the output'}"
 complete -c cyme -l encoding -d 'Output charactor encoding' -r -f -a "{glyphs	'Use UTF-8 private use area charactors such as those used by NerdFont to show glyph icons',utf8	'Use only standard UTF-8 charactors for the output; no private use area glyph icons',ascii	'Use only ASCII charactors for the output; 0x00 - 0x7F (127 chars)'}"
 complete -c cyme -l icon -d 'When to print icon blocks' -r -f -a "{auto	'Show icon blocks if the [`Encoding`] supports icons matched in the [`icon::IconTheme`]',always	'Always print icon blocks if included in configured blocks',never	'Never print icon blocks'}"
-complete -c cyme -l from-json -d 'Read from json output rather than profiling system - must use --tree json dump' -r
+complete -c cyme -l from-json -d 'Read from json output rather than profiling system' -r
 complete -c cyme -s c -l config -d 'Path to user config file to use for custom icons, colours and default settings' -r
 complete -c cyme -l mask-serials -d 'Mask serial numbers with \'*\' or random chars' -r -f -a "{hide	'Hide with \'*\' char',scramble	'Mask by randomising existing chars',replace	'Mask by replacing length with random chars'}"
 complete -c cyme -s l -l lsusb -d 'Attempt to maintain compatibility with lsusb output'

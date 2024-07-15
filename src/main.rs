@@ -11,6 +11,7 @@ use cyme::display;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::system_profiler;
+use cyme::usb;
 use cyme::usb::ClassCode;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
@@ -138,7 +139,7 @@ struct Args {
     #[arg(long, default_value_t = false, overrides_with = "lsusb")]
     json: bool,
 
-    /// Read from json output rather than profiling system - must use --tree json dump
+    /// Read from json output rather than profiling system
     #[arg(long)]
     from_json: Option<String>,
 
@@ -319,7 +320,7 @@ fn get_libusb_spusb(args: &Args, print_stderr: bool) -> Result<system_profiler::
         || args.filter_class.is_none()
     // class filter requires extra
     {
-        lsusb::profiler::get_spusb_with_extra(print_stderr).map_err(|e| {
+        usb::profiler::get_spusb_with_extra(print_stderr).map_err(|e| {
             Error::new(
                 ErrorKind::LibUSB,
                 &format!(
@@ -329,7 +330,7 @@ fn get_libusb_spusb(args: &Args, print_stderr: bool) -> Result<system_profiler::
             )
         })
     } else {
-        lsusb::profiler::get_spusb(print_stderr).map_err(|e| {
+        usb::profiler::get_spusb(print_stderr).map_err(|e| {
             Error::new(
                 ErrorKind::LibUSB,
                 &format!("Failed to gather system USB data from libusb, Error({})", e),
@@ -351,7 +352,7 @@ fn print_lsusb(
         if !cfg!(feature = "udev") {
             log::warn!("Without udev, lsusb style tree content will not match lsusb: driver and syspath will be missing");
         }
-        lsusb::display::print_tree(sp_usb, settings)
+        lsusb::print_tree(sp_usb, settings)
     } else {
         // can't print verbose if not using libusb
         if !cfg!(feature = "libusb") && (settings.verbosity > 0 || device.is_some()) {
@@ -361,10 +362,10 @@ fn print_lsusb(
         let devices = sp_usb.flatten_devices();
         // even though we filtered using filter.show and using prepare, keep this here because it will match the exact Linux dev path and exit error if it doesn't match like lsusb
         if let Some(dev_path) = &device {
-            lsusb::display::dump_one_device(&devices, dev_path)?
+            lsusb::dump_one_device(&devices, dev_path)?
         } else {
             let sorted = settings.sort_devices.sort_devices_ref(&devices);
-            lsusb::display::print(&sorted, settings.verbosity > 0);
+            lsusb::print(&sorted, settings.verbosity > 0);
         }
     };
 
@@ -426,7 +427,7 @@ fn cyme() -> Result<()> {
     cyme::set_log_level(args.debug)?;
 
     #[cfg(feature = "libusb")]
-    lsusb::profiler::set_log_level(args.debug);
+    usb::profiler::set_log_level(args.debug);
 
     let mut config = if let Some(path) = args.config.as_ref() {
         let config = Config::from_file(path)?;
@@ -482,7 +483,16 @@ fn cyme() -> Result<()> {
     };
 
     let mut spusb = if let Some(file_path) = args.from_json {
-        system_profiler::read_json_dump(file_path.as_str())?
+        match system_profiler::read_json_dump(file_path.as_str()) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!(
+                    "Failed to read json dump, attemping as flattened with phony bus: Error({})",
+                    e
+                );
+                system_profiler::read_flat_json_to_phony_bus(file_path.as_str())?
+            }
+        }
     } else if cfg!(target_os = "macos") 
         && !args.force_libusb
         && args.device.is_none() // device path requires extra

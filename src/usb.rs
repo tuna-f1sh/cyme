@@ -11,8 +11,16 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
+pub mod descriptors;
+#[cfg(feature = "libusb")]
+pub mod profiler;
+
 use crate::error::{self, Error, ErrorKind};
 use crate::types::NumericalUnit;
+use descriptors::*;
+
+const WEBUSB_GET_URL: u8 = 0x02;
+const USB_DT_WEBUSB_URL: u8 = 0x03;
 
 /// The version value (for BCD and USB) is in binary coded decimal with a format of 0xJJMN where JJ is the major version number, M is the minor version number and N is the sub minor version number. e.g. USB 2.0 is reported as 0x0200, USB 1.1 as 0x0110 and USB 1.0 as 0x0100. The type is a mirror of the one from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
 ///
@@ -30,7 +38,7 @@ use crate::types::NumericalUnit;
 /// assert_eq!(version.to_string(), "9b.f1");
 /// ```
 ///
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version(pub u8, pub u8, pub u8);
 
 impl Version {
@@ -132,6 +140,13 @@ impl TryFrom<f32> for Version {
     }
 }
 
+impl From<Version> for u16 {
+    fn from(v: Version) -> Self {
+        let Version(major, minor, sub_minor) = v;
+        ((major as u16) << 8) | ((minor as u16) << 4) | (sub_minor as u16)
+    }
+}
+
 /// Configuration attributes
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -140,6 +155,8 @@ pub enum ConfigAttributes {
     SelfPowered,
     /// Supports remote wake-up
     RemoteWakeup,
+    /// Device is battery powered
+    BatteryPowered,
 }
 
 impl fmt::Display for ConfigAttributes {
@@ -179,58 +196,59 @@ pub enum DescriptorUsage {
 #[derive(Debug, ValueEnum, Default, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
+#[repr(u8)]
 pub enum ClassCode {
     #[default]
     /// Device class is unspecified, interface descriptors are used to determine needed drivers
-    UseInterfaceDescriptor,
+    UseInterfaceDescriptor = 0x00,
     /// Speaker, microphone, sound card, MIDI
-    Audio,
+    Audio = 0x01,
     /// The modern serial interface; appears as a UART/RS232 port on most systems
-    CDCCommunications,
+    CDCCommunications = 0x02,
     /// Human Interface Device; game controllers, keyboards, mice etc. Also commonly used as a device data interface rather then creating something from scratch
-    HID,
+    HID = 0x03,
     /// Force feedback joystick
-    Physical,
+    Physical = 0x05,
     /// Still imaging device; scanners, cameras
-    Image,
+    Image = 0x06,
     /// Laser printer, inkjet printer, CNC machine
-    Printer,
+    Printer = 0x07,
     /// Mass storage devices (MSD): USB flash drive, memory card reader, digital audio player, digital camera, external drive
-    MassStorage,
+    MassStorage = 0x08,
     /// High speed USB hub
-    Hub,
+    Hub = 0x09,
     /// Used together with class 02h (Communications and CDC Control) above
-    CDCData,
+    CDCData = 0x0a,
     /// USB smart card reader
-    SmartCart,
+    SmartCart = 0x0b,
     /// Fingerprint reader
-    ContentSecurity,
+    ContentSecurity = 0x0d,
     /// Webcam
-    Video,
+    Video = 0x0e,
     /// Pulse monitor (watch)
-    PersonalHealthcare,
+    PersonalHealthcare = 0x0f,
     /// Webcam, TV
-    AudioVideo,
+    AudioVideo = 0x10,
     /// Describes USB-C alternate modes supported by device
-    Billboard,
+    Billboard = 0x11,
     /// An interface to expose and configure the USB Type-C capabilities of Connectors on USB Hubs or Alternate Mode Adapters
-    USBTypeCBridge,
+    USBTypeCBridge = 0x12,
     /// This base class is defined for devices that conform to the “VESA USB BDP Device Specification” found at the VESA website. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors.
-    BDP,
+    BDP = 0x13,
     /// This base class is defined for devices that conform to the “MCTP over USB” found at the DMTF website as DSP0283. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors.
-    MCTP,
+    MCTP = 0x14,
     /// An interface to expose and configure I3C function within a USB device to allow interaction between host software and the I3C device, to drive transaction on the I3C bus to/from target devices
-    I3CDevice,
+    I3CDevice = 0x3c,
     /// Trace and debugging equipment
-    Diagnostic,
+    Diagnostic = 0xdc,
     /// Wireless controllers: Bluetooth adaptors, Microsoft RNDIS
-    WirelessController,
+    WirelessController = 0xe0,
     /// This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website
-    Miscellaneous,
+    Miscellaneous = 0xef,
     /// This base class is defined for devices that conform to several class specifications found on the USB-IF website
-    ApplicationSpecificInterface,
+    ApplicationSpecificInterface = 0xfe,
     /// This base class is defined for vendors to use as they please
-    VendorSpecificClass,
+    VendorSpecificClass = 0xff,
 }
 
 impl fmt::Display for ClassCode {
@@ -274,33 +292,8 @@ impl From<u8> for ClassCode {
 
 impl From<ClassCode> for u8 {
     fn from(val: ClassCode) -> Self {
-        match val {
-            ClassCode::UseInterfaceDescriptor => 0,
-            ClassCode::Audio => 1,
-            ClassCode::CDCCommunications => 2,
-            ClassCode::HID => 3,
-            ClassCode::Physical => 5,
-            ClassCode::Image => 6,
-            ClassCode::Printer => 7,
-            ClassCode::MassStorage => 8,
-            ClassCode::Hub => 9,
-            ClassCode::CDCData => 0x0a,
-            ClassCode::SmartCart => 0x0b,
-            ClassCode::ContentSecurity => 0x0d,
-            ClassCode::Video => 0x0e,
-            ClassCode::PersonalHealthcare => 0x0f,
-            ClassCode::AudioVideo => 0x10,
-            ClassCode::Billboard => 0x11,
-            ClassCode::USBTypeCBridge => 0x12,
-            ClassCode::BDP => 0x13,
-            ClassCode::MCTP => 0x14,
-            ClassCode::I3CDevice => 0x3c,
-            ClassCode::Diagnostic => 0xdc,
-            ClassCode::WirelessController => 0xe0,
-            ClassCode::Miscellaneous => 0xef,
-            ClassCode::ApplicationSpecificInterface => 0xfe,
-            ClassCode::VendorSpecificClass => 0xff,
-        }
+        // set as repr(u8) so this will do the conversion
+        val as u8
     }
 }
 
@@ -762,12 +755,20 @@ pub enum Direction {
 
 impl fmt::Display for Direction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        if f.alternate() {
+            match self {
+                Direction::Out => write!(f, "OUT"),
+                Direction::In => write!(f, "IN"),
+            }
+        } else {
+            write!(f, "{:?}", self)
+        }
     }
 }
 
 /// Transfer type  for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[repr(u8)]
 pub enum TransferType {
     /// Control endpoint.
     Control,
@@ -787,6 +788,7 @@ impl fmt::Display for TransferType {
 
 /// Isochronous synchronization mode for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[repr(u8)]
 pub enum SyncType {
     /// No synchronisation.
     None,
@@ -806,6 +808,7 @@ impl fmt::Display for SyncType {
 
 /// Isochronous usage type for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[repr(u8)]
 #[non_exhaustive]
 pub enum UsageType {
     /// Data endpoint.
@@ -846,7 +849,8 @@ fn default_endpoint_desc_length() -> u8 {
 }
 
 /// Address information for a [`USBEndpoint`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// This struct could be one byte with getters using mask but this saves a custom Serialize impl for system_profiler
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EndpointAddress {
     /// Endpoint address byte
     pub address: u8,
@@ -854,6 +858,33 @@ pub struct EndpointAddress {
     pub number: u8,
     /// Data transfer direction 7b
     pub direction: Direction,
+}
+
+impl From<u8> for EndpointAddress {
+    fn from(b: u8) -> Self {
+        EndpointAddress {
+            address: b,
+            // 0..3b
+            number: b & 0x0f,
+            direction: if b & 0x80 == 0 {
+                Direction::Out
+            } else {
+                Direction::In
+            },
+        }
+    }
+}
+
+impl From<EndpointAddress> for u8 {
+    fn from(addr: EndpointAddress) -> u8 {
+        addr.address
+    }
+}
+
+impl fmt::Display for EndpointAddress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "EP {} {}", self.number, self.direction)
+    }
 }
 
 /// Endpoint for a [`USBInterface`]
@@ -874,6 +905,9 @@ pub struct USBEndpoint {
     pub max_packet_size: u16,
     /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     pub interval: u8,
+    /// Extra descriptors data based on type
+    #[serde(default)] // default for legacy json
+    pub extra: Option<Vec<Descriptor>>,
 }
 
 impl USBEndpoint {
@@ -883,6 +917,7 @@ impl USBEndpoint {
     /// # use cyme::usb::*;
     ///
     /// let mut ep = USBEndpoint {
+    ///     length: 7,
     ///     address: EndpointAddress {
     ///         address: 0,
     ///         number: 0,
@@ -893,7 +928,7 @@ impl USBEndpoint {
     ///     usage_type: UsageType::Data,
     ///     max_packet_size: 0xfff1,
     ///     interval: 3,
-    ///     length: 7,
+    ///     extra: None,
     /// };
     /// assert_eq!(ep.max_packet_string(), "4x 2033");
     /// ep.max_packet_size = 0x0064;
@@ -905,6 +940,13 @@ impl USBEndpoint {
             ((self.max_packet_size >> 11) & 3) + 1,
             self.max_packet_size & 0x7ff
         )
+    }
+
+    /// Returns the attributes byte for the endpoint
+    pub fn attributes(&self) -> u8 {
+        self.transfer_type.to_owned() as u8
+            | (self.sync_type.to_owned() as u8) << 2
+            | (self.usage_type.to_owned() as u8) << 4
     }
 }
 
@@ -937,6 +979,9 @@ pub struct USBInterface {
     /// Size of interface descriptor in bytes
     #[serde(default = "default_interface_desc_length")]
     pub length: u8,
+    /// Extra descriptors for interface based on type
+    #[serde(default)] // default for legacy json
+    pub extra: Option<Vec<Descriptor>>,
 }
 
 impl USBInterface {
@@ -991,6 +1036,9 @@ pub struct USBConfiguration {
     /// Total length of configuration descriptor in bytes including all interfaces and endpoints
     #[serde(default)]
     pub total_length: u16,
+    /// Extra descriptors for configuration based on type
+    #[serde(default)] // default for legacy json
+    pub extra: Option<Vec<Descriptor>>,
 }
 
 impl USBConfiguration {
@@ -1006,6 +1054,7 @@ impl USBConfiguration {
             match attr {
                 ConfigAttributes::SelfPowered => ret |= 0x40,
                 ConfigAttributes::RemoteWakeup => ret |= 0x20,
+                ConfigAttributes::BatteryPowered => ret |= 0x10,
             }
         }
 
@@ -1032,6 +1081,16 @@ pub struct USBDeviceExtra {
     pub string_indexes: (u8, u8, u8),
     /// USB devices can be have a number of configurations
     pub configurations: Vec<USBConfiguration>,
+    /// Device status
+    pub status: Option<u16>,
+    /// Debug descriptor if present
+    pub debug: Option<DebugDescriptor>,
+    /// Binary Object Store (BOS) descriptor if present
+    pub binary_object_store: Option<bos::BinaryObjectStoreDescriptor>,
+    /// Device qualifier descriptor if present
+    pub qualifier: Option<DeviceQualifierDescriptor>,
+    /// Hub descriptor if present (is a hub)
+    pub hub: Option<HubDescriptor>,
 }
 
 /// Builds a replica of sysfs path; excludes config.interface

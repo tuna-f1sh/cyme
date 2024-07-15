@@ -280,11 +280,17 @@ impl USBBus {
             // no fallback for lsusb tree mode
             let (driver, vendor, product) = match &root_device.extra {
                 Some(v) => (
-                    v.driver.to_owned().unwrap_or(String::new()),
-                    v.vendor.to_owned().unwrap_or(String::new()),
-                    v.product_name.to_owned().unwrap_or(String::new()),
+                    v.driver.to_owned().unwrap_or(String::from("[none]")),
+                    v.vendor.to_owned().unwrap_or(String::from("[unknown]")),
+                    v.product_name
+                        .to_owned()
+                        .unwrap_or(String::from("[unknown]")),
                 ),
-                None => (String::new(), String::new(), String::new()),
+                None => (
+                    String::from("[none]"),
+                    String::from("[unknown]"),
+                    String::from("[unknown]"),
+                ),
             };
 
             Vec::from([(
@@ -311,7 +317,7 @@ impl USBBus {
             log::warn!("Failed to get root_device in bus");
             Vec::from([(
                 format!(
-                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=,",
+                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=[none],",
                     self.get_bus_number(),
                 ),
                 format!(
@@ -1047,11 +1053,17 @@ impl USBDevice {
         // no fallback for lsusb tree mode
         let (driver, vendor, product) = match &self.extra {
             Some(v) => (
-                v.driver.to_owned().unwrap_or(String::new()),
-                v.vendor.to_owned().unwrap_or(String::new()),
-                v.product_name.to_owned().unwrap_or(String::new()),
+                v.driver.to_owned().unwrap_or(String::from("[none]")),
+                v.vendor.to_owned().unwrap_or(String::from("[unknown]")),
+                v.product_name
+                    .to_owned()
+                    .unwrap_or(String::from("[unknown]")),
             ),
-            None => (String::new(), String::new(), String::new()),
+            None => (
+                String::from("[none]"),
+                String::from("[unknown]"),
+                String::from("[unknown]"),
+            ),
         };
 
         if let Some(extra) = self.extra.as_ref() {
@@ -1064,7 +1076,7 @@ impl USBDevice {
                             self.location_id.number,
                             interface.number,
                             interface.class.to_lsusb_string(),
-                            interface.driver.as_ref().unwrap_or(&String::new()),
+                            interface.driver.as_ref().unwrap_or(&String::from("[none]")),
                             speed
                         ),
                         format!(
@@ -1093,7 +1105,7 @@ impl USBDevice {
                     0,
                     self.class
                         .as_ref()
-                        .map_or(String::new(), |c| c.to_lsusb_string()),
+                        .map_or(String::from("[unknown]"), |c| c.to_lsusb_string()),
                     driver,
                     speed
                 ),
@@ -1102,7 +1114,9 @@ impl USBDevice {
                     self.vendor_id.unwrap_or(0xFFFF),
                     self.product_id.unwrap_or(0xFFFF),
                     // these are actually usb_ids vendor/product but don't have those without extra
-                    self.manufacturer.as_ref().unwrap_or(&String::new()),
+                    self.manufacturer
+                        .as_ref()
+                        .unwrap_or(&String::from("[unknown]")),
                     self.name,
                 ),
                 format!(
@@ -1396,7 +1410,7 @@ impl USBFilter {
 
 /// Reads a json dump at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
 ///
-/// Must be a full tree including buses
+/// Must be a full tree including buses. Use `read_flat_json_dump` for devices only
 pub fn read_json_dump(file_path: &str) -> Result<SPUSBDataType, Error> {
     let mut file = fs::File::options().read(true).open(file_path)?;
 
@@ -1411,6 +1425,41 @@ pub fn read_json_dump(file_path: &str) -> Result<SPUSBDataType, Error> {
     })?;
 
     Ok(json_dump)
+}
+
+/// Reads a flat json dump (devices no buses) at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
+pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<USBDevice>, Error> {
+    let mut file = fs::File::options().read(true).open(file_path)?;
+
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
+
+    let json_dump: Vec<USBDevice> = serde_json::from_str(&data).map_err(|e| {
+        Error::new(
+            ErrorKind::Parsing,
+            &format!("Failed to parse dump at {:?}; Error({})", file_path, e),
+        )
+    })?;
+
+    Ok(json_dump)
+}
+
+/// Reads a flat json dump (devices no buses) at `file_path` with serde deserializer from `cyme --json` and converts to `SPUSBDataType`
+///
+/// This is useful for converting a flat json dump to a full tree for use with `USBFilter`. Bus information is phony however.
+pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SPUSBDataType, Error> {
+    let devices = read_flat_json_dump(file_path)?;
+    let bus = USBBus {
+        name: String::from("Phony Flat JSON Import"),
+        host_controller: String::from("Phony Host Controller"),
+        pci_device: None,
+        pci_vendor: None,
+        pci_revision: None,
+        usb_bus_number: None,
+        devices: Some(devices),
+    };
+
+    Ok(SPUSBDataType { buses: vec![bus] })
 }
 
 /// Runs the system_profiler command for SPUSBDataType and parses the json stdout into a [`SPUSBDataType`]
@@ -1455,7 +1504,7 @@ pub fn get_spusb() -> Result<SPUSBDataType, Error> {
 #[cfg(feature = "libusb")]
 pub fn get_spusb_with_extra() -> Result<SPUSBDataType, Error> {
     get_spusb().and_then(|mut spusb| {
-        crate::lsusb::profiler::fill_spusb(&mut spusb)?;
+        crate::usb::profiler::fill_spusb(&mut spusb)?;
         Ok(spusb)
     })
 }

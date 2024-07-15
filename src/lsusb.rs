@@ -1,1166 +1,2480 @@
 //! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb output and provide cross-platform [`crate::system_profiler::SPUSBDataType`] getter
+//! Printing functions for lsusb style output of USB data
 //!
 //! The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for a lot of the styling and content of the display module
-#[cfg(feature = "libusb")]
-pub mod profiler {
-    //! Uses rusb (upto date libusb fork) to get system USB information, most of which has parity with lsusb. Requires 'libusb' feature. Uses [`crate::system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
-    //!
-    //! lsusb uses udev for tree building, which libusb does not have access to and is Linux only. udev-rs is used on Linux to attempt to mirror the output of lsusb on Linux. On other platforms, certain information like driver used cannot be obtained.
-    //!
-    //! Get [`system_profiler::SPUSBDataType`] struct of system USB buses and devices with extra data like configs, interfaces and endpoints
-    //! ```no_run
-    //! use cyme::lsusb::profiler;
-    //!
-    //! let spusb = profiler::get_spusb_with_extra(true).unwrap();
-    //! // print with alternative styling (#) is using utf-8 icons
-    //! println!("{:#}", spusb);
-    //! ```
-    //!
-    //! See [`system_profiler`] docs for what can be done with returned data, such as [`system_profiler::USBFilter`]
-    use crate::error::{self, Error, ErrorKind};
-    use itertools::Itertools;
-    use rusb as libusb;
-    use std::collections::HashMap;
-    use std::time::Duration;
-    use usb_ids::{self, FromId};
-
-    #[cfg(all(target_os = "linux", feature = "udev"))]
-    use crate::udev;
-    use crate::{system_profiler, types::NumericalUnit, usb};
-
-    impl From<libusb::Error> for Error {
-        fn from(error: libusb::Error) -> Self {
-            Error {
-                kind: ErrorKind::LibUSB,
-                message: format!(
-                    "Failed to gather system USB data from libusb: Error({})",
-                    &error.to_string()
-                ),
-            }
-        }
-    }
-
-    struct UsbDevice<T: libusb::UsbContext> {
-        handle: libusb::DeviceHandle<T>,
-        language: libusb::Language,
-        timeout: Duration,
-    }
-
-    /// Set log level for rusb
-    pub fn set_log_level(debug: u8) {
-        let log_level = match debug {
-            0 => rusb::LogLevel::None,
-            1 => rusb::LogLevel::Info,
-            _ => rusb::LogLevel::Debug,
-        };
-
-        rusb::set_log_level(log_level);
-    }
-
-    /// Attempt to retrieve the current bConfigurationValue and iConfiguration for a device
-    /// This will only return the current configuration, not all possible configurations
-    /// If there are any failures in retrieving the data, None is returned
-    #[allow(unused_variables)]
-    fn get_sysfs_configuration_string(sysfs_name: &str) -> Option<(u8, String)> {
-        #[cfg(target_os = "linux")]
-        // Determine bConfigurationValue value on linux
-        match get_sysfs_string(sysfs_name, "bConfigurationValue") {
-            Some(s) => match s.parse::<u8>() {
-                Ok(v) => {
-                    // Determine iConfiguration
-                    get_sysfs_string(sysfs_name, "configuration").map(|s| (v, s))
-                }
-                Err(_) => None,
-            },
-            None => None,
-        }
-
-        #[cfg(not(target_os = "linux"))]
-        None
-    }
-
-    #[allow(unused_variables)]
-    fn get_sysfs_string(sysfs_name: &str, name: &str) -> Option<String> {
-        #[cfg(target_os = "linux")]
-        match std::fs::read_to_string(format!("/sys/bus/usb/devices/{}/{}", sysfs_name, name)) {
-            Ok(s) => Some(s.trim().to_string()),
-            Err(_) => None,
-        }
-
-        #[cfg(not(target_os = "linux"))]
-        None
-    }
-
-    #[allow(unused_variables)]
-    fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
-        #[cfg(all(target_os = "linux", feature = "udev"))]
-        return udev::get_udev_driver_name(port_path);
-        #[cfg(not(all(target_os = "linux", feature = "udev")))]
-        return Ok(None);
-    }
-
-    #[allow(unused_variables)]
-    fn get_udev_syspath(port_path: &str) -> Result<Option<String>, Error> {
-        #[cfg(all(target_os = "linux", feature = "udev"))]
-        return udev::get_udev_syspath(port_path);
-        #[cfg(not(all(target_os = "linux", feature = "udev")))]
-        return Ok(None);
-    }
-
-    fn get_product_string<T: libusb::UsbContext>(
-        device_desc: &libusb::DeviceDescriptor,
-        handle: &mut Option<UsbDevice<T>>,
-    ) -> Option<String> {
-        handle.as_mut().and_then(|h| {
-            match h
-                .handle
-                .read_product_string(h.language, device_desc, h.timeout)
-            {
-                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None,
-            }
-        })
-    }
-
-    fn get_manufacturer_string<T: libusb::UsbContext>(
-        device_desc: &libusb::DeviceDescriptor,
-        handle: &mut Option<UsbDevice<T>>,
-    ) -> Option<String> {
-        handle.as_mut().and_then(|h| {
-            match h
-                .handle
-                .read_manufacturer_string(h.language, device_desc, h.timeout)
-            {
-                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None,
-            }
-        })
-    }
-
-    fn get_serial_string<T: libusb::UsbContext>(
-        device_desc: &libusb::DeviceDescriptor,
-        handle: &mut Option<UsbDevice<T>>,
-    ) -> Option<String> {
-        handle.as_mut().and_then(|h| {
-            match h
-                .handle
-                .read_serial_number_string(h.language, device_desc, h.timeout)
-            {
-                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None,
-            }
-        })
-    }
-
-    fn get_configuration_string<T: libusb::UsbContext>(
-        config_desc: &libusb::ConfigDescriptor,
-        handle: &mut Option<UsbDevice<T>>,
-    ) -> Option<String> {
-        handle.as_mut().and_then(|h| {
-            match h
-                .handle
-                .read_configuration_string(h.language, config_desc, h.timeout)
-            {
-                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None,
-            }
-        })
-    }
-
-    fn get_interface_string<T: libusb::UsbContext>(
-        interface_desc: &libusb::InterfaceDescriptor,
-        handle: &mut Option<UsbDevice<T>>,
-    ) -> Option<String> {
-        handle.as_mut().and_then(|h| {
-            match h
-                .handle
-                .read_interface_string(h.language, interface_desc, h.timeout)
-            {
-                Ok(s) => Some(s.trim().trim_end_matches('\0').to_string()),
-                Err(_) => None,
-            }
-        })
-    }
-
-    /// Covert to our crate speed
-    impl From<libusb::Speed> for usb::Speed {
-        fn from(libusb: libusb::Speed) -> Self {
-            match libusb {
-                libusb::Speed::SuperPlus => usb::Speed::SuperSpeedPlus,
-                libusb::Speed::Super => usb::Speed::SuperSpeed,
-                libusb::Speed::High => usb::Speed::HighSpeed,
-                libusb::Speed::Full => usb::Speed::FullSpeed,
-                libusb::Speed::Low => usb::Speed::LowSpeed,
-                _ => usb::Speed::Unknown,
-            }
-        }
-    }
-
-    impl From<libusb::Direction> for usb::Direction {
-        fn from(libusb: libusb::Direction) -> Self {
-            match libusb {
-                libusb::Direction::Out => usb::Direction::Out,
-                libusb::Direction::In => usb::Direction::In,
-            }
-        }
-    }
-
-    impl From<libusb::TransferType> for usb::TransferType {
-        fn from(libusb: libusb::TransferType) -> Self {
-            match libusb {
-                libusb::TransferType::Control => usb::TransferType::Control,
-                libusb::TransferType::Isochronous => usb::TransferType::Isochronous,
-                libusb::TransferType::Bulk => usb::TransferType::Bulk,
-                libusb::TransferType::Interrupt => usb::TransferType::Interrupt,
-            }
-        }
-    }
-
-    impl From<libusb::UsageType> for usb::UsageType {
-        fn from(libusb: libusb::UsageType) -> Self {
-            match libusb {
-                libusb::UsageType::Data => usb::UsageType::Data,
-                libusb::UsageType::Feedback => usb::UsageType::Feedback,
-                libusb::UsageType::FeedbackData => usb::UsageType::FeedbackData,
-                libusb::UsageType::Reserved => usb::UsageType::Reserved,
-            }
-        }
-    }
-
-    impl From<libusb::SyncType> for usb::SyncType {
-        fn from(libusb: libusb::SyncType) -> Self {
-            match libusb {
-                libusb::SyncType::NoSync => usb::SyncType::None,
-                libusb::SyncType::Asynchronous => usb::SyncType::Asynchronous,
-                libusb::SyncType::Adaptive => usb::SyncType::Adaptive,
-                libusb::SyncType::Synchronous => usb::SyncType::Synchronous,
-            }
-        }
-    }
-
-    impl From<libusb::Version> for usb::Version {
-        fn from(libusb: libusb::Version) -> Self {
-            usb::Version(libusb.major(), libusb.minor(), libusb.sub_minor())
-        }
-    }
-
-    fn build_endpoints(interface_desc: &libusb::InterfaceDescriptor) -> Vec<usb::USBEndpoint> {
-        let mut ret: Vec<usb::USBEndpoint> = Vec::new();
-
-        for endpoint_desc in interface_desc.endpoint_descriptors() {
-            ret.push(usb::USBEndpoint {
-                address: usb::EndpointAddress {
-                    address: endpoint_desc.address(),
-                    number: endpoint_desc.number(),
-                    direction: usb::Direction::from(endpoint_desc.direction()),
-                },
-                transfer_type: usb::TransferType::from(endpoint_desc.transfer_type()),
-                sync_type: usb::SyncType::from(endpoint_desc.sync_type()),
-                usage_type: usb::UsageType::from(endpoint_desc.usage_type()),
-                max_packet_size: endpoint_desc.max_packet_size(),
-                interval: endpoint_desc.interval(),
-                length: endpoint_desc.length(),
-            });
-        }
-
-        ret
-    }
-
-    fn build_interfaces<T: libusb::UsbContext>(
-        device: &libusb::Device<T>,
-        handle: &mut Option<UsbDevice<T>>,
-        config_desc: &libusb::ConfigDescriptor,
-        with_udev: bool,
-    ) -> error::Result<Vec<usb::USBInterface>> {
-        let mut ret: Vec<usb::USBInterface> = Vec::new();
-
-        for interface in config_desc.interfaces() {
-            for interface_desc in interface.descriptors() {
-                let path = usb::get_interface_path(
-                    device.bus_number(),
-                    &device.port_numbers()?,
-                    config_desc.number(),
-                    interface_desc.interface_number(),
-                );
-
-                let mut interface = usb::USBInterface {
-                    name: get_sysfs_string(&path, "interface")
-                        .or(get_interface_string(&interface_desc, handle))
-                        .unwrap_or_default(),
-                    string_index: interface_desc.description_string_index().unwrap_or(0),
-                    number: interface_desc.interface_number(),
-                    path,
-                    class: usb::ClassCode::from(interface_desc.class_code()),
-                    sub_class: interface_desc.sub_class_code(),
-                    protocol: interface_desc.protocol_code(),
-                    alt_setting: interface_desc.setting_number(),
-                    driver: None,
-                    syspath: None,
-                    length: interface_desc.length(),
-                    endpoints: build_endpoints(&interface_desc),
-                };
-
-                // flag allows us to try again without udev if it raises an error
-                // but record the error for printing
-                if with_udev {
-                    interface.driver = get_udev_driver_name(&interface.path)?;
-                    interface.syspath = get_udev_syspath(&interface.path)?;
-                };
-
-                ret.push(interface);
-            }
-        }
-
-        Ok(ret)
-    }
-
-    fn build_configurations<T: libusb::UsbContext>(
-        device: &libusb::Device<T>,
-        handle: &mut Option<UsbDevice<T>>,
-        device_desc: &libusb::DeviceDescriptor,
-        sp_device: &system_profiler::USBDevice,
-        with_udev: bool,
-    ) -> error::Result<Vec<usb::USBConfiguration>> {
-        // Retrieve the current configuration (if available)
-        let cur_config = get_sysfs_configuration_string(&sp_device.sysfs_name());
-        let mut ret: Vec<usb::USBConfiguration> = Vec::new();
-
-        for n in 0..device_desc.num_configurations() {
-            let config_desc = match device.config_descriptor(n) {
-                Ok(c) => c,
-                Err(_) => continue,
-            };
-
-            let mut attributes = Vec::new();
-            if config_desc.remote_wakeup() {
-                attributes.push(usb::ConfigAttributes::RemoteWakeup);
-            }
-
-            if config_desc.self_powered() {
-                attributes.push(usb::ConfigAttributes::SelfPowered);
-            }
-
-            // Check if we have a cached iConfiguration string
-            let config_name = if let Some((config_num, ref config_name)) = cur_config {
-                // Configs start from 1, not 0
-                if config_num - 1 == n {
-                    Some(config_name.clone())
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-
-            ret.push(usb::USBConfiguration {
-                name: get_configuration_string(&config_desc, handle)
-                    .or(config_name)
-                    .unwrap_or(String::new()),
-                string_index: config_desc.description_string_index().unwrap_or(0),
-                number: config_desc.number(),
-                attributes,
-                max_power: NumericalUnit {
-                    value: config_desc.max_power() as u32,
-                    unit: String::from("mA"),
-                    description: None,
-                },
-                length: config_desc.length(),
-                total_length: config_desc.total_length(),
-                interfaces: build_interfaces(device, handle, &config_desc, with_udev)?,
-            });
-        }
-
-        Ok(ret)
-    }
-
-    #[allow(unused_variables)]
-    fn build_spdevice_extra<T: libusb::UsbContext>(
-        device: &libusb::Device<T>,
-        handle: &mut Option<UsbDevice<T>>,
-        device_desc: &libusb::DeviceDescriptor,
-        sp_device: &system_profiler::USBDevice,
-        with_udev: bool,
-    ) -> error::Result<usb::USBDeviceExtra> {
-        let mut extra = usb::USBDeviceExtra {
-            max_packet_size: device_desc.max_packet_size(),
-            string_indexes: (
-                device_desc.product_string_index().unwrap_or(0),
-                device_desc.manufacturer_string_index().unwrap_or(0),
-                device_desc.serial_number_string_index().unwrap_or(0),
-            ),
-            driver: None,
-            syspath: None,
-            // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids
-            vendor: super::names::vendor(device_desc.vendor_id())
-                .or(usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())),
-            product_name: super::names::product(device_desc.vendor_id(), device_desc.product_id())
-                .or(usb_ids::Device::from_vid_pid(
-                    device_desc.vendor_id(),
-                    device_desc.product_id(),
-                )
-                .map(|v| v.name().to_owned())),
-            configurations: build_configurations(
-                device,
-                handle,
-                device_desc,
-                sp_device,
-                with_udev,
-            )?,
-        };
-
-        // flag allows us to try again without udev if it raises an nting
-        // but record the error for printing
-        if with_udev {
-            let sysfs_name = sp_device.sysfs_name();
-            extra.driver = get_udev_driver_name(&sysfs_name)?;
-            extra.syspath = get_udev_syspath(&sysfs_name)?;
-        }
-
-        Ok(extra)
-    }
-
-    /// Builds a [`system_profiler::USBDevice`] from a [`libusb::Device`] by using `device_descriptor()` and intrograting for configuration strings. Optionally with `with_extra` will gather full device information, including from udev if feature is present.
-    ///
-    /// [`system_profiler::USBDevice.profiler_error`] `Option<String>` will contain any non-critical error during gather of `with_extra` data - normally due to permissions preventing open of device descriptors.
-    pub fn build_spdevice<T: libusb::UsbContext>(
-        device: &libusb::Device<T>,
-        with_extra: bool,
-    ) -> error::Result<system_profiler::USBDevice> {
-        let timeout = Duration::from_secs(1);
-        let speed = match usb::Speed::from(device.speed()) {
-            usb::Speed::Unknown => None,
-            v => Some(system_profiler::DeviceSpeed::SpeedValue(v)),
-        };
-
-        let mut error_str = None;
-        let device_desc = device.device_descriptor()?;
-
-        // try to get open device for strings but allowed to continue if this fails - get string functions will return empty
-        let mut usb_device = {
-            match device.open() {
-                Ok(h) => match h.read_languages(timeout) {
-                    Ok(l) => {
-                        if !l.is_empty() {
-                            Some(UsbDevice {
-                                handle: h,
-                                language: l[0],
-                                timeout,
-                            })
-                        } else {
-                            None
-                        }
-                    }
-                    Err(e) => {
-                        error_str = Some(format!(
-                            "Failed to open {:?}, will be unable to obtain all data: {}",
-                            device, e
-                        ));
-                        None
-                    }
-                },
-                Err(e) => {
-                    error_str = Some(format!(
-                        "Failed to open {:?}, will be unable to obtain all data: {}",
-                        device, e
-                    ));
-                    None
-                }
-            }
-        };
-
-        let mut sp_device = system_profiler::USBDevice {
-            vendor_id: Some(device_desc.vendor_id()),
-            product_id: Some(device_desc.product_id()),
-            device_speed: speed,
-            location_id: system_profiler::DeviceLocation {
-                bus: device.bus_number(),
-                number: device.address(),
-                tree_positions: device.port_numbers()?,
-            },
-            bcd_device: Some(device_desc.device_version().into()),
-            bcd_usb: Some(device_desc.usb_version().into()),
-            class: Some(usb::ClassCode::from(device_desc.class_code())),
-            sub_class: Some(device_desc.sub_class_code()),
-            protocol: Some(device_desc.protocol_code()),
-            ..Default::default()
-        };
-
-        // Attempt to lookup 'i' strings (iManufacturer, iProduct, iSerialNumber) from device with
-        // the following precedence
-        // 1. Read directly from the device descriptor (usually requires root access)
-        // 2. (on Linux) Read from sysfs, which is a cached copy of the device descriptor
-        //    TODO (does macOS and Windows have an equivalent/similar way to retrieve this info?)
-        // 3. Lookup iManufacturer and iProduct from the USB IDs list (iSerial has no alternative)
-
-        sp_device.manufacturer =
-            get_manufacturer_string(&device_desc, &mut usb_device) // descriptor
-                // sysfs cache
-                .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer"))
-                // udev-hwdb
-                .or(super::names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
-                // usb-ids
-                .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
-                    .map(|vendor| vendor.name().to_owned()));
-
-        sp_device.name = get_product_string(&device_desc, &mut usb_device) // descriptor
-            // sysfs cache
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "product"))
-            // udev-hwdb
-            .or(super::names::product(
-                device_desc.vendor_id(),
-                device_desc.product_id(),
-            ))
-            // usb-ids
-            .or(
-                usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
-                    .map(|device| device.name().to_owned()),
-            )
-            // empty
-            .unwrap_or_default();
-
-        sp_device.serial_num = get_serial_string(&device_desc, &mut usb_device)
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "serial"));
-
-        let extra_error_str = if with_extra {
-            match build_spdevice_extra(device, &mut usb_device, &device_desc, &sp_device, true) {
-                Ok(extra) => {
-                    sp_device.extra = Some(extra);
-                    None
-                }
-                Err(e) => {
-                    // try again without udev if we have that feature but return message so device still added
-                    if cfg!(feature = "udev") && e.kind() == ErrorKind::Udev {
-                        sp_device.extra = Some(build_spdevice_extra(
-                            device,
-                            &mut usb_device,
-                            &device_desc,
-                            &sp_device,
-                            false,
-                        )?);
-                        Some(format!( "Failed to get udev data for {}, probably requires elevated permissions", sp_device ))
-                    } else {
-                        Some(format!( "Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e ))
-                    }
-                }
-            }
-        } else {
-            None
-        };
-
-        if error_str.is_none() {
-            error_str = extra_error_str;
-        }
-
-        sp_device.profiler_error = error_str;
-        Ok(sp_device)
-    }
-
-    fn _get_spusb(
-        with_extra: bool,
-        print_stderr: bool,
-    ) -> Result<system_profiler::SPUSBDataType, Error> {
-        let mut spusb = system_profiler::SPUSBDataType { buses: Vec::new() };
-        // temporary store of devices created when iterating through DeviceList
-        let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
-        // lookup for root hubs to assign info to bus on linux
-        let mut root_hubs: HashMap<u8, system_profiler::USBDevice> = HashMap::new();
-
-        log::info!("Building SPUSBDataType with libusb {:?}", libusb::version());
-
-        // run through devices building USBDevice types
-        for device in libusb::DeviceList::new()?.iter() {
-            match build_spdevice(&device, with_extra) {
-                Ok(sp_device) => {
-                    cache.push(sp_device.to_owned());
-
-                    // print any non-critical error during extra capture
-                    sp_device.profiler_error.iter().for_each(|e| {
-                        if print_stderr {
-                            eprintln!("{}", e);
-                        } else {
-                            log::warn!("Non-critical error during profile: {}", e);
-                        }
-                    });
-
-                    // save it if it's a root_hub for assigning to bus data
-                    if !cfg!(target_os = "macos") && sp_device.is_root_hub() {
-                        root_hubs.insert(sp_device.location_id.bus, sp_device);
-                    }
-                }
-                Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e),
-            }
-        }
-
-        // ensure sort of bus so that grouping is not broken up
-        cache.sort_by_key(|d| d.location_id.bus);
-        log::trace!("Sorted devices {:#?}", cache);
-
-        // group by bus number and then stick them into a bus in the returned SPUSBDataType
-        for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
-            let root = if !cfg!(target_os = "macos") {
-                root_hubs.get(&key)
-            } else {
-                None
-            };
-            log::debug!("Root device {:?}", root);
-
-            // create the bus, we'll add devices at next step
-            let mut new_bus = system_profiler::USBBus {
-                name: "Unknown".into(),
-                host_controller: "Unknown".into(),
-                usb_bus_number: Some(key),
-                ..Default::default()
-            };
-
-            if let Some(root_hub) = root {
-                root_hub.name.clone_into(&mut new_bus.name);
-                root_hub
-                    .manufacturer
-                    .as_ref()
-                    .unwrap_or(&String::new())
-                    .clone_into(&mut new_bus.host_controller);
-                new_bus.pci_vendor = root_hub.vendor_id;
-                new_bus.pci_device = root_hub.product_id;
-            }
-
-            // group into parent groups with parent path as key or trunk devices so they end up in same place
-            let parent_groups = group.group_by(|d| d.parent_path().unwrap_or(d.trunk_path()));
-
-            // now go through parent paths inserting devices owned by that parent
-            // this is not perfect...if the sort of devices does not result in order of depth, it will panic because the parent of a device will not exist. But that won't happen, right...
-            // sort key - ends_with to ensure root_hubs, which will have same str length as trunk devices will still be ahead
-            for (parent_path, children) in parent_groups
-                .into_iter()
-                .sorted_by_key(|x| x.0.len() - x.0.ends_with("-0") as usize)
-            {
-                log::debug!("Adding devices to parent {}", parent_path);
-                // if root devices, add them to bus
-                if parent_path.ends_with("-0") {
-                    // if parent_path == "-" {
-                    let devices = std::mem::take(&mut new_bus.devices);
-                    if let Some(mut d) = devices {
-                        for new_device in children {
-                            d.push(new_device);
-                        }
-                        new_bus.devices = Some(d);
-                    } else {
-                        new_bus.devices = Some(children.collect());
-                    }
-                    log::debug!("Updated bus {}", new_bus);
-                    log::trace!("Updated bus devices {:?}", new_bus.devices);
-                // else find and add parent - this should work because we are sorted to accend the tree so parents should be created before their children
-                } else {
-                    let parent_node = new_bus
-                        .get_node_mut(&parent_path)
-                        .expect("Parent node does not exist in new bus!");
-                    let devices = std::mem::take(&mut parent_node.devices);
-                    if let Some(mut d) = devices {
-                        for new_device in children {
-                            d.push(new_device);
-                        }
-                        parent_node.devices = Some(d);
-                    } else {
-                        parent_node.devices = Some(children.collect());
-                    }
-                    log::debug!("Updated parent {}", parent_node);
-                    log::trace!("Updated parent devices {:?}", parent_node.devices);
-                }
-            }
-
-            spusb.buses.push(new_bus);
-        }
-
-        Ok(spusb)
-    }
-
-    /// Get [`system_profiler::SPUSBDataType`] using `libusb`. Does not source [`usb::USBDeviceExtra`] - use [`get_spusb_with_extra`] for that; the extra operation is mostly moving data around so the only hit is to stack.
-    ///
-    /// Runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. Then sorts into parent groups, accending in depth to build the [`system_profiler::USBBus`] tree.
-    ///
-    /// Building the [`system_profiler::SPUSBDataType`] depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
-    pub fn get_spusb(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, Error> {
-        _get_spusb(false, print_stderr)
-    }
-
-    /// Get [`system_profiler::SPUSBDataType`] using `libusb` including [`usb::USBDeviceExtra`] - the main function to use for most use cases unless one does not want verbose data.
-    ///
-    /// Like `get_spusb`, runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. On Linux and with the 'udev' feature enabled, the syspath and driver will attempt to be obtained.
-    pub fn get_spusb_with_extra(
-        print_stderr: bool,
-    ) -> Result<system_profiler::SPUSBDataType, Error> {
-        _get_spusb(true, print_stderr)
-    }
-
-    /// Fills a passed mutable `spusb` reference to fill using `get_spusb`. Will replace existing [`system_profiler::USBDevice`]s found in the libusb build but leave others and the buses.
-    ///
-    /// The main use case for this is to merge with macOS `system_profiler` data, so that [`usb::USBDeviceExtra`] can be obtained but internal buses kept. One could also use it to update a static .json dump.
-    pub fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType) -> Result<(), Error> {
-        let libusb_spusb = get_spusb_with_extra(false)?;
-
-        // merge if passed has any buses
-        if !spusb.buses.is_empty() {
-            for mut bus in libusb_spusb.buses {
-                if let Some(existing) = spusb
-                    .buses
-                    .iter_mut()
-                    .find(|b| b.get_bus_number() == bus.get_bus_number())
-                {
-                    // just take the devices and put them in since libusb will be more verbose
-                    existing.devices = std::mem::take(&mut bus.devices);
-                }
-            }
-        }
-
-        Ok(())
+use crate::display::PrintSettings;
+use crate::error::{Error, ErrorKind};
+use crate::system_profiler;
+use uuid::Uuid;
+
+use crate::usb::descriptors::audio;
+use crate::usb::descriptors::cdc;
+use crate::usb::descriptors::video;
+use crate::usb::descriptors::*;
+use crate::usb::*;
+
+mod audio_dumps;
+mod bos_dumps;
+pub mod names;
+mod video_dumps;
+
+use audio_dumps::*;
+use bos_dumps::*;
+use video_dumps::*;
+
+const TREE_LSUSB_BUS: &str = "/:  ";
+const TREE_LSUSB_DEVICE: &str = "|__ ";
+const TREE_LSUSB_SPACE: &str = "    ";
+
+const LSUSB_DUMP_WIDTH: usize = 24;
+const LSUSB_DUMP_INDENT_BASE: usize = 2;
+
+/// Dump an array of value like lsusb
+fn dump_array<T: std::fmt::Display>(array: &[T], field_name: &str, indent: usize, width: usize) {
+    for (i, b) in array.iter().enumerate() {
+        dump_value(b, &format!("{}({:2})", field_name, i), indent, width);
     }
 }
 
-pub mod names {
-    //! Port of names.c in usbutils that provides name lookups for USB data using udev, falling back to USB IDs repository.
-    //!
-    //! lsusb uses udev and the bundled hwdb (based on USB IDs) for name lookups. To attempt parity with lsusb, this module uses udev_hwdb if the feature is enabled, otherwise it will fall back to the USB IDs repository. Whilst they both get data from the same source, the bundled udev hwdb might be different due to release version/customisations.
-    //!
-    //! The function names match those found in the lsusb source code.
-    //!
-    //! TODO: use extra USB IDs for full descriptor dumping
-    #[allow(unused_imports)]
-    use crate::error::{Error, ErrorKind};
-    use usb_ids::{self, FromId};
-
-    /// Get name of vendor from [`usb_ids::Vendor`] or [`hwdb_get`] if feature is enabled
-    ///
-    /// ```
-    /// use cyme::lsusb::names;
-    /// assert_eq!(names::vendor(0x1d6b), Some("Linux Foundation".to_owned()));
-    /// ```
-    pub fn vendor(vid: u16) -> Option<String> {
-        hwdb_get(&format!("usb:v{:04X}*", vid), "ID_VENDOR_FROM_DATABASE")
-            .unwrap_or(usb_ids::Vendor::from_id(vid).map(|v| v.name().to_owned()))
-    }
-
-    /// Get name of product from [`usb_ids::Device`] or [`hwdb_get`] if feature is enabled
-    ///
-    /// ```
-    /// use cyme::lsusb::names;
-    /// assert_eq!(names::product(0x1d6b, 0x0003), Some("3.0 root hub".to_owned()));
-    /// ```
-    pub fn product(vid: u16, pid: u16) -> Option<String> {
-        hwdb_get(
-            &format!("usb:v{:04X}p{:04X}*", vid, pid),
-            "ID_MODEL_FROM_DATABASE",
-        )
-        .unwrap_or(usb_ids::Device::from_vid_pid(vid, pid).map(|v| v.name().to_owned()))
-    }
-
-    /// Get name of class from [`usb_ids::Class`] or [`hwdb_get`] if feature is enabled
-    ///
-    /// ```
-    /// use cyme::lsusb::names;
-    /// assert_eq!(names::class(0x03), Some("Human Interface Device".to_owned()));
-    /// ```
-    pub fn class(id: u8) -> Option<String> {
-        hwdb_get(
-            &format!("usb:v*p*d*dc{:02X}*", id),
-            "ID_USB_CLASS_FROM_DATABASE",
-        )
-        .unwrap_or(usb_ids::Class::from_id(id).map(|v| v.name().to_owned()))
-    }
-
-    /// Get name of sub class from [`usb_ids::SubClass`] or [`hwdb_get`] if feature is enabled
-    ///
-    /// ```
-    /// use cyme::lsusb::names;
-    /// assert_eq!(names::subclass(0x02, 0x02), Some("Abstract (modem)".to_owned()));
-    /// ```
-    pub fn subclass(cid: u8, scid: u8) -> Option<String> {
-        hwdb_get(
-            &format!("usb:v*p*d*dc{:02X}dsc{:02X}*", cid, scid),
-            "ID_USB_SUBCLASS_FROM_DATABASE",
-        )
-        .unwrap_or(usb_ids::SubClass::from_cid_scid(cid, scid).map(|v| v.name().to_owned()))
-    }
-
-    /// Get name of protocol from [`usb_ids::Protocol`] or [`hwdb_get`] if feature is enabled
-    ///
-    /// ```
-    /// use cyme::lsusb::names;
-    /// assert_eq!(names::protocol(0x02, 0x02, 0x05), Some("AT-commands (3G)".to_owned()));
-    /// ```
-    pub fn protocol(cid: u8, scid: u8, pid: u8) -> Option<String> {
-        hwdb_get(
-            &format!("usb:v*p*d*dc{:02X}dsc{:02X}dp{:02X}*", cid, scid, pid),
-            "ID_USB_PROTOCOL_FROM_DATABASE",
-        )
-        .unwrap_or(
-            usb_ids::Protocol::from_cid_scid_pid(cid, scid, pid).map(|v| v.name().to_owned()),
-        )
-    }
-
-    /// Get HID descriptor type name from [`usb_ids::Hid`]
-    pub fn hid(id: u8) -> Option<String> {
-        usb_ids::Hid::from_id(id).map(|v| v.name().to_owned())
-    }
-
-    /// Get HID report tag name from [`usb_ids::HidItemType`]
-    pub fn report_tag(id: u8) -> Option<String> {
-        usb_ids::HidItemType::from_id(id).map(|v| v.name().to_owned())
-    }
-
-    /// Get name of [`usb_ids::HidUsagePage`] from id
-    pub fn huts(id: u8) -> Option<String> {
-        usb_ids::HidUsagePage::from_id(id).map(|v| v.name().to_owned())
-    }
-
-    /// Get name of [`usb_ids::HidUsage`] from page id and usage id
-    pub fn hutus(page_id: u8, id: u16) -> Option<String> {
-        usb_ids::HidUsage::from_pageid_uid(page_id, id).map(|v| v.name().to_owned())
-    }
-
-    /// Get name of [`usb_ids::Language`] from id
-    pub fn langid(id: u16) -> Option<String> {
-        usb_ids::Language::from_id(id).map(|v| v.name().to_owned())
-    }
-
-    /// Get name of [`usb_ids::Phy`] from id
-    pub fn physdes(id: u8) -> Option<String> {
-        usb_ids::Phy::from_id(id).map(|v| v.name().to_owned())
-    }
-
-    /// Get name of [`usb_ids::Bias`] from id
-    pub fn bias(id: u8) -> Option<String> {
-        usb_ids::Bias::from_id(id).map(|v| v.name().to_owned())
-    }
-
-    /// Get name of [`usb_ids::HidCountryCode`] from id
-    pub fn countrycode(id: u8) -> Option<String> {
-        usb_ids::HidCountryCode::from_id(id).map(|v| v.name().to_owned())
-    }
-
-    /// Wrapper around [`crate::udev::hwdb_get`] so that it can be 'used' without feature
-    ///
-    /// Returns `Err` not `None` if feature is not enabled so that with unwrap_or hwdb can still return `None` if no match in db
-    #[allow(unused_variables)]
-    fn hwdb_get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
-        #[cfg(all(target_os = "linux", feature = "udev_hwdb"))]
-        return crate::udev::hwdb::get(modalias, key);
-
-        #[cfg(not(all(target_os = "linux", feature = "udev_hwdb")))]
-        return Err(Error::new(
-            ErrorKind::Unsupported,
-            "hwdb_get requires 'udev_hwdb' feature",
-        ));
+/// Dump a bitmap value mapping as hex like lsusb
+fn dump_bitmap_array<T: std::fmt::LowerHex + Into<u64> + Copy>(
+    array: &[T],
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    for (i, b) in array.iter().enumerate() {
+        dump_hex(*b, &format!("{}({:2})", field_name, i), indent, width);
     }
 }
 
-pub mod display {
-    //! Printing functions for lsusb style output of USB data
-    use crate::display::PrintSettings;
-    use crate::error::{Error, ErrorKind};
-    use crate::{system_profiler, usb};
+/// Dump just indented string
+fn dump_string(field_name: &str, indent: usize) {
+    println!("{:indent$}{}", "", field_name);
+}
 
-    const TREE_LSUSB_BUS: &str = "/:  ";
-    const TREE_LSUSB_DEVICE: &str = "|__ ";
-    const TREE_LSUSB_SPACE: &str = "    ";
+/// Dump a single value like lsusb
+fn dump_value<T: std::fmt::Display>(value: T, field_name: &str, indent: usize, width: usize) {
+    let value = value.to_string();
+    let spaces = " ".repeat(
+        (width - value.len())
+            .saturating_sub(field_name.len())
+            .max(1),
+    );
+    println!("{:indent$}{}{}{}", "", field_name, spaces, value,);
+}
 
-    /// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
-    pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
-        fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, settings: &PrintSettings) {
-            let sorted = settings.sort_devices.sort_devices(devices);
+/// Dump a single hex value like lsusb
+fn dump_hex<T: std::fmt::LowerHex + Into<u64>>(
+    value: T,
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    let value_as_u64: u64 = value.into();
+    let hex_value = format!(
+        "0x{:0width$x}",
+        value_as_u64,
+        width = (std::mem::size_of::<T>() * 2)
+    );
+    dump_value(hex_value, field_name, indent, width);
+}
 
-            for device in sorted {
-                if device.is_root_hub() {
-                    log::debug!("lsusb tree skipping root_hub {}", device);
-                    continue;
-                }
-                // the const len should get compiled to const...
-                let spaces =
-                    (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
-                let device_tree_strings: Vec<(String, String, String)> =
-                    device.to_lsusb_tree_string();
+/// Lookup the name of the value from passed function and dump it
+fn dump_name<T: std::fmt::Display>(
+    value: T,
+    names_f: fn(T) -> Option<String>,
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    let value_string = value.to_string();
+    let spaces = " ".repeat(
+        (width - value_string.len())
+            .saturating_sub(field_name.len())
+            .max(1),
+    );
+    let dump = format!("{:indent$}{}{}{}", "", field_name, spaces, value_string,);
+    if let Some(name) = names_f(value) {
+        println!("{} {}", dump, name);
+    }
+}
 
-                for strings in device_tree_strings {
-                    println!("{:>spaces$}{}", TREE_LSUSB_DEVICE, strings.0);
-                    if settings.verbosity >= 1 {
-                        println!("{:>spaces$}{}", TREE_LSUSB_SPACE, strings.1);
-                    }
-                    if settings.verbosity >= 2 {
-                        println!("{:>spaces$}{}", TREE_LSUSB_SPACE, strings.2);
-                    }
-                }
-                // print all devices with this device - if hub for example
-                device
-                    .devices
-                    .as_ref()
-                    .map_or((), |d| print_tree_devices(d, settings))
+/// Dumps the value and the string representation of the value to the right of width
+fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
+    value: T,
+    field_name: &str,
+    value_string: S,
+    indent: usize,
+    width: usize,
+) {
+    let value = value.to_string();
+    let spaces = " ".repeat(
+        (width - value.len())
+            .saturating_sub(field_name.len())
+            .max(1),
+    );
+    println!(
+        "{:indent$}{}{}{} {}",
+        "", field_name, spaces, value, value_string,
+    );
+}
+
+/// Dumps a string starting at value position, right aligned
+fn dump_string_right<T: std::fmt::Display>(guid: T, field_name: &str, indent: usize, width: usize) {
+    // -1 to account for space
+    let spaces = " ".repeat((width - 1).saturating_sub(field_name.len()).max(1));
+    println!("{:indent$}{}{}{}", "", field_name, spaces, guid);
+}
+
+/// Dumps GUID enclosed in braces like lsusb
+fn dump_guid(guid: &Uuid, field_name: &str, indent: usize, width: usize) {
+    dump_string_right(guid.braced().to_string(), field_name, indent, width);
+}
+
+/// Dumps junk descriptor bytes as hex like lsusb
+fn dump_junk(extra: &[u8], indent: usize, reported_len: usize, expected_len: usize) {
+    if reported_len > expected_len && extra.len() >= reported_len {
+        println!(
+            "{:^indent$}junk at descriptor end: {}",
+            "",
+            extra[expected_len..reported_len]
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<Vec<String>>()
+                .join(" ")
+        )
+    }
+}
+
+/// Dumps unknown descriptor bytes as hex like lsusb
+fn dump_unrecognised(extra: &[u8], indent: usize) {
+    println!(
+        "{:^indent$}** UNRECOGNIZED: {}",
+        "",
+        extra
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<String>>()
+            .join(" ")
+    )
+}
+
+/// Dumps strings matching the bits set in `bitmap` using `strings_f` function from LSB to MSB
+fn dump_bitmap_strings<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>, indent: usize)
+where
+    T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
+{
+    let bitmap_u64: u64 = bitmap.into();
+    let num_bits = std::mem::size_of::<T>() * 8;
+    for index in 0..num_bits {
+        if (bitmap_u64 >> index) & 0x1 != 0 {
+            if let Some(string) = strings_f(index) {
+                println!("{:indent$}{}", "", string);
             }
         }
+    }
+}
 
-        for bus in &spusb.buses {
-            let bus_tree_strings: Vec<(String, String, String)> = bus.to_lsusb_tree_string();
-            for strings in bus_tree_strings {
-                println!("{}{}", TREE_LSUSB_BUS, strings.0);
+/// Dumps strings matching the bits set in `bitmap` using `strings_f` function from MSB to LSB
+fn dump_bitmap_strings_invert<T>(
+    bitmap: T,
+    strings_f: fn(usize) -> Option<&'static str>,
+    indent: usize,
+) where
+    T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
+{
+    let bitmap_u64: u64 = bitmap.into();
+    let num_bits = std::mem::size_of::<T>() * 8;
+    for index in (0..num_bits).rev() {
+        if (bitmap_u64 >> index) & 0x1 != 0 {
+            if let Some(string) = strings_f(index) {
+                println!("{:indent$}{}", "", string);
+            }
+        }
+    }
+}
+
+/// Dump a single value and the string representation of the value to the right of width
+fn dump_bitmap_strings_inline<T, V>(
+    value: V,
+    bitmap: T,
+    field_name: &str,
+    strings_f: fn(usize) -> Option<&'static str>,
+    indent: usize,
+    width: usize,
+) where
+    T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
+    V: std::fmt::Display,
+{
+    let value = value.to_string();
+    let spaces = " ".repeat(
+        (width - value.len())
+            .saturating_sub(field_name.len())
+            .max(1),
+    );
+    print!("{:indent$}{}{}{}", "", field_name, spaces, value,);
+    let bitmap_u64: u64 = bitmap.into();
+    let num_bits = std::mem::size_of::<T>() * 8;
+    for index in 0..num_bits {
+        if (bitmap_u64 >> index) & 0x1 != 0 {
+            if let Some(string) = strings_f(index) {
+                print!(" {}", string);
+            }
+        }
+    }
+    println!();
+}
+
+fn get_guid(buf: &[u8]) -> String {
+    if buf.len() < 16 {
+        return String::from("INVALID GUID");
+    }
+
+    format!("{{{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}}}", 
+        buf[3], buf[2], buf[1], buf[0],
+        buf[5], buf[4],
+        buf[7], buf[6],
+        buf[8], buf[9],
+        buf[10], buf[11], buf[12], buf[13], buf[14], buf[15])
+}
+
+/// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
+pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
+    fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, settings: &PrintSettings) {
+        let sorted = settings.sort_devices.sort_devices(devices);
+
+        for device in sorted {
+            if device.is_root_hub() {
+                log::debug!("lsusb tree skipping root_hub {}", device);
+                continue;
+            }
+            // the const len should get compiled to const...
+            let indent = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
+            let device_tree_strings: Vec<(String, String, String)> = device.to_lsusb_tree_string();
+
+            for strings in device_tree_strings {
+                println!("{:>indent$}{}", TREE_LSUSB_DEVICE, strings.0);
                 if settings.verbosity >= 1 {
-                    println!("{}{}", TREE_LSUSB_SPACE, strings.1);
+                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, strings.1);
                 }
                 if settings.verbosity >= 2 {
-                    println!("{}{}", TREE_LSUSB_SPACE, strings.2);
+                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, strings.2);
                 }
             }
-
-            // followed by devices if there are some
-            bus.devices
+            // print all devices with this device - if hub for example
+            device
+                .devices
                 .as_ref()
                 .map_or((), |d| print_tree_devices(d, settings))
         }
     }
 
-    /// Dump a single [`system_profiler::USBDevice`] matching `dev_path` verbosely
-    pub fn dump_one_device(
-        devices: &Vec<&system_profiler::USBDevice>,
-        dev_path: &String,
-    ) -> Result<(), Error> {
-        for device in devices {
-            if &device.dev_path() == dev_path {
-                // error if extra is none because we need it for vebose
-                if device.extra.is_none() {
-                    return Err(Error::new(
-                        ErrorKind::Opening,
-                        &format!("Unable to open {}", dev_path),
-                    ));
-                } else {
-                    print(&vec![device], true);
-                    return Ok(());
-                }
+    for bus in &spusb.buses {
+        let bus_tree_strings: Vec<(String, String, String)> = bus.to_lsusb_tree_string();
+        for strings in bus_tree_strings {
+            println!("{}{}", TREE_LSUSB_BUS, strings.0);
+            if settings.verbosity >= 1 {
+                println!("{}{}", TREE_LSUSB_SPACE, strings.1);
+            }
+            if settings.verbosity >= 2 {
+                println!("{}{}", TREE_LSUSB_SPACE, strings.2);
             }
         }
 
-        Err(Error::new(
-            ErrorKind::NotFound,
-            &format!("Unable to find {}", dev_path),
-        ))
+        // followed by devices if there are some
+        bus.devices
+            .as_ref()
+            .map_or((), |d| print_tree_devices(d, settings))
+    }
+}
+
+/// Dump a single [`system_profiler::USBDevice`] matching `dev_path` verbosely
+pub fn dump_one_device(
+    devices: &Vec<&system_profiler::USBDevice>,
+    dev_path: &String,
+) -> Result<(), Error> {
+    for device in devices {
+        if &device.dev_path() == dev_path {
+            // error if extra is none because we need it for vebose
+            if device.extra.is_none() {
+                return Err(Error::new(
+                    ErrorKind::Opening,
+                    &format!("Unable to open {}", dev_path),
+                ));
+            }
+
+            print(&vec![device], true);
+            return Ok(());
+        }
     }
 
-    /// Print USB devices in lsusb style flat dump
-    ///
-    /// `verbose` flag enables verbose printing like lsusb (configs, interfaces and endpoints) - a huge dump!
-    pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
-        if !verbose {
-            for device in devices {
-                println!("{}", device.to_lsusb_string());
-            }
-        } else {
-            for device in devices {
-                match device.extra.as_ref() {
-                    None => log::warn!("Skipping {} because it does not contain extra data required for verbose print", device),
-                    Some(device_extra) => {
-                        println!(); // new lines separate in verbose lsusb
-                        println!("{}", device.to_lsusb_string());
-                        // print error regarding open if non-critcal during probe like lsusb --verbose
-                        if device.profiler_error.is_some() {
-                            eprintln!("Couldn't open device, some information will be missing");
-                        }
-                        print_device(device);
+    Err(Error::new(
+        ErrorKind::NotFound,
+        &format!("Unable to find {}", dev_path),
+    ))
+}
 
-                        for config in &device_extra.configurations {
-                            print_config(config);
+fn find_otg(extra: &[Descriptor]) -> Option<&OnTheGoDescriptor> {
+    extra.iter().find_map(|d| match d {
+        Descriptor::Otg(otg) => {
+            log::debug!("Found OTG descriptor: {:?}", otg);
+            dump_otg(otg, LSUSB_DUMP_INDENT_BASE);
+            Some(otg)
+        }
+        _ => None,
+    })
+}
 
-                            for interface in &config.interfaces {
-                                print_interface(interface);
+/// Print USB devices in lsusb style flat dump
+///
+/// `verbose` flag enables verbose printing like lsusb (configs, interfaces and endpoints) - a huge dump!
+pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
+    if !verbose {
+        for device in devices {
+            println!("{}", device.to_lsusb_string());
+        }
+    } else {
+        for device in devices {
+            match device.extra.as_ref() {
+                None => log::warn!(
+                    "Skipping {} because it does not contain extra data required for verbose print",
+                    device
+                ),
+                Some(device_extra) => {
+                    println!(); // new lines separate in verbose lsusb
+                    println!("{}", device.to_lsusb_string());
+                    // print error regarding open if non-critcal during probe like lsusb --verbose
+                    if device.profiler_error.is_some() {
+                        eprintln!("Couldn't open device, some information will be missing");
+                    }
+                    dump_device(device);
 
-                                for endpoint in &interface.endpoints {
-                                    print_endpoint(endpoint);
-                                }
+                    let mut otg = None;
+                    for config in &device_extra.configurations {
+                        dump_config(config, LSUSB_DUMP_INDENT_BASE);
+                        otg = config.extra.as_ref().map(|e| find_otg(e));
+
+                        for interface in &config.interfaces {
+                            dump_interface(interface, LSUSB_DUMP_INDENT_BASE * 2);
+                            otg = config.extra.as_ref().map(|e| find_otg(e));
+
+                            for endpoint in &interface.endpoints {
+                                dump_endpoint(endpoint, LSUSB_DUMP_INDENT_BASE * 3);
+                                otg = config.extra.as_ref().map(|e| find_otg(e));
                             }
                         }
+                    }
+
+                    let has_ssp = if let Some(bos) = &device_extra.binary_object_store {
+                        dump_bos_descriptor(bos, 0);
+                        bos.capabilities
+                            .iter()
+                            .any(|c| matches!(c, bos::BosCapability::SuperSpeedPlus(_)))
+                    } else {
+                        false
+                    };
+                    if let Some(hub) = &device_extra.hub {
+                        let bcd = device.bcd_usb.map_or(0x0100, |v| v.into());
+                        dump_hub(hub, device.protocol.unwrap_or(1), bcd, has_ssp, 0);
+                    }
+                    // lsusb do_dualspeed: dump_device_qualifier
+                    if let Some(qualifier) = &device_extra.qualifier {
+                        dump_device_qualifier(qualifier, 0);
+                    }
+                    if let Some(debug) = &device_extra.debug {
+                        dump_debug(debug, 0);
+                    }
+
+                    if let Some(status) = device_extra.status {
+                        dump_device_status(
+                            status,
+                            otg.is_some(),
+                            device.bcd_usb.map_or(false, |v| v.major() >= 3),
+                            0,
+                        );
                     }
                 }
             }
         }
     }
+}
 
-    fn print_device(device: &system_profiler::USBDevice) {
-        let device_extra = device
-            .extra
+/// Dump a [`system_profiler::USBDevice`] in style of lsusb --verbose
+fn dump_device(device: &system_profiler::USBDevice) {
+    let device_extra = device
+        .extra
+        .as_ref()
+        .expect("Cannot print verbose without extra data");
+
+    let (class_name, sub_class_name, protocol_name) =
+        match (device.base_class_code(), device.sub_class, device.protocol) {
+            (Some(bc), Some(scid), Some(pid)) => (
+                names::class(bc),
+                names::subclass(bc, scid),
+                names::protocol(bc, scid, pid),
+            ),
+            (Some(bc), Some(scid), None) => (names::class(bc), names::subclass(bc, scid), None),
+            (Some(bc), None, None) => (names::class(bc), None, None),
+            (None, None, None) => (None, None, None),
+            _ => unreachable!(),
+        };
+
+    println!("Device Descriptor:");
+    // These are constants - length is 18 bytes for descriptor, type is 1
+    dump_value(18, "bLength", 2, LSUSB_DUMP_WIDTH);
+    dump_value(1, "bDescriptorType", 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        device
+            .bcd_usb
             .as_ref()
-            .expect("Cannot print verbose without extra data");
+            .map_or(String::new(), |v| v.to_string()),
+        "bcdUSB",
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
 
-        let (class_name, sub_class_name, protocol_name) =
-            match (device.base_class_code(), device.sub_class, device.protocol) {
-                (Some(bc), Some(scid), Some(pid)) => (
-                    super::names::class(bc),
-                    super::names::subclass(bc, scid),
-                    super::names::protocol(bc, scid, pid),
-                ),
-                (Some(bc), Some(scid), None) => (
-                    super::names::class(bc),
-                    super::names::subclass(bc, scid),
-                    None,
-                ),
-                (Some(bc), None, None) => (super::names::class(bc), None, None),
-                (None, None, None) => (None, None, None),
-                _ => unreachable!(),
-            };
+    dump_value_string(
+        device.base_class_code().unwrap_or(0),
+        "bDeviceClass",
+        class_name.unwrap_or(String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
 
-        println!("Device Descriptor:");
-        // These are constants - length is 18 bytes for descriptor, type is 1
-        println!("  bLength               18");
-        println!("  bDescriptorType        1");
-        println!(
-            "  bcdUSB              {}",
-            device
-                .bcd_usb
-                .as_ref()
-                .map_or(String::new(), |v| v.to_string())
-        );
-        println!(
-            "  bDeviceClass         {:3} {}",
-            device.base_class_code().unwrap_or(0),
-            class_name.unwrap_or_default()
-        );
-        println!(
-            "  bDeviceSubClass      {:3} {}",
-            device.sub_class.unwrap_or(0),
-            sub_class_name.unwrap_or_default()
-        );
-        println!(
-            "  bDeviceProtocol      {:3} {}",
-            device.protocol.unwrap_or(0),
-            protocol_name.unwrap_or_default()
-        );
-        println!("  bMaxPacketSize0      {:3}", device_extra.max_packet_size);
-        println!(
-            "  idVendor          {:#06x} {}",
-            device.vendor_id.unwrap_or(0),
-            device_extra.vendor.as_ref().unwrap_or(&String::new())
-        );
-        println!(
-            "  idProduct         {:#06x} {}",
-            device.product_id.unwrap_or(0),
-            device_extra.product_name.as_ref().unwrap_or(&String::new())
-        );
-        println!(
-            "  bcdDevice           {}",
-            device
-                .bcd_device
-                .as_ref()
-                .map_or(String::new(), |v| v.to_string())
-        );
-        println!(
-            "  iManufacturer        {:3} {}",
-            device_extra.string_indexes.0,
-            device.manufacturer.as_ref().unwrap_or(&String::new())
-        );
-        println!(
-            "  iProduct             {:3} {}",
-            device_extra.string_indexes.1, device.name
-        );
-        println!(
-            "  iSerialNumber        {:3} {}",
-            device_extra.string_indexes.2,
-            device.serial_num.as_ref().unwrap_or(&String::new())
-        );
-        println!(
-            "  bNumConfigurations   {:3}",
-            device_extra.configurations.len()
-        );
+    dump_value_string(
+        device.sub_class.unwrap_or(0),
+        "bDeviceSubClass",
+        sub_class_name.unwrap_or(String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value_string(
+        device.protocol.unwrap_or(0),
+        "bDeviceProtocol",
+        protocol_name.unwrap_or_default(),
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value(
+        device_extra.max_packet_size,
+        "bMaxPacketSize0",
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value_string(
+        format!("0x{:04x}", device.vendor_id.unwrap_or(0)),
+        "idVendor",
+        device_extra
+            .vendor
+            .as_ref()
+            .unwrap_or(&String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value_string(
+        format!("0x{:04x}", device.product_id.unwrap_or(0)),
+        "idProduct",
+        device_extra
+            .product_name
+            .as_ref()
+            .unwrap_or(&String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value(
+        device
+            .bcd_device
+            .as_ref()
+            .map_or(String::new(), |v| v.to_string()),
+        "bcdDevice",
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value_string(
+        device_extra.string_indexes.0,
+        "iManufacturer",
+        device
+            .manufacturer
+            .as_ref()
+            .unwrap_or(&String::from("[unknown]")),
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value_string(
+        device_extra.string_indexes.1,
+        "iProduct",
+        &device.name,
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value_string(
+        device_extra.string_indexes.2,
+        "iSerialNumber",
+        device.serial_num.as_ref().unwrap_or(&String::new()),
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value(
+        device_extra.configurations.len(),
+        "bNumConfigurations",
+        2,
+        LSUSB_DUMP_WIDTH,
+    );
+}
+
+/// Dump a [`USBConfiguration`] in style of lsusb --verbose
+fn dump_config(config: &USBConfiguration, indent: usize) {
+    dump_string("Configuration Descriptor:", indent);
+    dump_value(config.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(2, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 2 for configuration
+    dump_value(
+        config.total_length,
+        "wTotalLength",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        config.interfaces.len(),
+        "bNumInterfaces",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        config.number,
+        "bConfigurationValue",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        config.string_index,
+        "iConfiguration",
+        &config.name,
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        config.attributes_value(),
+        "bmAttributes",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    // no attributes is bus powered
+    if config.attributes.is_empty() {
+        dump_string("(Bus Powered)", indent + 4);
+    } else {
+        if config.attributes.contains(&ConfigAttributes::SelfPowered) {
+            dump_string("Self Powered", indent + 4);
+        }
+        if config.attributes.contains(&ConfigAttributes::RemoteWakeup) {
+            dump_string("Remote Wakeup", indent + 4);
+        }
     }
+    dump_value(
+        format!("{}{}", config.max_power.value, config.max_power.unit),
+        "MaxPower",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
 
-    fn print_config(config: &usb::USBConfiguration) {
-        println!("  Configuration Descriptor:");
-        println!("    bLength              {:3}", config.length);
-        println!("    bDescriptorType        2"); // type 2 for configuration
-        println!("    wTotalLength      {:#06x}", config.total_length);
-        println!("    bNumInterfaces       {:3}", config.interfaces.len());
-        println!("    bConfigurationValue  {:3}", config.number);
-        println!(
-            "    iConfiguration       {:3} {}",
-            config.string_index, config.name
-        );
-        println!(
-            "    bmAttributes:       0x{:02x}",
-            config.attributes_value()
-        );
-        // no attributes is bus powered
-        if config.attributes.is_empty() {
-            println!("      (Bus Powered)");
-        } else {
-            if config
-                .attributes
-                .contains(&usb::ConfigAttributes::SelfPowered)
-            {
-                println!("      Self Powered");
-            }
-            if config
-                .attributes
-                .contains(&usb::ConfigAttributes::RemoteWakeup)
-            {
-                println!("      Remote Wakeup");
+    // dump extra descriptors
+    if let Some(dt_vec) = &config.extra {
+        for dt in dt_vec {
+            match dt {
+                Descriptor::InterfaceAssociation(iad) => {
+                    dump_interface_association(iad, indent + 2);
+                }
+                Descriptor::Security(sec) => {
+                    dump_security(sec, indent + 2);
+                }
+                Descriptor::Encrypted(enc) => {
+                    dump_encryption_type(enc, indent + 2);
+                }
+                Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
+                    dump_unrecognised(junk, indent + 2);
+                }
+                _ => (),
             }
         }
-        println!(
-            "    MaxPower           {:5}{}",
-            config.max_power.value, config.max_power.unit
-        )
     }
+}
 
-    fn print_interface(interface: &usb::USBInterface) {
-        let interface_name = super::names::class(interface.class.into());
-        let sub_class_name = super::names::subclass(interface.class.into(), interface.sub_class);
-        let protocol_name = super::names::protocol(
-            interface.class.into(),
-            interface.sub_class,
-            interface.protocol,
-        );
+/// Dump a [`USBInterfaceAssociation`] in style of lsusb --verbose
+fn dump_interface(interface: &USBInterface, indent: usize) {
+    let interface_name = names::class(interface.class.into());
+    let sub_class_name = names::subclass(interface.class.into(), interface.sub_class);
+    let protocol_name = names::protocol(
+        interface.class.into(),
+        interface.sub_class,
+        interface.protocol,
+    );
 
-        println!("    Interface Descriptor:");
-        println!("      bLength              {:3}", interface.length);
-        println!("      bDescriptorType        4"); // type 4 for interface
-        println!("      bInterfaceNumber     {:3}", interface.number);
-        println!("      bAlternateSetting    {:3}", interface.alt_setting);
-        println!("      bNumEndpoints        {:3}", interface.endpoints.len());
-        println!(
-            "      bInterfaceClass      {:3} {}",
-            u8::from(interface.class.to_owned()),
-            interface_name.unwrap_or_default()
-        );
-        println!(
-            "      bInterfaceSubClass   {:3} {}",
-            interface.sub_class,
-            sub_class_name.unwrap_or_default()
-        );
-        println!(
-            "      bInterfaceProtocol   {:3} {}",
-            interface.protocol,
-            protocol_name.unwrap_or_default()
-        );
-        println!(
-            "      iInterface           {:3} {}",
-            interface.string_index, interface.name
-        );
+    dump_string("Interface Descriptor:", indent);
+    dump_value(interface.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(4, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 4 for interface
+    dump_value(
+        interface.number,
+        "bInterfaceNumber",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        interface.alt_setting,
+        "bAlternateSetting",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        interface.endpoints.len(),
+        "bNumEndpoints",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        u8::from(interface.class.to_owned()),
+        "bInterfaceClass",
+        interface_name.unwrap_or(String::from("[unknown]")),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        interface.sub_class,
+        "bInterfaceSubClass",
+        sub_class_name.unwrap_or(String::from("[unknown]")),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        interface.protocol,
+        "bInterfaceProtocol",
+        protocol_name.unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        interface.string_index,
+        "iInterface",
+        &interface.name,
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    // dump extra descriptors
+    if let Some(dt_vec) = &interface.extra {
+        for dt in dt_vec {
+            match dt {
+                // Should only be Device or Interface as we mask out the rest
+                Descriptor::Device(cd) | Descriptor::Interface(cd) => match cd {
+                    ClassDescriptor::Hid(hidd) => dump_hid_device(hidd, indent + 2),
+                    ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 2),
+                    ClassDescriptor::Printer(pd) => dump_printer_desc(pd, indent + 2),
+                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 2),
+                    ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 2),
+                    ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md, indent + 2),
+                    ClassDescriptor::Audio(uacd, uacp) => match &uacd.descriptor_subtype {
+                        audio::UacType::Control(cs) => {
+                            dump_audiocontrol_interface(uacd, cs, uacp, indent + 2)
+                        }
+                        audio::UacType::Streaming(ss) => {
+                            dump_audiostreaming_interface(uacd, ss, uacp, indent + 2)
+                        }
+                        _ => (),
+                    },
+                    ClassDescriptor::Video(vcd, p) => match &vcd.descriptor_subtype {
+                        video::UvcType::Control(cs) => {
+                            dump_videocontrol_interface(vcd, cs, *p, indent + 2)
+                        }
+                        video::UvcType::Streaming(ss) => {
+                            dump_videostreaming_interface(vcd, ss, *p, indent + 2);
+                        }
+                    },
+                    ClassDescriptor::Generic(cc, gd) => match cc {
+                        Some((ClassCode::Audio, 3, _)) => {
+                            if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {
+                                dump_midistreaming_interface(&md, indent + 2);
+                            }
+                        }
+                        Some((ClassCode::Audio, s, p)) => {
+                            if let Ok(uacd) =
+                                audio::UacDescriptor::try_from((gd.to_owned(), *s, *p))
+                            {
+                                let uacp = audio::UacProtocol::from(*p);
+                                match &uacd.descriptor_subtype {
+                                    audio::UacType::Control(cs) => {
+                                        dump_audiocontrol_interface(&uacd, cs, &uacp, indent + 2)
+                                    }
+                                    audio::UacType::Streaming(ss) => {
+                                        dump_audiostreaming_interface(&uacd, ss, &uacp, indent + 2)
+                                    }
+                                    _ => (),
+                                }
+                            }
+                        }
+                        Some((ClassCode::Video, s, p)) => {
+                            if let Ok(uvcd) =
+                                video::UvcDescriptor::try_from((gd.to_owned(), *s, *p))
+                            {
+                                match &uvcd.descriptor_subtype {
+                                    video::UvcType::Control(cs) => {
+                                        dump_videocontrol_interface(&uvcd, cs, *p, indent + 2);
+                                    }
+                                    video::UvcType::Streaming(ss) => {
+                                        dump_videostreaming_interface(&uvcd, ss, *p, indent + 2);
+                                    }
+                                }
+                            }
+                        }
+                        Some((ClassCode::ApplicationSpecificInterface, 1, _)) => {
+                            if let Ok(dfud) = DfuDescriptor::try_from(gd.to_owned()) {
+                                dump_dfu_interface(&dfud, indent + 2);
+                            }
+                        }
+                        _ => {
+                            let junk = Vec::from(cd.to_owned());
+                            dump_unrecognised(&junk, indent + 2);
+                        }
+                    },
+                },
+                Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
+                    dump_unrecognised(junk, 6);
+                }
+                _ => (),
+            }
+        }
     }
+}
 
-    fn print_endpoint(endpoint: &usb::USBEndpoint) {
-        println!("      Endpoint Descriptor:");
-        println!("        bLength              {:3}", endpoint.length);
-        println!("        bDescriptorType        5"); // type 5 for endpoint
-        println!(
-            "        bEndpointAddress    {:#04x} EP {} {}",
-            endpoint.address.address,
+/// Dump a [`USBEndpoint`] in style of lsusb --verbose
+fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
+    dump_string("Endpoint Descriptor:", indent);
+    dump_value(endpoint.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(5, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 5 for endpoint
+    dump_value_string(
+        format!("0x{:02x}", endpoint.address.address),
+        "bEndpointAddress",
+        format!(
+            "EP {} {}",
             endpoint.address.number,
             endpoint.address.direction.to_string().to_uppercase()
+        ),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    // this is printed as int even though it's a bitmap
+    dump_value(
+        endpoint.attributes(),
+        "bmAttributes",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    println!(
+        "{:indent$}Transfer Type          {:?}",
+        "",
+        endpoint.transfer_type,
+        indent = indent + 4
+    );
+    println!(
+        "{:indent$}Sync Type              {:?}",
+        "",
+        endpoint.sync_type,
+        indent = indent + 4
+    );
+    println!(
+        "{:indent$}Usage Type             {:?}",
+        "",
+        endpoint.usage_type,
+        indent = indent + 4
+    );
+    dump_value_string(
+        format!("0x{:04x}", endpoint.max_packet_size),
+        "wMaxPacketSize",
+        format!("{} bytes", endpoint.max_packet_string()),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(endpoint.interval, "bInterval", indent + 2, LSUSB_DUMP_WIDTH);
+
+    // dump extra descriptors
+    // kind of messy but it's out lsusb does it
+    if let Some(dt_vec) = &endpoint.extra {
+        for dt in dt_vec {
+            match dt {
+                Descriptor::Endpoint(cd) => match cd {
+                    ClassDescriptor::Audio(ad, _) => {
+                        dump_audiostreaming_endpoint(ad, indent + 2);
+                    }
+                    ClassDescriptor::Midi(md, _) => {
+                        dump_midistreaming_endpoint(md, indent + 2);
+                    }
+                    // legacy as context should have been added to the descriptor
+                    ClassDescriptor::Generic(cc, gd) => match cc {
+                        Some((ClassCode::Audio, 2, p)) => {
+                            if let Ok(uacd) = audio::UacDescriptor::try_from((gd.to_owned(), 2, *p))
+                            {
+                                dump_audiostreaming_endpoint(&uacd, indent + 2);
+                            }
+                        }
+                        Some((ClassCode::Audio, 3, _)) => {
+                            if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {
+                                dump_midistreaming_endpoint(&md, indent + 2);
+                            }
+                        }
+                        _ => (),
+                    },
+                    _ => (),
+                },
+                // Misplaced descriptors
+                Descriptor::Device(cd) => match cd {
+                    ClassDescriptor::Ccid(ccid) => {
+                        dump_ccid_desc(ccid, indent);
+                    }
+                    _ => {
+                        println!(
+                            "{:indent$}DEVICE CLASS: {}",
+                            "",
+                            Vec::<u8>::from(cd.to_owned())
+                                .iter()
+                                .map(|b| format!("{:02x}", b))
+                                .collect::<Vec<String>>()
+                                .join(" "),
+                            indent = indent + 2
+                        );
+                    }
+                },
+                Descriptor::Interface(cd) => match cd {
+                    ClassDescriptor::Generic(cc, gd) => match cc {
+                        Some((ClassCode::CDCData, _, _))
+                        | Some((ClassCode::CDCCommunications, _, _)) => {
+                            if let Ok(cd) = gd.to_owned().try_into() {
+                                dump_comm_descriptor(&cd, indent)
+                            }
+                        }
+                        Some((ClassCode::MassStorage, _, _)) => {
+                            dump_pipe_desc(gd, indent + 2);
+                        }
+                        _ => {
+                            println!(
+                                "{:indent$}INTERFACE CLASS: {}",
+                                "",
+                                Vec::<u8>::from(cd.to_owned())
+                                    .iter()
+                                    .map(|b| format!("{:02x}", b))
+                                    .collect::<Vec<String>>()
+                                    .join(" "),
+                                indent = indent + 2
+                            );
+                        }
+                    },
+                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, 6),
+                    _ => {
+                        println!(
+                            "{:indent$}INTERFACE CLASS: {}",
+                            "",
+                            Vec::<u8>::from(cd.to_owned())
+                                .iter()
+                                .map(|b| format!("{:02x}", b))
+                                .collect::<Vec<String>>()
+                                .join(" "),
+                            indent = indent + 2
+                        );
+                    }
+                },
+                Descriptor::InterfaceAssociation(iad) => {
+                    dump_interface_association(iad, indent + 2);
+                }
+                Descriptor::SsEndpointCompanion(ss) => {
+                    println!(
+                        "{:indent$}bMaxBurst {:>14}",
+                        "",
+                        ss.max_burst,
+                        indent = indent + 2
+                    );
+                    match endpoint.transfer_type {
+                        TransferType::Bulk => {
+                            if ss.attributes & 0x1f != 0 {
+                                println!(
+                                    "{:indent$}MaxStreams {:>13}",
+                                    "",
+                                    1 << ss.attributes,
+                                    indent = indent + 2
+                                );
+                            }
+                        }
+                        TransferType::Isochronous => {
+                            if ss.attributes & 0x03 != 0 {
+                                println!(
+                                    "{:indent$}Mult {:>19}",
+                                    "",
+                                    ss.attributes & 0x3,
+                                    indent = indent + 2
+                                );
+                            }
+                        }
+                        _ => (),
+                    }
+                }
+                Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
+                    dump_unrecognised(junk, indent + 2);
+                }
+                _ => (),
+            }
+        }
+    }
+}
+
+fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
+    dump_string("ChipCard Interface Descriptor:", indent);
+    dump_value(ccid.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        ccid.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    if ccid.version.major() != 1 || ccid.version.minor() != 0 {
+        dump_value_string(
+            ccid.version,
+            "bcdCCID",
+            "(Warning: Only accurate for version 1.0)",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
         );
-        println!("        bmAttributes:");
+    } else {
+        dump_value(ccid.version, "bcdCCID", indent + 2, LSUSB_DUMP_WIDTH);
+    }
+
+    dump_value(
+        ccid.max_slot_index,
+        "bMaxSlotIndex",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_bitmap_strings_inline(
+        ccid.voltage_support,
+        ccid.voltage_support,
+        "bVoltageSupport",
+        |index| match index {
+            0 => Some("5.0V"),
+            1 => Some("3.0V"),
+            2 => Some("1.8V"),
+            _ => None,
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_bitmap_strings_inline(
+        ccid.protocols,
+        ccid.protocols,
+        "dwProtocols",
+        |index| match index {
+            0 => Some("T=0"),
+            1 => Some("T=1"),
+            _ => Some("(Invalid values detected)"),
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value(
+        ccid.default_clock,
+        "dwDefaultClock",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        ccid.max_clock,
+        "dwMaxiumumClock",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        ccid.num_clock_supported,
+        "bNumClockSupported",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        ccid.data_rate,
+        "dwDataRate",
+        "bps",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        ccid.max_data_rate,
+        "dwMaxDataRate",
+        "bps",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        ccid.num_data_rates_supp,
+        "bNumDataRatesSupp.",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(ccid.max_ifsd, "dwMaxIFSD", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_bitmap_strings_inline(
+        format!("{:08X}", ccid.sync_protocols),
+        ccid.sync_protocols,
+        "dwSyncProtocols",
+        |index| match index {
+            0 => Some("2-wire"),
+            1 => Some("3-wire"),
+            2 => Some("I2C"),
+            _ => None,
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_bitmap_strings_inline(
+        format!("{:08X}", ccid.mechanical),
+        ccid.mechanical,
+        "dwMechanical",
+        |index| match index {
+            0 => Some("accept"),
+            1 => Some("eject"),
+            2 => Some("capture"),
+            3 => Some("lock"),
+            _ => None,
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value(
+        format!("{:08X}", ccid.features),
+        "dwFeatures",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_bitmap_strings(
+        ccid.features,
+        |index| match index {
+            0 => Some("Auto configuration based on ATR"),
+            1 => Some("Auto activation on insert"),
+            2 => Some("Auto voltage selection"),
+            3 => Some("Auto clock change"),
+            4 => Some("Auto baud rate change"),
+            5 => Some("Auto parameter negotiation made by CCID"),
+            6 => Some("Auto PPS made by CCID"),
+            7 => Some("CCID can set ICC in clock stop mode"),
+            8 => Some("NAD value other than 0x00 accepted"),
+            9 => Some("Auto IFSD exchange"),
+            16 => Some("TPDU level exchange"),
+            17 => Some("Short APDU level exchange"),
+            18 => Some("Short and extended APDU level exchange"),
+            _ => None,
+        },
+        indent + 4,
+    );
+    if (ccid.features & (0x0040 | 0x0080)) != 0 {
         println!(
-            "          Transfer Type          {:?}",
-            endpoint.transfer_type
+            "{:indent$}WARNING: conflicting negotiation features",
+            "",
+            indent = indent + 2
         );
-        println!("          Sync Type              {:?}", endpoint.sync_type);
-        println!("          Usage Type             {:?}", endpoint.usage_type);
+    }
+    if ccid.features & 0x00070000 != 0 {
         println!(
-            "        wMaxPacketSize    {:#06x} {} bytes",
-            endpoint.max_packet_size,
-            endpoint.max_packet_string()
+            "{:indent$}WARNING: conflicting exchange levels",
+            "",
+            indent = indent + 2
         );
-        println!("        bInterval            {:3}", endpoint.interval);
+    }
+
+    dump_value(
+        ccid.max_ccid_msg_len,
+        "dwMaxCCIDMsgLen",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    if ccid.class_get_response == 0xff {
+        dump_value("echo", "bClassGetResponse", indent + 2, LSUSB_DUMP_WIDTH);
+    } else {
+        dump_value(
+            format!("{:02X}", ccid.class_get_response),
+            "bClassGetResponse",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    }
+
+    if ccid.class_envelope == 0xff {
+        dump_value("echo", "bClassEnvelope", indent + 2, LSUSB_DUMP_WIDTH);
+    } else {
+        dump_value(
+            format!("{:02X}", ccid.class_envelope),
+            "bClassEnvelope",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    }
+
+    if ccid.lcd_layout == (0, 0) {
+        dump_value("none", "wlcdLayout", indent + 2, LSUSB_DUMP_WIDTH);
+    } else {
+        dump_value_string(
+            ccid.lcd_layout.0,
+            "wlcdLayout",
+            format!(" cols {} lines", ccid.lcd_layout.1),
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    }
+
+    dump_bitmap_strings_inline(
+        ccid.pin_support,
+        ccid.pin_support,
+        "bPINSupport",
+        |index| match index {
+            0 => Some("verification"),
+            1 => Some("modification"),
+            _ => None,
+        },
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    dump_value(
+        ccid.max_ccid_busy_slots,
+        "bMaxCCIDBusySlots",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+}
+
+fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
+    dump_string("Printer Interface Descriptor:", indent);
+    dump_value(pd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        pd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        pd.release_number,
+        "bcdReleaseNumber",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        pd.descriptors.len(),
+        "bcdNumDescriptors",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    for desc in &pd.descriptors {
+        // basic capabilities
+        if desc.descriptor_type == 0x00 {
+            dump_value(
+                desc.versions_supported,
+                "iIPPVersionsSupported",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value_string(
+                desc.uuid_string_index,
+                "iIPPPrinterUUID",
+                desc.uuid_string.as_ref().unwrap_or(&String::new()),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            print!(
+                "{:indent$}wBasicCapabilities   0x{:04x} ",
+                "",
+                desc.capabilities,
+                indent = indent + 2
+            );
+
+            // capabilities
+            if desc.capabilities & 0x0001 != 0 {
+                print!(" Print");
+            }
+            if desc.capabilities & 0x0002 != 0 {
+                print!(" Scan");
+            }
+            if desc.capabilities & 0x0004 != 0 {
+                print!(" Fax");
+            }
+            if desc.capabilities & 0x0008 != 0 {
+                print!(" Other");
+            }
+            if desc.capabilities & 0x0010 != 0 {
+                print!(" HTTP-over-USB");
+            }
+            if (desc.capabilities & 0x0060) != 0 {
+                print!(" No-Auth");
+            } else if (desc.capabilities & 0x0060) != 0x20 {
+                print!(" Username-Auth");
+            } else if (desc.capabilities & 0x0060) != 0x40 {
+                print!(" Reserved-Auth");
+            } else if (desc.capabilities & 0x0060) != 0x60 {
+                print!(" Negotiable-Auth");
+            }
+            println!();
+        // vendor specific
+        } else {
+            dump_value_string(
+                desc.descriptor_type,
+                "UnknownCapabilities",
+                desc.length,
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+        }
+    }
+}
+
+fn dump_bad_comm(cd: &cdc::CommunicationDescriptor, indent: usize) {
+    let data = Into::<Vec<u8>>::into(cd.to_owned());
+    println!(
+        "{:^indent$}INVALID CDC ({:#}): {}",
+        "",
+        cd.descriptor_subtype,
+        data.iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<String>>()
+            .join(" ")
+    );
+}
+
+fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
+    match &cd.interface {
+        cdc::CdcInterfaceDescriptor::Header(d) => {
+            dump_string("CDC Header:", indent);
+            dump_value(d.version, "bcdCDC", indent + 2, LSUSB_DUMP_WIDTH);
+        }
+        cdc::CdcInterfaceDescriptor::CallManagement(cd) => {
+            dump_string("CDC Call Management:", indent);
+            dump_hex(
+                cd.capabilities,
+                "bmCapabilities",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_bitmap_strings(
+                cd.capabilities,
+                |b| match b {
+                    0 => Some("call management"),
+                    1 => Some("dataInterface"),
+                    _ => None,
+                },
+                indent + 4,
+            );
+        }
+        cdc::CdcInterfaceDescriptor::AbstractControlManagement(cd) => {
+            dump_string("CDC ACM:", indent);
+            dump_hex(
+                cd.capabilities,
+                "bmCapabilities",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_bitmap_strings_invert(
+                cd.capabilities,
+                |b| match b {
+                    0 => Some("get/set/clear comm features"),
+                    1 => Some("line coding and serial state"),
+                    2 => Some("sends break"),
+                    3 => Some("connection notifications"),
+                    _ => None,
+                },
+                indent + 4,
+            );
+        }
+        cdc::CdcInterfaceDescriptor::Union(cd) => {
+            dump_string("CDC Union:", indent);
+            dump_value(
+                cd.master_interface,
+                "bMasterInterface",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            println!(
+                "{:indent$}bSlaveInterface      {}",
+                "",
+                cd.slave_interface
+                    .iter()
+                    .map(|b| format!("{:3}", b))
+                    .collect::<Vec<String>>()
+                    .join(" "),
+                indent = indent + 2
+            );
+        }
+        cdc::CdcInterfaceDescriptor::CountrySelection(cd) => {
+            dump_string("Country Selection:", indent);
+            dump_value_string(
+                cd.country_code_date_index,
+                "iCountryCodeRelDate",
+                cd.country_code_date
+                    .as_ref()
+                    .unwrap_or(&String::from("(?)")),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            for d in &cd.country_codes {
+                dump_value(
+                    format!("{:04x}", d),
+                    "wCountryCode",
+                    indent + 2,
+                    LSUSB_DUMP_WIDTH,
+                );
+            }
+        }
+        cdc::CdcInterfaceDescriptor::TelephoneOperations(d) => {
+            dump_string("CDC Telephone operations:", indent);
+            dump_hex(
+                d.capabilities,
+                "bmCapabilities",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_bitmap_strings_invert(
+                d.capabilities,
+                |b| match b {
+                    0 => Some("simple mode"),
+                    1 => Some("standalone mode"),
+                    2 => Some("computer centric mode"),
+                    _ => None,
+                },
+                indent + 4,
+            );
+        }
+        cdc::CdcInterfaceDescriptor::NetworkChannel(d) => {
+            dump_string("Network Channel Terminal:", indent);
+            dump_value(d.entity_id, "bEntityId", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value_string(
+                d.name_string_index,
+                "iName",
+                d.name.as_ref().unwrap_or(&String::from("(?)")),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(
+                d.channel_index,
+                "bChannelIndex",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(
+                d.physical_interface,
+                "bPhysicalInterface",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+        }
+        cdc::CdcInterfaceDescriptor::EthernetNetworking(d) => {
+            dump_string("CDC Ethernet:", indent);
+            dump_value_string(
+                d.mac_address_index,
+                "iMacAddress",
+                d.mac_address.as_ref().unwrap_or(&String::from("(?)")),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_hex(
+                d.ethernet_statistics,
+                "bmEthernetStatistics",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(
+                d.max_segment_size,
+                "wMaxSegmentSize",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_hex(
+                d.num_multicast_filters,
+                "wNumberMCFilters",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_hex(
+                d.num_power_filters,
+                "bNumberPowerFilters",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+        }
+        cdc::CdcInterfaceDescriptor::WirelessHandsetControlModel(d) => {
+            dump_string("CDC WHCM:", indent);
+            dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+        }
+        cdc::CdcInterfaceDescriptor::MobileDirectLineModelFunctional(d) => {
+            dump_string("CDC MDLM:", indent);
+            dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH);
+        }
+        cdc::CdcInterfaceDescriptor::MobileDirectLineModelDetail(d) => {
+            dump_string("CDC MDLM detail:", indent);
+            dump_value(
+                format!("{:02x}", d.guid_descriptor_type),
+                "bGuidDescriptorType",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            println!(
+                "{:indent$}bDetailData          {}",
+                "",
+                d.detail_data
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<Vec<String>>()
+                    .join(" "),
+                indent = indent + 2
+            );
+        }
+        cdc::CdcInterfaceDescriptor::DeviceManagement(d) => {
+            dump_string("CDC MDLM:", indent);
+            dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value(d.max_command, "wMaxCommand", indent + 2, LSUSB_DUMP_WIDTH);
+        }
+        cdc::CdcInterfaceDescriptor::Obex(d) => {
+            dump_string("CDC OBEX:", indent);
+            dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+        }
+        cdc::CdcInterfaceDescriptor::CommandSet(d) => {
+            dump_string("CDC Command Set:", indent);
+            dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value_string(
+                d.command_set_string_index,
+                "iCommandSet",
+                d.command_set_string
+                    .as_ref()
+                    .unwrap_or(&String::from("(?)")),
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH);
+        }
+        cdc::CdcInterfaceDescriptor::Ncm(d) => {
+            dump_string("CDC NCM:", indent);
+            dump_value(d.version, "bcdNcmVersion", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_hex(
+                d.network_capabilities,
+                "bmNetworkCapabilities",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_bitmap_strings_invert(
+                d.network_capabilities,
+                |b| match b {
+                    0 => Some("packet filter"),
+                    1 => Some("net address"),
+                    2 => Some("encapsulated commands"),
+                    3 => Some("max cd.datagram size"),
+                    4 => Some("crc mode"),
+                    5 => Some("8-byte ntb input size"),
+                    _ => None,
+                },
+                indent + 4,
+            );
+        }
+        cdc::CdcInterfaceDescriptor::Mbim(d) => {
+            dump_string("CDC MBIM:", indent);
+            dump_value(d.version, "bcdMBIMVersion", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value(
+                d.max_control_message,
+                "wMaxControlMessage",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(
+                d.number_filters,
+                "bNumberFilters",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(
+                d.max_filter_size,
+                "bMaxFilterSize",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(
+                d.max_segment_size,
+                "wMaxSegmentSize",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_hex(
+                d.network_capabilities,
+                "bmNetworkCapabilities",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_bitmap_strings_invert(
+                d.network_capabilities,
+                |b| match b {
+                    3 => Some("max cd.datagram size"),
+                    5 => Some("8-byte ntb input size"),
+                    _ => None,
+                },
+                indent + 4,
+            );
+        }
+        cdc::CdcInterfaceDescriptor::MbimExtended(d) => {
+            dump_string("CDC MBIM Extended:", indent);
+            dump_value(
+                d.version,
+                "bcdMBIMExtendedVersion",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(
+                d.max_outstanding_command_messages,
+                "bMaxOutstandingCommandMessages",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
+            );
+            dump_value(d.mtu, "wMTU", indent + 2, LSUSB_DUMP_WIDTH);
+        }
+        cdc::CdcInterfaceDescriptor::Invalid(_) => {
+            dump_bad_comm(cd, indent);
+        }
+        _ => {
+            println!(
+                "{:^indent$}UNRECOGNIZED CDC: {}",
+                "",
+                Vec::<u8>::from(cd.to_owned())
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<Vec<String>>()
+                    .join(" "),
+                indent = indent
+            );
+        }
+    }
+}
+
+fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
+    // wider in lsusb but I prefer standard
+    //const DFU_WIDTH: usize = 36;
+    const DFU_WIDTH: usize = LSUSB_DUMP_WIDTH;
+
+    dump_string("Device Firmware Upgrade Interface Descriptor:", indent);
+    dump_value(dfud.length, "bLength", indent + 2, DFU_WIDTH);
+    dump_value(
+        dfud.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        DFU_WIDTH,
+    );
+    dump_value(dfud.attributes, "bmAttributes", indent + 2, DFU_WIDTH);
+
+    if dfud.attributes & 0xf0 != 0 {
+        println!("{:indent$}(unknown attributes!)", "", indent = indent + 4);
+    }
+    if dfud.attributes & 0x08 != 0 {
+        println!("{:indent$}Will Detach", "", indent = indent + 4);
+    } else {
+        println!("{:indent$}Will Not Detach", "", indent = indent + 4);
+    }
+    if dfud.attributes & 0x04 != 0 {
+        println!(
+            "{:indent$}Manifestation Intolerant",
+            "",
+            indent = indent + 4
+        );
+    } else {
+        println!("{:indent$}Manifestation Tolerant", "", indent = indent + 4);
+    }
+    if dfud.attributes & 0x02 != 0 {
+        println!("{:indent$}Upload Supported", "", indent = indent + 4);
+    } else {
+        println!("{:indent$}Upload Unsupported", "", indent = indent + 4);
+    }
+    if dfud.attributes & 0x01 != 0 {
+        println!("{:indent$}Download Supported", "", indent = indent + 4);
+    } else {
+        println!("{:indent$}Download Unsupported", "", indent = indent + 4);
+    }
+
+    dump_value_string(
+        dfud.detach_timeout,
+        "wDetachTimeout",
+        "milliseconds",
+        indent + 2,
+        DFU_WIDTH,
+    );
+    dump_value_string(
+        dfud.transfer_size,
+        "wTransferSize",
+        "bytes",
+        indent + 2,
+        DFU_WIDTH,
+    );
+    if let Some(bcd) = dfud.dfu_version.as_ref() {
+        dump_value(bcd, "bcdDFUVersion", indent + 2, DFU_WIDTH);
+    }
+}
+
+fn dump_pipe_desc(gd: &GenericDescriptor, indent: usize) {
+    if gd.length == 4 && gd.descriptor_type == 0x24 {
+        let subtype_string = match gd.descriptor_subtype {
+            1 => "Command pipe",
+            2 => "Status pipe",
+            3 => "Data-in pipe",
+            4 => "Data-out pipe",
+            0 | 5..=0xdf | 0xf0..=0xff => "Reserved",
+            0xe0..=0xef => "Vendor-specific",
+        };
+
+        println!(
+            "{:indent$}{} (0x{:02x})",
+            "",
+            subtype_string,
+            gd.descriptor_subtype,
+            indent = indent
+        );
+    } else {
+        println!(
+            "{:indent$}INTERFACE CLASS: {}",
+            "",
+            Vec::<u8>::from(gd.to_owned())
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<Vec<String>>()
+                .join(" "),
+            indent = indent
+        );
+    }
+}
+
+fn dump_security(sec: &SecurityDescriptor, indent: usize) {
+    dump_string("Security Descriptor:", indent);
+    dump_value(sec.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        sec.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_hex(
+        sec.total_length,
+        "wTotalLength",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        sec.encryption_types,
+        "bNumEncryptionTypes",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+}
+
+fn dump_encryption_type(enc: &EncryptionDescriptor, indent: usize) {
+    let enct_string = match enc.encryption_type as u8 {
+        0 => "UNSECURE",
+        1 => "WIRED",
+        2 => "CCM_1",
+        3 => "RSA_1",
+        _ => "RESERVED",
+    };
+
+    dump_string("Encryption Type:", indent);
+    dump_value(enc.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        enc.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        enc.encryption_type as u8,
+        "bEncryptionType",
+        enct_string,
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        enc.encryption_value,
+        "bEncryptionValue",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        enc.auth_key_index,
+        "bAuthKeyIndex",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+}
+
+fn dump_interface_association(iad: &InterfaceAssociationDescriptor, indent: usize) {
+    dump_string("Interface Association:", indent);
+    dump_value(iad.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        iad.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        iad.first_interface,
+        "bFirstInterface",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        iad.interface_count,
+        "bInterfaceCount",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        iad.function_class,
+        "bFunctionClass",
+        names::class(iad.function_class).unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        iad.function_sub_class,
+        "bFunctionSubClass",
+        names::subclass(iad.function_class, iad.function_sub_class).unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        iad.function_protocol,
+        "bFunctionProtocol",
+        names::protocol(
+            iad.function_class,
+            iad.function_sub_class,
+            iad.function_protocol,
+        )
+        .unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        iad.function_string_index,
+        "iFunction",
+        iad.function_string.as_ref().unwrap_or(&String::new()),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+}
+
+fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
+    dump_string("HID Descriptor:", indent);
+    dump_value(hidd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        hidd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(hidd.bcd_hid, "bcdHID", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value_string(
+        hidd.country_code,
+        "bCountryCode",
+        names::countrycode(hidd.country_code).unwrap_or_default(),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        hidd.descriptors.len(),
+        "bNumDescriptors",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    for desc in &hidd.descriptors {
+        dump_value_string(
+            desc.descriptor_type,
+            "bDescriptorType",
+            names::hid(desc.descriptor_type).unwrap_or_default(),
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+        dump_value(
+            desc.length,
+            "wDescriptorLength",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    }
+
+    for desc in &hidd.descriptors {
+        // only print report descriptor
+        if desc.descriptor_type != 0x22 {
+            continue;
+        }
+
+        match desc.data.as_ref() {
+            Some(d) => {
+                dump_report_desc(d, indent + 2);
+            }
+            None => {
+                dump_string("Report Descriptors:", indent + 2);
+                dump_string("** UNAVAILABLE **", indent + 4);
+            }
+        }
+    }
+}
+
+fn dump_device_qualifier(dqd: &DeviceQualifierDescriptor, indent: usize) {
+    dump_string("Device Qualifier:", indent);
+    dump_value(dqd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        dqd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(dqd.version, "bcdUSB", indent + 2, LSUSB_DUMP_WIDTH);
+    let class: u8 = dqd.device_class as u8;
+    dump_value_string(
+        class,
+        "bDeviceClass",
+        dqd.device_class,
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        dqd.device_subclass,
+        "bDeviceSubClass",
+        names::subclass(class, dqd.device_subclass).unwrap_or(String::from("[unknown]")),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value_string(
+        dqd.device_protocol,
+        "bDeviceProtocol",
+        names::protocol(class, dqd.device_subclass, dqd.device_protocol)
+            .unwrap_or(String::from("[unknown]")),
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        dqd.max_packet_size,
+        "bMaxPacketSize0",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(
+        dqd.num_configurations,
+        "bNumConfigurations",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+}
+
+fn dump_debug(dd: &DebugDescriptor, indent: usize) {
+    dump_string("Debug Descriptor:", indent);
+    dump_value(dd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        dd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_hex(
+        dd.debug_in_endpoint,
+        "bDebugInEndpoint",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_hex(
+        dd.debug_out_endpoint,
+        "bDebugOutEndpoint",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+}
+
+fn dump_otg(otg: &OnTheGoDescriptor, indent: usize) {
+    dump_string("OTG Descriptor:", indent);
+    dump_value(otg.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        otg.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_hex(otg.attributes, "bmAttributes", indent + 2, LSUSB_DUMP_WIDTH);
+    if otg.attributes & 0x01 != 0 {
+        dump_string("SRP (Session Request Protocol)", indent + 4);
+    }
+    if otg.attributes & 0x02 != 0 {
+        dump_string("HNP (Host Negotiation Protocol)", indent + 4);
+    }
+}
+
+const LINK_STATE_DESCRIPTIONS: [&str; 12] = [
+    "U0",
+    "U1",
+    "U2",
+    "suspend",
+    "SS.disabled",
+    "Rx.Detect",
+    "SS.Inactive",
+    "Polling",
+    "Recovery",
+    "Hot Reset",
+    "Compliance",
+    "Loopback",
+];
+
+/// Dump a single value and the string representation of the value to the right of width
+fn bitmap_strings_port<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>) -> String
+where
+    T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
+{
+    let bitmap_u64: u64 = bitmap.into();
+    let num_bits = std::mem::size_of::<T>() * 8;
+    let mut ret = String::new();
+    for index in (0..num_bits).rev() {
+        if (bitmap_u64 >> index) & 0x1 != 0 {
+            if let Some(string) = strings_f(index) {
+                ret.push_str(string);
+                ret.push(' ');
+            }
+        }
+    }
+
+    ret
+}
+
+fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: usize) {
+    let is_ext_status = protocol == 3 && bcd >= 0x0310 && has_ssp;
+    dump_string("Hub Descriptor:", indent);
+    dump_value(hd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(
+        hd.descriptor_type,
+        "bDescriptorType",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    dump_value(hd.num_ports, "bNbrPorts", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_hex(
+        hd.characteristics,
+        "wHubCharacteristics",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    match hd.characteristics & 0x03 {
+        0 => println!("{:indent$}Ganged power switching", "", indent = indent + 4),
+        1 => println!(
+            "{:indent$}Per-port power switching",
+            "",
+            indent = indent + 4
+        ),
+        _ => println!(
+            "{:indent$}No power switching (usb 1.0)",
+            "",
+            indent = indent + 4
+        ),
+    }
+    match hd.characteristics & 0x04 {
+        0 => println!(
+            "{:indent$}Ganged overcurrent protection",
+            "",
+            indent = indent + 4
+        ),
+        1 => println!(
+            "{:indent$}Per-port overcurrent protection",
+            "",
+            indent = indent + 4
+        ),
+        _ => println!(
+            "{:indent$}No overcurrent protection",
+            "",
+            indent = indent + 4
+        ),
+    }
+
+    if (1..=3).contains(&protocol) {
+        let l = (hd.characteristics >> 5) & 0x03;
+        dump_string(
+            &format!("TT think time {} FS bits", (l + 1) * 8),
+            indent + 4,
+        );
+    }
+    if protocol != 3 && hd.characteristics & (1 << 7) != 0 {
+        dump_string("Port indicators", indent + 4);
+    }
+    dump_value_string(
+        hd.power_on_to_power_good,
+        "bPwrOn2PwrGood",
+        "* 2 milli seconds",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+
+    if protocol == 3 {
+        dump_value_string(
+            (hd.control_current as u32) * 4,
+            "bHubContrCurrent",
+            "milli Ampere",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    } else {
+        dump_value_string(
+            hd.control_current,
+            "bHubContrCurrent",
+            "milli Ampere",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    }
+
+    let offset = if protocol == 3 {
+        dump_value_string(
+            format!("0.{:1}", hd.latency().unwrap_or(0)),
+            "bHubDecLat",
+            "micro seconds",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+        dump_value_string(
+            hd.delay().unwrap_or(0),
+            "wHubDelay",
+            "nano seconds",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+        3
+    } else {
+        0
+    };
+
+    // determine the number of bytes needed to represent the number of ports
+    let mut l = (hd.num_ports >> (3 + 1)) as usize;
+    if l > 3 {
+        l = 3;
+    }
+    dump_value(
+        hd.data
+            .iter()
+            .skip(offset)
+            .take(l)
+            .map(|b| format!("0x{:02x}", b))
+            .collect::<Vec<String>>()
+            .join(" "),
+        "DeviceRemovable",
+        indent + 2,
+        LSUSB_DUMP_WIDTH,
+    );
+    if protocol != 3 {
+        dump_value(
+            hd.data
+                .iter()
+                .skip(offset + l)
+                .take(l)
+                .map(|b| format!("0x{:02x}", b))
+                .collect::<Vec<String>>()
+                .join(" "),
+            "PortPwrCtrlMask",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    }
+
+    if let Some(ps) = hd.port_statuses.as_ref() {
+        dump_string("Hub Port Status:", indent + 2);
+        for (i, p) in ps.iter().enumerate() {
+            let port_status_string = format!(
+                "Port {}: {:02x}{:02x}.{:02x}{:02x}",
+                i + 1,
+                p[3],
+                p[2],
+                p[1],
+                p[0]
+            );
+            if bcd < 0x0300 {
+                let s2_string = bitmap_strings_port(p[2], |b| match b {
+                    0 => Some("C_CONNECT"),
+                    1 => Some("C_ENABLE"),
+                    2 => Some("C_SUSPEND"),
+                    3 => Some("C_OC"),
+                    4 => Some("C_RESET"),
+                    _ => None,
+                });
+                let s1_string = bitmap_strings_port(p[1], |b| match b {
+                    0 => Some("power"),
+                    1 => Some("lowspeed"),
+                    2 => Some("highspeed"),
+                    3 => Some("test"),
+                    4 => Some("indicator"),
+                    _ => None,
+                });
+                let s0_string = bitmap_strings_port(p[0], |b| match b {
+                    0 => Some("connect"),
+                    1 => Some("enable"),
+                    2 => Some("suspend"),
+                    3 => Some("oc"),
+                    4 => Some("RESET"),
+                    5 => Some("L1"),
+                    _ => None,
+                });
+                dump_string(
+                    &format!(
+                        "{}: {}{}{}",
+                        port_status_string, s2_string, s1_string, s0_string
+                    ),
+                    indent + 4,
+                );
+            } else {
+                let link_state = (((p[0] & 0xe0) >> 5) + ((p[1] & 0x01) << 3)) as usize;
+                let s2_string = bitmap_strings_port(p[2], |b| match b {
+                    0 => Some("C_CONNECT"),
+                    3 => Some("C_OC"),
+                    4 => Some("C_RESET"),
+                    5 => Some("C_BH_RESET"),
+                    6 => Some("C_LINK_STATE"),
+                    7 => Some("C_CONFIG_ERROR"),
+                    _ => None,
+                });
+                let s1_string = format!(
+                    "{} {}",
+                    if p[1] & 0x1c == 0 {
+                        "5Gbps"
+                    } else {
+                        "Unknown Speed"
+                    },
+                    if p[1] & 0x02 != 0 { "power " } else { " " },
+                );
+                let s0_string = bitmap_strings_port(p[0], |b| match b {
+                    0 => Some("connect"),
+                    1 => Some("enable"),
+                    3 => Some("oc"),
+                    4 => Some("RESET"),
+                    _ => None,
+                });
+                if link_state < LINK_STATE_DESCRIPTIONS.len() {
+                    dump_string(
+                        &format!(
+                            "{}: {}{}{}{}",
+                            port_status_string,
+                            s2_string,
+                            s1_string,
+                            LINK_STATE_DESCRIPTIONS[link_state],
+                            s0_string
+                        ),
+                        indent + 4,
+                    );
+                } else {
+                    dump_string(
+                        &format!(
+                            "{}: {}{}{}",
+                            port_status_string, s2_string, s1_string, s0_string
+                        ),
+                        indent + 4,
+                    );
+                }
+            }
+
+            if is_ext_status && (p[0] & 0x01 == 0x01) {
+                dump_string(
+                    &format!(
+                        "Ext Status: {:02x}{:02x}{:02x}{:02x}",
+                        p[7], p[6], p[5], p[4]
+                    ),
+                    indent + 8,
+                );
+                dump_string(
+                    &format!(
+                        "RX Speed Attribute ID: {} Lanes: {}",
+                        p[4] & 0x0f,
+                        (p[5] & 0x0f) + 1
+                    ),
+                    indent + 8,
+                );
+                dump_string(
+                    &format!(
+                        "TX Speed Attribute ID: {} Lanes: {}",
+                        (p[4] >> 4) & 0x0f,
+                        ((p[5] >> 4) & 0x0f) + 1
+                    ),
+                    indent + 8,
+                );
+            }
+        }
+    }
+}
+
+fn dump_device_status(status: u16, otg: bool, super_speed: bool, indent: usize) {
+    dump_hex(status, "Device Status:", indent, LSUSB_DUMP_WIDTH);
+    if status & 0x01 != 0 {
+        println!("{:indent$}Self Powered", "", indent = indent + 2);
+    } else {
+        println!("{:indent$}(Bus Powered)", "", indent = indent + 2);
+    }
+    if status & 0x02 != 0 {
+        println!("{:indent$}Remote Wakeup Enabled", "", indent = indent + 2);
+    }
+    if super_speed {
+        if status & (1 << 2) != 0 {
+            println!("{:indent$}U1 Enabled", "", indent = indent + 2);
+        }
+        if status & (1 << 3) != 0 {
+            println!("{:indent$}U2 Enabled", "", indent = indent + 2);
+        }
+        if status & (1 << 4) != 0 {
+            println!(
+                "{:indent$}Latency Tolerance Messaging (LTM) Enabled",
+                "",
+                indent = indent + 2
+            );
+        }
+    }
+    if otg {
+        if status & (1 << 3) != 0 {
+            println!("{:indent$}HNP Enabled", "", indent = indent + 2);
+        }
+        if status & (1 << 4) != 0 {
+            println!("{:indent$}HNP Capable", "", indent = indent + 2);
+        }
+        if status & (1 << 5) != 0 {
+            println!("{:indent$}ALT port is HNP Capable", "", indent = indent + 2);
+        }
+    }
+    if status & (1 << 6) != 0 {
+        println!("{:indent$}Debug Mode", "", indent = indent + 2);
+    }
+}
+
+/// Verbatum port of lsusb's dump_unit - not very Rust, don't judge!
+fn dump_unit(mut data: u16, len: usize, indent: usize) {
+    let systems = |t: u16| match t {
+        0x01 => "SI Linear",
+        0x02 => "SI Rotation",
+        0x03 => "English Linear",
+        0x04 => "English Rotation",
+        _ => "None",
+    };
+    let units = |t: u16, i: usize| match (t, i) {
+        (1, 1) => "Centimeter",
+        (2, 1) => "Radians",
+        (1, 2) | (2, 2) => "Gram",
+        (1, 4) | (2, 4) => "Kelvin",
+        (3, 1) => "Inch",
+        (4, 1) => "Degrees",
+        (1, i) | (2, i) | (3, i) | (4, i) => match i {
+            0x02 => "Slug",
+            0x03 => "Seconds",
+            0x04 => "Fahrenheit",
+            0x05 => "Ampere",
+            0x06 => "Camdela",
+            _ => "None",
+        },
+        (_, _) => "None",
+    };
+
+    let sys = data & 0xf;
+    data >>= 4;
+
+    if sys > 4 {
+        if sys == 0xf {
+            println!("{:indent$}System: Vendor defined, Unit: (unknown)", "");
+        } else {
+            println!("{:indent$}System: Reserved, Unit: (unknown)", "");
+        }
+
+        return;
+    }
+
+    print!("{:indent$}System: {}, Unit: ", "", systems(sys));
+
+    let mut earlier_unit = 0;
+
+    for i in 1..len * 2 {
+        let nibble = data & 0xf;
+        data >>= 4;
+        if nibble != 0 {
+            if earlier_unit > 0 {
+                print!("*");
+            }
+            print!("{}", units(sys, i));
+            earlier_unit += 1;
+            /* This is a _signed_ nibble(!) */
+            if nibble != 1 {
+                let mut val: i8 = (nibble as i8) & 0x7;
+                if nibble & 0x08 != 0x00 {
+                    val = -((0x7 & !val) + 1);
+                }
+                print!("^{}", val);
+            }
+        }
+    }
+
+    if earlier_unit == 0 {
+        print!("(None)");
+    }
+    println!();
+}
+
+/// Dumps HID report data ported directly from lsusb - it's not pretty but works...
+fn dump_report_desc(desc: &[u8], indent: usize) {
+    // ported from lsusb - indented to 28 spaces for some reason...
+    const REPORT_INDENT: usize = 12;
+    let types = |t: u8| match t {
+        0x00 => "Main",
+        0x01 => "Global",
+        0x02 => "Local",
+        _ => "reserved",
+    };
+
+    dump_string(
+        &format!("Report Descriptor: (length is {})", desc.len()),
+        indent,
+    );
+
+    let mut i = 0;
+    while i < desc.len() {
+        let b = desc[i];
+        let mut data = 0xffff;
+        let mut hut = 0xff;
+        let mut bsize = (b & 0x03) as usize;
+        if bsize == 3 {
+            bsize = 4;
+        }
+        let btype = b & (0x03 << 2);
+        let btag = b & !0x03;
+
+        // Item Header
+        print!(
+            "{:indent$}Item({:>6}): {}, data=",
+            "",
+            types(btype >> 2),
+            names::report_tag(btag).unwrap_or_default(),
+            indent = indent + 2
+        );
+
+        // Check for descriptor bounds
+        if i + bsize >= desc.len() {
+            println!("Error: Descriptor too short");
+            break;
+        }
+
+        if bsize > 0 {
+            print!(" [ ");
+            data = 0;
+            for j in 0..bsize {
+                data |= (desc[i + 1 + j] as u32) << (j * 8);
+                print!("{:02x} ", desc[i + 1 + j]);
+            }
+            println!("] {}", data);
+        } else {
+            println!("none");
+        }
+
+        match btag {
+            // usage page
+            0x04 => {
+                hut = data as u8;
+                if let Some(hut) = names::huts(hut) {
+                    println!("{:indent$}{}", "", hut, indent = REPORT_INDENT);
+                }
+            }
+            // usage, usage minimum, usage maximum
+            0x08 | 0x18 | 0x28 => {
+                if let Some(hutus) = names::hutus(hut, data as u16) {
+                    println!("{:indent$}{}", "", hutus, indent = REPORT_INDENT);
+                }
+            }
+            // unit exponent
+            0x54 => {
+                println!(
+                    "{:indent$}Unit Exponent: {}",
+                    "",
+                    data as u8,
+                    indent = REPORT_INDENT
+                );
+            }
+            // unit
+            0x64 => dump_unit(data as u16, bsize, REPORT_INDENT),
+            // collection
+            0xa0 => match data {
+                0x00 => println!("{:indent$}Physical", "", indent = REPORT_INDENT),
+                0x01 => println!("{:indent$}Application", "", indent = REPORT_INDENT),
+                0x02 => println!("{:indent$}Logical", "", indent = REPORT_INDENT),
+                0x03 => println!("{:indent$}Report", "", indent = REPORT_INDENT),
+                0x04 => println!("{:indent$}Named Array", "", indent = REPORT_INDENT),
+                0x05 => println!("{:indent$}Usage Switch", "", indent = REPORT_INDENT),
+                0x06 => println!("{:indent$}Usage Modifier", "", indent = REPORT_INDENT),
+                _ => {
+                    if (data & 0x80) == 0x80 {
+                        println!("{:indent$}Vendor defined", "", indent = REPORT_INDENT)
+                    } else {
+                        println!("{:indent$}Unknown", "", indent = REPORT_INDENT)
+                    }
+                }
+            },
+            // input, output, feature
+            0x80 | 0x90 | 0xb0 => {
+                let attributes_1 = format!(
+                    "{:indent$}{} {} {} {} {}",
+                    "",
+                    if data & 0x01 != 0 { "Constant" } else { "Data" },
+                    if data & 0x02 != 0 {
+                        "Variable"
+                    } else {
+                        "Array"
+                    },
+                    if data & 0x04 != 0 {
+                        "Relative"
+                    } else {
+                        "Absolute"
+                    },
+                    if data & 0x08 != 0 { "Wrap" } else { "No_Wrap" },
+                    if data & 0x10 != 0 {
+                        "Non_Linear"
+                    } else {
+                        "Linear"
+                    },
+                    indent = REPORT_INDENT
+                );
+
+                let attributes_2 = format!(
+                    "{:indent$}{} {} {} {}",
+                    "",
+                    if data & 0x20 != 0 {
+                        "No_Preferred_State"
+                    } else {
+                        "Preferred_State"
+                    },
+                    if data & 0x40 != 0 {
+                        "Null_State"
+                    } else {
+                        "No_Null_Position"
+                    },
+                    if data & 0x80 != 0 {
+                        "Volatile"
+                    } else {
+                        "Non_Volatile"
+                    },
+                    if data & 0x100 != 0 {
+                        "Buffered Bytes"
+                    } else {
+                        "Bitfield"
+                    },
+                    indent = REPORT_INDENT
+                );
+                println!("{}", attributes_1);
+                println!("{}", attributes_2);
+            }
+            _ => (),
+        }
+        i += 1 + bsize;
     }
 }

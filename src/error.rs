@@ -5,6 +5,44 @@ use std::{fmt, io};
 /// Result type used within crate
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Contained with [`ErrorKind`] to provide more context
+#[derive(Debug, PartialEq, Clone)]
+pub struct ErrorArg<E, G>
+where
+    E: fmt::Debug,
+    G: fmt::Debug,
+{
+    expected: E,
+    got: G,
+}
+
+impl fmt::Display for ErrorArg<usize, usize> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected: {}, Got: {}", self.expected, self.got)
+    }
+}
+
+impl<E, G> ErrorArg<E, G>
+where
+    E: fmt::Debug,
+    G: fmt::Debug,
+{
+    /// New ErrorArg
+    pub fn new(expected: E, got: G) -> ErrorArg<E, G> {
+        ErrorArg { expected, got }
+    }
+
+    /// The expected value
+    pub fn expected(&self) -> &E {
+        &self.expected
+    }
+
+    /// The actual value
+    pub fn got(&self) -> &G {
+        &self.got
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 /// Kind of error produced
 pub enum ErrorKind {
@@ -32,6 +70,10 @@ pub enum ErrorKind {
     InvalidArg,
     /// Error From other crate without enum variant
     Other(&'static str),
+    /// Invalid device descriptor
+    InvalidDescriptor,
+    /// Invalid device descriptor length
+    DescriptorLength(ErrorArg<usize, usize>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -49,6 +91,18 @@ impl Error {
         Error {
             kind,
             message: message.to_string(),
+        }
+    }
+
+    /// New error helper for descriptor length
+    pub fn new_descriptor_len(name: &str, expected: usize, got: usize) -> Error {
+        let error_arg = ErrorArg::new(expected, got);
+        Error {
+            kind: ErrorKind::DescriptorLength(error_arg),
+            message: format!(
+                "Invalid descriptor length for {}. Expected: {}, Got {}",
+                name, expected, got
+            ),
         }
     }
 

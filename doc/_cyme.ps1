@@ -41,7 +41,7 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--color', 'color', [CompletionResultType]::ParameterName, 'Output coloring mode')
             [CompletionResult]::new('--encoding', 'encoding', [CompletionResultType]::ParameterName, 'Output charactor encoding')
             [CompletionResult]::new('--icon', 'icon', [CompletionResultType]::ParameterName, 'When to print icon blocks')
-            [CompletionResult]::new('--from-json', 'from-json', [CompletionResultType]::ParameterName, 'Read from json output rather than profiling system - must use --tree json dump')
+            [CompletionResult]::new('--from-json', 'from-json', [CompletionResultType]::ParameterName, 'Read from json output rather than profiling system')
             [CompletionResult]::new('-c', 'c', [CompletionResultType]::ParameterName, 'Path to user config file to use for custom icons, colours and default settings')
             [CompletionResult]::new('--config', 'config', [CompletionResultType]::ParameterName, 'Path to user config file to use for custom icons, colours and default settings')
             [CompletionResult]::new('--mask-serials', 'mask-serials', [CompletionResultType]::ParameterName, 'Mask serial numbers with ''*'' or random chars')
