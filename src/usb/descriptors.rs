@@ -7,6 +7,7 @@ use crate::error::{self, Error, ErrorKind};
 
 pub mod audio;
 pub mod bos;
+pub mod cdc;
 pub mod video;
 
 /// USB descritor types
@@ -509,7 +510,7 @@ pub enum ClassDescriptor {
     /// USB HID extra descriptor
     Hid(HidDescriptor),
     /// USB Communication extra descriptor
-    Communication(CommunicationDescriptor),
+    Communication(cdc::CommunicationDescriptor),
     /// USB CCID (Smart Card) extra descriptor
     Ccid(CcidDescriptor),
     /// USB Printer extra descriptor
@@ -579,7 +580,7 @@ impl ClassDescriptor {
                     *self = ClassDescriptor::Printer(PrinterDescriptor::try_from(gd.to_owned())?)
                 }
                 (ClassCode::CDCCommunications, _, _) | (ClassCode::CDCData, _, _) => {
-                    *self = ClassDescriptor::Communication(CommunicationDescriptor::try_from(
+                    *self = ClassDescriptor::Communication(cdc::CommunicationDescriptor::try_from(
                         gd.to_owned(),
                     )?)
                 }
@@ -1047,206 +1048,6 @@ impl From<PrinterReportDescriptor> for Vec<u8> {
         ret.push(prd.uuid_string_index);
 
         ret
-    }
-}
-
-/// USB Communication Device Class (CDC) types
-///
-/// Used to differentiate between different CDC descriptors
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(u8)]
-#[non_exhaustive]
-#[allow(missing_docs)]
-#[serde(rename_all = "kebab-case")]
-pub enum CdcType {
-    Header = 0x00,
-    CallManagement = 0x01,
-    AbstractControlManagement = 0x02,
-    DirectLineManagement = 0x03,
-    TelephoneRinger = 0x04,
-    TelephoneCall = 0x05,
-    Union = 0x06,
-    CountrySelection = 0x07,
-    TelephoneOperationalModes = 0x08,
-    UsbTerminal = 0x09,
-    NetworkChannel = 0x0a,
-    ProtocolUnit = 0x0b,
-    ExtensionUnit = 0x0c,
-    MultiChannel = 0x0d,
-    CapiControl = 0x0e,
-    EthernetNetworking = 0x0f,
-    AtmNetworking = 0x10,
-    WirelessHandsetControlModel = 0x11,
-    MobileDirectLineModelFunctional = 0x12,
-    MobileDirectLineModelDetail = 0x13,
-    DeviceManagement = 0x14,
-    Obex = 0x15,
-    CommandSet = 0x16,
-    CommandSetDetail = 0x17,
-    TelephoneControlModel = 0x18,
-    ObexCommandSet = 0x19,
-    Ncm = 0x1a,
-    Mbim = 0x1b,
-    MbimExtended = 0x1c,
-    Unknown = 0xff,
-}
-
-impl std::fmt::Display for CdcType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // lsusb style
-        if f.alternate() {
-            match self {
-                CdcType::Header => write!(f, "Header"),
-                CdcType::CallManagement => write!(f, "Call Management"),
-                CdcType::AbstractControlManagement => write!(f, "ACM"),
-                CdcType::DirectLineManagement => write!(f, "DLM"),
-                CdcType::TelephoneRinger => write!(f, "Telephone Ringer"),
-                CdcType::TelephoneCall => write!(f, "Telephone Call"),
-                CdcType::Union => write!(f, "Union"),
-                CdcType::CountrySelection => write!(f, "Country Selection"),
-                CdcType::TelephoneOperationalModes => write!(f, "Telephone Operations"),
-                CdcType::UsbTerminal => write!(f, "USB Terminal"),
-                CdcType::NetworkChannel => write!(f, "Network Channel Terminal"),
-                CdcType::ProtocolUnit => write!(f, "Protocol Unit"),
-                CdcType::ExtensionUnit => write!(f, "Extension Unit"),
-                CdcType::MultiChannel => write!(f, "Multi Channel"),
-                CdcType::CapiControl => write!(f, "CAPI Control"),
-                CdcType::EthernetNetworking => write!(f, "Ethernet"),
-                CdcType::AtmNetworking => write!(f, "ATM Networking"),
-                CdcType::WirelessHandsetControlModel => write!(f, "WHCM version"),
-                CdcType::MobileDirectLineModelFunctional => {
-                    write!(f, "MDLM")
-                }
-                CdcType::MobileDirectLineModelDetail => write!(f, "MDLM detail"),
-                CdcType::DeviceManagement => write!(f, "Device Management"),
-                CdcType::Obex => write!(f, "OBEX"),
-                CdcType::CommandSet => write!(f, "Command Set"),
-                CdcType::CommandSetDetail => write!(f, "Command Set Detail"),
-                CdcType::TelephoneControlModel => write!(f, "Telephone Control Model"),
-                CdcType::ObexCommandSet => write!(f, "OBEX Command Set"),
-                CdcType::Ncm => write!(f, "NCM"),
-                CdcType::Mbim => write!(f, "MBIM"),
-                CdcType::MbimExtended => write!(f, "MBIM Extended"),
-                CdcType::Unknown => write!(f, ""),
-            }
-        } else {
-            write!(f, "{:?}", self)
-        }
-    }
-}
-
-impl From<u8> for CdcType {
-    fn from(b: u8) -> Self {
-        match b {
-            0x00 => CdcType::Header,
-            0x01 => CdcType::CallManagement,
-            0x02 => CdcType::AbstractControlManagement,
-            0x03 => CdcType::DirectLineManagement,
-            0x04 => CdcType::TelephoneRinger,
-            0x05 => CdcType::TelephoneCall,
-            0x06 => CdcType::Union,
-            0x07 => CdcType::CountrySelection,
-            0x08 => CdcType::TelephoneOperationalModes,
-            0x09 => CdcType::UsbTerminal,
-            0x0a => CdcType::NetworkChannel,
-            0x0b => CdcType::ProtocolUnit,
-            0x0c => CdcType::ExtensionUnit,
-            0x0d => CdcType::MultiChannel,
-            0x0e => CdcType::CapiControl,
-            0x0f => CdcType::EthernetNetworking,
-            0x10 => CdcType::AtmNetworking,
-            0x11 => CdcType::WirelessHandsetControlModel,
-            0x12 => CdcType::MobileDirectLineModelFunctional,
-            0x13 => CdcType::MobileDirectLineModelDetail,
-            0x14 => CdcType::DeviceManagement,
-            0x15 => CdcType::Obex,
-            0x16 => CdcType::CommandSet,
-            0x17 => CdcType::CommandSetDetail,
-            0x18 => CdcType::TelephoneControlModel,
-            0x19 => CdcType::ObexCommandSet,
-            0x1a => CdcType::Ncm,
-            0x1b => CdcType::Mbim,
-            0x1c => CdcType::MbimExtended,
-            _ => CdcType::Unknown,
-        }
-    }
-}
-
-/// USB Communication Device Class (CDC) descriptor
-///
-/// Can be used by CDCData and CDCCommunications
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct CommunicationDescriptor {
-    pub length: u8,
-    pub descriptor_type: u8,
-    pub communication_type: CdcType,
-    pub string_index: Option<u8>,
-    pub string: Option<String>,
-    pub data: Vec<u8>,
-}
-
-impl TryFrom<&[u8]> for CommunicationDescriptor {
-    type Error = Error;
-
-    fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 4 {
-            return Err(Error::new_descriptor_len(
-                "CommunicationDescriptor",
-                4,
-                value.len(),
-            ));
-        }
-
-        let length = value[0];
-        if length as usize > value.len() {
-            return Err(Error::new_descriptor_len(
-                "CommunicationDescriptor reported",
-                length as usize,
-                value.len(),
-            ));
-        }
-
-        let communication_type = CdcType::from(value[2]);
-        // some CDC types have descriptor strings with index in the data
-        let string_index = match communication_type {
-            CdcType::EthernetNetworking | CdcType::CountrySelection => {
-                value.get(3).map(|v| v.to_owned())
-            }
-            CdcType::NetworkChannel => value.get(4).map(|v| v.to_owned()),
-            CdcType::CommandSet => value.get(5).map(|v| v.to_owned()),
-            _ => None,
-        };
-
-        Ok(CommunicationDescriptor {
-            length,
-            descriptor_type: value[1],
-            communication_type,
-            string_index,
-            string: None,
-            data: value[3..].to_vec(),
-        })
-    }
-}
-
-impl From<CommunicationDescriptor> for Vec<u8> {
-    fn from(cd: CommunicationDescriptor) -> Self {
-        let mut ret = Vec::new();
-        ret.push(cd.length);
-        ret.push(cd.descriptor_type);
-        ret.push(cd.communication_type as u8);
-        ret.extend(cd.data);
-
-        ret
-    }
-}
-
-impl TryFrom<GenericDescriptor> for CommunicationDescriptor {
-    type Error = Error;
-
-    fn try_from(gd: GenericDescriptor) -> error::Result<Self> {
-        let gd_vec: Vec<u8> = gd.into();
-        CommunicationDescriptor::try_from(&gd_vec[..])
     }
 }
 

@@ -545,11 +545,22 @@ fn build_descriptor_extra<T: libusb::UsbContext>(
                     pd.uuid_string = get_descriptor_string(pd.uuid_string_index, handle);
                 }
             }
-            usb::ClassDescriptor::Communication(ref mut cdc) => {
-                if let Some(string_index) = cdc.string_index {
-                    cdc.string = get_descriptor_string(string_index, handle);
+            usb::ClassDescriptor::Communication(ref mut cdc) => match cdc.interface {
+                usb::descriptors::cdc::CdcInterfaceDescriptor::CountrySelection(ref mut d) => {
+                    d.country_code_date = get_descriptor_string(d.country_code_date_index, handle);
                 }
-            }
+                usb::descriptors::cdc::CdcInterfaceDescriptor::NetworkChannel(ref mut d) => {
+                    d.name = get_descriptor_string(d.name_string_index, handle);
+                }
+                usb::descriptors::cdc::CdcInterfaceDescriptor::EthernetNetworking(ref mut d) => {
+                    d.mac_address = get_descriptor_string(d.mac_address_index, handle);
+                }
+                usb::descriptors::cdc::CdcInterfaceDescriptor::CommandSet(ref mut d) => {
+                    d.command_set_string =
+                        get_descriptor_string(d.command_set_string_index, handle);
+                }
+                _ => (),
+            },
             // grab report descriptor data using usb_control_msg
             usb::ClassDescriptor::Hid(ref mut hd) => {
                 for rd in hd.descriptors.iter_mut() {
