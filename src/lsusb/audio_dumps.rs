@@ -1088,6 +1088,79 @@ fn dump_audio_data_streaming_endpoint3(
     dump_value(ads.lock_delay, "wLockDelay", indent, width);
 }
 
+fn dump_audio_streaming_format(af: &audio::StreamingFormat, indent: usize, width: usize) {
+    dump_value_string(
+        u8::from(af.format_type.to_owned()),
+        "bFormatType",
+        format!("({:#})", af.format_type),
+        indent,
+        width,
+    );
+
+    match &af.interface {
+        audio::StreamingFormatInterface::FormatTypeI1(asi) => {
+            dump_format_type_i(asi, indent, width);
+        }
+        audio::StreamingFormatInterface::FormatTypeII1(asi) => {
+            dump_format_type_ii(asi, indent, width);
+        }
+        audio::StreamingFormatInterface::FormatTypeIII1(asi) => {
+            dump_format_type_iii(asi, indent, width);
+        }
+        audio::StreamingFormatInterface::FormatTypeI2(asi) => {
+            dump_format_type_i_uac2(asi, indent, width);
+        }
+        audio::StreamingFormatInterface::FormatTypeII2(asi) => {
+            dump_format_type_ii_uac2(asi, indent, width);
+        }
+        audio::StreamingFormatInterface::FormatTypeIII2(asi) => {
+            dump_format_type_iii_uac2(asi, indent, width);
+        }
+        i => {
+            let data: Vec<u8> = i.to_owned().into();
+            println!(
+                "{:indent$}invalid desc format type: {}",
+                "",
+                data.iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<Vec<String>>()
+                    .join(""),
+                indent = indent
+            )
+        }
+    }
+}
+
+fn dump_audio_streaming_format_specific(
+    af: &audio::StreamingFormatSpecific,
+    indent: usize,
+    width: usize,
+) {
+    let fmtptr = get_format_specific_string(af.format_tag);
+    dump_value_string(af.format_tag, "wFormatTag", fmtptr, indent, width);
+
+    match &af.interface {
+        audio::StreamingFormatInterface::FormatSpecificAc3(fs) => {
+            dump_format_specific_ac3(fs, indent, width);
+        }
+        audio::StreamingFormatInterface::FormatSpecificMpeg(fs) => {
+            dump_format_specific_mpeg(fs, indent, width);
+        }
+        i => {
+            let data: Vec<u8> = i.to_owned().into();
+            println!(
+                "{:indent$}Invalid desc format type: {}",
+                "",
+                data.iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<Vec<String>>()
+                    .join(""),
+                indent = indent
+            )
+        }
+    }
+}
+
 fn dump_audio_subtype(uacid: &audio::UacInterfaceDescriptor, indent: usize) {
     match uacid {
         audio::UacInterfaceDescriptor::Header1(a) => {
@@ -1207,6 +1280,12 @@ fn dump_audio_subtype(uacid: &audio::UacInterfaceDescriptor, indent: usize) {
         audio::UacInterfaceDescriptor::StreamingInterface3(asi) => {
             dump_audio_streaming_interface3(asi, indent, LSUSB_DUMP_WIDTH);
         }
+        audio::UacInterfaceDescriptor::StreamingFormat(fmt) => {
+            dump_audio_streaming_format(fmt, indent, LSUSB_DUMP_WIDTH);
+        }
+        audio::UacInterfaceDescriptor::StreamingFormatSpecific(fmt) => {
+            dump_audio_streaming_format_specific(fmt, indent, LSUSB_DUMP_WIDTH);
+        }
         audio::UacInterfaceDescriptor::DataStreamingEndpoint1(ads) => {
             dump_audio_data_streaming_endpoint1(ads, indent, LSUSB_DUMP_WIDTH);
         }
@@ -1297,277 +1376,141 @@ fn get_format_specific_string(fmttag: u16) -> &'static str {
     }
 }
 
-fn dump_format_type_i(data: &[u8], indent: usize) {
-    let len = if data[4] != 0 {
-        data[4] as usize * 3 + 5
-    } else {
-        11
-    };
-    if data.len() < len {
-        dump_string("Warning: Descriptor too short", indent);
-        return;
-    }
-    dump_value(data[1], "bNrChannels", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(data[2], "bSubframeSize", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(data[3], "bBitResolution", indent + 2, LSUSB_DUMP_WIDTH);
+fn dump_format_type_i(ft: &audio::FormatTypeI1, indent: usize, width: usize) {
+    dump_value(ft.num_channels, "bNrChannels", indent, width);
+    dump_value(ft.subframe_size, "bSubframeSize", indent, width);
+    dump_value(ft.bit_resolution, "bBitResolution", indent, width);
     dump_value_string(
-        data[4],
+        u8::from(ft.sample_frequency_type.to_owned()),
         "bSamFreqType",
-        if data[4] != 0 {
-            "Discrete"
-        } else {
-            "Continuous"
-        },
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
+        ft.sample_frequency_type.to_string(),
+        indent,
+        width,
     );
-    if data[4] == 0 {
-        if data.len() < 11 {
-            dump_string(
-                "Warning: Descriptor too short for continuous sample frequency",
-                indent,
-            );
-            return;
-        }
-        dump_value(
-            u32::from_le_bytes([data[5], data[6], data[7], 0]),
-            "tLowerSamFreq",
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
-        );
-        dump_value(
-            u32::from_le_bytes([data[8], data[9], data[10], 0]),
-            "tUpperSamFreq",
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
-        );
-    } else {
-        for i in 0..data[4] {
-            if data.len() < 5 + 3 * (i as usize + 1) {
-                dump_string(
-                    "Warning: Descriptor too short for discrete sample frequency",
-                    indent,
-                );
-                return;
-            }
+    match ft.sample_frequency_type {
+        audio::SampleFrequencyType::Continuous => {
             dump_value(
-                u32::from_le_bytes([
-                    data[5 + 3 * i as usize],
-                    data[6 + 3 * i as usize],
-                    data[7 + 3 * i as usize],
-                    0,
-                ]),
-                &format!("tSamFreq[{}]", i),
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ft.sample_frequencies.first().unwrap_or(&0),
+                "tLowerSamFreq",
+                indent,
+                width,
             );
+            dump_value(
+                ft.sample_frequencies.get(1).unwrap_or(&0),
+                "tUpperSamFreq",
+                indent,
+                width,
+            );
+        }
+        audio::SampleFrequencyType::Discrete(n) => {
+            for i in 0..n {
+                dump_value(
+                    ft.sample_frequencies[i as usize],
+                    &format!("tSamFreq[{}]", i),
+                    indent,
+                    width,
+                );
+            }
         }
     }
 }
 
-fn dump_format_type_ii(data: &[u8], indent: usize) {
-    let len = if data[5] != 0 {
-        data[4] as usize * 3 + 6
-    } else {
-        12
-    };
-    if data.len() < len {
-        dump_string("Warning: Descriptor too short", indent);
-        return;
-    }
-    dump_value(
-        u16::from_le_bytes([data[1], data[2]]),
-        "wMaxBitRate",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
-    );
-    dump_value(
-        u16::from_le_bytes([data[3], data[4]]),
-        "wSamplesPerFrame",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
-    );
+fn dump_format_type_ii(ft: &audio::FormatTypeII1, indent: usize, width: usize) {
+    dump_value(ft.max_bit_rate, "wMaxBitRate", indent, width);
+    dump_value(ft.samples_per_frame, "wSamplesPerFrame", indent, width);
     dump_value_string(
-        data[5],
+        u8::from(ft.sample_frequency_type.to_owned()),
         "bSamFreqType",
-        if data[5] != 0 {
-            "Discrete"
-        } else {
-            "Continuous"
-        },
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
+        ft.sample_frequency_type.to_string(),
+        indent,
+        width,
     );
-    if data[5] == 0 {
-        if data.len() < 12 {
-            dump_string(
-                "Warning: Descriptor too short for continuous sample frequency",
-                indent,
-            );
-            return;
-        }
-        dump_value(
-            u32::from_le_bytes([data[6], data[7], data[8], 0]),
-            "tLowerSamFreq",
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
-        );
-        dump_value(
-            u32::from_le_bytes([data[9], data[10], data[11], 0]),
-            "tUpperSamFreq",
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
-        );
-    } else {
-        for i in 0..data[5] {
-            if data.len() < 6 + 3 * (i as usize + 1) {
-                dump_string(
-                    "Warning: Descriptor too short for discrete sample frequency",
-                    indent,
-                );
-                return;
-            }
+    match ft.sample_frequency_type {
+        audio::SampleFrequencyType::Continuous => {
             dump_value(
-                u32::from_le_bytes([
-                    data[6 + 3 * i as usize],
-                    data[7 + 3 * i as usize],
-                    data[8 + 3 * i as usize],
-                    0,
-                ]),
-                &format!("tSamFreq[{}]", i),
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ft.sample_frequencies.first().unwrap_or(&0),
+                "tLowerSamFreq",
+                indent,
+                width,
             );
+            dump_value(
+                ft.sample_frequencies.get(1).unwrap_or(&0),
+                "tUpperSamFreq",
+                indent,
+                width,
+            );
+        }
+        audio::SampleFrequencyType::Discrete(n) => {
+            for i in 0..n {
+                dump_value(
+                    ft.sample_frequencies[i as usize],
+                    &format!("tSamFreq[{}]", i),
+                    indent,
+                    width,
+                );
+            }
         }
     }
 }
 
-fn dump_format_type_iii(data: &[u8], indent: usize) {
-    let len = if data[4] != 0 {
-        data[4] as usize * 3 + 5
-    } else {
-        11
-    };
-    if data.len() < len {
-        dump_string("Warning: Descriptor too short", indent);
-        return;
-    }
-    dump_value(data[1], "bNrChannels", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(data[2], "bSubframeSize", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(data[3], "bBitResolution", indent + 2, LSUSB_DUMP_WIDTH);
+fn dump_format_type_iii(ft: &audio::FormatTypeIII1, indent: usize, width: usize) {
+    dump_value(ft.num_channels, "bNrChannels", indent, width);
+    dump_value(ft.subframe_size, "bSubframeSize", indent, width);
+    dump_value(ft.bit_resolution, "bBitResolution", indent, width);
     dump_value_string(
-        data[4],
+        u8::from(ft.sample_frequency_type.to_owned()),
         "bSamFreqType",
-        if data[4] != 0 {
-            "Discrete"
-        } else {
-            "Continuous"
-        },
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
+        ft.sample_frequency_type.to_string(),
+        indent,
+        width,
     );
-    if data[4] == 0 {
-        if data.len() < 11 {
-            dump_string(
-                "Warning: Descriptor too short for continuous sample frequency",
-                indent,
-            );
-            return;
-        }
-        dump_value(
-            u32::from_le_bytes([data[5], data[6], data[7], 0]),
-            "tLowerSamFreq",
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
-        );
-        dump_value(
-            u32::from_le_bytes([data[8], data[9], data[10], 0]),
-            "tUpperSamFreq",
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
-        );
-    } else {
-        for i in 0..data[4] {
-            if data.len() < 5 + 3 * (i as usize + 1) {
-                dump_string(
-                    "Warning: Descriptor too short for discrete sample frequency",
-                    indent,
-                );
-                return;
-            }
+    match ft.sample_frequency_type {
+        audio::SampleFrequencyType::Continuous => {
             dump_value(
-                u32::from_le_bytes([
-                    data[5 + 3 * i as usize],
-                    data[6 + 3 * i as usize],
-                    data[7 + 3 * i as usize],
-                    0,
-                ]),
-                &format!("tSamFreq[{}]", i),
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ft.sample_frequencies.first().unwrap_or(&0),
+                "tLowerSamFreq",
+                indent,
+                width,
             );
+            dump_value(
+                ft.sample_frequencies.get(1).unwrap_or(&0),
+                "tUpperSamFreq",
+                indent,
+                width,
+            );
+        }
+        audio::SampleFrequencyType::Discrete(n) => {
+            for i in 0..n {
+                dump_value(
+                    ft.sample_frequencies[i as usize],
+                    &format!("tSamFreq[{}]", i),
+                    indent,
+                    width,
+                );
+            }
         }
     }
 }
 
-fn dump_format_type_i_uac2(data: &[u8], indent: usize) {
-    if data.len() < 3 {
-        dump_string("Warning: Descriptor too short", indent);
-        return;
-    }
-    dump_value(data[1], "bSubslotSize", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(data[2], "bBitResolution", indent + 2, LSUSB_DUMP_WIDTH);
+fn dump_format_type_i_uac2(ft: &audio::FormatTypeI2, indent: usize, width: usize) {
+    dump_value(ft.sub_slot_size, "bSubslotSize", indent, width);
+    dump_value(ft.bit_resolution, "bBitResolution", indent, width);
 }
 
-fn dump_format_type_ii_uac2(data: &[u8], indent: usize) {
-    if data.len() < 5 {
-        dump_string("Warning: Descriptor too short", indent);
-        return;
-    }
-    dump_value(
-        u16::from_le_bytes([data[1], data[2]]),
-        "wMaxBitRate",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
-    );
-    dump_value(
-        u16::from_le_bytes([data[3], data[4]]),
-        "wSlotsPerFrame",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
-    );
+fn dump_format_type_ii_uac2(ft: &audio::FormatTypeII2, indent: usize, width: usize) {
+    dump_value(ft.max_bit_rate, "wMaxBitRate", indent, width);
+    dump_value(ft.slots_per_frame, "wSlotsPerFrame", indent, width);
 }
 
-fn dump_format_type_iii_uac2(data: &[u8], indent: usize) {
-    if data.len() < 3 {
-        dump_string("Warning: Descriptor too short", indent);
-        return;
-    }
-    dump_value(data[1], "bSubslotSize", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(data[2], "bBitResolution", indent + 2, LSUSB_DUMP_WIDTH);
+fn dump_format_type_iii_uac2(ft: &audio::FormatTypeIII2, indent: usize, width: usize) {
+    dump_value(ft.sub_slot_size, "bSubslotSize", indent, width);
+    dump_value(ft.bit_resolution, "bBitResolution", indent, width);
 }
 
-fn dump_format_type_iv_uac2(data: &[u8], indent: usize) {
-    if data.is_empty() {
-        dump_string("Warning: Descriptor too short", indent);
-        return;
-    }
-    dump_value(data[0], "bFormatType", indent + 2, LSUSB_DUMP_WIDTH);
-}
-
-fn dump_format_specific_mpeg(data: &[u8], indent: usize) {
-    if data.len() < 5 {
-        dump_string("Warning: Descriptor too short", indent);
-        return;
-    }
-    dump_hex(
-        u16::from_le_bytes([data[3], data[4]]),
-        "bmMPEGCapabilities",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
-    );
+fn dump_format_specific_mpeg(fs: &audio::FormatSpecificMpeg, indent: usize, width: usize) {
+    dump_hex(fs.mpeg_capabilities, "bmMPEGCapabilities", indent, width);
     dump_bitmap_strings(
-        data[2],
+        fs.mpeg_capabilities as u8,
         |b| match b {
             0 => Some("Layer I"),
             1 => Some("Layer II"),
@@ -1584,42 +1527,33 @@ fn dump_format_specific_mpeg(data: &[u8], indent: usize) {
     println!(
         "{:indent$}MPEG-2 multilingual support: {}",
         "",
-        match data[3] & 3 {
+        match (fs.mpeg_capabilities >> 8) & 3 {
             0 => "Not supported",
             1 => "Supported at Fs",
             2 => "Reserved",
             _ => "Supported at Fs and 1/2Fs",
         },
-        indent = indent + 4
+        indent = indent + 2
     );
-    dump_hex(data[4], "bmMPEGFeatures", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_hex(fs.mpeg_features, "bmMPEGFeatures", indent, width);
     println!(
         "{:indent$}Internal Dynamic Range Control: {}",
         "",
-        match (data[4] >> 4) & 3 {
+        match (fs.mpeg_features >> 4) & 3 {
             0 => "not supported",
             1 => "supported but not scalable",
             2 => "scalable, common boost and cut scaling value",
             _ => "scalable, separate boost and cut scaling value",
         },
-        indent = indent + 4
+        indent = indent + 2
     );
 }
 
-fn dump_format_specific_ac3(data: &[u8], indent: usize) {
-    if data.len() < 7 {
-        dump_string("Warning: Descriptor too short", indent);
-        return;
-    }
-    dump_hex(
-        u32::from_le_bytes([data[2], data[3], data[4], data[5]]),
-        "bmBSID",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
-    );
-    dump_hex(data[6], "bmAC3Features", indent + 2, LSUSB_DUMP_WIDTH);
+fn dump_format_specific_ac3(fs: &audio::FormatSpecificAc3, indent: usize, width: usize) {
+    dump_hex(fs.bsid, "bmBSID", indent, width);
+    dump_hex(fs.ac3_features, "bmAC3Features", indent, width);
     dump_bitmap_strings(
-        data[6],
+        fs.ac3_features,
         |b| match b {
             0 => Some("RF mode"),
             1 => Some("Line mode"),
@@ -1627,18 +1561,18 @@ fn dump_format_specific_ac3(data: &[u8], indent: usize) {
             3 => Some("Custom1 mode"),
             _ => None,
         },
-        indent + 4,
+        indent + 2,
     );
     println!(
         "{:indent$}Internal Dynamic Range Control: {}",
         "",
-        match (data[6] >> 4) & 3 {
+        match (fs.ac3_features >> 4) & 3 {
             0 => "not supported",
             1 => "supported but not scalable",
             2 => "scalable, common boost and cut scaling value",
             _ => "scalable, separate boost and cut scaling value",
         },
-        indent = indent + 4
+        indent = indent + 2
     );
 }
 
@@ -1664,117 +1598,17 @@ pub(crate) fn dump_audiostreaming_interface(
         LSUSB_DUMP_WIDTH,
     );
 
-    match uasi {
-        audio::StreamingSubtype::General | audio::StreamingSubtype::Undefined => {
-            match &uacd.interface {
-                audio::UacInterfaceDescriptor::Invalid(_) => {
-                    println!(
-                        "{:indent$}Warning: {:#} descriptors are illegal for {}",
-                        "",
-                        uacd.descriptor_subtype,
-                        u8::from(protocol.to_owned()),
-                        indent = indent + 2
-                    );
-                }
-                uacid => dump_audio_subtype(uacid, indent + 2),
-            }
+    match &uacd.interface {
+        audio::UacInterfaceDescriptor::Invalid(_) => {
+            println!(
+                "{:indent$}Warning: {:#} descriptors are illegal for {}",
+                "",
+                uacd.descriptor_subtype,
+                u8::from(protocol.to_owned()),
+                indent = indent + 2
+            );
         }
-        audio::StreamingSubtype::FormatType => {
-            let data: Vec<u8> = uacd.interface.to_owned().into();
-            match protocol {
-                audio::UacProtocol::Uac1 => {
-                    if data.len() < 5 {
-                        dump_string("Warning: Descriptor too short", indent);
-                        return;
-                    }
-                    dump_value_string(
-                        data[0],
-                        "bFormatType",
-                        format!("({:#})", audio::StreamingFormatType::from(data[0])),
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                    match data[0] {
-                        0x01 => dump_format_type_i(&data, indent + 2),
-                        0x02 => dump_format_type_ii(&data, indent + 2),
-                        0x03 => dump_format_type_iii(&data, indent + 2),
-                        _ => println!(
-                            "{:indent$}Invalid desc format type: {}",
-                            "",
-                            data[1..]
-                                .iter()
-                                .map(|b| format!("{:02x}", b))
-                                .collect::<Vec<String>>()
-                                .join(""),
-                            indent = indent + 2
-                        ),
-                    }
-                }
-                audio::UacProtocol::Uac2 => {
-                    if data.is_empty() {
-                        dump_string("Warning: Descriptor too short", indent);
-                        return;
-                    }
-                    dump_value_string(
-                        data[0],
-                        "bFormatType",
-                        format!("({:#})", audio::StreamingFormatType::from(data[0])),
-                        indent + 2,
-                        LSUSB_DUMP_WIDTH,
-                    );
-                    match data[0] {
-                        0x01 => dump_format_type_i_uac2(&data, indent + 2),
-                        0x02 => dump_format_type_ii_uac2(&data, indent + 2),
-                        0x03 => dump_format_type_iii_uac2(&data, indent + 2),
-                        0x04 => dump_format_type_iv_uac2(&data, indent + 2),
-                        _ => println!(
-                            "{:indent$}invalid desc format type: {}",
-                            "",
-                            data[1..]
-                                .iter()
-                                .map(|b| format!("{:02x}", b))
-                                .collect::<Vec<String>>()
-                                .join(""),
-                            indent = indent + 2
-                        ),
-                    }
-                }
-                _ => println!(
-                    "(invalid)\n{:indent$}invalid desc format type: {}",
-                    "",
-                    data[1..]
-                        .iter()
-                        .map(|b| format!("{:02x}", b))
-                        .collect::<Vec<String>>()
-                        .join(""),
-                    indent = indent + 2
-                ),
-            }
-        }
-        audio::StreamingSubtype::FormatSpecific => {
-            let data: Vec<u8> = uacd.interface.to_owned().into();
-            if data.len() < 2 {
-                dump_string("Warning: Descriptor too short", indent);
-                return;
-            }
-            let fmttag = u16::from_le_bytes([data[0], data[1]]);
-            let fmtptr = get_format_specific_string(fmttag);
-            dump_value_string(fmttag, "wFormatTag", fmtptr, indent + 2, LSUSB_DUMP_WIDTH);
-            match fmttag {
-                0x1001 => dump_format_specific_mpeg(&data, indent + 2),
-                0x1002 => dump_format_specific_ac3(&data, indent + 2),
-                _ => println!(
-                    "{:indent$}Invalid desc format type: {}",
-                    "",
-                    data[2..]
-                        .iter()
-                        .map(|b| format!("{:02x}", b))
-                        .collect::<Vec<String>>()
-                        .join(""),
-                    indent = indent + 2
-                ),
-            }
-        }
+        uacid => dump_audio_subtype(uacid, indent + 2),
     }
 }
 

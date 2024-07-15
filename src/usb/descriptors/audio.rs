@@ -588,6 +588,8 @@ pub enum UacInterfaceDescriptor {
     StreamingInterface1(StreamingInterface1),
     StreamingInterface2(StreamingInterface2),
     StreamingInterface3(StreamingInterface3),
+    StreamingFormat(StreamingFormat),
+    StreamingFormatSpecific(StreamingFormatSpecific),
     // Isochronous Audio Data Stream Endpoint
     DataStreamingEndpoint1(DataStreamingEndpoint1),
     DatastreamingEndpoint2(DataStreamingEndpoint2),
@@ -642,6 +644,8 @@ impl From<UacInterfaceDescriptor> for Vec<u8> {
             UacInterfaceDescriptor::StreamingInterface1(a) => a.into(),
             UacInterfaceDescriptor::StreamingInterface2(a) => a.into(),
             UacInterfaceDescriptor::StreamingInterface3(a) => a.into(),
+            UacInterfaceDescriptor::StreamingFormat(a) => a.into(),
+            UacInterfaceDescriptor::StreamingFormatSpecific(a) => a.into(),
             UacInterfaceDescriptor::DataStreamingEndpoint1(a) => a.into(),
             UacInterfaceDescriptor::DatastreamingEndpoint2(a) => a.into(),
             UacInterfaceDescriptor::DataStreamingEndpoint3(a) => a.into(),
@@ -1029,8 +1033,14 @@ impl UacInterfaceDescriptor {
                 }
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
+            StreamingSubtype::FormatType => StreamingFormat::from_uac_as_interface(protocol, data)
+                .map(UacInterfaceDescriptor::StreamingFormat),
+            StreamingSubtype::FormatSpecific => {
+                StreamingFormatSpecific::from_uac_as_interface(protocol, data)
+                    .map(UacInterfaceDescriptor::StreamingFormatSpecific)
+            }
             StreamingSubtype::Undefined => Ok(UacInterfaceDescriptor::Undefined(data.to_vec())),
-            _ => Ok(UacInterfaceDescriptor::Generic(data.to_vec())),
+            //_ => Ok(UacInterfaceDescriptor::Generic(data.to_vec())),
         }
     }
 
@@ -1499,6 +1509,561 @@ impl fmt::Display for StreamingFormatType {
         } else {
             write!(f, "{:?}", self)
         }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub enum SampleFrequencyType {
+    Continuous,
+    Discrete(u8),
+}
+
+impl From<u8> for SampleFrequencyType {
+    fn from(b: u8) -> Self {
+        match b {
+            0x00 => SampleFrequencyType::Continuous,
+            b => SampleFrequencyType::Discrete(b),
+        }
+    }
+}
+
+impl From<SampleFrequencyType> for u8 {
+    fn from(sft: SampleFrequencyType) -> u8 {
+        match sft {
+            SampleFrequencyType::Continuous => 0x00,
+            SampleFrequencyType::Discrete(b) => b,
+        }
+    }
+}
+
+impl fmt::Display for SampleFrequencyType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SampleFrequencyType::Continuous => write!(f, "Continuous"),
+            SampleFrequencyType::Discrete(_) => write!(f, "Discrete"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub enum StreamingFormatInterface {
+    FormatTypeI1(FormatTypeI1),
+    FormatTypeII1(FormatTypeII1),
+    FormatTypeIII1(FormatTypeIII1),
+    FormatTypeI2(FormatTypeI2),
+    FormatTypeII2(FormatTypeII2),
+    FormatTypeIII2(FormatTypeIII2),
+    FormatSpecificMpeg(FormatSpecificMpeg),
+    FormatSpecificAc3(FormatSpecificAc3),
+    Invalid(Vec<u8>),
+    Undefined(Vec<u8>),
+}
+
+impl From<StreamingFormatInterface> for Vec<u8> {
+    fn from(sfi: StreamingFormatInterface) -> Vec<u8> {
+        match sfi {
+            StreamingFormatInterface::FormatTypeI1(ft) => ft.into(),
+            StreamingFormatInterface::FormatTypeII1(ft) => ft.into(),
+            StreamingFormatInterface::FormatTypeIII1(ft) => ft.into(),
+            StreamingFormatInterface::FormatTypeI2(ft) => ft.into(),
+            StreamingFormatInterface::FormatTypeII2(ft) => ft.into(),
+            StreamingFormatInterface::FormatTypeIII2(ft) => ft.into(),
+            StreamingFormatInterface::FormatSpecificMpeg(ft) => ft.into(),
+            StreamingFormatInterface::FormatSpecificAc3(ft) => ft.into(),
+            StreamingFormatInterface::Invalid(data) => data,
+            StreamingFormatInterface::Undefined(data) => data,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct StreamingFormat {
+    pub format_type: StreamingFormatType,
+    pub interface: StreamingFormatInterface,
+}
+
+impl StreamingFormat {
+    /// Get the StreamingFormat from the UAC AS interface
+    pub fn from_uac_as_interface(protocol: &UacProtocol, data: &[u8]) -> Result<Self, Error> {
+        if data.is_empty() {
+            return Err(Error::new_descriptor_len("StreamingFormat", 1, data.len()));
+        }
+
+        let format_type = StreamingFormatType::from(data[0]);
+        match protocol {
+            UacProtocol::Uac1 => match format_type {
+                StreamingFormatType::TypeI => {
+                    FormatTypeI1::try_from(&data[1..]).map(|ft| StreamingFormat {
+                        format_type,
+                        interface: StreamingFormatInterface::FormatTypeI1(ft),
+                    })
+                }
+                StreamingFormatType::TypeII => {
+                    FormatTypeII1::try_from(&data[1..]).map(|ft| StreamingFormat {
+                        format_type,
+                        interface: StreamingFormatInterface::FormatTypeII1(ft),
+                    })
+                }
+                StreamingFormatType::TypeIII => {
+                    FormatTypeIII1::try_from(&data[1..]).map(|ft| StreamingFormat {
+                        format_type,
+                        interface: StreamingFormatInterface::FormatTypeIII1(ft),
+                    })
+                }
+                _ => Ok(StreamingFormat {
+                    format_type,
+                    interface: StreamingFormatInterface::Undefined(data[1..].to_vec()),
+                }),
+            },
+            UacProtocol::Uac2 => match format_type {
+                StreamingFormatType::TypeI => {
+                    FormatTypeI2::try_from(&data[1..]).map(|ft| StreamingFormat {
+                        format_type,
+                        interface: StreamingFormatInterface::FormatTypeI2(ft),
+                    })
+                }
+                StreamingFormatType::TypeII => {
+                    FormatTypeII2::try_from(&data[1..]).map(|ft| StreamingFormat {
+                        format_type,
+                        interface: StreamingFormatInterface::FormatTypeII2(ft),
+                    })
+                }
+                StreamingFormatType::TypeIII => {
+                    FormatTypeIII2::try_from(&data[1..]).map(|ft| StreamingFormat {
+                        format_type,
+                        interface: StreamingFormatInterface::FormatTypeIII2(ft),
+                    })
+                }
+                _ => Ok(StreamingFormat {
+                    format_type,
+                    interface: StreamingFormatInterface::Undefined(data[1..].to_vec()),
+                }),
+            },
+            _ => Ok(StreamingFormat {
+                format_type,
+                interface: StreamingFormatInterface::Invalid(data[1..].to_vec()),
+            }),
+        }
+    }
+}
+
+impl From<StreamingFormat> for Vec<u8> {
+    fn from(sf: StreamingFormat) -> Vec<u8> {
+        let mut data = vec![sf.format_type.into()];
+        data.extend_from_slice(&Vec::<u8>::from(sf.interface));
+        data
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct StreamingFormatSpecific {
+    pub format_tag: u16,
+    pub interface: StreamingFormatInterface,
+}
+
+impl StreamingFormatSpecific {
+    /// Get the StreamingFormatSpecific from the UAC AS interface
+    pub fn from_uac_as_interface(_protocol: &UacProtocol, data: &[u8]) -> Result<Self, Error> {
+        StreamingFormatSpecific::try_from(data)
+    }
+}
+
+impl TryFrom<&[u8]> for StreamingFormatSpecific {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 2 {
+            return Err(Error::new_descriptor_len(
+                "StreamingFormatSpecific",
+                2,
+                value.len(),
+            ));
+        }
+
+        let format_tag = u16::from_le_bytes([value[0], value[1]]);
+        let format = match format_tag {
+            0x1001 => StreamingFormatInterface::FormatSpecificMpeg(FormatSpecificMpeg::try_from(
+                &value[2..],
+            )?),
+            0x1002 => StreamingFormatInterface::FormatSpecificAc3(FormatSpecificAc3::try_from(
+                &value[2..],
+            )?),
+            _ => StreamingFormatInterface::Undefined(value[2..].to_vec()),
+        };
+
+        Ok(StreamingFormatSpecific {
+            format_tag,
+            interface: format,
+        })
+    }
+}
+
+impl From<StreamingFormatSpecific> for Vec<u8> {
+    fn from(sfs: StreamingFormatSpecific) -> Vec<u8> {
+        let mut data = Vec::new();
+        data.extend_from_slice(&sfs.format_tag.to_le_bytes());
+        data.extend_from_slice(&Vec::<u8>::from(sfs.interface));
+        data
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatTypeI1 {
+    pub num_channels: u8,
+    pub subframe_size: u8,
+    pub bit_resolution: u8,
+    pub sample_frequency_type: SampleFrequencyType,
+    pub sample_frequencies: Vec<u32>,
+}
+
+impl TryFrom<&[u8]> for FormatTypeI1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 4 {
+            return Err(Error::new_descriptor_len("FormatTypeI", 4, value.len()));
+        }
+
+        let nr_channels = value[0];
+        let subframe_size = value[1];
+        let bit_resolution = value[2];
+        let sam_freq_type: SampleFrequencyType = value[3].into();
+
+        let mut sam_freqs = Vec::new();
+        match sam_freq_type {
+            SampleFrequencyType::Continuous => {
+                if value.len() < 10 {
+                    return Err(Error::new(
+                        ErrorKind::InvalidDescriptor,
+                        "Descriptor too short for continuous sample frequency",
+                    ));
+                }
+                sam_freqs.push(u32::from_le_bytes([value[4], value[5], value[6], 0]));
+                sam_freqs.push(u32::from_le_bytes([value[7], value[8], value[9], 0]));
+            }
+            SampleFrequencyType::Discrete(b) => {
+                for i in 0..b {
+                    let index = 4 + (i as usize * 3);
+                    if value.len() < index + 3 {
+                        return Err(Error::new(
+                            ErrorKind::InvalidDescriptor,
+                            "Descriptor too short for discrete sample frequency",
+                        ));
+                    }
+                    sam_freqs.push(u32::from_le_bytes([
+                        value[index],
+                        value[index + 1],
+                        value[index + 2],
+                        0,
+                    ]));
+                }
+            }
+        }
+
+        Ok(FormatTypeI1 {
+            num_channels: nr_channels,
+            subframe_size,
+            bit_resolution,
+            sample_frequency_type: sam_freq_type,
+            sample_frequencies: sam_freqs,
+        })
+    }
+}
+
+impl From<FormatTypeI1> for Vec<u8> {
+    fn from(ft: FormatTypeI1) -> Vec<u8> {
+        let mut data = vec![ft.num_channels, ft.subframe_size, ft.bit_resolution];
+        data.push(ft.sample_frequency_type.into());
+        for sf in ft.sample_frequencies {
+            data.extend_from_slice(&sf.to_le_bytes());
+        }
+        data
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatTypeII1 {
+    pub max_bit_rate: u16,
+    pub samples_per_frame: u16,
+    pub sample_frequency_type: SampleFrequencyType,
+    pub sample_frequencies: Vec<u32>,
+}
+
+impl TryFrom<&[u8]> for FormatTypeII1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 5 {
+            return Err(Error::new_descriptor_len("FormatTypeII", 5, value.len()));
+        }
+
+        let max_bit_rate = u16::from_le_bytes([value[0], value[1]]);
+        let samples_per_frame = u16::from_le_bytes([value[2], value[3]]);
+        let sam_freq_type: SampleFrequencyType = value[4].into();
+
+        let mut sam_freqs = Vec::new();
+        match sam_freq_type {
+            SampleFrequencyType::Continuous => {
+                if value.len() < 11 {
+                    return Err(Error::new(
+                        ErrorKind::InvalidDescriptor,
+                        "Descriptor too short for continuous sample frequency",
+                    ));
+                }
+                sam_freqs.push(u32::from_le_bytes([value[5], value[6], value[7], 0]));
+                sam_freqs.push(u32::from_le_bytes([value[8], value[9], value[10], 0]));
+            }
+            SampleFrequencyType::Discrete(b) => {
+                for i in 0..b {
+                    let index = 5 + (i as usize * 3);
+                    if value.len() < index + 3 {
+                        return Err(Error::new(
+                            ErrorKind::InvalidDescriptor,
+                            "Descriptor too short for discrete sample frequency",
+                        ));
+                    }
+                    sam_freqs.push(u32::from_le_bytes([
+                        value[index],
+                        value[index + 1],
+                        value[index + 2],
+                        0,
+                    ]));
+                }
+            }
+        }
+
+        Ok(FormatTypeII1 {
+            max_bit_rate,
+            samples_per_frame,
+            sample_frequency_type: sam_freq_type,
+            sample_frequencies: sam_freqs,
+        })
+    }
+}
+
+impl From<FormatTypeII1> for Vec<u8> {
+    fn from(ft: FormatTypeII1) -> Vec<u8> {
+        let mut data = Vec::new();
+        data.extend_from_slice(&ft.max_bit_rate.to_le_bytes());
+        data.extend_from_slice(&ft.samples_per_frame.to_le_bytes());
+        data.push(ft.sample_frequency_type.into());
+        for sf in ft.sample_frequencies {
+            data.extend_from_slice(&sf.to_le_bytes());
+        }
+        data
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatTypeIII1 {
+    pub num_channels: u8,
+    pub subframe_size: u8,
+    pub bit_resolution: u8,
+    pub sample_frequency_type: SampleFrequencyType,
+    pub sample_frequencies: Vec<u32>,
+}
+
+impl TryFrom<&[u8]> for FormatTypeIII1 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let sam_freq_type: SampleFrequencyType = match value.get(4) {
+            Some(&sam_freq_type) => sam_freq_type.into(),
+            None => return Err(Error::new_descriptor_len("FormatTypeIII", 4, value.len())),
+        };
+        let expected_len = match sam_freq_type {
+            SampleFrequencyType::Continuous => 10,
+            SampleFrequencyType::Discrete(b) => 4 + (b as usize * 3),
+        };
+
+        if value.len() < expected_len {
+            return Err(Error::new_descriptor_len(
+                "FormatTypeIII",
+                expected_len,
+                value.len(),
+            ));
+        }
+
+        let nr_channels = value[0];
+        let subframe_size = value[1];
+        let bit_resolution = value[2];
+
+        let mut sam_freqs = Vec::new();
+        match sam_freq_type {
+            SampleFrequencyType::Continuous => {
+                sam_freqs.push(u32::from_le_bytes([value[4], value[5], value[6], 0]));
+                sam_freqs.push(u32::from_le_bytes([value[7], value[8], value[9], 0]));
+            }
+            SampleFrequencyType::Discrete(b) => {
+                for i in 0..b {
+                    let index = 4 + (i as usize * 3);
+                    sam_freqs.push(u32::from_le_bytes([
+                        value[index],
+                        value[index + 1],
+                        value[index + 2],
+                        0,
+                    ]));
+                }
+            }
+        }
+
+        Ok(FormatTypeIII1 {
+            num_channels: nr_channels,
+            subframe_size,
+            bit_resolution,
+            sample_frequency_type: sam_freq_type,
+            sample_frequencies: sam_freqs,
+        })
+    }
+}
+
+impl From<FormatTypeIII1> for Vec<u8> {
+    fn from(ft: FormatTypeIII1) -> Vec<u8> {
+        let mut data = vec![ft.num_channels, ft.subframe_size, ft.bit_resolution];
+        data.push(ft.sample_frequency_type.into());
+        for sf in ft.sample_frequencies {
+            data.extend_from_slice(&sf.to_le_bytes());
+        }
+        data
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatTypeI2 {
+    pub sub_slot_size: u8,
+    pub bit_resolution: u8,
+}
+
+impl TryFrom<&[u8]> for FormatTypeI2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 2 {
+            return Err(Error::new_descriptor_len("FormatTypeI2", 2, value.len()));
+        }
+
+        Ok(FormatTypeI2 {
+            sub_slot_size: value[0],
+            bit_resolution: value[1],
+        })
+    }
+}
+
+impl From<FormatTypeI2> for Vec<u8> {
+    fn from(ft: FormatTypeI2) -> Vec<u8> {
+        vec![ft.sub_slot_size, ft.bit_resolution]
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatTypeII2 {
+    pub max_bit_rate: u16,
+    pub slots_per_frame: u16,
+}
+
+impl TryFrom<&[u8]> for FormatTypeII2 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 4 {
+            return Err(Error::new_descriptor_len("FormatTypeII2", 4, value.len()));
+        }
+
+        Ok(FormatTypeII2 {
+            max_bit_rate: u16::from_le_bytes([value[0], value[1]]),
+            slots_per_frame: u16::from_le_bytes([value[2], value[3]]),
+        })
+    }
+}
+
+impl From<FormatTypeII2> for Vec<u8> {
+    fn from(ft: FormatTypeII2) -> Vec<u8> {
+        let mut data = Vec::new();
+        data.extend_from_slice(&ft.max_bit_rate.to_le_bytes());
+        data.extend_from_slice(&ft.slots_per_frame.to_le_bytes());
+        data
+    }
+}
+
+#[allow(missing_docs)]
+pub type FormatTypeIII2 = FormatTypeI2;
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatSpecificMpeg {
+    pub mpeg_capabilities: u16,
+    pub mpeg_features: u8,
+}
+
+impl TryFrom<&[u8]> for FormatSpecificMpeg {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 3 {
+            return Err(Error::new_descriptor_len(
+                "FormatSpecificMpeg",
+                3,
+                value.len(),
+            ));
+        }
+
+        Ok(FormatSpecificMpeg {
+            mpeg_capabilities: u16::from_le_bytes([value[0], value[1]]),
+            mpeg_features: value[3],
+        })
+    }
+}
+
+impl From<FormatSpecificMpeg> for Vec<u8> {
+    fn from(ft: FormatSpecificMpeg) -> Vec<u8> {
+        let mut data = Vec::new();
+        data.push(ft.mpeg_features);
+        data.extend_from_slice(&ft.mpeg_capabilities.to_le_bytes());
+        data
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FormatSpecificAc3 {
+    pub bsid: u32,
+    pub ac3_features: u8,
+}
+
+impl TryFrom<&[u8]> for FormatSpecificAc3 {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 5 {
+            return Err(Error::new_descriptor_len(
+                "FormatSpecificAc3",
+                5,
+                value.len(),
+            ));
+        }
+
+        Ok(FormatSpecificAc3 {
+            bsid: u32::from_le_bytes([value[0], value[1], value[2], value[3]]),
+            ac3_features: value[4],
+        })
+    }
+}
+
+impl From<FormatSpecificAc3> for Vec<u8> {
+    fn from(ft: FormatSpecificAc3) -> Vec<u8> {
+        let mut data = Vec::new();
+        data.extend_from_slice(&ft.bsid.to_le_bytes());
+        data.push(ft.ac3_features);
+        data
     }
 }
 
