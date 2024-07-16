@@ -33,9 +33,7 @@ fn get_spaces(value_len: usize, field_len: usize, width: usize) -> String {
     if value_len >= width || value_len == usize::MAX {
         String::from(" ")
     } else {
-        " ".repeat(
-            (width - value_len).saturating_sub(field_len)
-        )
+        " ".repeat((width - value_len).saturating_sub(field_len))
     }
 }
 

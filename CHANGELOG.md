@@ -1,6 +1,12 @@
 # Changelog
 
-## [1.8.0] - 2024-07-14
+## [1.8.1] - 2024-07-16
+
+### Fixes
+
+- Fix panic due to potential subtraction overflow in `lsusb --verbose` mode ([#24](https://github.com/tuna-f1sh/cyme/issues/25)).
+
+## [1.8.0] - 2024-07-15
 
 `cyme` should now match `lsusb --verbose` mode with full device descriptor dumps, including using USB control messages to get BOS, Hub device status, HID reports and more. It's been a lot of grunt work and lines of code (not very creative lines!) creating all the types but it should be useful as a USB profiling crate moving forwards and I think more robust than `lsusb` in some cases. There may still be some formatting differences but the data _should_ be the same. `cyme` without `--lsusb --verbose` display isn't changed for the most part, since the dumping is extremely device specific and verbose. I may add device status as a display block in future.
 
