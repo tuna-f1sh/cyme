@@ -56,12 +56,15 @@ fn dump_string(field_name: &str, indent: usize) {
 /// Dump a single value like lsusb
 fn dump_value<T: std::fmt::Display>(value: T, field_name: &str, indent: usize, width: usize) {
     let value = value.to_string();
-    let spaces = " ".repeat(
-        (width - value.len())
-            .saturating_sub(field_name.len())
-            .max(1),
-    );
-    println!("{:indent$}{}{}{}", "", field_name, spaces, value,);
+    let len = value.len();
+    if len >= width || len >= usize::MAX {
+        println!("{:indent$} {}", "", value);
+    } else {
+        let spaces = " ".repeat(
+            (width - len).saturating_sub(field_name.len())
+        );
+        println!("{:indent$}{}{}{}", "", field_name, spaces, value);
+    }
 }
 
 /// Dump a single hex value like lsusb
