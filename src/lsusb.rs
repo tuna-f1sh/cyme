@@ -29,6 +29,16 @@ const TREE_LSUSB_SPACE: &str = "    ";
 const LSUSB_DUMP_WIDTH: usize = 24;
 const LSUSB_DUMP_INDENT_BASE: usize = 2;
 
+fn get_spaces(value_len: usize, field_len: usize, width: usize) -> String {
+    if value_len >= width || value_len == usize::MAX {
+        String::from(" ")
+    } else {
+        " ".repeat(
+            (width - value_len).saturating_sub(field_len)
+        )
+    }
+}
+
 /// Dump an array of value like lsusb
 fn dump_array<T: std::fmt::Display>(array: &[T], field_name: &str, indent: usize, width: usize) {
     for (i, b) in array.iter().enumerate() {
@@ -56,15 +66,8 @@ fn dump_string(field_name: &str, indent: usize) {
 /// Dump a single value like lsusb
 fn dump_value<T: std::fmt::Display>(value: T, field_name: &str, indent: usize, width: usize) {
     let value = value.to_string();
-    let len = value.len();
-    if len >= width || len >= usize::MAX {
-        println!("{:indent$} {}", "", value);
-    } else {
-        let spaces = " ".repeat(
-            (width - len).saturating_sub(field_name.len())
-        );
-        println!("{:indent$}{}{}{}", "", field_name, spaces, value);
-    }
+    let spaces = get_spaces(value.len(), field_name.len(), width);
+    println!("{:indent$}{}{}{}", "", field_name, spaces, value);
 }
 
 /// Dump a single hex value like lsusb
@@ -92,11 +95,7 @@ fn dump_name<T: std::fmt::Display>(
     width: usize,
 ) {
     let value_string = value.to_string();
-    let spaces = " ".repeat(
-        (width - value_string.len())
-            .saturating_sub(field_name.len())
-            .max(1),
-    );
+    let spaces = get_spaces(value_string.len(), field_name.len(), width);
     let dump = format!("{:indent$}{}{}{}", "", field_name, spaces, value_string,);
     if let Some(name) = names_f(value) {
         println!("{} {}", dump, name);
@@ -112,11 +111,7 @@ fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
     width: usize,
 ) {
     let value = value.to_string();
-    let spaces = " ".repeat(
-        (width - value.len())
-            .saturating_sub(field_name.len())
-            .max(1),
-    );
+    let spaces = get_spaces(value.len(), field_name.len(), width);
     println!(
         "{:indent$}{}{}{} {}",
         "", field_name, spaces, value, value_string,
@@ -125,8 +120,8 @@ fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
 
 /// Dumps a string starting at value position, right aligned
 fn dump_string_right<T: std::fmt::Display>(guid: T, field_name: &str, indent: usize, width: usize) {
-    // -1 to account for space
-    let spaces = " ".repeat((width - 1).saturating_sub(field_name.len()).max(1));
+    // 1 to account for space
+    let spaces = get_spaces(1, field_name.len(), width);
     println!("{:indent$}{}{}{}", "", field_name, spaces, guid);
 }
 
@@ -211,11 +206,7 @@ fn dump_bitmap_strings_inline<T, V>(
     V: std::fmt::Display,
 {
     let value = value.to_string();
-    let spaces = " ".repeat(
-        (width - value.len())
-            .saturating_sub(field_name.len())
-            .max(1),
-    );
+    let spaces = get_spaces(value.len(), field_name.len(), width);
     print!("{:indent$}{}{}{}", "", field_name, spaces, value,);
     let bitmap_u64: u64 = bitmap.into();
     let num_bits = std::mem::size_of::<T>() * 8;
@@ -2479,5 +2470,31 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
             _ => (),
         }
         i += 1 + bsize;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_spaces() {
+        assert_eq!(get_spaces(4, 10, LSUSB_DUMP_WIDTH), "          ");
+        assert_eq!(get_spaces(24, 10, 20), " ");
+        assert_eq!(get_spaces(2, 17, 20), " ");
+        assert_eq!(get_spaces(17, 2, 20), " ");
+        assert_eq!(get_spaces(16, 2, 20), "  ");
+    }
+
+    #[test]
+    fn test_dump_value() {
+        let bytes = [0x01; 32];
+        let bytes_string = bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<String>>()
+            .join(" ");
+        // test no panic since is to stdout
+        dump_value(bytes_string, "bmConfigured", 4, LSUSB_DUMP_WIDTH);
     }
 }
