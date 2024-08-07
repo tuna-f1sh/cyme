@@ -12,7 +12,6 @@ use std::fmt;
 use std::str::FromStr;
 
 pub mod descriptors;
-#[cfg(feature = "libusb")]
 pub mod profiler;
 
 use crate::error::{self, Error, ErrorKind};
@@ -786,6 +785,18 @@ impl fmt::Display for TransferType {
     }
 }
 
+impl From<u8> for TransferType {
+    fn from(b: u8) -> Self {
+        match b & 0x03 {
+            0 => TransferType::Control,
+            1 => TransferType::Isochronous,
+            2 => TransferType::Bulk,
+            3 => TransferType::Interrupt,
+            _ => unreachable!(),
+        }
+    }
+}
+
 /// Isochronous synchronization mode for [`USBEndpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[repr(u8)]
@@ -803,6 +814,18 @@ pub enum SyncType {
 impl fmt::Display for SyncType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl From<u8> for SyncType {
+    fn from(b: u8) -> Self {
+        match (b & 0x0c) >> 2 {
+            0 => SyncType::None,
+            1 => SyncType::Asynchronous,
+            2 => SyncType::Adaptive,
+            3 => SyncType::Synchronous,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -824,6 +847,18 @@ pub enum UsageType {
 impl fmt::Display for UsageType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl From<u8> for UsageType {
+    fn from(b: u8) -> Self {
+        match (b & 0x30) >> 4 {
+            0 => UsageType::Data,
+            1 => UsageType::Feedback,
+            2 => UsageType::FeedbackData,
+            3 => UsageType::Reserved,
+            _ => unreachable!(),
+        }
     }
 }
 

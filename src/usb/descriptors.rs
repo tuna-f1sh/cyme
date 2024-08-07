@@ -111,6 +111,77 @@ impl From<DescriptorType> for u8 {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct DeviceDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub usb_version: Version,
+    pub device_class: u8,
+    pub device_sub_class: u8,
+    pub device_protocol: u8,
+    pub max_packet_size: u8,
+    pub vendor_id: u16,
+    pub product_id: u16,
+    pub device_version: Version,
+    pub manufacturer_string_index: u8,
+    pub product_string_index: u8,
+    pub serial_number_string_index: u8,
+    pub num_configurations: u8,
+}
+
+impl TryFrom<&[u8]> for DeviceDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 18 {
+            return Err(Error::new_descriptor_len(
+                "DeviceDescriptor",
+                18,
+                value.len(),
+            ));
+        }
+
+        Ok(DeviceDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            usb_version: Version::from_bcd(u16::from_le_bytes([value[2], value[3]])),
+            device_class: value[4],
+            device_sub_class: value[5],
+            device_protocol: value[6],
+            max_packet_size: value[7],
+            vendor_id: u16::from_le_bytes([value[8], value[9]]),
+            product_id: u16::from_le_bytes([value[10], value[11]]),
+            device_version: Version::from_bcd(u16::from_le_bytes([value[12], value[13]])),
+            manufacturer_string_index: value[14],
+            product_string_index: value[15],
+            serial_number_string_index: value[16],
+            num_configurations: value[17],
+        })
+    }
+}
+
+impl From<DeviceDescriptor> for Vec<u8> {
+    fn from(dd: DeviceDescriptor) -> Self {
+        let mut ret = vec![dd.length, dd.descriptor_type];
+
+        ret.extend(u16::from(dd.usb_version).to_le_bytes());
+        ret.push(dd.device_class);
+        ret.push(dd.device_sub_class);
+        ret.push(dd.device_protocol);
+        ret.push(dd.max_packet_size);
+        ret.extend(dd.vendor_id.to_le_bytes());
+        ret.extend(dd.product_id.to_le_bytes());
+        ret.extend(u16::from(dd.device_version).to_le_bytes());
+        ret.push(dd.manufacturer_string_index);
+        ret.push(dd.product_string_index);
+        ret.push(dd.serial_number_string_index);
+        ret.push(dd.num_configurations);
+
+        ret
+    }
+}
+
 /// USB descriptor encloses type specific descriptor structs
 ///
 /// Not all descriptors are implemented

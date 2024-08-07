@@ -11,7 +11,7 @@ use cyme::display;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::system_profiler;
-use cyme::usb;
+use cyme::usb::profiler;
 use cyme::usb::ClassCode;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
@@ -305,17 +305,7 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     }
 }
 
-/// Abort with exit code before trying to call libusb feature if not present
-#[cfg(not(feature = "libusb"))]
-fn get_libusb_spusb(_args: &Args) -> Result<system_profiler::SPUSBDataType> {
-    Err(Error::new(
-        ErrorKind::Unsupported,
-        "libusb feature is required to do this, install with `cargo install --features libusb`",
-    ))
-}
-
-#[cfg(feature = "libusb")]
-fn get_libusb_spusb(args: &Args, print_stderr: bool) -> Result<system_profiler::SPUSBDataType> {
+fn get_libusb_spusb(args: &Args) -> Result<system_profiler::SPUSBDataType> {
     if args.verbose > 0
         || args.tree
         || args.device.is_some()
@@ -325,22 +315,9 @@ fn get_libusb_spusb(args: &Args, print_stderr: bool) -> Result<system_profiler::
         || args.filter_class.is_none()
     // class filter requires extra
     {
-        usb::profiler::get_spusb_with_extra(print_stderr).map_err(|e| {
-            Error::new(
-                ErrorKind::LibUSB,
-                &format!(
-                    "Failed to gather system USB data with extra from libusb, Error({})",
-                    e
-                ),
-            )
-        })
+        profiler::get_spusb_with_extra()
     } else {
-        usb::profiler::get_spusb(print_stderr).map_err(|e| {
-            Error::new(
-                ErrorKind::LibUSB,
-                &format!("Failed to gather system USB data from libusb, Error({})", e),
-            )
-        })
+        profiler::get_spusb()
     }
 }
 
@@ -360,8 +337,10 @@ fn print_lsusb(
         lsusb::print_tree(sp_usb, settings)
     } else {
         // can't print verbose if not using libusb
-        if !cfg!(feature = "libusb") && (settings.verbosity > 0 || device.is_some()) {
-            return Err(Error::new(ErrorKind::Unsupported, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+        if !(cfg!(feature = "libusb") || cfg!(feature = "nusb"))
+            && (settings.verbosity > 0 || device.is_some())
+        {
+            return Err(Error::new(ErrorKind::Unsupported, "nusb/libusb feature is required to do this, install with `cargo install --features nusb/libusb`"));
         }
 
         let devices = sp_usb.flattened_devices();
@@ -431,9 +410,9 @@ fn cyme() -> Result<()> {
     cyme::set_log_level(args.debug)?;
 
     #[cfg(feature = "libusb")]
-    usb::profiler::set_log_level(args.debug);
+    profiler::libusb::set_log_level(args.debug);
 
-    let mut config = if let Some(path) = args.config.as_ref() {
+    let config = if let Some(path) = args.config.as_ref() {
         let config = Config::from_file(path)?;
         log::info!("Using user config {:?}", config);
         config
@@ -442,9 +421,9 @@ fn cyme() -> Result<()> {
     };
 
     // add any config ENV override
-    config.print_non_critical_profiler_stderr =
-        std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR")
-            .map_or(config.print_non_critical_profiler_stderr, |_| true);
+    if config.print_non_critical_profiler_stderr {
+        std::env::set_var("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR", "1");
+    }
 
     merge_config(&config, &mut args);
 
@@ -508,7 +487,7 @@ fn cyme() -> Result<()> {
                 // For non-zero return, report but continue in this case
                 if e.kind() == ErrorKind::SystemProfiler {
                     eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
-                    get_libusb_spusb(&args, config.print_non_critical_profiler_stderr)
+                    get_libusb_spusb(&args)
                 // parsing error abort
                 } else {
                     Err(e)
@@ -522,13 +501,13 @@ fn cyme() -> Result<()> {
                 // For non-zero return, report but continue in this case
                 if e.kind() == ErrorKind::SystemProfiler {
                     eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
-                    get_libusb_spusb(&args, config.print_non_critical_profiler_stderr)
+                    get_libusb_spusb(&args)
                 } else {
                     Err(e)
                 }
             }, Ok)?
         } else {
-            get_libusb_spusb(&args, config.print_non_critical_profiler_stderr)?
+            get_libusb_spusb(&args)?
         }
     };
 
