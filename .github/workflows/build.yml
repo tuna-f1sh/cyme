@@ -24,11 +24,11 @@ jobs:
           # only default as don't generate docs or hwdb
           - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, use-cross: true, feature-flags: "" }
           # all ok as udev ignored on non-linux
-          - { os: ubuntu-latest, target: x86_64-pc-windows-gnu, use-cross: true, feature-flags: "--all-features"  }
+          - { os: ubuntu-latest, target: x86_64-pc-windows-gnu, use-cross: true, feature-flags: ""  }
           # specificy to avoid udevlib
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: false, feature-flags: "-F=cli_generate"  }
           # all ok as udev ignored on non-linux
-          - { os: macos-latest, target: universal-apple-darwin, use-cross: false, feature-flags: "--all-features"  }
+          - { os: macos-latest, target: universal-apple-darwin, use-cross: false, feature-flags: "-F=cli_generate"  }
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@v1
