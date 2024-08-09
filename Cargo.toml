@@ -36,7 +36,7 @@ regex = { version = "1.10.5", optional = true }
 uuid = { version = "1.9.1", features = ["serde"] }
 
 [patch.crates-io]
-nusb = { git = "https://github.com/kevinmehall/nusb", branch = "port-chain" }
+nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "cyme" }
 
 [dev-dependencies]
 diff = "0.1"

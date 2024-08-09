@@ -191,6 +191,14 @@ where
         #[cfg(not(all(target_os = "linux", any(feature = "udev", feature = "udevlib"))))]
         return Ok(None);
     }
+
+    #[allow(unused_variables)]
+    fn get_syspath(port_path: &str) -> Option<String> {
+        #[cfg(target_os = "linux")]
+        return Some(format!("/sys/bus/usb/devices/{}", port_path));
+        #[cfg(not(target_os = "linux"))]
+        return None;
+    }
 }
 
 #[cfg(feature = "libusb")]
@@ -286,6 +294,11 @@ pub mod libusb {
             string_index: u8,
             handle: &mut Option<UsbDevice<T>>,
         ) -> Option<String> {
+            // 0 is reserved for language codes and we can assume we're not doing that for descriptor strings
+            if string_index == 0 {
+                return None;
+            }
+
             handle.as_mut().and_then(|h| {
                 match h
                     .handle
@@ -1688,6 +1701,11 @@ pub mod nusb {
         }
 
         fn get_descriptor_string(device: &nusb::Device, string_index: u8) -> Option<String> {
+            // 0 is reserved for language codes and we can assume we're not doing that for descriptor strings
+            if string_index == 0 {
+                return None;
+            }
+
             device
                 .get_string_descriptor(string_index, 0, std::time::Duration::from_secs(1))
                 .map(|s| s.to_string())
@@ -2075,6 +2093,7 @@ pub mod nusb {
         fn build_interfaces(
             &self,
             device: &nusb::Device,
+            sp_device: &system_profiler::USBDevice,
             config: &nusb::descriptors::Configuration,
             with_udev: bool,
         ) -> Result<Vec<usb::USBInterface>> {
@@ -2082,12 +2101,12 @@ pub mod nusb {
 
             for interface in config.interfaces() {
                 for interface_alt in interface.alt_settings() {
-                    //let path = usb::get_interface_path(
-                    //    device.bus_number(),
-                    //    &device.port_numbers()?,
-                    //    config_desc.number(),
-                    //    interface_desc.interface_number(),
-                    //);
+                    let path = usb::get_interface_path(
+                        sp_device.location_id.bus,
+                        &sp_device.location_id.tree_positions,
+                        config.configuration_value(),
+                        interface_alt.interface_number(),
+                    );
                     let name = if let Some(i) = interface_alt.string_index() {
                         device
                             .get_string_descriptor(i, 0, std::time::Duration::from_secs(1))
@@ -2099,7 +2118,8 @@ pub mod nusb {
                     let interface_extra = interface_alt
                         .descriptors()
                         .skip(1)
-                        .filter(|d| d.descriptor_type() == 0x04 || d.descriptor_type() == 0x24)
+                        // only want device and interface descriptors - nusb everything trailing
+                        .filter(|d| (d.descriptor_type() & 0x0F) == 0x04 || (d.descriptor_type() & 0x0F) == 0x01)
                         .flat_map(|d| d.to_vec())
                         .collect::<Vec<u8>>();
 
@@ -2107,7 +2127,7 @@ pub mod nusb {
                         name,
                         string_index: interface_alt.string_index().unwrap_or(0),
                         number: interface_alt.interface_number(),
-                        path: String::new(),
+                        path,
                         class: usb::ClassCode::from(interface_alt.class()),
                         sub_class: interface_alt.subclass(),
                         protocol: interface_alt.subclass(),
@@ -2142,6 +2162,7 @@ pub mod nusb {
         fn build_configurations(
             &self,
             device: &nusb::Device,
+            sp_device: &system_profiler::USBDevice,
             with_udev: bool,
         ) -> Result<Vec<usb::USBConfiguration>> {
             let mut ret: Vec<usb::USBConfiguration> = Vec::new();
@@ -2169,6 +2190,7 @@ pub mod nusb {
                 let config_extra = c
                     .descriptors()
                     .skip(1)
+                    // only config descriptors - nusb everything trailing
                     .filter(|d| d.descriptor_type() == 0x02)
                     .flat_map(|d| d.to_vec())
                     .collect::<Vec<u8>>();
@@ -2186,7 +2208,7 @@ pub mod nusb {
                     },
                     length: config_desc.len() as u8,
                     total_length,
-                    interfaces: self.build_interfaces(device, &c, with_udev)?,
+                    interfaces: self.build_interfaces(device, &sp_device, &c, with_udev)?,
                     extra: self
                         .build_config_descriptor_extra(device, config_extra)
                         .ok(),
@@ -2216,7 +2238,7 @@ pub mod nusb {
                     device_desc.serial_number_string_index,
                 ),
                 driver: None,
-                syspath: None,
+                syspath: Self::get_syspath(&sp_device.sysfs_name()),
                 // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids
                 vendor: names::vendor(device_desc.vendor_id)
                     .or(usb_ids::Vendor::from_id(device_desc.vendor_id)
@@ -2225,7 +2247,7 @@ pub mod nusb {
                     usb_ids::Device::from_vid_pid(device_desc.vendor_id, device_desc.product_id)
                         .map(|v| v.name().to_owned()),
                 ),
-                configurations: self.build_configurations(device, with_udev)?,
+                configurations: self.build_configurations(device, &sp_device, with_udev)?,
                 status: Self::get_device_status(device).ok(),
                 debug: Self::get_debug_descriptor(device).ok(),
                 binary_object_store: None,
@@ -2359,7 +2381,7 @@ pub mod nusb {
                                         sp_device
                                 ))
                             } else {
-                                Some(format!( "Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e ))
+                                Some(format!("Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e))
                             }
                         }
                     }
@@ -2374,7 +2396,23 @@ pub mod nusb {
                 sp_device.profiler_error = error_str;
             } else {
                 log::warn!("Failed to open device for extra data: {:04x}:{:04x}. Ensure user has USB access permissions: https://docs.rs/nusb/latest/nusb/#linux", device_info.vendor_id(), device_info.product_id());
-                sp_device.profiler_error = Some("Failed to open device".to_string());
+                sp_device.profiler_error = Some("Failed to open device, extra data incomplete".to_string());
+                sp_device.extra = Some(usb::USBDeviceExtra {
+                    max_packet_size: device_info.max_packet_size(),
+                    // nusb doesn't have these cached
+                    string_indexes: (0, 0, 0),
+                    driver: None,
+                    syspath: Self::get_syspath(&sp_device.sysfs_name()),
+                    // these should be read from the string descriptor we can't open device so just copy the cached ones in
+                    vendor: sp_device.manufacturer.clone(),
+                    product_name: Some(sp_device.name.clone()),
+                    configurations: vec![],
+                    status: None,
+                    debug: None,
+                    binary_object_store: None,
+                    qualifier: None,
+                    hub: None,
+                });
             }
 
             Ok(sp_device)
