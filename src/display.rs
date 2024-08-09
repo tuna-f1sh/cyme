@@ -1688,7 +1688,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
     let (width, height) = settings
         .terminal_size
         .unwrap_or((Width(DEFAULT_AUTO_WIDTH), Height(0)));
-    log::debug!(
+    log::trace!(
         "Auto scaling running for max length {:?} of which fixed {:?}, to terminal size {:?} {:?}",
         total_len,
         total_fixed,
@@ -1700,7 +1700,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
     if total_len > w {
         // fixed already taking all space, return min
         if w < total_fixed {
-            log::debug!("Cannot scale, fixed already taking all space!");
+            log::trace!("Cannot scale, fixed already taking all space!");
             return Some(MIN_VARIABLE_STRING_LEN);
         }
         // remaining len for variable strings
@@ -1714,7 +1714,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
             .filter(|v| **v <= auto_max_string)
             .map(|v| auto_max_string - v)
             .sum();
-        log::debug!(
+        log::trace!(
             "Auto max string calculated {:?}, remaining {:?}",
             auto_max_string,
             remaining_chars
@@ -1731,18 +1731,17 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
         auto_max_string += remaining_chars;
 
         if auto_max_string < MIN_VARIABLE_STRING_LEN {
-            log::debug!(
+            log::trace!(
                 "Ignoring auto max string {:?}! Clamped to MIN_VARIABLE_STRING_LEN {:?}",
                 auto_max_string,
                 MIN_VARIABLE_STRING_LEN
             );
             Some(MIN_VARIABLE_STRING_LEN)
         } else {
-            log::debug!("Final auto max string {:?}", auto_max_string);
+            log::trace!("Final auto max string {:?}", auto_max_string);
             Some(auto_max_string)
         }
     } else {
-        log::debug!("Auto max string not required");
         None
     }
 }

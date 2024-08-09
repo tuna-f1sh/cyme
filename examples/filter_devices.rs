@@ -7,7 +7,7 @@ use cyme::usb::ClassCode;
 
 fn main() -> Result<(), String> {
     // get all system devices
-    let mut sp_usb = profiler::get_spusb(false)
+    let mut sp_usb = profiler::get_spusb()
         .map_err(|e| format!("Failed to gather system USB data from libusb, Error({})", e))?;
 
     // if one does want the tree, use the utility

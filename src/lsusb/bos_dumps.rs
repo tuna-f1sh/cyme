@@ -432,7 +432,7 @@ pub(crate) fn dump_bos_descriptor(bosd: &bos::BinaryObjectStoreDescriptor, inden
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_value(
+    dump_hex(
         bosd.total_length,
         "wTotalLength",
         indent + 2,
