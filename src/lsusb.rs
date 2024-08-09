@@ -2044,13 +2044,13 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
             indent + 2,
             LSUSB_DUMP_WIDTH,
         );
-        3
+        2
     } else {
         0
     };
 
     // determine the number of bytes needed to represent the number of ports
-    let mut l = (hd.num_ports >> (3 + 1)) as usize;
+    let mut l = ((hd.num_ports >> 3) + 1) as usize;
     if l > 3 {
         l = 3;
     }
@@ -2082,7 +2082,8 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
     }
 
     if let Some(ps) = hd.port_statuses.as_ref() {
-        dump_string("Hub Port Status:", indent + 2);
+        // + 1 in lsusb for some reason...
+        dump_string("Hub Port Status:", indent + 1);
         for (i, p) in ps.iter().enumerate() {
             let port_status_string = format!(
                 "Port {}: {:02x}{:02x}.{:02x}{:02x}",
