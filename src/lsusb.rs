@@ -33,7 +33,7 @@ fn get_spaces(value_len: usize, field_len: usize, width: usize) -> String {
     if value_len >= width || value_len == usize::MAX {
         String::from(" ")
     } else {
-        " ".repeat((width - value_len).saturating_sub(field_len))
+        " ".repeat((width - value_len).saturating_sub(field_len).max(1))
     }
 }
 
@@ -330,7 +330,7 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
         for device in devices {
             match device.extra.as_ref() {
                 None => log::warn!(
-                    "Skipping {} because it does not contain extra data required for verbose print",
+                    "Device {} does not contain extra data required for verbose print",
                     device
                 ),
                 Some(device_extra) => {
@@ -529,7 +529,7 @@ fn dump_config(config: &USBConfiguration, indent: usize) {
     dump_string("Configuration Descriptor:", indent);
     dump_value(config.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(2, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 2 for configuration
-    dump_value(
+    dump_hex(
         config.total_length,
         "wTotalLength",
         indent + 2,
@@ -554,7 +554,7 @@ fn dump_config(config: &USBConfiguration, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_value(
+    dump_hex(
         config.attributes_value(),
         "bmAttributes",
         indent + 2,
@@ -666,33 +666,33 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
             match dt {
                 // Should only be Device or Interface as we mask out the rest
                 Descriptor::Device(cd) | Descriptor::Interface(cd) => match cd {
-                    ClassDescriptor::Hid(hidd) => dump_hid_device(hidd, indent + 2),
-                    ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 2),
-                    ClassDescriptor::Printer(pd) => dump_printer_desc(pd, indent + 2),
-                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 2),
-                    ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 2),
-                    ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md, indent + 2),
+                    ClassDescriptor::Hid(hidd) => dump_hid_device(hidd, indent + 4),
+                    ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 4),
+                    ClassDescriptor::Printer(pd) => dump_printer_desc(pd, indent + 4),
+                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 4),
+                    ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 4),
+                    ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md, indent + 4),
                     ClassDescriptor::Audio(uacd, uacp) => match &uacd.descriptor_subtype {
                         audio::UacType::Control(cs) => {
-                            dump_audiocontrol_interface(uacd, cs, uacp, indent + 2)
+                            dump_audiocontrol_interface(uacd, cs, uacp, indent + 4)
                         }
                         audio::UacType::Streaming(ss) => {
-                            dump_audiostreaming_interface(uacd, ss, uacp, indent + 2)
+                            dump_audiostreaming_interface(uacd, ss, uacp, indent + 4)
                         }
                         _ => (),
                     },
                     ClassDescriptor::Video(vcd, p) => match &vcd.descriptor_subtype {
                         video::UvcType::Control(cs) => {
-                            dump_videocontrol_interface(vcd, cs, *p, indent + 2)
+                            dump_videocontrol_interface(vcd, cs, *p, indent + 4)
                         }
                         video::UvcType::Streaming(ss) => {
-                            dump_videostreaming_interface(vcd, ss, *p, indent + 2);
+                            dump_videostreaming_interface(vcd, ss, *p, indent + 4);
                         }
                     },
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((ClassCode::Audio, 3, _)) => {
                             if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {
-                                dump_midistreaming_interface(&md, indent + 2);
+                                dump_midistreaming_interface(&md, indent + 4);
                             }
                         }
                         Some((ClassCode::Audio, s, p)) => {
@@ -702,10 +702,10 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                                 let uacp = audio::UacProtocol::from(*p);
                                 match &uacd.descriptor_subtype {
                                     audio::UacType::Control(cs) => {
-                                        dump_audiocontrol_interface(&uacd, cs, &uacp, indent + 2)
+                                        dump_audiocontrol_interface(&uacd, cs, &uacp, indent + 4)
                                     }
                                     audio::UacType::Streaming(ss) => {
-                                        dump_audiostreaming_interface(&uacd, ss, &uacp, indent + 2)
+                                        dump_audiostreaming_interface(&uacd, ss, &uacp, indent + 4)
                                     }
                                     _ => (),
                                 }
@@ -717,29 +717,29 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                             {
                                 match &uvcd.descriptor_subtype {
                                     video::UvcType::Control(cs) => {
-                                        dump_videocontrol_interface(&uvcd, cs, *p, indent + 2);
+                                        dump_videocontrol_interface(&uvcd, cs, *p, indent + 4);
                                     }
                                     video::UvcType::Streaming(ss) => {
-                                        dump_videostreaming_interface(&uvcd, ss, *p, indent + 2);
+                                        dump_videostreaming_interface(&uvcd, ss, *p, indent + 4);
                                     }
                                 }
                             }
                         }
                         Some((ClassCode::ApplicationSpecificInterface, 1, _)) => {
                             if let Ok(dfud) = DfuDescriptor::try_from(gd.to_owned()) {
-                                dump_dfu_interface(&dfud, indent + 2);
+                                dump_dfu_interface(&dfud, indent + 4);
                             }
                         }
                         _ => {
                             let junk = Vec::from(cd.to_owned());
-                            dump_unrecognised(&junk, indent + 2);
+                            dump_unrecognised(&junk, indent + 4);
                         }
                     },
                 },
                 Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
-                    dump_unrecognised(junk, 6);
+                    dump_unrecognised(junk, indent + 4);
                 }
-                _ => (),
+                _ => dump_unrecognised(&Vec::from(dt.to_owned()), indent + 4),
             }
         }
     }
@@ -1823,7 +1823,7 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
 }
 
 fn dump_device_qualifier(dqd: &DeviceQualifierDescriptor, indent: usize) {
-    dump_string("Device Qualifier:", indent);
+    dump_string("Device Qualifier (for other device speed):", indent);
     dump_value(dqd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
         dqd.descriptor_type,
@@ -1975,7 +1975,10 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
             indent = indent + 4
         ),
     }
-    match hd.characteristics & 0x04 {
+    if hd.characteristics & 0x04 != 0 {
+        println!("{:indent$}Compound device", "", indent = indent + 4);
+    }
+    match (hd.characteristics >> 3) & 0x03 {
         0 => println!(
             "{:indent$}Ganged overcurrent protection",
             "",
