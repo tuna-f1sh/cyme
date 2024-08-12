@@ -11,7 +11,7 @@ use cyme::display;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::system_profiler;
-use cyme::usb::profiler;
+use cyme::profiler;
 use cyme::usb::ClassCode;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]

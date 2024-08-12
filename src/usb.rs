@@ -12,14 +12,10 @@ use std::fmt;
 use std::str::FromStr;
 
 pub mod descriptors;
-pub mod profiler;
+pub use descriptors::*;
 
 use crate::error::{self, Error, ErrorKind};
 use crate::types::NumericalUnit;
-use descriptors::*;
-
-const WEBUSB_GET_URL: u8 = 0x02;
-const USB_DT_WEBUSB_URL: u8 = 0x03;
 
 /// The version value (for BCD and USB) is in binary coded decimal with a format of 0xJJMN where JJ is the major version number, M is the minor version number and N is the sub minor version number. e.g. USB 2.0 is reported as 0x0200, USB 1.1 as 0x0110 and USB 1.0 as 0x0100. The type is a mirror of the one from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
 ///

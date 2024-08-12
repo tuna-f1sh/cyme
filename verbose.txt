@@ -1,8 +1,8 @@
 2024-07-15T11:46:12.953Z WARN  [cyme::config] Running in debug, not checking for system config
 2024-07-15T11:46:12.953Z [33mWARN [0m [cyme] Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained
-2024-07-15T11:46:13.140Z [36mINFO [0m [cyme::usb::profiler] Building SPUSBDataType with libusb LibraryVersion { major: 1, minor: 0, micro: 27, nano: 11882, rc: None }
+2024-07-15T11:46:13.140Z [36mINFO [0m [cyme::profiler] Building SPUSBDataType with libusb LibraryVersion { major: 1, minor: 0, micro: 27, nano: 11882, rc: None }
 2024-07-15T11:46:13.173Z [33mWARN [0m [cyme::usb::descriptors::video] Error parsing UVC descriptor: DescriptorLength(ErrorArg { expected: 6, got: 2 }) Error: Invalid descriptor length for OutputTerminal1. Expected: 6, Got 2
-2024-07-15T11:46:13.201Z [33mWARN [0m [cyme::usb::profiler] Non-critical error during profile: Failed to open Bus 003 Device 008: ID 043e:9a71, will be unable to obtain all data: Pipe error
+2024-07-15T11:46:13.201Z [33mWARN [0m [cyme::profiler] Non-critical error during profile: Failed to open Bus 003 Device 008: ID 043e:9a71, will be unable to obtain all data: Pipe error
 2024-07-15T11:46:13.216Z [36mINFO [0m [cyme] Filtering with None
 
 Bus 002 Device 001: ID 05ac:1109 Apple, Inc. AirPods Max
