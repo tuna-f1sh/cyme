@@ -1,5 +1,5 @@
 use cyme::display;
-use cyme::usb::profiler;
+use cyme::profiler;
 
 fn main() -> Result<(), String> {
     // get all system devices - use get_spusb_with_extra for verbose info

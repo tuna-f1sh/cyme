@@ -6,7 +6,7 @@
 //! To get all the USB devices on cross-platform systems using libusb:
 //!
 //! ```ignore
-//! use cyme::lsusb::profiler;
+//! use cyme::lsprofiler;
 //! let sp_usb = profiler::get_spusb(false).unwrap();
 //! ```
 //!
@@ -51,6 +51,7 @@ pub mod udev;
 #[path = "udev_ffi.rs"]
 pub mod udev;
 pub mod usb;
+pub mod profiler;
 
 /// Set cyme module and binary log level
 pub fn set_log_level(debug: u8) -> crate::error::Result<()> {

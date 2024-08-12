@@ -1536,16 +1536,16 @@ pub fn get_spusb() -> Result<SPUSBDataType, Error> {
 /// Runs `get_spusb` and then adds in data obtained from libusb. Requires 'libusb' feature.
 #[cfg(any(feature = "libusb", feature = "nusb"))]
 pub fn get_spusb_with_extra() -> Result<SPUSBDataType, Error> {
-    use crate::usb::profiler::Profiler;
+    use crate::profiler::Profiler;
 
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
     return get_spusb().and_then(|mut spusb| {
-        crate::usb::profiler::libusb::LibUsbProfiler.fill_spusb(&mut spusb)?;
+        crate::profiler::libusb::LibUsbProfiler.fill_spusb(&mut spusb)?;
         Ok(spusb)
     });
     #[cfg(feature = "nusb")]
     return get_spusb().and_then(|mut spusb| {
-        crate::usb::profiler::nusb::NusbProfiler.fill_spusb(&mut spusb)?;
+        crate::profiler::nusb::NusbProfiler.fill_spusb(&mut spusb)?;
         Ok(spusb)
     });
 }
