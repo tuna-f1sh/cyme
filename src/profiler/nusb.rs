@@ -1,9 +1,9 @@
 //! Uses nusb (pure Rust) to get system USB information. Requires 'nusb' feature. Uses [`crate::system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
 use super::*;
-use ::nusb;
-use usb_ids::{self, FromId};
 use crate::error::{Error, ErrorKind};
 use crate::lsusb::names;
+use ::nusb;
+use usb_ids::{self, FromId};
 
 #[derive(Debug)]
 pub(crate) struct NusbProfiler;
@@ -162,7 +162,16 @@ impl NusbProfiler {
                 interval: endpoint.interval(),
                 length: endpoint_desc[0],
                 extra: self
-                    .build_endpoint_descriptor_extra(device, (interface_desc.class(), interface_desc.subclass(), interface_desc.protocol()), interface_desc.interface_number(), endpoint_extra)
+                    .build_endpoint_descriptor_extra(
+                        device,
+                        (
+                            interface_desc.class(),
+                            interface_desc.subclass(),
+                            interface_desc.protocol(),
+                        ),
+                        interface_desc.interface_number(),
+                        endpoint_extra,
+                    )
                     .ok()
                     .flatten(),
             });
@@ -194,8 +203,7 @@ impl NusbProfiler {
                     .skip(1)
                     // only want device and interface descriptors - nusb everything trailing
                     .filter(|d| {
-                        (d.descriptor_type() & 0x0F) == 0x04
-                            || (d.descriptor_type() & 0x0F) == 0x01
+                        (d.descriptor_type() & 0x0F) == 0x04 || (d.descriptor_type() & 0x0F) == 0x01
                     })
                     .flat_map(|d| d.to_vec())
                     .collect::<Vec<u8>>();
@@ -203,7 +211,8 @@ impl NusbProfiler {
                 let mut interface = usb::USBInterface {
                     name: get_sysfs_string(&path, "interface")
                         .or(interface_alt
-                            .string_index().and_then(|i| device.get_descriptor_string(i)))
+                            .string_index()
+                            .and_then(|i| device.get_descriptor_string(i)))
                         .unwrap_or_default(),
                     string_index: interface_alt.string_index().unwrap_or(0),
                     number: interface_alt.interface_number(),
@@ -219,7 +228,11 @@ impl NusbProfiler {
                     extra: self
                         .build_interface_descriptor_extra(
                             device,
-                            (interface_alt.class(), interface_alt.subclass(), interface_alt.protocol()),
+                            (
+                                interface_alt.class(),
+                                interface_alt.subclass(),
+                                interface_alt.protocol(),
+                            ),
                             interface_alt.interface_number(),
                             interface_extra,
                         )
@@ -271,7 +284,8 @@ impl NusbProfiler {
 
             ret.push(usb::USBConfiguration {
                 name: c
-                    .string_index().and_then(|i| device.get_descriptor_string(i))
+                    .string_index()
+                    .and_then(|i| device.get_descriptor_string(i))
                     .unwrap_or_default(),
                 string_index: c.string_index().unwrap_or(0),
                 number: c.configuration_value(),
@@ -300,12 +314,9 @@ impl NusbProfiler {
         with_udev: bool,
     ) -> Result<usb::USBDeviceExtra> {
         // get the Device Descriptor since not all data is cached
-        let device_desc_raw = device.handle.get_descriptor(
-            0x01,
-            0x00,
-            0x00,
-            device.timeout,
-        )?;
+        let device_desc_raw = device
+            .handle
+            .get_descriptor(0x01, 0x00, 0x00, device.timeout)?;
         let device_desc: usb::DeviceDescriptor =
             usb::DeviceDescriptor::try_from(device_desc_raw.as_slice())?;
         sp_device.bcd_usb = Some(device_desc.usb_version);
@@ -346,8 +357,7 @@ impl NusbProfiler {
             syspath: get_syspath(&sp_device.sysfs_name()),
             // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids - not device descriptor
             vendor: names::vendor(device_desc.vendor_id)
-                .or(usb_ids::Vendor::from_id(device_desc.vendor_id)
-                    .map(|v| v.name().to_owned())),
+                .or(usb_ids::Vendor::from_id(device_desc.vendor_id).map(|v| v.name().to_owned())),
             product_name: names::product(device_desc.vendor_id, device_desc.product_id).or(
                 usb_ids::Device::from_vid_pid(device_desc.vendor_id, device_desc.product_id)
                     .map(|v| v.name().to_owned()),
@@ -378,16 +388,15 @@ impl NusbProfiler {
 
         if device_desc.device_class == usb::ClassCode::Hub as u8 {
             let has_ssp = if let Some(bos) = &extra.binary_object_store {
-                bos.capabilities.iter().any(|c| {
-                    matches!(c, usb::descriptors::bos::BosCapability::SuperSpeedPlus(_))
-                })
+                bos.capabilities
+                    .iter()
+                    .any(|c| matches!(c, usb::descriptors::bos::BosCapability::SuperSpeedPlus(_)))
             } else {
                 false
             };
             let bcd = sp_device.bcd_usb.map_or(0x0100, |v| v.into());
             extra.hub =
-                Self::get_hub_descriptor(device, device_desc.device_protocol, bcd, has_ssp)
-                    .ok();
+                Self::get_hub_descriptor(device, device_desc.device_protocol, bcd, has_ssp).ok();
         }
 
         Ok(extra)
@@ -426,23 +435,21 @@ impl NusbProfiler {
         // (legacy to libusb code)
         if sp_device.location_id.tree_positions.get(1) == Some(&0) {
             sp_device.location_id.tree_positions = vec![];
-        } else {
-            sp_device.location_id.tree_positions = sp_device
-                .location_id
-                .tree_positions
-                .into_iter()
-                .skip(1)
-                .collect();
+            //} else {
+            //    sp_device.location_id.tree_positions = sp_device
+            //        .location_id
+            //        .tree_positions
+            //        .into_iter()
+            //        .skip(1)
+            //        .collect();
         }
 
-        sp_device.manufacturer =
-            device_info
-                .manufacturer_string()
-                .map(|s| s.to_string())
-                .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer"))
-                .or(names::vendor(device_info.vendor_id()))
-                .or(usb_ids::Vendor::from_id(device_info.vendor_id())
-                    .map(|v| v.name().to_string()));
+        sp_device.manufacturer = device_info
+            .manufacturer_string()
+            .map(|s| s.to_string())
+            .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer"))
+            .or(names::vendor(device_info.vendor_id()))
+            .or(usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_string()));
         sp_device.name = device_info
             .product_string()
             .map(|s| s.to_string())
@@ -451,11 +458,10 @@ impl NusbProfiler {
                 device_info.vendor_id(),
                 device_info.product_id(),
             ))
-            .or(usb_ids::Device::from_vid_pid(
-                device_info.vendor_id(),
-                device_info.product_id(),
+            .or(
+                usb_ids::Device::from_vid_pid(device_info.vendor_id(), device_info.product_id())
+                    .map(|d| d.name().to_string()),
             )
-            .map(|d| d.name().to_string()))
             .unwrap_or_default();
         sp_device.serial_num = device_info
             .serial_number()
@@ -508,8 +514,10 @@ impl NusbProfiler {
                 };
             } else {
                 log::warn!("Failed to open device for extra data: {:04x}:{:04x}. Ensure user has USB access permissions: https://docs.rs/nusb/latest/nusb/#linux", device_info.vendor_id(), device_info.product_id());
-                sp_device.profiler_error =
-                    Some("Failed to open device, extra data incomplete and possibly inaccurate".to_string());
+                sp_device.profiler_error = Some(
+                    "Failed to open device, extra data incomplete and possibly inaccurate"
+                        .to_string(),
+                );
                 sp_device.extra = Some(usb::USBDeviceExtra {
                     max_packet_size: device_info.max_packet_size_0(),
                     // nusb doesn't have these cached
@@ -519,10 +527,12 @@ impl NusbProfiler {
                     vendor: names::vendor(device_info.vendor_id())
                         .or(usb_ids::Vendor::from_id(device_info.vendor_id())
                             .map(|v| v.name().to_owned())),
-                    product_name: names::product(device_info.vendor_id(), device_info.product_id()).or(
-                        usb_ids::Device::from_vid_pid(device_info.vendor_id(), device_info.product_id())
-                            .map(|v| v.name().to_owned()),
-                    ),
+                    product_name: names::product(device_info.vendor_id(), device_info.product_id())
+                        .or(usb_ids::Device::from_vid_pid(
+                            device_info.vendor_id(),
+                            device_info.product_id(),
+                        )
+                        .map(|v| v.name().to_owned())),
                     configurations: vec![],
                     status: None,
                     debug: None,
@@ -571,4 +581,9 @@ impl Profiler<UsbDevice> for NusbProfiler {
 
         Ok(())
     }
+}
+
+pub(crate) fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType) -> Result<()> {
+    let profiler = NusbProfiler;
+    profiler.fill_spusb(spusb)
 }

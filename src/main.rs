@@ -10,8 +10,8 @@ use cyme::config::Config;
 use cyme::display;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
-use cyme::system_profiler;
 use cyme::profiler;
+use cyme::system_profiler;
 use cyme::usb::ClassCode;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
@@ -340,7 +340,7 @@ fn print_lsusb(
         if !(cfg!(feature = "libusb") || cfg!(feature = "nusb"))
             && (settings.verbosity > 0 || device.is_some())
         {
-            return Err(Error::new(ErrorKind::Unsupported, "nusb/libusb feature is required to do this, install with `cargo install --features nusb/libusb`"));
+            return Err(Error::new(ErrorKind::Unsupported, "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`"));
         }
 
         let devices = sp_usb.flattened_devices();
@@ -482,7 +482,7 @@ fn cyme() -> Result<()> {
         && args.filter_class.is_none() // class filter requires extra
         && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
     {
-        system_profiler::get_spusb()
+        profiler::macos::get_spusb()
             .map_or_else(|e| {
                 // For non-zero return, report but continue in this case
                 if e.kind() == ErrorKind::SystemProfiler {
@@ -497,7 +497,7 @@ fn cyme() -> Result<()> {
         // if not forcing libusb, get system_profiler and the merge with libusb
         if cfg!(target_os = "macos") && !args.force_libusb {
             log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
-            system_profiler::get_spusb_with_extra().map_or_else(|e| {
+            profiler::macos::get_spusb_with_extra().map_or_else(|e| {
                 // For non-zero return, report but continue in this case
                 if e.kind() == ErrorKind::SystemProfiler {
                     eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);

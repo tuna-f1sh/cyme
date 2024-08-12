@@ -1,9 +1,9 @@
 //! Uses rusb (upto date libusb fork) to get system USB information - same lib as lsusb. Requires 'libusb' feature. Uses [`crate::system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
 use super::*;
-use rusb as libusb;
-use usb_ids::{self, FromId};
 use crate::error::{Error, ErrorKind};
 use crate::lsusb::names;
+use rusb as libusb;
+use usb_ids::{self, FromId};
 
 #[derive(Debug)]
 pub(crate) struct LibUsbProfiler;
@@ -193,10 +193,16 @@ impl LibUsbProfiler {
             let extra_desc = if let Some(extra) = endpoint_desc.extra() {
                 self.build_endpoint_descriptor_extra(
                     handle,
-                    (interface_desc.class_code(), interface_desc.sub_class_code(), interface_desc.protocol_code()),
+                    (
+                        interface_desc.class_code(),
+                        interface_desc.sub_class_code(),
+                        interface_desc.protocol_code(),
+                    ),
                     interface_desc.interface_number(),
                     extra.to_vec(),
-                ).ok().flatten()
+                )
+                .ok()
+                .flatten()
             } else {
                 None
             };
@@ -240,7 +246,8 @@ impl LibUsbProfiler {
                 let mut interface = usb::USBInterface {
                     name: get_sysfs_string(&path, "interface")
                         .or(interface_desc
-                            .description_string_index().and_then(|i| handle.get_descriptor_string(i)))
+                            .description_string_index()
+                            .and_then(|i| handle.get_descriptor_string(i)))
                         .unwrap_or_default(),
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
@@ -254,7 +261,16 @@ impl LibUsbProfiler {
                     length: interface_desc.length(),
                     endpoints: self.build_endpoints(handle, &interface_desc),
                     extra: self
-                        .build_interface_descriptor_extra(handle, (interface_desc.class_code(), interface_desc.sub_class_code(), interface_desc.protocol_code()), interface_desc.interface_number(), interface_desc.extra().to_vec())
+                        .build_interface_descriptor_extra(
+                            handle,
+                            (
+                                interface_desc.class_code(),
+                                interface_desc.sub_class_code(),
+                                interface_desc.protocol_code(),
+                            ),
+                            interface_desc.interface_number(),
+                            interface_desc.extra().to_vec(),
+                        )
                         .ok(),
                 };
 
@@ -313,7 +329,8 @@ impl LibUsbProfiler {
 
             ret.push(usb::USBConfiguration {
                 name: config_desc
-                    .description_string_index().and_then(|i| handle.get_descriptor_string(i))
+                    .description_string_index()
+                    .and_then(|i| handle.get_descriptor_string(i))
                     .or(config_name)
                     .unwrap_or(String::new()),
                 string_index: config_desc.description_string_index().unwrap_or(0),
@@ -347,16 +364,19 @@ impl LibUsbProfiler {
     ) -> Result<usb::USBDeviceExtra> {
         // attempt to get manufacturer and product strings from device itself
         sp_device.manufacturer = device_desc
-            .manufacturer_string_index().and_then(|i| handle.get_descriptor_string(i));
+            .manufacturer_string_index()
+            .and_then(|i| handle.get_descriptor_string(i));
 
         if let Some(name) = device_desc
-            .product_string_index().and_then(|i| handle.get_descriptor_string(i))
+            .product_string_index()
+            .and_then(|i| handle.get_descriptor_string(i))
         {
             sp_device.name = name;
         }
 
         sp_device.serial_num = device_desc
-            .serial_number_string_index().and_then(|i| handle.get_descriptor_string(i));
+            .serial_number_string_index()
+            .and_then(|i| handle.get_descriptor_string(i));
 
         let mut extra = usb::USBDeviceExtra {
             max_packet_size: device_desc.max_packet_size(),
@@ -369,14 +389,10 @@ impl LibUsbProfiler {
             syspath: None,
             // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids
             vendor: names::vendor(device_desc.vendor_id())
-                .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
-                    .map(|v| v.name().to_owned())),
+                .or(usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())),
             product_name: names::product(device_desc.vendor_id(), device_desc.product_id()).or(
-                usb_ids::Device::from_vid_pid(
-                    device_desc.vendor_id(),
-                    device_desc.product_id(),
-                )
-                .map(|v| v.name().to_owned()),
+                usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
+                    .map(|v| v.name().to_owned()),
             ),
             configurations: self.build_configurations(
                 device,
@@ -409,16 +425,15 @@ impl LibUsbProfiler {
         }
         if device_desc.class_code() == usb::ClassCode::Hub as u8 {
             let has_ssp = if let Some(bos) = &extra.binary_object_store {
-                bos.capabilities.iter().any(|c| {
-                    matches!(c, usb::descriptors::bos::BosCapability::SuperSpeedPlus(_))
-                })
+                bos.capabilities
+                    .iter()
+                    .any(|c| matches!(c, usb::descriptors::bos::BosCapability::SuperSpeedPlus(_)))
             } else {
                 false
             };
             let bcd = sp_device.bcd_usb.map_or(0x0100, |v| v.into());
             extra.hub =
-                Self::get_hub_descriptor(handle, device_desc.protocol_code(), bcd, has_ssp)
-                    .ok();
+                Self::get_hub_descriptor(handle, device_desc.protocol_code(), bcd, has_ssp).ok();
         }
 
         Ok(extra)
@@ -508,11 +523,10 @@ impl LibUsbProfiler {
                 device_desc.product_id(),
             ))
             // usb-ids
-            .or(usb_ids::Device::from_vid_pid(
-                device_desc.vendor_id(),
-                device_desc.product_id(),
+            .or(
+                usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
+                    .map(|device| device.name().to_owned()),
             )
-            .map(|device| device.name().to_owned()))
             // empty
             .unwrap_or_default();
 
@@ -633,4 +647,9 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
 
         Ok(())
     }
+}
+
+pub(crate) fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType) -> Result<()> {
+    let profiler = LibUsbProfiler;
+    <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::fill_spusb(&profiler, spusb)
 }

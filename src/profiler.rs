@@ -15,16 +15,18 @@ use crate::error::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 
-use crate::types::NumericalUnit;
-use crate::usb;
 use crate::error::{Error, ErrorKind};
 use crate::system_profiler;
+use crate::types::NumericalUnit;
 #[cfg(all(target_os = "linux", any(feature = "udev", feature = "udevlib")))]
 use crate::udev;
+use crate::usb;
 
 const REQUEST_GET_DESCRIPTOR: u8 = 0x06;
 const REQUEST_GET_STATUS: u8 = 0x00;
 const REQUEST_WEBUSB_URL: u8 = 0x02;
+
+pub mod macos;
 
 #[cfg(feature = "libusb")]
 pub mod libusb;
@@ -68,6 +70,7 @@ pub(crate) enum Recipient {
     Other = 3,
 }
 
+/// Control request to USB device.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct ControlRequest {
     pub control_type: ControlType,
@@ -78,16 +81,19 @@ pub(crate) struct ControlRequest {
     pub length: usize,
 }
 
+/// Device USB operations required by the [`Profiler`]
 pub(crate) trait UsbOperations {
     fn get_descriptor_string(&self, string_index: u8) -> Option<String>;
     fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>>;
 }
 
+/// OS level USB Profiler trait for profiling USB devices
 pub(crate) trait Profiler<T>
 where
     T: UsbOperations,
     Self: std::fmt::Debug,
 {
+    /// Get the USB HID Report Descriptor with a Control request
     fn get_report_descriptor(device: &T, index: u16, length: u16) -> Result<Vec<u8>> {
         let control_request = ControlRequest {
             control_type: ControlType::Standard,
@@ -100,6 +106,7 @@ where
         device.get_control_msg(&control_request)
     }
 
+    /// Get the USB Hub Descriptor with a Control request, include hub port statuses
     fn get_hub_descriptor(
         device: &T,
         protocol: u8,
@@ -154,6 +161,7 @@ where
         Ok(hub)
     }
 
+    /// Get the USB Device status with a Control request
     fn get_device_status(device: &T) -> Result<u16> {
         let control = ControlRequest {
             control_type: ControlType::Standard,
@@ -167,6 +175,7 @@ where
         Ok(u16::from_le_bytes([data[0], data[1]]))
     }
 
+    /// Get the USB Debug Descriptor with a Control request
     fn get_debug_descriptor(device: &T) -> Result<usb::DebugDescriptor> {
         let control = ControlRequest {
             control_type: ControlType::Standard,
@@ -180,6 +189,7 @@ where
         usb::DebugDescriptor::try_from(data.as_slice())
     }
 
+    /// Get the USB Device Binary Object Store (BOS) Descriptor with a Control request
     fn get_bos_descriptor(
         device: &T,
     ) -> Result<usb::descriptors::bos::BinaryObjectStoreDescriptor> {
@@ -223,6 +233,7 @@ where
         Ok(bos)
     }
 
+    /// Get the USB Device Qualifier Descriptor with a Control request
     fn get_device_qualifier(device: &T) -> Result<usb::DeviceQualifierDescriptor> {
         let control = ControlRequest {
             control_type: ControlType::Standard,
@@ -244,8 +255,8 @@ where
         let control = ControlRequest {
             control_type: ControlType::Vendor,
             request: vendor_request,
-            value: (usb::WEBUSB_GET_URL as u16) << 8,
-            index: index as u16,
+            value: index as u16,
+            index: (REQUEST_WEBUSB_URL as u16) << 8,
             recipient: Recipient::Device,
             length: 3,
         };
@@ -284,6 +295,8 @@ where
     }
 
     /// Build fully described USB device descriptor with extra bytes
+    ///
+    /// Fully described is based on the [`usb::ClassCodeTriplet`] and [`usb::Descriptor`] types. Any string indexes (or data which requires a control message) will be fetched and added to the descriptor while the device is still available.
     fn build_descriptor_extra<C: Into<usb::ClassCode> + Copy>(
         &self,
         device: &T,
@@ -470,6 +483,7 @@ where
         Ok(dt)
     }
 
+    /// Build [`usb::Descriptor`]s from extra bytes of a Configuration Descriptor
     fn build_config_descriptor_extra(
         &self,
         device: &T,
@@ -496,6 +510,7 @@ where
         Ok(ret)
     }
 
+    /// Build [`usb::Descriptor`]s from extra bytes of an Interface Descriptor
     fn build_interface_descriptor_extra<C: Into<usb::ClassCode> + Copy>(
         &self,
         device: &T,
@@ -513,8 +528,9 @@ where
             if let Some(b) = raw.get_mut(1) {
                 // Mask request type LIBUSB_REQUEST_TYPE_CLASS
                 *b &= !(0x01 << 5);
-                // if not Device or Interface, force it to Interface
-                if *b != 0x01 || *b != 0x04 {
+                // if not Device or Interface, force it to Interface (like lsusb) but warn
+                if !(*b == 0x01 || *b == 0x04) {
+                    log::warn!("Misplaced descriptor type in interfaces: {:02x}", *b);
                     *b = 0x04;
                 }
             }
@@ -534,6 +550,7 @@ where
         Ok(ret)
     }
 
+    /// Build [`usb::Descriptor`]s from extra bytes of an Endpoint Descriptor
     fn build_endpoint_descriptor_extra<C: Into<usb::ClassCode> + Copy>(
         &self,
         device: &T,
@@ -712,6 +729,7 @@ fn get_sysfs_configuration_string(sysfs_name: &str) -> Option<(u8, String)> {
     None
 }
 
+/// Get device information from sysfs path on Linux
 #[allow(unused_variables)]
 fn get_sysfs_string(sysfs_name: &str, name: &str) -> Option<String> {
     #[cfg(target_os = "linux")]
@@ -724,6 +742,7 @@ fn get_sysfs_string(sysfs_name: &str, name: &str) -> Option<String> {
     None
 }
 
+/// Get the driver name from udev on Linux if the feature is enabled
 #[allow(unused_variables)]
 fn get_udev_driver_name(port_path: &str) -> Result<Option<String>> {
     #[cfg(all(target_os = "linux", any(feature = "udev", feature = "udevlib")))]
@@ -732,6 +751,7 @@ fn get_udev_driver_name(port_path: &str) -> Result<Option<String>> {
     return Ok(None);
 }
 
+/// Get the syspath from udev on Linux if the feature is enabled
 #[allow(unused_variables)]
 fn get_udev_syspath(port_path: &str) -> Result<Option<String>> {
     #[cfg(all(target_os = "linux", any(feature = "udev", feature = "udevlib")))]
@@ -740,6 +760,7 @@ fn get_udev_syspath(port_path: &str) -> Result<Option<String>> {
     return Ok(None);
 }
 
+/// Get the syspath based on the default location "/sys/bus/usb/devices" on Linux
 #[allow(unused_variables)]
 fn get_syspath(port_path: &str) -> Option<String> {
     #[cfg(target_os = "linux")]
@@ -748,60 +769,57 @@ fn get_syspath(port_path: &str) -> Option<String> {
     return None;
 }
 
-/// Get [`system_profiler::SPUSBDataType`] using `libusb`. Does not source [`usb::USBDeviceExtra`] - use [`get_spusb_with_extra`] for that; the extra operation is mostly moving data around so the only hit is to stack.
+/// Build [`system_profiler::SPUSBDataType`] by profiling system. Does not source [`usb::USBDeviceExtra`] - use [`get_spusb_with_extra`] for that; the extra operation is mostly moving data around so the only hit is to stack.
 ///
 /// Runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. Then sorts into parent groups, accending in depth to build the [`system_profiler::USBBus`] tree.
 ///
 /// Building the [`system_profiler::SPUSBDataType`] depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
-#[cfg(all(feature = "libusb", not(feature = "nusb")))]
 pub fn get_spusb() -> Result<system_profiler::SPUSBDataType> {
-    let profiler = libusb::LibUsbProfiler;
-    profiler.get_spusb(true)
+    #[cfg(all(feature = "libusb", not(feature = "nusb")))]
+    {
+        let profiler = libusb::LibUsbProfiler;
+        <libusb::LibUsbProfiler as Profiler<libusb::UsbDevice<rusb::Context>>>::get_spusb(
+            &profiler, false,
+        )
+    }
+    #[cfg(feature = "nusb")]
+    {
+        let profiler = nusb::NusbProfiler;
+        profiler.get_spusb(true)
+    }
+
+    #[cfg(all(not(feature = "libusb"), not(feature = "nusb")))]
+    {
+        Err(crate::error::Error::new(
+            crate::error::ErrorKind::Unsupported,
+            "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`",
+        ))
+    }
 }
 
-/// Get [`system_profiler::SPUSBDataType`] using `nusb`. Does not source [`usb::USBDeviceExtra`] - use [`get_spusb_with_extra`] for that; the extra operation is mostly moving data around so the only hit is to stack.
-///
-/// Runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. Then sorts into parent groups, accending in depth to build the [`system_profiler::USBBus`] tree.
-///
-/// Building the [`system_profiler::SPUSBDataType`] depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
-#[cfg(feature = "nusb")]
-pub fn get_spusb() -> Result<system_profiler::SPUSBDataType> {
-    let profiler = nusb::NusbProfiler;
-    profiler.get_spusb(true)
-}
-
-/// Abort with exit code before trying to call libusb feature if not present
-#[cfg(all(not(feature = "libusb"), not(feature = "nusb")))]
-pub fn get_spusb() -> Result<system_profiler::SPUSBDataType> {
-    Err(crate::error::Error::new(
-        crate::error::ErrorKind::Unsupported,
-        "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`",
-    ))
-}
-
-/// Get [`system_profiler::SPUSBDataType`] using `libusb` including [`usb::USBDeviceExtra`] - the main function to use for most use cases unless one does not want verbose data.
+/// Build [`system_profiler::SPUSBDataType`] including [`usb::USBDeviceExtra`] - the main function to use for most use cases unless one does not want verbose data. The extra data requires opening the device to read device descriptors.
 ///
 /// Like `get_spusb`, runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. On Linux and with the 'udev' feature enabled, the syspath and driver will attempt to be obtained.
-#[cfg(all(feature = "libusb", not(feature = "nusb")))]
 pub fn get_spusb_with_extra() -> Result<system_profiler::SPUSBDataType> {
-    let profiler = libusb::LibUsbProfiler;
-    profiler.get_spusb(true)
-}
+    #[cfg(all(feature = "libusb", not(feature = "nusb")))]
+    {
+        let profiler = libusb::LibUsbProfiler;
+        <libusb::LibUsbProfiler as Profiler<libusb::UsbDevice<rusb::Context>>>::get_spusb(
+            &profiler, true,
+        )
+    }
 
-/// Get [`system_profiler::SPUSBDataType`] using `nusb` including [`usb::USBDeviceExtra`] - the main function to use for most use cases unless one does not want verbose data.
-///
-/// Like `get_spusb`, runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. On Linux and with the 'udev' feature enabled, the syspath and driver will attempt to be obtained.
-#[cfg(feature = "nusb")]
-pub fn get_spusb_with_extra() -> Result<system_profiler::SPUSBDataType> {
-    let profiler = nusb::NusbProfiler;
-    profiler.get_spusb(true)
-}
+    #[cfg(feature = "nusb")]
+    {
+        let profiler = nusb::NusbProfiler;
+        profiler.get_spusb(true)
+    }
 
-/// Abort with exit code before trying to call libusb feature if not present
-#[cfg(all(not(feature = "libusb"), not(feature = "nusb")))]
-pub fn get_spusb_with_extra() -> Result<system_profiler::SPUSBDataType> {
-    Err(crate::error::Error::new(
-        crate::error::ErrorKind::Unsupported,
-        "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`",
-    ))
+    #[cfg(all(not(feature = "libusb"), not(feature = "nusb")))]
+    {
+        Err(crate::error::Error::new(
+            crate::error::ErrorKind::Unsupported,
+            "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`",
+        ))
+    }
 }
