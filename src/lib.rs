@@ -43,6 +43,7 @@ pub mod display;
 pub mod error;
 pub mod icon;
 pub mod lsusb;
+pub mod profiler;
 pub mod system_profiler;
 pub mod types;
 #[cfg(all(target_os = "linux", feature = "udev"))]
@@ -51,7 +52,6 @@ pub mod udev;
 #[path = "udev_ffi.rs"]
 pub mod udev;
 pub mod usb;
-pub mod profiler;
 
 /// Set cyme module and binary log level
 pub fn set_log_level(debug: u8) -> crate::error::Result<()> {

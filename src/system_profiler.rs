@@ -1,22 +1,6 @@
-//! Parser for macOS `system_profiler` command -json output with SPUSBDataType.
+//! USB data structures for system profiling of USB devices and their descriptors.
 //!
-//! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
-//!
-//! Get [`SPUSBDataType`] from macOS system_profiler and print
-//! ```no_run
-//! use cyme::system_profiler;
-//!
-//! let spusb = system_profiler::get_spusb().unwrap();
-//! // print with alternative styling (#) is using utf-8 icons
-//! println!("{:#}", spusb);
-//! ```
-//!
-//! Get [`SPUSBDataType`] from macOS system_profiler and merge with extra data from libusb
-//! ```no_run
-//! use cyme::system_profiler;
-//!
-//! let spusb = system_profiler::get_spusb_with_extra().unwrap();
-//! ```
+//! Originally based on serde deserialization of `system_profiler` -json output but now used as data structures for all platforms. Not all fields are used on all platforms or are completely logically in hindsight but it works. Naming is also based on `system_profiler` (SP..) and not very Rustian...
 use colored::*;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -25,7 +9,6 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::fs;
 use std::io::Read;
-use std::process::Command;
 use std::str::FromStr;
 
 use crate::error::{Error, ErrorKind};
@@ -1493,70 +1476,6 @@ pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SPUSBDataType, Err
     };
 
     Ok(SPUSBDataType { buses: vec![bus] })
-}
-
-/// Runs the system_profiler command for SPUSBDataType and parses the json stdout into a [`SPUSBDataType`]
-///
-/// Ok result not contain [`USBDeviceExtra`] because system_profiler does not provide this. Use `get_spusb_with_extra` to combine with libusb output for [`USBDevice`]s with `extra`
-pub fn get_spusb() -> Result<SPUSBDataType, Error> {
-    let output = if cfg!(target_os = "macos") {
-        Command::new("system_profiler")
-            .args(["-json", "SPUSBDataType"])
-            .output()?
-    } else {
-        return Err(Error::new(
-            ErrorKind::Unsupported,
-            "system_profiler is only supported on macOS",
-        ));
-    };
-
-    if output.status.success() {
-        serde_json::from_str(String::from_utf8(output.stdout)?.as_str()).map_err(|e| {
-            Error::new(
-                ErrorKind::Parsing,
-                &format!(
-                    "Failed to parse 'system_profiler -json SPUSBDataType'; Error({})",
-                    e
-                ),
-            )
-        })
-    } else {
-        log::error!(
-            "system_profiler returned non-zero stderr: {:?}, stdout: {:?}",
-            String::from_utf8(output.stderr)?,
-            String::from_utf8(output.stdout)?
-        );
-        Err(Error::new(
-            ErrorKind::SystemProfiler,
-            "system_profiler returned non-zero, use '--force-libusb' to bypass",
-        ))
-    }
-}
-
-/// Runs `get_spusb` and then adds in data obtained from libusb. Requires 'libusb' feature.
-#[cfg(any(feature = "libusb", feature = "nusb"))]
-pub fn get_spusb_with_extra() -> Result<SPUSBDataType, Error> {
-    use crate::profiler::Profiler;
-
-    #[cfg(all(feature = "libusb", not(feature = "nusb")))]
-    return get_spusb().and_then(|mut spusb| {
-        crate::profiler::libusb::LibUsbProfiler.fill_spusb(&mut spusb)?;
-        Ok(spusb)
-    });
-    #[cfg(feature = "nusb")]
-    return get_spusb().and_then(|mut spusb| {
-        crate::profiler::nusb::NusbProfiler.fill_spusb(&mut spusb)?;
-        Ok(spusb)
-    });
-}
-
-/// Cannot run this function without libusb feature
-#[cfg(all(not(feature = "libusb"), not(feature = "nusb")))]
-pub fn get_spusb_with_extra() -> Result<SPUSBDataType, Error> {
-    Err(Error::new(
-        ErrorKind::Unsupported,
-        "libusb feature is required to do this, install with `cargo install --features libusb`",
-    ))
 }
 
 /// Deserializes an option number from String (base10 or base16 encoding) or a number
