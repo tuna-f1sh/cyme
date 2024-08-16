@@ -613,14 +613,13 @@ impl LibUsbProfiler {
 }
 
 impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
-    fn profile_devices(
-        &self,
-        devices: &mut Vec<system_profiler::USBDevice>,
-        root_hubs: &mut HashMap<u8, system_profiler::USBDevice>,
-        with_extra: bool,
-    ) -> Result<()> {
-        // run through devices building USBDevice types
-        for device in libusb::DeviceList::new()?.iter() {
+    fn get_devices(&self, with_extra: bool) -> Result<Vec<system_profiler::USBDevice>> {
+        let mut devices = Vec::new();
+        // run through devices building USBDevice types - not root_hubs (port number 0)
+        for device in libusb::DeviceList::new()?
+            .iter()
+            .filter(|d| d.port_number() != 0)
+        {
             match self.build_spdevice(&device, with_extra) {
                 Ok(sp_device) => {
                     devices.push(sp_device.to_owned());
@@ -635,17 +634,33 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
                             log::warn!("Non-critical error during profile: {}", e);
                         }
                     });
-
-                    // save it if it's a root_hub for assigning to bus data
-                    if !cfg!(target_os = "macos") && sp_device.is_root_hub() {
-                        root_hubs.insert(sp_device.location_id.bus, sp_device);
-                    }
                 }
                 Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e),
             }
         }
 
-        Ok(())
+        Ok(devices)
+    }
+
+    #[cfg(target_os = "linux")]
+    fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>> {
+        let mut ret = HashMap::new();
+
+        for device in libusb::DeviceList::new()?
+            .iter()
+            .filter(|d| d.port_number() == 0)
+        {
+            if let Ok(sp_device) = self.build_spdevice(&device, true) {
+                ret.insert(sp_device.location_id.bus, sp_device);
+            }
+        }
+
+        Ok(ret)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>> {
+        Ok(HashMap::new())
     }
 }
 

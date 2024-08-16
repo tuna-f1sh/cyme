@@ -45,7 +45,7 @@ pub fn get_spusb() -> Result<system_profiler::SPUSBDataType> {
 /// Runs `get_spusb` and then adds in data obtained from libusb. Requires 'libusb' feature.
 ///
 /// `system_profiler` captures Apple buses (essentially root_hubs) that are not captured by libusb or nusb; this method merges the two to so the bus information is kept.
-// TODO capture the Apple buses with IOKit directly not through system_profiler
+// TODO capture the Apple buses with IOKit directly not through system_profiler by impl Profiler::get_root_hubs
 #[cfg(any(feature = "libusb", feature = "nusb"))]
 pub fn get_spusb_with_extra() -> Result<system_profiler::SPUSBDataType> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]

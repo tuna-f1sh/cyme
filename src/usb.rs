@@ -640,11 +640,11 @@ impl FromStr for Speed {
 
     fn from_str(s: &str) -> error::Result<Self> {
         Ok(match s {
-            "10.0 Gb/s" | "super_speed_plus" => Speed::SuperSpeedPlus,
-            "5.0 Gb/s" | "super_speed" => Speed::SuperSpeed,
-            "480.0 Mb/s" | "high_speed" | "high_bandwidth" => Speed::HighSpeed,
-            "12.0 Mb/s" | "full_speed" => Speed::FullSpeed,
-            "1.5 Mb/s" | "low_speed" => Speed::LowSpeed,
+            "10000" | "10.0 Gb/s" | "super_speed_plus" | "super+" => Speed::SuperSpeedPlus,
+            "5000" | "5.0 Gb/s" | "super_speed" | "super" => Speed::SuperSpeed,
+            "480" | "480.0 Mb/s" | "high_speed" | "high_bandwidth" | "high" => Speed::HighSpeed,
+            "12" | "12.0 Mb/s" | "full_speed" | "full" => Speed::FullSpeed,
+            "1.5" | "1.5 Mb/s" | "low_speed" | "low" => Speed::LowSpeed,
             _ => Speed::Unknown,
         })
     }
