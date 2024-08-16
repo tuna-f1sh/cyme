@@ -587,53 +587,51 @@ where
         Ok(Some(ret))
     }
 
-    fn profile_devices(
-        &self,
-        devices: &mut Vec<system_profiler::USBDevice>,
-        root_hubs: &mut HashMap<u8, system_profiler::USBDevice>,
-        with_extra: bool,
-    ) -> Result<()>;
+    /// Get [`system_profiler::USBDevice`]s connected to the host, excluding root hubs
+    fn get_devices(&self, with_extra: bool) -> Result<Vec<system_profiler::USBDevice>>;
 
+    /// Get root hubs connected to the host as [`system_profiler::USBDevice`]s
+    ///
+    /// Root Hub devices are not always listed in the device list, so this is a separate function to get them. They only exist on Linux and are used to assign info to [`system_profiler::USBBus`]s.
+    fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>>;
+
+    /// Build the [`system_profiler::SPUSBDataType`] from the Profiler get_devices and get_root_hubs (for buses) functions
     fn get_spusb(&self, with_extra: bool) -> Result<system_profiler::SPUSBDataType> {
         let mut spusb = system_profiler::SPUSBDataType { buses: Vec::new() };
-        // temporary store of devices created when iterating through DeviceList
-        let mut cache: Vec<system_profiler::USBDevice> = Vec::new();
-        // lookup for root hubs to assign info to bus on linux
-        let mut root_hubs: HashMap<u8, system_profiler::USBDevice> = HashMap::new();
 
         log::info!("Building SPUSBDataType with {:?}", self);
 
-        self.profile_devices(&mut cache, &mut root_hubs, with_extra)?;
-
+        // temporary store of devices created when iterating through DeviceList
+        let mut cache = self.get_devices(with_extra)?;
         cache.sort_by_key(|d| d.location_id.bus);
         log::trace!("Sorted devices {:#?}", cache);
+        // lookup for root hubs to assign info to bus on linux
+        let mut root_hubs = self.get_root_hubs()?;
+        log::trace!("Root hubs: {:#?}", root_hubs);
 
         // group by bus number and then stick them into a bus in the returned SPUSBDataType
         for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
-            let root = if !cfg!(target_os = "macos") {
-                root_hubs.get(&key)
-            } else {
-                None
-            };
-
             // create the bus, we'll add devices at next step
-            let mut new_bus = system_profiler::USBBus {
-                name: "Unknown".into(),
-                host_controller: "Unknown".into(),
-                usb_bus_number: Some(key),
-                ..Default::default()
+            // if root hub exists, add it to the bus and remove so we can add empty buses if missing after
+            let mut new_bus = if let Some(root_hub) = root_hubs.remove(&key) {
+                system_profiler::USBBus {
+                    name: root_hub.name.clone(),
+                    host_controller: root_hub.manufacturer.clone().unwrap_or_default(),
+                    usb_bus_number: Some(key),
+                    pci_vendor: root_hub.vendor_id,
+                    pci_device: root_hub.product_id,
+                    // add root hub to devices like lsusb
+                    devices: Some(vec![root_hub]),
+                    ..Default::default()
+                }
+            } else {
+                system_profiler::USBBus {
+                    name: "Unknown".into(),
+                    host_controller: "Unknown".into(),
+                    usb_bus_number: Some(key),
+                    ..Default::default()
+                }
             };
-
-            if let Some(root_hub) = root {
-                root_hub.name.clone_into(&mut new_bus.name);
-                root_hub
-                    .manufacturer
-                    .as_ref()
-                    .unwrap_or(&String::new())
-                    .clone_into(&mut new_bus.host_controller);
-                new_bus.pci_vendor = root_hub.vendor_id;
-                new_bus.pci_device = root_hub.product_id;
-            }
 
             // group into parent groups with parent path as key or trunk devices so they end up in same place
             let parent_groups = group.group_by(|d| d.parent_path().unwrap_or(d.trunk_path()));
@@ -678,6 +676,22 @@ where
             }
 
             spusb.buses.push(new_bus);
+        }
+
+        // add empty root_hubs if missing
+        if !root_hubs.is_empty() {
+            for (key, root_hub) in root_hubs {
+                spusb.buses.push(system_profiler::USBBus {
+                    name: root_hub.name.clone(),
+                    host_controller: root_hub.manufacturer.clone().unwrap_or_default(),
+                    usb_bus_number: Some(key),
+                    pci_vendor: root_hub.vendor_id,
+                    pci_device: root_hub.product_id,
+                    devices: Some(vec![root_hub]),
+                    ..Default::default()
+                });
+            }
+            spusb.buses.sort_by_key(|b| b.usb_bus_number);
         }
 
         Ok(spusb)

@@ -3,6 +3,9 @@ use super::*;
 use crate::error::{Error, ErrorKind};
 use crate::lsusb::names;
 use ::nusb;
+use std::fs;
+use std::path::PathBuf;
+use std::str::FromStr;
 use usb_ids::{self, FromId};
 
 #[derive(Debug)]
@@ -61,6 +64,97 @@ impl From<nusb::Speed> for usb::Speed {
             _ => usb::Speed::Unknown,
         }
     }
+}
+
+// SysfsPath, parsing etc is taken from nusb crate (since not pub) and modified for our use
+#[derive(Debug, Clone)]
+struct SysfsPath(pub(crate) PathBuf);
+
+impl SysfsPath {
+    fn parse_attr<T>(&self, attr: &str, parse: impl FnOnce(&str) -> Result<T>) -> Result<T> {
+        let attr_path = self.0.join(attr);
+        fs::read_to_string(&attr_path)
+            .map_err(|e| Error::new(ErrorKind::Io, &e.to_string()))
+            .and_then(|v| {
+                parse(v.trim())
+            })
+    }
+
+    pub(crate) fn read_attr<T: FromStr>(&self, attr: &str) -> Result<T> {
+        self.parse_attr(attr, |s| {
+            s.parse().map_err(|_| {
+                Error::new(
+                    ErrorKind::Parsing,
+                    &format!("Failed to parse attr: {}", attr),
+                )
+            })
+        })
+    }
+
+    fn read_attr_hex<T: FromHexStr>(&self, attr: &str) -> Result<T> {
+        self.parse_attr(attr, |s| T::from_hex_str(s))
+    }
+
+    fn children(&self) -> impl Iterator<Item = SysfsPath> {
+        fs::read_dir(&self.0)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(|f| f.ok())
+            .filter(|f| f.file_type().ok().is_some_and(|t| t.is_dir()))
+            .map(|f| SysfsPath(f.path()))
+    }
+}
+
+trait FromHexStr: Sized {
+    fn from_hex_str(s: &str) -> Result<Self>;
+}
+
+impl FromHexStr for u8 {
+    fn from_hex_str(s: &str) -> Result<Self> {
+        u8::from_str_radix(s, 16).map_err(|_| Error::new(ErrorKind::Parsing, s))
+    }
+}
+
+impl FromHexStr for u16 {
+    fn from_hex_str(s: &str) -> Result<Self> {
+        u16::from_str_radix(s, 16).map_err(|_| Error::new(ErrorKind::Parsing, s))
+    }
+}
+
+const SYSFS_PREFIX: &str = "/sys/bus/usb/devices/";
+
+#[cfg(target_os = "linux")]
+fn probe_device(path: SysfsPath) -> Result<system_profiler::USBDevice> {
+    let busnum: u8 = path.read_attr("busnum")?;
+    let device_address = path.read_attr("devnum")?;
+    let class: u8 = path.read_attr("bDeviceClass")?;
+    let sub_class: u8 = path.read_attr("bDeviceSubClass")?;
+    let protocol: u8 = path.read_attr("bDeviceProtocol")?;
+    let speed: usb::Speed = path
+        .read_attr("speed")
+        .map(|s: String| s.parse().unwrap_or(usb::Speed::Unknown))
+        .unwrap_or(usb::Speed::Unknown);
+
+    Ok(system_profiler::USBDevice {
+        name: path.read_attr("product")?,
+        vendor_id: path.read_attr_hex("idVendor").ok(),
+        product_id: path.read_attr_hex("idProduct").ok(),
+        location_id: system_profiler::DeviceLocation {
+            bus: busnum,
+            number: device_address,
+            tree_positions: vec![],
+        },
+        device_speed: Some(system_profiler::DeviceSpeed::SpeedValue(speed)),
+        bcd_device: Some(usb::Version::from_bcd(path.read_attr_hex("bcdDevice")?)),
+        bcd_usb: None,
+        class: Some(usb::ClassCode::from(class)),
+        sub_class: Some(sub_class),
+        protocol: Some(protocol),
+        manufacturer: path.read_attr("manufacturer").ok(),
+        serial_num: path.read_attr("serial").ok(),
+        ..Default::default()
+    })
 }
 
 impl UsbOperations for UsbDevice {
@@ -431,19 +525,6 @@ impl NusbProfiler {
             ..Default::default()
         };
 
-        // tree positions in relative to bus so remove bus number and if it's a bus (port 0), clear the vec
-        // (legacy to libusb code)
-        if sp_device.location_id.tree_positions.get(1) == Some(&0) {
-            sp_device.location_id.tree_positions = vec![];
-            //} else {
-            //    sp_device.location_id.tree_positions = sp_device
-            //        .location_id
-            //        .tree_positions
-            //        .into_iter()
-            //        .skip(1)
-            //        .collect();
-        }
-
         sp_device.manufacturer = device_info
             .manufacturer_string()
             .map(|s| s.to_string())
@@ -548,12 +629,8 @@ impl NusbProfiler {
 }
 
 impl Profiler<UsbDevice> for NusbProfiler {
-    fn profile_devices(
-        &self,
-        devices: &mut Vec<system_profiler::USBDevice>,
-        root_hubs: &mut HashMap<u8, system_profiler::USBDevice>,
-        with_extra: bool,
-    ) -> Result<()> {
+    fn get_devices(&self, with_extra: bool) -> Result<Vec<system_profiler::USBDevice>> {
+        let mut devices = Vec::new();
         for device in nusb::list_devices()? {
             match self.build_spdevice(&device, with_extra) {
                 Ok(sp_device) => {
@@ -569,17 +646,40 @@ impl Profiler<UsbDevice> for NusbProfiler {
                             log::warn!("Non-critical error during profile: {}", e);
                         }
                     });
-
-                    // save it if it's a root_hub for assigning to bus data
-                    if !cfg!(target_os = "macos") && sp_device.is_root_hub() {
-                        root_hubs.insert(sp_device.location_id.bus, sp_device);
-                    }
                 }
                 Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e),
             }
         }
 
-        Ok(())
+        Ok(devices)
+    }
+
+    #[cfg(target_os = "linux")]
+    fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>> {
+        let mut ret = HashMap::new();
+
+        let root_hubs = fs::read_dir(SYSFS_PREFIX)?.flat_map(|entry| {
+            let path = entry.ok()?.path();
+            let name = path.file_name()?;
+
+            // just root_hubs
+            if name.to_string_lossy().starts_with("usb") {
+                probe_device(SysfsPath(path)).ok()
+            } else {
+                None
+            }
+        });
+
+        for hub in root_hubs {
+            ret.insert(hub.location_id.bus, hub);
+        }
+
+        Ok(ret)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>> {
+        Ok(HashMap::new())
     }
 }
 
