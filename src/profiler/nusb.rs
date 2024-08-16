@@ -654,23 +654,20 @@ impl Profiler<UsbDevice> for NusbProfiler {
 
     #[cfg(target_os = "linux")]
     fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>> {
-        let mut ret = HashMap::new();
+        let ret = fs::read_dir(SYSFS_PREFIX)?
+            .flat_map(|entry| {
+                let path = entry.ok()?.path();
+                let name = path.file_name()?;
 
-        let root_hubs = fs::read_dir(SYSFS_PREFIX)?.flat_map(|entry| {
-            let path = entry.ok()?.path();
-            let name = path.file_name()?;
-
-            // just root_hubs
-            if name.to_string_lossy().starts_with("usb") {
-                probe_device(SysfsPath(path)).ok()
-            } else {
-                None
-            }
-        });
-
-        for hub in root_hubs {
-            ret.insert(hub.location_id.bus, hub);
-        }
+                // just root_hubs
+                if name.to_string_lossy().starts_with("usb") {
+                    probe_device(SysfsPath(path)).ok()
+                } else {
+                    None
+                }
+            })
+            .map(|hub| (hub.location_id.bus, hub))
+            .collect::<HashMap<_, _>>();
 
         Ok(ret)
     }
