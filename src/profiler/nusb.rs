@@ -75,9 +75,7 @@ impl SysfsPath {
         let attr_path = self.0.join(attr);
         fs::read_to_string(&attr_path)
             .map_err(|e| Error::new(ErrorKind::Io, &e.to_string()))
-            .and_then(|v| {
-                parse(v.trim())
-            })
+            .and_then(|v| parse(v.trim()))
     }
 
     pub(crate) fn read_attr<T: FromStr>(&self, attr: &str) -> Result<T> {
