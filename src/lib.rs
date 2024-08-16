@@ -60,6 +60,9 @@ pub fn set_log_level(debug: u8) -> crate::error::Result<()> {
         0 => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Error.to_level_filter())
+            // even errors are off as can be noisy
+            .with_module_level("udevrs", log::LevelFilter::Off)
+            .with_module_level("nusb", log::LevelFilter::Off)
             .env(),
         1 => SimpleLogger::new()
             .with_utc_timestamps()
@@ -76,7 +79,7 @@ pub fn set_log_level(debug: u8) -> crate::error::Result<()> {
             .with_module_level("udevrs", log::Level::Debug.to_level_filter())
             .with_module_level("nusb", log::Level::Debug.to_level_filter())
             .with_module_level("cyme", log::Level::Trace.to_level_filter()),
-        // all modules
+        // all modules at Trace level
         _ => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Trace.to_level_filter()),
