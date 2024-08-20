@@ -1,4 +1,4 @@
-//! Uses rusb (upto date libusb fork) to get system USB information - same lib as lsusb. Requires 'libusb' feature. Uses [`crate::system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
+//! Uses rusb (upto date libusb fork) to get system USB information - same lib as lsusb. Requires 'libusb' feature. Uses [`crate::profiler::types`] types to hold data so that it is cross-compatible with macOS system_profiler command.
 use super::*;
 use crate::error::{Error, ErrorKind};
 use crate::lsusb::names;
@@ -12,7 +12,7 @@ pub(crate) struct UsbDevice<T: libusb::UsbContext> {
     handle: libusb::DeviceHandle<T>,
     language: libusb::Language,
     vidpid: (u16, u16),
-    location: system_profiler::DeviceLocation,
+    location: DeviceLocation,
     timeout: std::time::Duration,
 }
 
@@ -293,7 +293,7 @@ impl LibUsbProfiler {
         device: &libusb::Device<T>,
         handle: &UsbDevice<T>,
         device_desc: &libusb::DeviceDescriptor,
-        sp_device: &system_profiler::USBDevice,
+        sp_device: &USBDevice,
         with_udev: bool,
     ) -> Result<Vec<usb::USBConfiguration>> {
         // Retrieve the current configuration (if available)
@@ -359,7 +359,7 @@ impl LibUsbProfiler {
         device: &libusb::Device<T>,
         handle: &UsbDevice<T>,
         device_desc: &libusb::DeviceDescriptor,
-        sp_device: &mut system_profiler::USBDevice,
+        sp_device: &mut USBDevice,
         with_udev: bool,
     ) -> Result<usb::USBDeviceExtra> {
         // attempt to get manufacturer and product strings from device itself
@@ -474,7 +474,7 @@ impl LibUsbProfiler {
             handle,
             language,
             vidpid: (device_desc.vendor_id(), device_desc.product_id()),
-            location: system_profiler::DeviceLocation {
+            location: DeviceLocation {
                 bus: device.bus_number(),
                 number: device.address(),
                 tree_positions: device.port_numbers()?,
@@ -483,26 +483,26 @@ impl LibUsbProfiler {
         })
     }
 
-    /// Builds a [`system_profiler::USBDevice`] from a [`libusb::Device`] by using `device_descriptor()` and intrograting for configuration strings. Optionally with `with_extra` will gather full device information, including from udev if feature is present.
+    /// Builds a [`USBDevice`] from a [`libusb::Device`] by using `device_descriptor()` and intrograting for configuration strings. Optionally with `with_extra` will gather full device information, including from udev if feature is present.
     ///
-    /// [`system_profiler::USBDevice.profiler_error`] `Option<String>` will contain any non-critical error during gather of `with_extra` data - normally due to permissions preventing open of device descriptors.
+    /// [`USBDevice.profiler_error`] `Option<String>` will contain any non-critical error during gather of `with_extra` data - normally due to permissions preventing open of device descriptors.
     fn build_spdevice<T: libusb::UsbContext>(
         &self,
         device: &libusb::Device<T>,
         with_extra: bool,
-    ) -> Result<system_profiler::USBDevice> {
+    ) -> Result<USBDevice> {
         let speed = match usb::Speed::from(device.speed()) {
             usb::Speed::Unknown => None,
-            v => Some(system_profiler::DeviceSpeed::SpeedValue(v)),
+            v => Some(DeviceSpeed::SpeedValue(v)),
         };
 
         let device_desc = device.device_descriptor()?;
 
-        let mut sp_device = system_profiler::USBDevice {
+        let mut sp_device = USBDevice {
             vendor_id: Some(device_desc.vendor_id()),
             product_id: Some(device_desc.product_id()),
             device_speed: speed,
-            location_id: system_profiler::DeviceLocation {
+            location_id: DeviceLocation {
                 bus: device.bus_number(),
                 number: device.address(),
                 tree_positions: device.port_numbers()?,
@@ -613,7 +613,7 @@ impl LibUsbProfiler {
 }
 
 impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
-    fn get_devices(&self, with_extra: bool) -> Result<Vec<system_profiler::USBDevice>> {
+    fn get_devices(&self, with_extra: bool) -> Result<Vec<USBDevice>> {
         let mut devices = Vec::new();
         // run through devices building USBDevice types - not root_hubs (port number 0)
         for device in libusb::DeviceList::new()?
@@ -643,7 +643,7 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
     }
 
     #[cfg(target_os = "linux")]
-    fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>> {
+    fn get_root_hubs(&self) -> Result<HashMap<u8, USBDevice>> {
         let mut ret = HashMap::new();
 
         for device in libusb::DeviceList::new()?
@@ -659,12 +659,12 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
     }
 
     #[cfg(not(target_os = "linux"))]
-    fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>> {
+    fn get_root_hubs(&self) -> Result<HashMap<u8, USBDevice>> {
         Ok(HashMap::new())
     }
 }
 
-pub(crate) fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType) -> Result<()> {
+pub(crate) fn fill_spusb(spusb: &mut SPUSBDataType) -> Result<()> {
     let profiler = LibUsbProfiler;
     <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::fill_spusb(&profiler, spusb)
 }

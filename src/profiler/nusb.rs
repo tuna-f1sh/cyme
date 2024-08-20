@@ -1,4 +1,4 @@
-//! Uses nusb (pure Rust) to get system USB information. Requires 'nusb' feature. Uses [`crate::system_profiler`] types to hold data so that it is cross-compatible with macOS system_profiler command.
+//! Uses nusb (pure Rust) to get system USB information. Requires 'nusb' feature. Uses [`crate::profiler::types`] types to hold data so that it is cross-compatible with macOS system_profiler command.
 use super::*;
 use crate::error::{Error, ErrorKind};
 use crate::lsusb::names;
@@ -15,7 +15,7 @@ pub(crate) struct UsbDevice {
     handle: nusb::Device,
     language: u16,
     vidpid: (u16, u16),
-    location: system_profiler::DeviceLocation,
+    location: DeviceLocation,
     timeout: std::time::Duration,
 }
 
@@ -123,7 +123,7 @@ impl FromHexStr for u16 {
 const SYSFS_PREFIX: &str = "/sys/bus/usb/devices/";
 
 #[cfg(target_os = "linux")]
-fn probe_device(path: SysfsPath) -> Result<system_profiler::USBDevice> {
+fn probe_device(path: SysfsPath) -> Result<USBDevice> {
     let busnum: u8 = path.read_attr("busnum")?;
     let device_address = path.read_attr("devnum")?;
     let class: u8 = path.read_attr("bDeviceClass")?;
@@ -134,16 +134,16 @@ fn probe_device(path: SysfsPath) -> Result<system_profiler::USBDevice> {
         .map(|s: String| s.parse().unwrap_or(usb::Speed::Unknown))
         .unwrap_or(usb::Speed::Unknown);
 
-    Ok(system_profiler::USBDevice {
+    Ok(USBDevice {
         name: path.read_attr("product")?,
         vendor_id: path.read_attr_hex("idVendor").ok(),
         product_id: path.read_attr_hex("idProduct").ok(),
-        location_id: system_profiler::DeviceLocation {
+        location_id: DeviceLocation {
             bus: busnum,
             number: device_address,
             tree_positions: vec![],
         },
-        device_speed: Some(system_profiler::DeviceSpeed::SpeedValue(speed)),
+        device_speed: Some(DeviceSpeed::SpeedValue(speed)),
         bcd_device: Some(usb::Version::from_bcd(path.read_attr_hex("bcdDevice")?)),
         bcd_usb: None,
         class: Some(usb::ClassCode::from(class)),
@@ -402,7 +402,7 @@ impl NusbProfiler {
     fn build_spdevice_extra(
         &self,
         device: &UsbDevice,
-        sp_device: &mut system_profiler::USBDevice,
+        sp_device: &mut USBDevice,
         with_udev: bool,
     ) -> Result<usb::USBDeviceExtra> {
         // get the Device Descriptor since not all data is cached
@@ -498,17 +498,17 @@ impl NusbProfiler {
         &self,
         device_info: &nusb::DeviceInfo,
         with_extra: bool,
-    ) -> Result<system_profiler::USBDevice> {
+    ) -> Result<USBDevice> {
         let speed = device_info.speed().map(|s| {
             let s = usb::Speed::from(s);
-            system_profiler::DeviceSpeed::SpeedValue(s)
+            DeviceSpeed::SpeedValue(s)
         });
 
-        let mut sp_device = system_profiler::USBDevice {
+        let mut sp_device = USBDevice {
             vendor_id: Some(device_info.vendor_id()),
             product_id: Some(device_info.product_id()),
             device_speed: speed,
-            location_id: system_profiler::DeviceLocation {
+            location_id: DeviceLocation {
                 // nusb bus_id is a string; busnum on Linux (number)
                 bus: device_info.bus_id().parse::<u8>().unwrap_or(0),
                 number: device_info.device_address(),
@@ -627,7 +627,7 @@ impl NusbProfiler {
 }
 
 impl Profiler<UsbDevice> for NusbProfiler {
-    fn get_devices(&self, with_extra: bool) -> Result<Vec<system_profiler::USBDevice>> {
+    fn get_devices(&self, with_extra: bool) -> Result<Vec<USBDevice>> {
         let mut devices = Vec::new();
         for device in nusb::list_devices()? {
             match self.build_spdevice(&device, with_extra) {
@@ -653,7 +653,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
     }
 
     #[cfg(target_os = "linux")]
-    fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>> {
+    fn get_root_hubs(&self) -> Result<HashMap<u8, USBDevice>> {
         let ret = fs::read_dir(SYSFS_PREFIX)?
             .flat_map(|entry| {
                 let path = entry.ok()?.path();
@@ -673,12 +673,12 @@ impl Profiler<UsbDevice> for NusbProfiler {
     }
 
     #[cfg(not(target_os = "linux"))]
-    fn get_root_hubs(&self) -> Result<HashMap<u8, system_profiler::USBDevice>> {
+    fn get_root_hubs(&self) -> Result<HashMap<u8, USBDevice>> {
         Ok(HashMap::new())
     }
 }
 
-pub(crate) fn fill_spusb(spusb: &mut system_profiler::SPUSBDataType) -> Result<()> {
+pub(crate) fn fill_spusb(spusb: &mut SPUSBDataType) -> Result<()> {
     let profiler = NusbProfiler;
     profiler.fill_spusb(spusb)
 }

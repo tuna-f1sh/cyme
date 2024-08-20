@@ -6,8 +6,8 @@ use std::process::Command;
 
 /// Runs the system_profiler command for SPUSBDataType and parses the json stdout into a [`SPUSBDataType`]
 ///
-/// Ok result not contain [`USBDeviceExtra`] because system_profiler does not provide this. Use `get_spusb_with_extra` to combine with libusb output for [`USBDevice`]s with `extra`
-pub fn get_spusb() -> Result<system_profiler::SPUSBDataType> {
+/// Ok result not contain [`usb::USBDeviceExtra`] because system_profiler does not provide this. Use `get_spusb_with_extra` to combine with libusb output for [`USBDevice`]s with `extra`
+pub fn get_spusb() -> Result<SPUSBDataType> {
     let output = if cfg!(target_os = "macos") {
         Command::new("system_profiler")
             .args(["-json", "SPUSBDataType"])
@@ -47,7 +47,7 @@ pub fn get_spusb() -> Result<system_profiler::SPUSBDataType> {
 /// `system_profiler` captures Apple buses (essentially root_hubs) that are not captured by libusb or nusb; this method merges the two to so the bus information is kept.
 // TODO capture the Apple buses with IOKit directly not through system_profiler by impl Profiler::get_root_hubs
 #[cfg(any(feature = "libusb", feature = "nusb"))]
-pub fn get_spusb_with_extra() -> Result<system_profiler::SPUSBDataType> {
+pub fn get_spusb_with_extra() -> Result<SPUSBDataType> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
     {
         get_spusb().and_then(|mut spusb| {

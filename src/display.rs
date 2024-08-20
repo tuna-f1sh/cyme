@@ -15,8 +15,7 @@ use terminal_size::{Height, Width};
 
 use crate::colour;
 use crate::icon;
-use crate::system_profiler;
-use crate::system_profiler::{SPUSBDataType, USBBus, USBDevice, USBFilter};
+use crate::profiler::{SPUSBDataType, USBBus, USBDevice, USBFilter};
 use crate::usb::USBDeviceExtra;
 use crate::usb::{ConfigAttributes, Direction, USBConfiguration, USBEndpoint, USBInterface};
 
@@ -655,7 +654,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn generate_padding(d: &[&system_profiler::USBDevice]) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&USBDevice]) -> HashMap<Self, usize> {
         DeviceBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -2866,7 +2865,7 @@ pub fn prepare(sp_usb: &mut SPUSBDataType, filter: Option<USBFilter>, settings: 
 }
 
 /// Main cyme bin print function
-pub fn print(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
+pub fn print(sp_usb: &SPUSBDataType, settings: &PrintSettings) {
     log::debug!("Printing with {:?}", settings);
 
     if settings.tree || settings.group_devices == Group::Bus {

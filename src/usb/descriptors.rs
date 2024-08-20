@@ -596,7 +596,7 @@ pub enum ClassDescriptor {
     Video(video::UvcDescriptor, u8),
     /// Device Firmware Upgrade (DFU) descriptor
     Dfu(DfuDescriptor),
-    /// Generic descriptor with Option<ClassCode>
+    /// Generic descriptor with `Option<ClassCode>`
     ///
     /// Used for most descriptors and allows for TryFrom without knowing the [`ClassCode`]
     Generic(Option<ClassCodeTriplet<ClassCode>>, GenericDescriptor),
@@ -815,7 +815,7 @@ impl GenericDescriptor {
         }
     }
 
-    /// Returns the (cloned) data as a Vec<u8>
+    /// Returns the (cloned) data as a `Vec<u8>`
     pub fn to_vec(&self) -> Vec<u8> {
         self.clone().into()
     }

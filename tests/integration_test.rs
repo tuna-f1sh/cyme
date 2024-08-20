@@ -43,7 +43,7 @@ fn test_list_filtering() {
     let te = common::TestEnv::new();
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
-    let filter = cyme::system_profiler::USBFilter {
+    let filter = cyme::profiler::USBFilter {
         name: Some("Black Magic".into()),
         no_exclude_root_hub: true,
         ..Default::default()
@@ -87,7 +87,7 @@ fn test_list_filtering() {
     );
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
-    let mut filter = cyme::system_profiler::USBFilter {
+    let mut filter = cyme::profiler::USBFilter {
         bus: Some(2),
         no_exclude_root_hub: true,
         ..Default::default()
@@ -144,7 +144,7 @@ fn test_tree_filtering() {
     let te = common::TestEnv::new();
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
-    let filter = cyme::system_profiler::USBFilter {
+    let filter = cyme::profiler::USBFilter {
         name: Some("Black Magic".into()),
         ..Default::default()
     };

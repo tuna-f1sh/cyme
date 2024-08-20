@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use crate::display::Encoding;
 use crate::error::{Error, ErrorKind};
-use crate::system_profiler::{USBBus, USBDevice};
+use crate::profiler::{USBBus, USBDevice};
 use crate::usb::{ClassCode, Direction};
 
 /// If only standard UTF-8 characters are used, this is the default icon for a device
@@ -194,16 +194,16 @@ impl fmt::Display for Icon {
     }
 }
 
-/// Allows user supplied icons to replace or add to [`DEFAULT_ICONS`] and [`DEFAULT_UTF8_TREE`]
+/// Allows user supplied icons to replace or add to [`static@DEFAULT_ICONS`] and [`static@DEFAULT_UTF8_TREE`]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[serde(default)]
 pub struct IconTheme {
-    /// Will merge with [`DEFAULT_ICONS`] for user supplied
+    /// Will merge with [`static@DEFAULT_ICONS`] for user supplied
     #[serde(serialize_with = "sort_alphabetically")]
     pub user: Option<HashMap<Icon, String>>,
-    /// Will merge with [`DEFAULT_UTF8_TREE`] for user supplied tree drawing
+    /// Will merge with [`static@DEFAULT_UTF8_TREE`] for user supplied tree drawing
     #[serde(serialize_with = "sort_alphabetically")]
     pub tree: Option<HashMap<Icon, String>>,
 }
@@ -220,7 +220,7 @@ impl Default for IconTheme {
 
 lazy_static! {
     /// Default icons to draw tree can be overridden by user icons with IconTheme `tree`
-    static ref DEFAULT_UTF8_TREE: HashMap<Icon, &'static str> = {
+    pub static ref DEFAULT_UTF8_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::TreeEdge, "\u{251c}\u{2500}\u{2500}"), // "├──"
             (Icon::TreeLine, "\u{2502}  "), // "│  "
@@ -238,7 +238,7 @@ lazy_static! {
     };
 
     /// Ascii chars used by lsusb compatible mode or no utf-8
-    static ref DEFAULT_ASCII_TREE: HashMap<Icon, &'static str> = {
+    pub static ref DEFAULT_ASCII_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::TreeEdge, "|__"), // same as corner
             (Icon::TreeLine, "|  "), // no outside line but inset so starts under parent device
@@ -320,7 +320,7 @@ impl IconTheme {
         Default::default()
     }
 
-    /// Get tree building icon checks `Self` for user `tree` and tries to find `icon` there, otherwise uses [`DEFAULT_UTF8_TREE`]
+    /// Get tree building icon checks `Self` for user `tree` and tries to find `icon` there, otherwise uses [`static@DEFAULT_UTF8_TREE`]
     ///
     /// Also checks if user icon is valid for encoding, if not will return default for that encoding
     pub fn get_tree_icon(&self, icon: &Icon, encoding: &Encoding) -> String {
@@ -338,7 +338,7 @@ impl IconTheme {
         }
     }
 
-    /// Drill through [`DEFAULT_ICONS`] first looking for `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> ""
+    /// Drill through [`static@DEFAULT_ICONS`] first looking for `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> ""
     pub fn get_default_vidpid_icon(vid: u16, pid: u16) -> String {
         // try vid pid first
         DEFAULT_ICONS
@@ -500,7 +500,7 @@ impl IconTheme {
     }
 }
 
-/// Gets tree icon from [`DEFAULT_UTF8_TREE`] or [`DEFAULT_ASCII_TREE`] (depanding on [`Encoding`]) as `String` with `unwrap` because should panic if missing from there
+/// Gets tree icon from [`static@DEFAULT_UTF8_TREE`] or [`static@DEFAULT_ASCII_TREE`] (depanding on [`Encoding`]) as `String` with `unwrap` because should panic if missing from there
 pub fn get_default_tree_icon(i: &Icon, encoding: &Encoding) -> String {
     match encoding {
         Encoding::Utf8 | Encoding::Glyphs => DEFAULT_UTF8_TREE.get(i).unwrap().to_string(),
@@ -508,7 +508,7 @@ pub fn get_default_tree_icon(i: &Icon, encoding: &Encoding) -> String {
     }
 }
 
-/// Gets tree icon from [`DEFAULT_ASCII_TREE`] as `String` with `unwrap` because should panic if missing from there
+/// Gets tree icon from [`static@DEFAULT_ASCII_TREE`] as `String` with `unwrap` because should panic if missing from there
 pub fn get_ascii_tree_icon(i: &Icon) -> String {
     DEFAULT_ASCII_TREE.get(i).unwrap().to_string()
 }

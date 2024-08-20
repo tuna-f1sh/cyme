@@ -11,7 +11,6 @@ use cyme::display;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::profiler;
-use cyme::system_profiler;
 use cyme::usb::ClassCode;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
@@ -305,7 +304,7 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     }
 }
 
-fn get_libusb_spusb(args: &Args) -> Result<system_profiler::SPUSBDataType> {
+fn get_libusb_spusb(args: &Args) -> Result<profiler::SPUSBDataType> {
     if args.verbose > 0
         || args.tree
         || args.device.is_some()
@@ -322,7 +321,7 @@ fn get_libusb_spusb(args: &Args) -> Result<system_profiler::SPUSBDataType> {
 }
 
 fn print_lsusb(
-    sp_usb: &system_profiler::SPUSBDataType,
+    sp_usb: &profiler::SPUSBDataType,
     device: &Option<String>,
     settings: &display::PrintSettings,
 ) -> Result<()> {
@@ -466,14 +465,14 @@ fn cyme() -> Result<()> {
     };
 
     let mut spusb = if let Some(file_path) = args.from_json {
-        match system_profiler::read_json_dump(file_path.as_str()) {
+        match profiler::read_json_dump(file_path.as_str()) {
             Ok(s) => s,
             Err(e) => {
                 log::warn!(
                     "Failed to read json dump, attempting as flattened with phony bus: Error({})",
                     e
                 );
-                system_profiler::read_flat_json_to_phony_bus(file_path.as_str())?
+                profiler::read_flat_json_to_phony_bus(file_path.as_str())?
             }
         }
     } else if cfg!(target_os = "macos") 
@@ -521,7 +520,7 @@ fn cyme() -> Result<()> {
         || args.filter_serial.is_some()
         || args.filter_class.is_some()
     {
-        let mut f = system_profiler::USBFilter::new();
+        let mut f = profiler::USBFilter::new();
 
         if let Some(vidpid) = &args.vidpid {
             let (vid, pid) = parse_vidpid(vidpid.as_str()).map_err(|e| {
