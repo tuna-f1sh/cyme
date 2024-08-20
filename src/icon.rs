@@ -260,7 +260,6 @@ lazy_static! {
         HashMap::from([
             (Icon::UnknownVendor, "\u{f287}"), // usb plug default 
             (Icon::Vid(0x05ac), "\u{f179}"), // apple 
-            (Icon::Vid(0x8086), "\u{f179}"), // apple bus 
             (Icon::Vid(0x045e), "\u{f0372}"), // microsoft 󰍲
             (Icon::Vid(0x18d1), "\u{f1a0}"), // google 
             (Icon::Vid(0x1D6B), "\u{f17c}"), // linux foundation 
