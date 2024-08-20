@@ -405,7 +405,7 @@ impl From<ClassCode> for DescriptorUsage {
 
 /// Fully defined USB-IF class based on (Base Class, Sub Class, Protocol) Class Code triplet
 ///
-/// https://www.usb.org/defined-class-codes
+/// <https://www.usb.org/defined-class-codes>
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
@@ -428,11 +428,11 @@ pub enum Class {
     MCTPManagementController,
     /// MCTP Host Interface endpoint
     MCTPHostInterfaceEndpoint,
-    /// USB2 Compliance Device. Definition for this device can be found at http://www.intel.com/technology/usb/spec.htm
+    /// USB2 Compliance Device. Definition for this device can be found at <http://www.intel.com/technology/usb/spec.htm>
     USB2ComplianceDevice,
-    /// Debug Target vendor defined. Please see http://www.intel.com/content/www/us/en/io/universal-serial-bus/extensible-host-controler-interface-usb-xhci.html for more info.
+    /// Debug Target vendor defined. Please see <http://www.intel.com/content/www/us/en/io/universal-serial-bus/extensible-host-controler-interface-usb-xhci.html> for more info.
     DebugTargetVendorDefined,
-    /// GNU Remote Debug Command Set. Please see http://www.intel.com/content/www/us/en/io/universal-serial-bus/extensible-host-controler-interface-usb-xhci.html for more info.
+    /// GNU Remote Debug Command Set. Please see <http://www.intel.com/content/www/us/en/io/universal-serial-bus/extensible-host-controler-interface-usb-xhci.html> for more info.
     GNURemoteDebugCommandSet,
     /// Vendor defined Trace protocol on DbC.
     VendorDefinedTraceDbC,
@@ -442,7 +442,7 @@ pub enum Class {
     VendorDefinedTraceGPDvC,
     /// GNU Protocol protocol over General Purpose (GP) endpoint on DvC.
     ///
-    /// http://www.gnu.org/software/gdb/
+    /// <http://www.gnu.org/software/gdb/>
     GNUProtocolGPDvC,
     /// Vendor defined Dfx protocol on DvC.
     VendorDefinedDfxDvC,
@@ -452,7 +452,7 @@ pub enum Class {
     BluetoothProgrammingInterface,
     /// UWB Radio Control Interface. Definition for this is found in the Wireless USB Specification in Chapter 8.
     UWBRadioControlInterface,
-    /// Remote NDIS. Information can be found at: http://www.microsoft.com/windowsmobile/mobileoperators/default.mspx
+    /// Remote NDIS. Information can be found at: <http://www.microsoft.com/windowsmobile/mobileoperators/default.mspx>
     RemoteNDIS,
     /// Bluetooth AMP Controller. Get specific information from www.bluetooth.com.
     BluetoothAMPController,
@@ -1219,7 +1219,7 @@ pub fn get_dev_path(bus: u8, device_no: Option<u8>) -> String {
     }
 }
 
-/// Builds a replica of sysfs name for reading sysfs_props ala: https://github.com/gregkh/usbutils/blob/master/sysfs.c#L29
+/// Builds a replica of sysfs name for reading sysfs_props ala: <https://github.com/gregkh/usbutils/blob/master/sysfs.c#L29>
 ///
 /// Like `get_port_path` but root_hubs use the USB controller name (usbX) rather than interface
 ///

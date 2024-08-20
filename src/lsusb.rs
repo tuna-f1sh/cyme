@@ -1,10 +1,9 @@
-//! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb output and provide cross-platform [`crate::system_profiler::SPUSBDataType`] getter
-//! Printing functions for lsusb style output of USB data
+//! Methods to print system USB information in lsusb style
 //!
-//! The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for a lot of the styling and content of the display module
+//! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb output. The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for the styling and content; even odities/inconsistencies were kept!
 use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
-use crate::system_profiler;
+use crate::profiler::{SPUSBDataType, USBDevice};
 use uuid::Uuid;
 
 use crate::usb::descriptors::audio;
@@ -231,11 +230,9 @@ fn get_guid(buf: &[u8]) -> String {
         buf[10], buf[11], buf[12], buf[13], buf[14], buf[15])
 }
 
-/// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
-pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
-    fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, settings: &PrintSettings) {
-        //let sorted = settings.sort_devices.sort_devices(devices);
-
+/// Print [`SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
+pub fn print_tree(spusb: &SPUSBDataType, settings: &PrintSettings) {
+    fn print_tree_devices(devices: &Vec<USBDevice>, settings: &PrintSettings) {
         for device in devices {
             if device.is_root_hub() {
                 log::debug!("lsusb tree skipping root_hub {}", device);
@@ -281,11 +278,8 @@ pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettin
     }
 }
 
-/// Dump a single [`system_profiler::USBDevice`] matching `dev_path` verbosely
-pub fn dump_one_device(
-    devices: &Vec<&system_profiler::USBDevice>,
-    dev_path: &String,
-) -> Result<(), Error> {
+/// Dump a single [`USBDevice`] matching `dev_path` verbosely
+pub fn dump_one_device(devices: &Vec<&USBDevice>, dev_path: &String) -> Result<(), Error> {
     for device in devices {
         if &device.dev_path() == dev_path {
             // error if extra is none because we need it for vebose
@@ -321,7 +315,7 @@ fn find_otg(extra: &[Descriptor]) -> Option<&OnTheGoDescriptor> {
 /// Print USB devices in lsusb style flat dump
 ///
 /// `verbose` flag enables verbose printing like lsusb (configs, interfaces and endpoints) - a huge dump!
-pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
+pub fn print(devices: &Vec<&USBDevice>, verbose: bool) {
     if !verbose {
         for device in devices {
             println!("{}", device.to_lsusb_string());
@@ -392,8 +386,8 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
     }
 }
 
-/// Dump a [`system_profiler::USBDevice`] in style of lsusb --verbose
-fn dump_device(device: &system_profiler::USBDevice) {
+/// Dump a [`USBDevice`] in style of lsusb --verbose
+fn dump_device(device: &USBDevice) {
     let device_extra = device
         .extra
         .as_ref()

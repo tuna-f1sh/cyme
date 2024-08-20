@@ -43,20 +43,20 @@ pub fn read_dump_to_string(file_name: &str) -> String {
     ret
 }
 
-pub fn sp_data_from_system_profiler() -> cyme::system_profiler::SPUSBDataType {
+pub fn sp_data_from_system_profiler() -> cyme::profiler::SPUSBDataType {
     let mut br = read_dump(SYSTEM_PROFILER_DUMP_PATH);
     let mut data = String::new();
     br.read_to_string(&mut data).expect("Unable to read string");
 
-    serde_json::from_str::<cyme::system_profiler::SPUSBDataType>(&data).unwrap()
+    serde_json::from_str::<cyme::profiler::SPUSBDataType>(&data).unwrap()
 }
 
-pub fn sp_data_from_libusb_linux() -> cyme::system_profiler::SPUSBDataType {
+pub fn sp_data_from_libusb_linux() -> cyme::profiler::SPUSBDataType {
     let mut br = read_dump(CYME_LIBUSB_LINUX_TREE_DUMP);
     let mut data = String::new();
     br.read_to_string(&mut data).expect("Unable to read string");
 
-    serde_json::from_str::<cyme::system_profiler::SPUSBDataType>(&data).unwrap()
+    serde_json::from_str::<cyme::profiler::SPUSBDataType>(&data).unwrap()
 }
 
 /// Environment for the integration tests.
@@ -266,8 +266,7 @@ impl TestEnv {
         // Normalize both expected and actual output.
         let output = self.assert_success_and_get_output(dump_file, args);
         let actual = String::from_utf8_lossy(&output.stdout).to_string();
-        let spdata_out =
-            serde_json::from_str::<cyme::system_profiler::SPUSBDataType>(&actual).unwrap();
+        let spdata_out = serde_json::from_str::<cyme::profiler::SPUSBDataType>(&actual).unwrap();
 
         assert!(spdata_out.get_node(port_path).is_some());
     }

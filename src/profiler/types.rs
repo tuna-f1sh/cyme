@@ -1,6 +1,6 @@
 //! USB data structures for system profiling of USB devices and their descriptors.
 //!
-//! Originally based on serde deserialization of `system_profiler` -json output but now used as data structures for all platforms. Not all fields are used on all platforms or are completely logically in hindsight but it works. Naming is also based on `system_profiler` (SP..) and not very Rustian...
+//! Originally based on serde deserialization of `system_profiler -json` output but now used as data structures for all platforms. Not all fields are used on all platforms or are completely logically in hindsight but it works. Naming is also based on `system_profiler` (SP..) and not very Rustian...
 use colored::*;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -727,13 +727,13 @@ impl USBDevice {
     ///
     /// root_hub returns `Some(Self)`
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("root_hub"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.get_root_hub().is_some(), true);
     /// ```
     ///
     /// Not a root_hub returns `None`
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
     /// assert_eq!(d.get_root_hub().is_some(), false);
     /// ```
     pub fn get_root_hub(&self) -> Option<&USBDevice> {
@@ -865,15 +865,15 @@ impl USBDevice {
     ///
     /// ```
     /// // hub in name
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("My special hub"), ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("My special hub"), ..Default::default() };
     /// assert_eq!(d.is_hub(), true);
     ///
     /// // Class is hub
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Not named but Class"), class: Some(cyme::usb::ClassCode::Hub),  ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Not named but Class"), class: Some(cyme::usb::ClassCode::Hub),  ..Default::default() };
     /// assert_eq!(d.is_hub(), true);
     ///
     /// // not a hub
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("My special device"), ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("My special device"), ..Default::default() };
     /// assert_eq!(d.is_hub(), false);
     /// ```
     pub fn is_hub(&self) -> bool {
@@ -885,13 +885,13 @@ impl USBDevice {
     ///
     /// Normal device
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
     /// assert_eq!(d.port_path(), "1-1.2.3");
     /// ```
     ///
     /// Get a root_hub port path
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("root_hub"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.port_path(), "1-0:1.0");
     /// ```
     pub fn port_path(&self) -> String {
@@ -907,19 +907,19 @@ impl USBDevice {
     ///
     /// Device with parent
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
     /// assert_eq!(d.parent_path(), Ok(String::from("1-1.2")));
     /// ```
     ///
     /// Trunk device parent is path to bus
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
     /// assert_eq!(d.parent_path(), Ok(String::from("1-0")));
     /// ```
     ///
     /// Cannot get parent for root_hub
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.parent_path().is_err(), true);
     /// ```
     pub fn parent_path(&self) -> Result<String, Error> {
@@ -929,7 +929,7 @@ impl USBDevice {
     /// Path of trunk [`USBDevice`]; first in tree
     ///
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
     /// assert_eq!(d.trunk_path(), "1-1");
     /// ```
     pub fn trunk_path(&self) -> String {
@@ -950,11 +950,11 @@ impl USBDevice {
     ///
     /// ```
     /// // trunk device only 1 position in tree
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
     /// assert_eq!(d.is_trunk_device(), true);
     ///
     /// // not a trunk device
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2] }, ..Default::default() };
     /// assert_eq!(d.is_trunk_device(), false);
     /// ```
     pub fn is_trunk_device(&self) -> bool {
@@ -965,11 +965,11 @@ impl USBDevice {
     ///
     /// ```
     /// // a root hub no tree positions
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("root_hub"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.is_root_hub(), true);
     ///
     /// // not a root hub has tree positions
-    /// let d = cyme::system_profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
+    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
     /// assert_eq!(d.is_root_hub(), false);
     /// ```
     pub fn is_root_hub(&self) -> bool {
@@ -1002,12 +1002,12 @@ impl USBDevice {
 
     /// Generate a String from self like lsusb default list device
     /// ```
-    /// let d = cyme::system_profiler::USBDevice{
+    /// let d = cyme::profiler::USBDevice{
     ///     name: String::from("Test device"),
     ///     manufacturer: Some(String::from("Test Devices Inc.")),
     ///     vendor_id: Some(0x1234),
     ///     product_id: Some(0x4321),
-    ///     location_id: cyme::system_profiler::DeviceLocation { bus: 1, number: 4, tree_positions: vec![1, 2, 3] },
+    ///     location_id: cyme::profiler::DeviceLocation { bus: 1, number: 4, tree_positions: vec![1, 2, 3] },
     ///     ..Default::default()
     ///     };
     /// assert_eq!(d.to_lsusb_string(), "Bus 001 Device 004: ID 1234:4321 Test Devices Inc. Test device");
@@ -1280,7 +1280,7 @@ pub struct USBFilter {
 /// Filter devices with name
 ///
 /// ```
-/// use cyme::system_profiler::*;
+/// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
 /// let filter = USBFilter {
@@ -1298,7 +1298,7 @@ pub struct USBFilter {
 ///
 /// Filter devices with vid and pid
 /// ```
-/// use cyme::system_profiler::*;
+/// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
 /// let filter = USBFilter {
@@ -1318,7 +1318,7 @@ pub struct USBFilter {
 /// Filter a flattened tree to exclude hubs
 ///
 /// ```
-/// use cyme::system_profiler::*;
+/// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
 /// let filter = USBFilter {
@@ -1336,7 +1336,7 @@ pub struct USBFilter {
 /// Filter devices with class
 ///
 /// ```
-/// use cyme::system_profiler::*;
+/// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/cyme_libusb_merge_macos_tree.json").unwrap();
 /// let filter = USBFilter {

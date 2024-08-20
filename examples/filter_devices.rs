@@ -1,8 +1,7 @@
 /// This example shows how to use the USBFilter to filter out devices that match a certain criteria
 ///
 /// See [`USBFilter`] docs for more information
-use cyme::profiler;
-use cyme::system_profiler::USBFilter;
+use cyme::profiler::{self, USBFilter};
 use cyme::usb::ClassCode;
 
 fn main() -> Result<(), String> {

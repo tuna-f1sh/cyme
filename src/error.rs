@@ -62,9 +62,9 @@ pub enum ErrorKind {
     Config,
     /// [`std::io::Error`] probably not found when reading file to parse
     Io,
-    /// [`rusb::Error`] error
+    /// libusb error
     LibUSB,
-    /// [`nusb::Error`] error
+    /// nusb error
     Nusb,
     /// Error calling udev
     Udev,
