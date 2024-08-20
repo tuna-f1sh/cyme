@@ -245,7 +245,7 @@ checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
 
 [[package]]
 name = "cyme"
-version = "1.8.1"
+version = "1.8.2"
 dependencies = [
  "assert-json-diff",
  "clap",

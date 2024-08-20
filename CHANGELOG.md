@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.8.2] - 2024-08-20
+
+### Changed
+
+- Standard cyme list now excludes root_hubs (`--tree` shows them at root). `--lsusb` list mode will still show them.
+
+### Fixes
+
+- Fix length and offset calculation in lsusb::dump_hub that would print some incorrect data.
+- Minor formatting fixes for `lsusb --verbose` mode; indent in dump_interface, min 1 space between fields, wTotalLength as hex.
+
 ## [1.8.1] - 2024-07-16
 
 ### Fixes

@@ -580,19 +580,28 @@ fn cyme() -> Result<()> {
         f.serial = args.filter_serial;
         f.class = args.filter_class;
         f.exclude_empty_hub = args.hide_hubs;
-        // exclude root hubs unless dumping a list or json
+        // exclude root hubs unless:
+        // * lsusb compat (shows root_hubs)
+        // * json - for --from-json support
+        // * group by bus - wouldn't make sense to exclude root hubs
+        // * not hide_buses - user wants to hide all buses including root_hubs
         f.no_exclude_root_hub =
-            args.lsusb || args.json || !(args.tree || args.group_devices == display::Group::Bus);
+            (args.lsusb || args.json || matches!(args.group_devices, display::Group::Bus))
+                && !args.hide_buses;
 
         Some(f)
     } else {
-        // default filter with exlcude root_hubs on linux if printing new tree as they are buses in system_profiler
-        // always include if lsusb compat
+        // ensure exclude root hubs on Linux unless:
+        // * lsusb compat (shows root_hubs)
+        // * json - for --from-json support
+        // * group by bus - wouldn't make sense to exclude root hubs
+        // * not hide_buses - user wants to hide all buses including root_hubs
         if cfg!(target_os = "linux") {
             Some(system_profiler::USBFilter {
-                no_exclude_root_hub: args.lsusb
+                no_exclude_root_hub: (args.lsusb
                     || args.json
-                    || !(args.tree || args.group_devices == display::Group::Bus),
+                    || matches!(args.group_devices, display::Group::Bus))
+                    && !args.hide_buses,
                 ..Default::default()
             })
         } else {
