@@ -36,7 +36,8 @@ regex = { version = "1.10.5", optional = true }
 uuid = { version = "1.9.1", features = ["serde"] }
 
 [patch.crates-io]
-nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "cyme" }
+# nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "cyme" }
+nusb = { path = "../nusb" }
 
 [dev-dependencies]
 diff = "0.1"
@@ -70,7 +71,7 @@ regex_icon = ["dep:regex"]
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
 native = ["nusb", "udev"] # pure Rust USB and udev bindings
 libc = ["libusb", "udevlib"] # C bindings for libusb and libudev
-default = ["libusb", "udev", "regex_icon"] # default libusb C binding (same as lsusb) and (Rust) udevrs with regex icon name lookup
+default = ["nusb", "libusb", "udev", "regex_icon"] # default libusb C binding (same as lsusb) and (Rust) udevrs with regex icon name lookup
 
 [[bin]]
 name = "cyme"
