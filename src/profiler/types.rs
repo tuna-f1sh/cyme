@@ -104,6 +104,8 @@ impl fmt::Display for SPUSBDataType {
 }
 
 /// USB bus JSON returned from system_profiler but now used for other platforms
+///
+/// It is a merging of the PCI Host Controller information and Root Hub device data (if present)
 #[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct USBBus {
@@ -112,13 +114,13 @@ pub struct USBBus {
     pub name: String,
     /// Host Controller on macOS, vendor put here when using libusb
     pub host_controller: String,
-    /// Understood to be product ID - it is when using libusb
+    /// PCI device ID (PID)
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub pci_device: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    /// Revsision of hardware
+    /// PCI Revsision ID
     pub pci_revision: Option<u16>,
-    /// Understood to be vendor ID - it is when using libusb
+    /// PCI vendor ID (VID)
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub pci_vendor: Option<u16>,
     /// Number of bus on system
