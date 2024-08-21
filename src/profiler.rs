@@ -615,16 +615,22 @@ where
             // create the bus, we'll add devices at next step
             // if root hub exists, add it to the bus and remove so we can add empty buses if missing after
             let mut new_bus = if let Some(root_hub) = root_hubs.remove(&key) {
-                USBBus {
+                let mut bus = USBBus {
+                    // TODO lookup from pci.ids crate
                     name: root_hub.name.clone(),
                     host_controller: root_hub.manufacturer.clone().unwrap_or_default(),
                     usb_bus_number: Some(key),
+                    // TODO root hub VID and PID is not PCI VID and PID
                     pci_vendor: root_hub.vendor_id,
                     pci_device: root_hub.product_id,
-                    // add root hub to devices like lsusb
-                    devices: Some(vec![root_hub]),
                     ..Default::default()
+                };
+                // add root hub to devices like lsusb on Linux since they are like devices
+                if cfg!(target_os = "linux") {
+                    bus.devices = Some(vec![root_hub])
                 }
+
+                bus
             } else {
                 USBBus {
                     name: "Unknown".into(),
@@ -682,15 +688,18 @@ where
         // add empty root_hubs if missing
         if !root_hubs.is_empty() {
             for (key, root_hub) in root_hubs {
-                spusb.buses.push(USBBus {
+                let mut bus = USBBus {
                     name: root_hub.name.clone(),
                     host_controller: root_hub.manufacturer.clone().unwrap_or_default(),
                     usb_bus_number: Some(key),
                     pci_vendor: root_hub.vendor_id,
                     pci_device: root_hub.product_id,
-                    devices: Some(vec![root_hub]),
                     ..Default::default()
-                });
+                };
+                if cfg!(target_os = "linux") {
+                    bus.devices = Some(vec![root_hub])
+                }
+                spusb.buses.push(bus);
             }
             spusb.buses.sort_by_key(|b| b.usb_bus_number);
         }
