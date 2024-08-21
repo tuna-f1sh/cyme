@@ -120,7 +120,8 @@ impl FromHexStr for u16 {
     }
 }
 
-const SYSFS_PREFIX: &str = "/sys/bus/usb/devices/";
+const SYSFS_USB_PREFIX: &str = "/sys/bus/usb/devices/";
+const SYSFS_PCI_PREFIX: &str = "/sys/bus/pci/devices/";
 
 #[cfg(target_os = "linux")]
 fn probe_device(path: SysfsPath) -> Result<USBDevice> {
@@ -652,30 +653,55 @@ impl Profiler<UsbDevice> for NusbProfiler {
         Ok(devices)
     }
 
-    #[cfg(target_os = "linux")]
     fn get_root_hubs(&self) -> Result<HashMap<u8, USBDevice>> {
-        let ret = fs::read_dir(SYSFS_PREFIX)?
-            .flat_map(|entry| {
-                let path = entry.ok()?.path();
-                let name = path.file_name()?;
+        let mut devices = Vec::new();
+        for device in nusb::list_root_hubs()? {
+            match self.build_spdevice(&device, true) {
+                Ok(sp_device) => {
+                    devices.push(sp_device.to_owned());
+                    let print_stderr =
+                        std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR").is_some();
 
-                // just root_hubs
-                if name.to_string_lossy().starts_with("usb") {
-                    probe_device(SysfsPath(path)).ok()
-                } else {
-                    None
+                    // print any non-critical error during extra capture
+                    sp_device.profiler_error.iter().for_each(|e| {
+                        if print_stderr {
+                            eprintln!("{}", e);
+                        } else {
+                            log::warn!("Non-critical error during profile: {}", e);
+                        }
+                    });
                 }
-            })
-            .map(|hub| (hub.location_id.bus, hub))
-            .collect::<HashMap<_, _>>();
+                Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e),
+            }
+        }
 
-        Ok(ret)
+        Ok(devices.into_iter().map(|d| (d.location_id.bus, d)).collect())
     }
 
-    #[cfg(not(target_os = "linux"))]
-    fn get_root_hubs(&self) -> Result<HashMap<u8, USBDevice>> {
-        Ok(HashMap::new())
-    }
+    // #[cfg(target_os = "linux")]
+    // fn get_root_hubs(&self) -> Result<HashMap<u8, USBDevice>> {
+    //     let ret = fs::read_dir(SYSFS_USB_PREFIX)?
+    //         .flat_map(|entry| {
+    //             let path = entry.ok()?.path();
+    //             let name = path.file_name()?;
+
+    //             // just root_hubs
+    //             if name.to_string_lossy().starts_with("usb") {
+    //                 probe_device(SysfsPath(path)).ok()
+    //             } else {
+    //                 None
+    //             }
+    //         })
+    //         .map(|hub| (hub.location_id.bus, hub))
+    //         .collect::<HashMap<_, _>>();
+
+    //     Ok(ret)
+    // }
+
+    // #[cfg(not(target_os = "linux"))]
+    // fn get_root_hubs(&self) -> Result<HashMap<u8, USBDevice>> {
+    //     Ok(HashMap::new())
+    // }
 }
 
 pub(crate) fn fill_spusb(spusb: &mut SPUSBDataType) -> Result<()> {
