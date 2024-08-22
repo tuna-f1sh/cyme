@@ -19,6 +19,8 @@
 //! It's often useful to then flatten this into a list of devices ([`profiler::USBDevice`]):
 //!
 //! ```no_run
+//! # use cyme::profiler;
+//! # let sp_usb = profiler::get_spusb().unwrap();
 //! // flatten since we don't care tree/buses
 //! let devices = sp_usb.flatten_devices();
 //!
@@ -30,6 +32,9 @@
 //! One can then print with the cyme display module:
 //!
 //! ```no_run
+//! # use cyme::profiler;
+//! # let sp_usb = profiler::get_spusb().unwrap();
+//! # let devices = sp_usb.flatten_devices();
 //! use cyme::display;
 //! // print with default [`display::PrintSettings`]
 //! display::print_flattened_devices(&devices, &display::PrintSettings::default());

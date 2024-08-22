@@ -14,6 +14,9 @@
 use crate::error::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+use std::str::FromStr;
 
 use crate::error::{Error, ErrorKind};
 use crate::types::NumericalUnit;
@@ -24,6 +27,9 @@ use crate::usb;
 const REQUEST_GET_DESCRIPTOR: u8 = 0x06;
 const REQUEST_GET_STATUS: u8 = 0x00;
 const REQUEST_WEBUSB_URL: u8 = 0x02;
+
+const SYSFS_USB_PREFIX: &str = "/sys/bus/usb/devices/";
+const SYSFS_PCI_PREFIX: &str = "/sys/bus/pci/devices/";
 
 // separate module but import all
 pub mod types;
@@ -589,15 +595,26 @@ where
     }
 
     /// Get [`USBDevice`]s connected to the host, excluding root hubs
-    fn get_devices(&self, with_extra: bool) -> Result<Vec<USBDevice>>;
+    fn get_devices(&mut self, with_extra: bool) -> Result<Vec<USBDevice>>;
 
     /// Get root hubs connected to the host as [`USBDevice`]s
     ///
-    /// Root Hub devices are not always listed in the device list, so this is a separate function to get them. They only exist on Linux and are used to assign info to [`USBBus`]s.
-    fn get_root_hubs(&self) -> Result<HashMap<u8, USBDevice>>;
+    /// root hubs are pseudo devices and not always listed in the device list, so this is a separate function to get them. The data is used to help create [`USBBus`]es; root hubs are an abstraction over Host Controller information.
+    fn get_root_hubs(&mut self) -> Result<HashMap<u8, USBDevice>>;
+
+    fn new_sp_bus(&self, bus_number: u8, root_hub: Option<USBDevice>) -> USBBus {
+        root_hub
+            .map(|rh| {
+                rh.try_into().unwrap_or_else(|e| {
+                    log::warn!("Failed to convert root hub to USBBus: {:?}", e);
+                    USBBus::from(bus_number)
+                })
+            })
+            .unwrap_or(USBBus::from(bus_number))
+    }
 
     /// Build the [`SPUSBDataType`] from the Profiler get_devices and get_root_hubs (for buses) functions
-    fn get_spusb(&self, with_extra: bool) -> Result<SPUSBDataType> {
+    fn get_spusb(&mut self, with_extra: bool) -> Result<SPUSBDataType> {
         let mut spusb = SPUSBDataType { buses: Vec::new() };
 
         log::info!("Building SPUSBDataType with {:?}", self);
@@ -614,30 +631,15 @@ where
         for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
             // create the bus, we'll add devices at next step
             // if root hub exists, add it to the bus and remove so we can add empty buses if missing after
-            let mut new_bus = if let Some(root_hub) = root_hubs.remove(&key) {
-                let mut bus = USBBus {
-                    // TODO lookup from pci.ids crate
-                    name: root_hub.name.clone(),
-                    host_controller: root_hub.manufacturer.clone().unwrap_or_default(),
-                    usb_bus_number: Some(key),
-                    // TODO root hub VID and PID is not PCI VID and PID
-                    pci_vendor: root_hub.vendor_id,
-                    pci_device: root_hub.product_id,
-                    ..Default::default()
-                };
-                // add root hub to devices like lsusb on Linux since they are like devices
+            let mut new_bus = if let Some(mut root_hub) = root_hubs.remove(&key) {
+                // add root hub to devices like lsusb on Linux since they are displayed like devices
                 if cfg!(target_os = "linux") {
-                    bus.devices = Some(vec![root_hub])
+                    root_hub.devices = Some(vec![root_hub.clone()])
                 }
 
-                bus
+                self.new_sp_bus(key, Some(root_hub))
             } else {
-                USBBus {
-                    name: "Unknown".into(),
-                    host_controller: "Unknown".into(),
-                    usb_bus_number: Some(key),
-                    ..Default::default()
-                }
+                self.new_sp_bus(key, None)
             };
 
             // group into parent groups with parent path as key or trunk devices so they end up in same place
@@ -687,18 +689,13 @@ where
 
         // add empty root_hubs if missing
         if !root_hubs.is_empty() {
-            for (key, root_hub) in root_hubs {
-                let mut bus = USBBus {
-                    name: root_hub.name.clone(),
-                    host_controller: root_hub.manufacturer.clone().unwrap_or_default(),
-                    usb_bus_number: Some(key),
-                    pci_vendor: root_hub.vendor_id,
-                    pci_device: root_hub.product_id,
-                    ..Default::default()
-                };
+            for (key, mut root_hub) in root_hubs {
+                // add root hub to devices like lsusb on Linux since they are displayed like devices
                 if cfg!(target_os = "linux") {
-                    bus.devices = Some(vec![root_hub])
+                    root_hub.devices = Some(vec![root_hub.clone()])
                 }
+
+                let bus = self.new_sp_bus(key, Some(root_hub));
                 spusb.buses.push(bus);
             }
             spusb.buses.sort_by_key(|b| b.usb_bus_number);
@@ -710,7 +707,7 @@ where
     /// Fills a passed mutable `spusb` reference to fill using `get_spusb`. Will replace existing [`USBDevice`]s found in the Profiler tree but leave others and the buses.
     ///
     /// The main use case for this is to merge with macOS `system_profiler` data, so that [`usb::USBDeviceExtra`] can be obtained but internal buses kept. One could also use it to update a static .json dump.
-    fn fill_spusb(&self, spusb: &mut SPUSBDataType) -> Result<()> {
+    fn fill_spusb(&mut self, spusb: &mut SPUSBDataType) -> Result<()> {
         let libusb_spusb = self.get_spusb(true)?;
 
         // merge if passed has any buses
@@ -731,42 +728,108 @@ where
     }
 }
 
-/// Attempt to retrieve the current bConfigurationValue and iConfiguration for a device
-/// This will only return the current configuration, not all possible configurations
-/// If there are any failures in retrieving the data, None is returned
-#[allow(unused_variables)]
-fn get_sysfs_configuration_string(sysfs_name: &str) -> Option<(u8, String)> {
-    #[cfg(target_os = "linux")]
-    // Determine bConfigurationValue value on linux
-    match get_sysfs_string(sysfs_name, "bConfigurationValue") {
-        Some(s) => match s.parse::<u8>() {
-            Ok(v) => {
-                // Determine iConfiguration
-                get_sysfs_string(sysfs_name, "configuration").map(|s| (v, s))
-            }
-            Err(_) => None,
-        },
-        None => None,
+// SysfsPath, parsing etc is taken from nusb crate (since not pub) and modified for our use
+#[derive(Debug, Clone)]
+struct SysfsPath(pub(crate) PathBuf);
+
+impl SysfsPath {
+    pub(crate) fn exists(&self) -> bool {
+        self.0.exists()
     }
 
-    #[cfg(not(target_os = "linux"))]
-    None
-}
-
-/// Get device information from sysfs path on Linux
-#[allow(unused_variables)]
-fn get_sysfs_string(sysfs_name: &str, name: &str) -> Option<String> {
-    #[cfg(target_os = "linux")]
-    match std::fs::read_to_string(format!("/sys/bus/usb/devices/{}/{}", sysfs_name, name)) {
-        Ok(s) => Some(s.trim().to_string()),
-        Err(_) => None,
+    fn parse_attr<T>(&self, attr: &str, parse: impl FnOnce(&str) -> Result<T>) -> Result<T> {
+        let attr_path = self.0.join(attr);
+        fs::read_to_string(&attr_path)
+            .map_err(|e| Error::new(ErrorKind::Io, &e.to_string()))
+            .and_then(|v| parse(v.trim()))
     }
 
-    #[cfg(not(target_os = "linux"))]
-    None
+    pub(crate) fn read_attr<T: FromStr>(&self, attr: &str) -> Result<T> {
+        self.parse_attr(attr, |s| {
+            s.parse().map_err(|_| {
+                Error::new(
+                    ErrorKind::Parsing,
+                    &format!("Failed to parse attr: {}", attr),
+                )
+            })
+        })
+    }
+
+    fn read_attr_hex<T: FromHexStr>(&self, attr: &str) -> Result<T> {
+        self.parse_attr(attr, |s| T::from_hex_str(s.strip_prefix("0x").unwrap_or(s)))
+    }
+
+    fn children(&self) -> impl Iterator<Item = SysfsPath> {
+        fs::read_dir(&self.0)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(|f| f.ok())
+            .filter(|f| f.file_type().ok().is_some_and(|t| t.is_dir()))
+            .map(|f| SysfsPath(f.path()))
+    }
 }
 
-/// Get the driver name from udev on Linux if the feature is enabled
+trait FromHexStr: Sized {
+    fn from_hex_str(s: &str) -> Result<Self>;
+}
+
+impl FromHexStr for u8 {
+    fn from_hex_str(s: &str) -> Result<Self> {
+        u8::from_str_radix(s, 16).map_err(|_| Error::new(ErrorKind::Parsing, s))
+    }
+}
+
+impl FromHexStr for u16 {
+    fn from_hex_str(s: &str) -> Result<Self> {
+        u16::from_str_radix(s, 16).map_err(|_| Error::new(ErrorKind::Parsing, s))
+    }
+}
+
+impl std::fmt::Display for SysfsPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.0.display().fmt(f)
+    }
+}
+
+impl From<&str> for SysfsPath {
+    fn from(s: &str) -> Self {
+        SysfsPath(PathBuf::from(s))
+    }
+}
+
+impl From<String> for SysfsPath {
+    fn from(s: String) -> Self {
+        SysfsPath(PathBuf::from(s))
+    }
+}
+
+impl std::ops::Deref for SysfsPath {
+    type Target = PathBuf;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<SysfsPath> for PathBuf {
+    fn from(s: SysfsPath) -> Self {
+        s.0
+    }
+}
+
+/// Get a USB device attribute String from sysfs on Linux
+#[allow(unused_variables)]
+fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    return std::fs::read_to_string(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
+        .ok()
+        .map(|s| s.trim().to_string());
+    #[cfg(not(target_os = "linux"))]
+    return None;
+}
+
+/// Get the USB driver name from udev on Linux if the feature is enabled
 #[allow(unused_variables)]
 fn get_udev_driver_name(port_path: &str) -> Result<Option<String>> {
     #[cfg(all(target_os = "linux", any(feature = "udev", feature = "udevlib")))]
@@ -775,7 +838,7 @@ fn get_udev_driver_name(port_path: &str) -> Result<Option<String>> {
     return Ok(None);
 }
 
-/// Get the syspath from udev on Linux if the feature is enabled
+/// Get the USB device syspath from udev on Linux if the feature is enabled
 #[allow(unused_variables)]
 fn get_udev_syspath(port_path: &str) -> Result<Option<String>> {
     #[cfg(all(target_os = "linux", any(feature = "udev", feature = "udevlib")))]
@@ -784,11 +847,11 @@ fn get_udev_syspath(port_path: &str) -> Result<Option<String>> {
     return Ok(None);
 }
 
-/// Get the syspath based on the default location "/sys/bus/usb/devices" on Linux
+/// Get the USB device syspath based on the default location "/sys/bus/usb/devices" on Linux
 #[allow(unused_variables)]
 fn get_syspath(port_path: &str) -> Option<String> {
     #[cfg(target_os = "linux")]
-    return Some(format!("/sys/bus/usb/devices/{}", port_path));
+    return Some(format!("{}{}", SYSFS_USB_PREFIX, port_path));
     #[cfg(not(target_os = "linux"))]
     return None;
 }
@@ -801,14 +864,15 @@ fn get_syspath(port_path: &str) -> Option<String> {
 pub fn get_spusb() -> Result<SPUSBDataType> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
     {
-        let profiler = libusb::LibUsbProfiler;
+        let mut profiler = libusb::LibUsbProfiler;
         <libusb::LibUsbProfiler as Profiler<libusb::UsbDevice<rusb::Context>>>::get_spusb(
-            &profiler, false,
+            &mut profiler,
+            false,
         )
     }
     #[cfg(feature = "nusb")]
     {
-        let profiler = nusb::NusbProfiler;
+        let mut profiler = nusb::NusbProfiler::new();
         profiler.get_spusb(true)
     }
 
@@ -827,15 +891,16 @@ pub fn get_spusb() -> Result<SPUSBDataType> {
 pub fn get_spusb_with_extra() -> Result<SPUSBDataType> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
     {
-        let profiler = libusb::LibUsbProfiler;
+        let mut profiler = libusb::LibUsbProfiler;
         <libusb::LibUsbProfiler as Profiler<libusb::UsbDevice<rusb::Context>>>::get_spusb(
-            &profiler, true,
+            &mut profiler,
+            true,
         )
     }
 
     #[cfg(feature = "nusb")]
     {
-        let profiler = nusb::NusbProfiler;
+        let mut profiler = nusb::NusbProfiler::new();
         profiler.get_spusb(true)
     }
 
