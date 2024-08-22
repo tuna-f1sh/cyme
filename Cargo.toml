@@ -34,10 +34,10 @@ strum = "0.26"
 strum_macros = "0.26"
 regex = { version = "1.10.5", optional = true }
 uuid = { version = "1.9.1", features = ["serde"] }
+pci-ids = "0.2.5"
 
 [patch.crates-io]
-# nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "cyme" }
-nusb = { path = "../nusb" }
+nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "root_hub" }
 
 [dev-dependencies]
 diff = "0.1"

@@ -76,6 +76,8 @@ pub enum ErrorKind {
     InvalidDescriptor,
     /// Invalid device descriptor length
     DescriptorLength(ErrorArg<usize, usize>),
+    /// Invalid device used in context
+    InvalidDevice,
 }
 
 #[derive(Debug, PartialEq)]
