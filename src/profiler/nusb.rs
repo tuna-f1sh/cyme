@@ -587,7 +587,8 @@ impl Profiler<UsbDevice> for NusbProfiler {
     fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
         let mut root_hubs = HashMap::new();
         for device in nusb::list_root_hubs()? {
-            match self.build_spdevice(&device, true) {
+            // get with extra data only on Linux as others _really_ don't exist
+            match self.build_spdevice(&device, cfg!(target_os = "linux")) {
                 #[allow(unused_mut)]
                 Ok(mut sp_device) => {
                     if !sp_device.is_root_hub() {

@@ -70,7 +70,7 @@ _cyme() {
                     return 0
                     ;;
                 --bus-blocks)
-                    COMPREPLY=($(compgen -W "bus-number icon name host-controller pci-vendor pci-device pci-revision port-path" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number icon name host-controller host-controller-vendor host-controller-device pci-vendor pci-device pci-revision port-path" -- "${cur}"))
                     return 0
                     ;;
                 --config-blocks)

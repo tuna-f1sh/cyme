@@ -171,15 +171,19 @@ bus\-number: System bus number identifier
 .IP \(bu 2
 icon: Icon based on VID/PID
 .IP \(bu 2
-name: Bus name from descriptor or usb_ids
+name: System internal bus name based on Root Hub device name
 .IP \(bu 2
-host\-controller: Host Controller on macOS, vendor put here when using libusb
+host\-controller: System internal bus provider name
 .IP \(bu 2
-pci\-vendor: Understood to be vendor ID \- it is when using libusb
+host\-controller\-vendor: Vendor name of PCI Host Controller from pci.ids
 .IP \(bu 2
-pci\-device: Understood to be product ID \- it is when using libusb
+host\-controller\-device: Device name of PCI Host Controller from pci.ids
 .IP \(bu 2
-pci\-revision: Revsision of hardware
+pci\-vendor: PCI vendor ID (VID)
+.IP \(bu 2
+pci\-device: PCI device ID (PID)
+.IP \(bu 2
+pci\-revision: PCI Revsision ID
 .IP \(bu 2
 port\-path: syspath style port path to bus, applicable to Linux only
 .RE
