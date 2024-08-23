@@ -979,7 +979,11 @@ impl Block<BusBlocks, Bus> for BusBlocks {
     ) -> Option<String> {
         match self {
             BusBlocks::BusNumber => Some(format!("{:3}", bus.get_bus_number())),
-            BusBlocks::Icon => settings.icons.as_ref().map(|i| i.get_bus_icon(bus)),
+            BusBlocks::Icon => settings
+                .icons
+                .as_ref()
+                .map(|i| i.get_bus_icon(bus))
+                .or(Some(" ".to_string())),
             BusBlocks::PciVendor => Some(match bus.pci_vendor {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),

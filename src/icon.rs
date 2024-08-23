@@ -410,7 +410,10 @@ impl IconTheme {
         if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
             self.get_vidpid_icon(vid, pid)
         } else {
-            String::new()
+            DEFAULT_ICONS
+                .get(&Icon::UnknownVendor)
+                .unwrap_or(&"")
+                .to_string()
         }
     }
 
@@ -419,7 +422,10 @@ impl IconTheme {
         if let (Some(vid), Some(pid)) = (d.pci_vendor, d.pci_device) {
             self.get_vidpid_icon(vid, pid)
         } else {
-            String::new()
+            DEFAULT_ICONS
+                .get(&Icon::UnknownVendor)
+                .unwrap_or(&"")
+                .to_string()
         }
     }
 
