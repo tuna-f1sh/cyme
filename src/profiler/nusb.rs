@@ -151,8 +151,8 @@ impl NusbProfiler {
         &self,
         device: &UsbDevice,
         interface_desc: &nusb::descriptors::InterfaceAltSetting,
-    ) -> Vec<usb::USBEndpoint> {
-        let mut ret: Vec<usb::USBEndpoint> = Vec::new();
+    ) -> Vec<usb::Endpoint> {
+        let mut ret: Vec<usb::Endpoint> = Vec::new();
 
         for endpoint in interface_desc.endpoints() {
             let endpoint_desc = endpoint.descriptors().next().unwrap();
@@ -163,7 +163,7 @@ impl NusbProfiler {
                 .flat_map(|d| d.to_vec())
                 .collect::<Vec<u8>>();
 
-            ret.push(usb::USBEndpoint {
+            ret.push(usb::Endpoint {
                 address: usb::EndpointAddress::from(endpoint.address()),
                 transfer_type: usb::TransferType::from(endpoint.transfer_type() as u8),
                 sync_type: usb::SyncType::from(endpoint.transfer_type() as u8),
@@ -195,8 +195,8 @@ impl NusbProfiler {
         device: &UsbDevice,
         config: &nusb::descriptors::Configuration,
         with_udev: bool,
-    ) -> Result<Vec<usb::USBInterface>> {
-        let mut ret: Vec<usb::USBInterface> = Vec::new();
+    ) -> Result<Vec<usb::Interface>> {
+        let mut ret: Vec<usb::Interface> = Vec::new();
 
         for interface in config.interfaces() {
             for interface_alt in interface.alt_settings() {
@@ -218,7 +218,7 @@ impl NusbProfiler {
                     .flat_map(|d| d.to_vec())
                     .collect::<Vec<u8>>();
 
-                let mut interface = usb::USBInterface {
+                let mut interface = usb::Interface {
                     name: get_sysfs_string(&path, "interface")
                         .or(interface_alt
                             .string_index()
@@ -267,8 +267,8 @@ impl NusbProfiler {
         &self,
         device: &UsbDevice,
         with_udev: bool,
-    ) -> Result<Vec<usb::USBConfiguration>> {
-        let mut ret: Vec<usb::USBConfiguration> = Vec::new();
+    ) -> Result<Vec<usb::Configuration>> {
+        let mut ret: Vec<usb::Configuration> = Vec::new();
 
         for c in device.handle.configurations() {
             let mut attributes = Vec::new();
@@ -292,7 +292,7 @@ impl NusbProfiler {
                 .collect::<Vec<u8>>();
             let total_length = u16::from_le_bytes(config_desc[2..4].try_into().unwrap());
 
-            ret.push(usb::USBConfiguration {
+            ret.push(usb::Configuration {
                 name: c
                     .string_index()
                     .and_then(|i| device.get_descriptor_string(i))

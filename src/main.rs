@@ -520,7 +520,7 @@ fn cyme() -> Result<()> {
         || args.filter_serial.is_some()
         || args.filter_class.is_some()
     {
-        let mut f = profiler::USBFilter::new();
+        let mut f = profiler::Filter::new();
 
         if let Some(vidpid) = &args.vidpid {
             let (vid, pid) = parse_vidpid(vidpid.as_str()).map_err(|e| {

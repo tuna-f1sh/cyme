@@ -208,8 +208,8 @@ impl LibUsbProfiler {
         &self,
         handle: &UsbDevice<T>,
         interface_desc: &libusb::InterfaceDescriptor,
-    ) -> Vec<usb::USBEndpoint> {
-        let mut ret: Vec<usb::USBEndpoint> = Vec::new();
+    ) -> Vec<usb::Endpoint> {
+        let mut ret: Vec<usb::Endpoint> = Vec::new();
 
         for endpoint_desc in interface_desc.endpoint_descriptors() {
             let extra_desc = if let Some(extra) = endpoint_desc.extra() {
@@ -229,7 +229,7 @@ impl LibUsbProfiler {
                 None
             };
 
-            ret.push(usb::USBEndpoint {
+            ret.push(usb::Endpoint {
                 address: usb::EndpointAddress {
                     address: endpoint_desc.address(),
                     number: endpoint_desc.number(),
@@ -253,8 +253,8 @@ impl LibUsbProfiler {
         handle: &UsbDevice<T>,
         config_desc: &libusb::ConfigDescriptor,
         with_udev: bool,
-    ) -> Result<Vec<usb::USBInterface>> {
-        let mut ret: Vec<usb::USBInterface> = Vec::new();
+    ) -> Result<Vec<usb::Interface>> {
+        let mut ret: Vec<usb::Interface> = Vec::new();
 
         for interface in config_desc.interfaces() {
             for interface_desc in interface.descriptors() {
@@ -265,7 +265,7 @@ impl LibUsbProfiler {
                     interface_desc.interface_number(),
                 );
 
-                let mut interface = usb::USBInterface {
+                let mut interface = usb::Interface {
                     name: get_sysfs_string(&path, "interface")
                         .or(interface_desc
                             .description_string_index()
@@ -317,10 +317,10 @@ impl LibUsbProfiler {
         device_desc: &libusb::DeviceDescriptor,
         sp_device: &Device,
         with_udev: bool,
-    ) -> Result<Vec<usb::USBConfiguration>> {
+    ) -> Result<Vec<usb::Configuration>> {
         // Retrieve the current configuration (if available)
         let cur_config = get_sysfs_configuration_string(&sp_device.sysfs_name());
-        let mut ret: Vec<usb::USBConfiguration> = Vec::new();
+        let mut ret: Vec<usb::Configuration> = Vec::new();
 
         for n in 0..device_desc.num_configurations() {
             let config_desc = match device.config_descriptor(n) {
@@ -349,7 +349,7 @@ impl LibUsbProfiler {
                 None
             };
 
-            ret.push(usb::USBConfiguration {
+            ret.push(usb::Configuration {
                 name: config_desc
                     .description_string_index()
                     .and_then(|i| handle.get_descriptor_string(i))

@@ -1,7 +1,7 @@
-/// This example shows how to use the USBFilter to filter out devices that match a certain criteria
+/// This example shows how to use the Filter to filter out devices that match a certain criteria
 ///
-/// See [`USBFilter`] docs for more information
-use cyme::profiler::{self, USBFilter};
+/// See [`Filter`] docs for more information
+use cyme::profiler::{self, Filter};
 use cyme::usb::ClassCode;
 
 fn main() -> Result<(), String> {
@@ -10,7 +10,7 @@ fn main() -> Result<(), String> {
         .map_err(|e| format!("Failed to gather system USB data from libusb, Error({})", e))?;
 
     // if one does want the tree, use the utility
-    let filter = USBFilter {
+    let filter = Filter {
         class: Some(ClassCode::HID),
         ..Default::default()
     };

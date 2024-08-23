@@ -10,7 +10,7 @@
 //! println!("{:#}", spusb);
 //! ```
 //!
-//! See [`types`] docs for what can be done with returned data, such as [`USBFilter`]
+//! See [`types`] docs for what can be done with returned data, such as [`Filter`]
 use crate::error::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -860,7 +860,7 @@ fn get_syspath(port_path: &str) -> Option<String> {
 ///
 /// Runs through [`Profiler::get_devices()`] creating a cache of [`Device`]. Then sorts into parent groups, where the [`Bus`] is created -  with root hub information if available from [`Profiler::get_root_hubs()`] - and the tree built.
 ///
-/// The function will call which library is available based on the features enabled: 'nusb' or 'libusb'. If neither are enabled, it will return an error.If both are enabled, it will default to 'nusb'. 
+/// The function will call which library is available based on the features enabled: 'nusb' or 'libusb'. If neither are enabled, it will return an error.If both are enabled, it will default to 'nusb'.
 ///
 /// Bus data on Windows is only available with 'nusb', and on this bus numbers are created in order of appearance since it is not a concept in the Windows USB stack.
 pub fn get_spusb() -> Result<SystemProfile> {
