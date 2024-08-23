@@ -308,15 +308,19 @@ pub enum BusBlocks {
     BusNumber,
     /// Icon based on VID/PID
     Icon,
-    /// Bus name from descriptor or usb_ids
+    /// System internal bus name based on Root Hub device name
     Name,
-    /// Host Controller on macOS, vendor put here when using libusb
+    /// System internal bus provider name
     HostController,
-    /// Understood to be vendor ID - it is when using libusb
+    /// Vendor name of PCI Host Controller from pci.ids
+    HostControllerVendor,
+    /// Device name of PCI Host Controller from pci.ids
+    HostControllerDevice,
+    /// PCI vendor ID (VID)
     PciVendor,
-    /// Understood to be product ID - it is when using libusb
+    /// PCI device ID (PID)
     PciDevice,
-    /// Revsision of hardware
+    /// PCI Revsision ID
     PciRevision,
     /// syspath style port path to bus, applicable to Linux only
     PortPath,
@@ -924,6 +928,8 @@ impl Block<BusBlocks, Bus> for BusBlocks {
                 BusBlocks::PortPath,
                 BusBlocks::Name,
                 BusBlocks::HostController,
+                BusBlocks::HostControllerVendor,
+                BusBlocks::HostControllerDevice,
                 BusBlocks::PciVendor,
                 BusBlocks::PciDevice,
                 BusBlocks::PciRevision,
@@ -957,6 +963,8 @@ impl Block<BusBlocks, Bus> for BusBlocks {
             BusBlocks::PciDevice => ct.pid.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::Name => ct.name.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::HostController => ct.serial.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::HostControllerVendor => ct.manufacturer.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::HostControllerDevice => ct.serial.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::PciRevision => ct.number.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::PortPath => ct.path.map_or(s.normal(), |c| s.color(c)),
@@ -994,6 +1002,14 @@ impl Block<BusBlocks, Bus> for BusBlocks {
                 bus.host_controller,
                 pad = pad.get(self).unwrap_or(&0)
             )),
+            BusBlocks::HostControllerVendor => Some(match bus.host_controller_vendor.as_ref() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            BusBlocks::HostControllerDevice => Some(match bus.host_controller_device.as_ref() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
             BusBlocks::PortPath => Some(format!(
                 "{:pad$}",
                 bus.path(),
@@ -1012,6 +1028,8 @@ impl Block<BusBlocks, Bus> for BusBlocks {
             BusBlocks::PciRevision => "Revisn",
             BusBlocks::Name => "Name",
             BusBlocks::HostController => "HostController",
+            BusBlocks::HostControllerVendor => "HostVendor",
+            BusBlocks::HostControllerDevice => "HostDevice",
             BusBlocks::Icon => ICON_HEADING,
         }
     }
