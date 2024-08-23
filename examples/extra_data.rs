@@ -1,7 +1,7 @@
 use cyme::profiler;
 
 fn main() -> Result<(), String> {
-    // get all system devices - this time with extra data which contain the USBConfiguration, driver data (with udev)
+    // get all system devices - this time with extra data which contain the Configuration, driver data (with udev)
     let sp_usb = profiler::get_spusb_with_extra()
         .map_err(|e| format!("Failed to gather system USB data from libusb, Error({})", e))?;
 

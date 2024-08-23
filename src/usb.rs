@@ -739,7 +739,7 @@ impl Speed {
     }
 }
 
-/// Transfer and [`USBEndpoint`] direction
+/// Transfer and [`Endpoint`] direction
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     /// Direction for write (host to device) transfers.
@@ -761,7 +761,7 @@ impl fmt::Display for Direction {
     }
 }
 
-/// Transfer type  for [`USBEndpoint`]
+/// Transfer type  for [`Endpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum TransferType {
@@ -793,7 +793,7 @@ impl From<u8> for TransferType {
     }
 }
 
-/// Isochronous synchronization mode for [`USBEndpoint`]
+/// Isochronous synchronization mode for [`Endpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum SyncType {
@@ -825,7 +825,7 @@ impl From<u8> for SyncType {
     }
 }
 
-/// Isochronous usage type for [`USBEndpoint`]
+/// Isochronous usage type for [`Endpoint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[repr(u8)]
 #[non_exhaustive]
@@ -879,13 +879,13 @@ fn default_endpoint_desc_length() -> u8 {
     7
 }
 
-/// Address information for a [`USBEndpoint`]
+/// Address information for a [`Endpoint`]
 // This struct could be one byte with getters using mask but this saves a custom Serialize impl for system_profiler
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EndpointAddress {
     /// Endpoint address byte
     pub address: u8,
-    /// Endpoint number on [`USBInterface`] 0..3b
+    /// Endpoint number on [`Interface`] 0..3b
     pub number: u8,
     /// Data transfer direction 7b
     pub direction: Direction,
@@ -918,9 +918,9 @@ impl fmt::Display for EndpointAddress {
     }
 }
 
-/// Endpoint for a [`USBInterface`]
+/// Endpoint for a [`Interface`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct USBEndpoint {
+pub struct Endpoint {
     /// Endpoint length in bytes
     #[serde(default = "default_endpoint_desc_length")] // for backwards compatible json
     pub length: u8,
@@ -941,13 +941,17 @@ pub struct USBEndpoint {
     pub extra: Option<Vec<Descriptor>>,
 }
 
-impl USBEndpoint {
-    /// Decodes the max packet value into a multiplier and number of bytes like lsusb
+/// Deprecated alias for [`Endpoint`]
+#[deprecated(since = "2.0.0", note = "Use Endpoint instead")]
+pub type USBEndpoint = Endpoint;
+
+impl Endpoint {
+    /// Decodes the max packet value into a multipler and number of bytes like lsusb
     ///
     /// ```
     /// # use cyme::usb::*;
     ///
-    /// let mut ep = USBEndpoint {
+    /// let mut ep = Endpoint {
     ///     length: 7,
     ///     address: EndpointAddress {
     ///         address: 0,
@@ -981,9 +985,9 @@ impl USBEndpoint {
     }
 }
 
-/// Interface within a [`USBConfiguration`]
+/// Interface within a [`Configuration`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct USBInterface {
+pub struct Interface {
     /// Name from descriptor
     pub name: String,
     /// Index of name string in descriptor - only useful for lsusb verbose print
@@ -1006,7 +1010,7 @@ pub struct USBInterface {
     /// syspath obtained from udev on Linux only
     pub syspath: Option<String>,
     /// An interface can have many endpoints
-    pub endpoints: Vec<USBEndpoint>,
+    pub endpoints: Vec<Endpoint>,
     /// Size of interface descriptor in bytes
     #[serde(default = "default_interface_desc_length")]
     pub length: u8,
@@ -1015,7 +1019,11 @@ pub struct USBInterface {
     pub extra: Option<Vec<Descriptor>>,
 }
 
-impl USBInterface {
+/// Deprecated alias for [`Interface`]
+#[deprecated(since = "2.0.0", note = "Use Interface instead")]
+pub type USBInterface = Interface;
+
+impl Interface {
     /// Linux syspath to interface
     pub fn path(&self, bus: u8, ports: &[u8], config: u8) -> String {
         get_interface_path(bus, ports, config, self.number)
@@ -1047,7 +1055,7 @@ impl USBInterface {
 
 /// Devices can have multiple configurations, each with different attributes and interfaces
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct USBConfiguration {
+pub struct Configuration {
     /// Name from string descriptor
     pub name: String,
     /// Index of name string in descriptor - only useful for lsusb verbose print
@@ -1056,7 +1064,7 @@ pub struct USBConfiguration {
     /// Number of config, bConfigurationValue; value to set to enable to configuration
     pub number: u8,
     /// Interfaces available for this configuruation
-    pub interfaces: Vec<USBInterface>,
+    pub interfaces: Vec<Interface>,
     /// Attributes of configuration, bmAttributes - was a HashSet since attributes should be unique but caused issues printing out of order
     pub attributes: Vec<ConfigAttributes>,
     /// Maximum power consumption in mA
@@ -1072,7 +1080,11 @@ pub struct USBConfiguration {
     pub extra: Option<Vec<Descriptor>>,
 }
 
-impl USBConfiguration {
+/// Deprecated alias for [`Configuration`]
+#[deprecated(since = "2.0.0", note = "Use Configuration instead")]
+pub type USBConfiguration = Configuration;
+
+impl Configuration {
     /// Converts attributes into a ';' separated String
     pub fn attributes_string(&self) -> String {
         ConfigAttributes::attributes_to_string(&self.attributes)
@@ -1111,7 +1123,7 @@ pub struct DeviceExtra {
     #[serde(default)]
     pub string_indexes: (u8, u8, u8),
     /// USB devices can be have a number of configurations
-    pub configurations: Vec<USBConfiguration>,
+    pub configurations: Vec<Configuration>,
     /// Device status
     pub status: Option<u16>,
     /// Debug descriptor if present
