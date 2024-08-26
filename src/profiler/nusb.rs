@@ -332,27 +332,17 @@ impl NusbProfiler {
         sp_device.bcd_usb = Some(device_desc.usb_version);
 
         // try to get strings from device descriptors
-        if let Ok(name) = device
-            .handle
-            .get_string_descriptor(device_desc.product_string_index, 0, device.timeout)
-            .map(|s| s.to_string())
-        {
+        if let Some(name) = device.get_descriptor_string(device_desc.product_string_index) {
             sp_device.name = name;
         }
 
-        if let Ok(manufacturer) = device
-            .handle
-            .get_string_descriptor(device_desc.manufacturer_string_index, 0, device.timeout)
-            .map(|s| s.to_string())
+        if let Some(manufacturer) =
+            device.get_descriptor_string(device_desc.manufacturer_string_index)
         {
             sp_device.manufacturer = Some(manufacturer);
         }
 
-        if let Ok(serial) = device
-            .handle
-            .get_string_descriptor(device_desc.serial_number_string_index, 0, device.timeout)
-            .map(|s| s.to_string())
-        {
+        if let Some(serial) = device.get_descriptor_string(device_desc.serial_number_string_index) {
             sp_device.serial_num = Some(serial);
         }
 
