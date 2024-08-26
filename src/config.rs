@@ -46,10 +46,12 @@ pub struct Config {
     pub verbose: u8,
     /// Print more blocks by default at each verbosity
     pub more: bool,
-    /// Hide empty buses when printing tree; those with no devices. When listing will hide Linux root_hubs
+    /// Hide empty buses when printing tree; those with no devices.
     pub hide_buses: bool,
     /// Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not
     pub hide_hubs: bool,
+    /// Show root hubs when listing; Linux only
+    pub list_root_hubs: bool,
     /// Show base16 values as base10 decimal instead
     pub decimal: bool,
     /// Disable padding to align blocks

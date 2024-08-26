@@ -90,7 +90,7 @@ struct Args {
     #[arg(long, value_enum, default_value_t = Default::default())]
     group_devices: display::Group,
 
-    /// Hide empty buses when printing tree; those with no devices. When listing will hide Linux root_hubs
+    /// Hide empty buses when printing tree; those with no devices.
     // these are a bit confusing, could make value enum with hide_empty, hide...
     #[arg(long, default_value_t = false)]
     hide_buses: bool,
@@ -98,6 +98,10 @@ struct Args {
     /// Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not
     #[arg(long, default_value_t = false)]
     hide_hubs: bool,
+
+    /// Show root hubs when listing; Linux only
+    #[arg(long, default_value_t = false)]
+    list_root_hubs: bool,
 
     /// Show base16 values as base10 decimal instead
     #[arg(long, default_value_t = false)]
@@ -195,6 +199,7 @@ fn merge_config(c: &Config, a: &mut Args) {
     a.more |= c.more;
     a.hide_buses |= c.hide_buses;
     a.hide_hubs |= c.hide_hubs;
+    a.list_root_hubs |= c.list_root_hubs;
     a.decimal |= c.decimal;
     a.no_padding |= c.no_padding;
     a.ascii |= c.ascii;
@@ -583,25 +588,18 @@ fn cyme() -> Result<()> {
         // exclude root hubs unless:
         // * lsusb compat (shows root_hubs)
         // * json - for --from-json support
-        // * group by bus - wouldn't make sense to exclude root hubs
-        // * not hide_buses - user wants to hide all buses including root_hubs
-        f.no_exclude_root_hub =
-            (args.lsusb || args.json || matches!(args.group_devices, display::Group::Bus))
-                && !args.hide_buses;
+        // * list_root_hubs - user wants to see root hubs in list
+        f.no_exclude_root_hub = args.lsusb || args.json || args.list_root_hubs;
 
         Some(f)
     } else {
-        // ensure exclude root hubs on Linux unless:
+        // exclude root hubs (on Linux) unless:
         // * lsusb compat (shows root_hubs)
         // * json - for --from-json support
-        // * group by bus - wouldn't make sense to exclude root hubs
-        // * not hide_buses - user wants to hide all buses including root_hubs
+        // * list_root_hubs - user wants to see root hubs in list
         if cfg!(target_os = "linux") {
             Some(system_profiler::USBFilter {
-                no_exclude_root_hub: (args.lsusb
-                    || args.json
-                    || matches!(args.group_devices, display::Group::Bus))
-                    && !args.hide_buses,
+                no_exclude_root_hub: (args.lsusb || args.json || args.list_root_hubs),
                 ..Default::default()
             })
         } else {

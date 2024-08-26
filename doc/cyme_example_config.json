@@ -96,6 +96,7 @@
   "more": false,
   "hide-buses": false,
   "hide-hubs": false,
+  "list-root-hubs": false,
   "decimal": false,
   "no-padding": false,
   "ascii": false,

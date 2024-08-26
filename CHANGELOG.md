@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Standard cyme list now excludes root_hubs (`--tree` shows them at root). `--lsusb` list mode will still show them.
+- Standard cyme list now excludes root_hubs (`--tree` shows them as buses as before). `--lsusb` list mode will still show them. Use `--list-root-hubs` (or in config) to include them in the cyme list on Linux as before.
 
 ### Fixes
 
