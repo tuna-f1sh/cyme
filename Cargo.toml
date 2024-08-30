@@ -37,7 +37,7 @@ uuid = { version = "1.9.1", features = ["serde"] }
 pci-ids = "0.2.5"
 
 [patch.crates-io]
-nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "root_hub" }
+nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "cyme" }
 
 [dev-dependencies]
 diff = "0.1"
