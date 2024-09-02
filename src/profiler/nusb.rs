@@ -66,6 +66,173 @@ impl From<nusb::Speed> for usb::Speed {
     }
 }
 
+/// Convert a bus into a root hub device - following the same sort of abstraction as Linux
+impl From<&nusb::BusInfo> for Device {
+    fn from(bus: &nusb::BusInfo) -> Self {
+        #[cfg(target_os = "linux")]
+        {
+            bus.root_hub().into()
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let (bcd_usb, protocol) = match bus.controller() {
+                Some(nusb::UsbController::XHCI) => (Some(0x300), Some(0x03)),
+                Some(nusb::UsbController::EHCI) => (Some(0x200), Some(0x01)),
+                Some(nusb::UsbController::OHCI) => (Some(0x110), Some(0x00)),
+                Some(nusb::UsbController::VHCI) => (Some(0x000), Some(0x00)),
+                _ => (None, None),
+            };
+
+            Device {
+                vendor_id: bus.pci_info().map(|i| i.vendor_id()),
+                product_id: bus.pci_info().map(|i| i.device_id()),
+                device_speed: None,
+                location_id: DeviceLocation {
+                    bus: bus.bus_id().parse::<u8>().unwrap_or(0),
+                    number: 0,
+                    tree_positions: vec![],
+                },
+                bcd_device: bus
+                    .pci_info()
+                    .map(|i| i.revision().map(|r| usb::Version::from_bcd(r)))
+                    .flatten(),
+                bcd_usb: bcd_usb.map(|v| usb::Version::from_bcd(v)),
+                class: Some(usb::ClassCode::Hub),
+                sub_class: Some(0),
+                protocol,
+                name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
+                manufacturer: bus.provider_class().map(|s| s.to_string()),
+                // serial number is the PCI instance on Linux
+                serial_num: bus.pci_info().map(|i| i.instance_id().to_string()),
+                ..Default::default()
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            let (bcd_usb, protocol) = match bus.controller() {
+                Some(nusb::UsbController::XHCI) => (Some(0x300), Some(0x03)),
+                Some(nusb::UsbController::EHCI) => (Some(0x200), Some(0x01)),
+                Some(nusb::UsbController::OHCI) => (Some(0x110), Some(0x00)),
+                Some(nusb::UsbController::VHCI) => (Some(0x000), Some(0x00)),
+                _ => (None, None),
+            };
+
+            Device {
+                vendor_id: bus.pci_info().map(|i| i.vendor_id()),
+                product_id: bus.pci_info().map(|i| i.device_id()),
+                device_speed: None,
+                location_id: DeviceLocation {
+                    bus: bus.bus_id().parse::<u8>().unwrap_or(0),
+                    number: 0,
+                    tree_positions: vec![],
+                },
+                bcd_device: bus
+                    .pci_info()
+                    .and_then(|i| i.revision().map(usb::Version::from_bcd)),
+                bcd_usb: bcd_usb.map(usb::Version::from_bcd),
+                class: Some(usb::ClassCode::Hub),
+                sub_class: Some(0),
+                protocol,
+                name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
+                manufacturer: bus.provider_class().map(|s| s.to_string()),
+                serial_num: bus.name().map(|s| s.to_string()),
+                ..Default::default()
+            }
+        }
+    }
+}
+
+impl From<&nusb::BusInfo> for Bus {
+    fn from(bus: &nusb::BusInfo) -> Self {
+        if let Some(pci_info) = bus.pci_info() {
+            let (host_controller_vendor, host_controller_device) =
+                match pci_ids::Device::from_vid_pid(pci_info.vendor_id(), pci_info.device_id()) {
+                    Some(d) => (
+                        Some(d.vendor().name().to_string()),
+                        Some(d.name().to_string()),
+                    ),
+                    None => (None, None),
+                };
+
+            Bus {
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus
+                    .provider_class()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default(),
+                host_controller_vendor,
+                host_controller_device,
+                pci_vendor: Some(pci_info.vendor_id()),
+                pci_device: Some(pci_info.device_id()),
+                ..Default::default()
+            }
+        } else {
+            Bus {
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus
+                    .provider_class()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default(),
+                ..Default::default()
+            }
+        }
+    }
+}
+
+impl From<&nusb::DeviceInfo> for Device {
+    fn from(device_info: &nusb::DeviceInfo) -> Self {
+        let device_speed = device_info.speed().map(|s| {
+            let s = usb::Speed::from(s);
+            DeviceSpeed::SpeedValue(s)
+        });
+
+        let manufacturer = device_info
+            .manufacturer_string()
+            .map(|s| s.to_string())
+            .or(names::vendor(device_info.vendor_id()))
+            .or(usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_string()));
+        let name = device_info
+            .product_string()
+            .map(|s| s.to_string())
+            .or(names::product(
+                device_info.vendor_id(),
+                device_info.product_id(),
+            ))
+            .or(
+                usb_ids::Device::from_vid_pid(device_info.vendor_id(), device_info.product_id())
+                    .map(|d| d.name().to_string()),
+            )
+            .unwrap_or_default();
+        let serial_num = device_info.serial_number().map(|s| s.to_string());
+
+        Device {
+            vendor_id: Some(device_info.vendor_id()),
+            product_id: Some(device_info.product_id()),
+            device_speed,
+            location_id: DeviceLocation {
+                // nusb bus_id is a string; busnum on Linux (number) will be 0 on Windows as it's a String
+                bus: device_info.bus_id().parse::<u8>().unwrap_or(0),
+                number: device_info.device_address(),
+                tree_positions: device_info.port_chain().to_vec(),
+            },
+            bcd_device: Some(usb::Version::from_bcd(device_info.device_version())),
+            // gets added on the extra read
+            bcd_usb: None,
+            class: Some(usb::ClassCode::from(device_info.class())),
+            sub_class: Some(device_info.subclass()),
+            protocol: Some(device_info.protocol()),
+            name,
+            manufacturer,
+            serial_num,
+            ..Default::default()
+        }
+    }
+}
+
 impl UsbOperations for UsbDevice {
     fn get_descriptor_string(&self, string_index: u8) -> Option<String> {
         if string_index == 0 {
@@ -407,53 +574,7 @@ impl NusbProfiler {
         device_info: &nusb::DeviceInfo,
         with_extra: bool,
     ) -> Result<Device> {
-        let speed = device_info.speed().map(|s| {
-            let s = usb::Speed::from(s);
-            DeviceSpeed::SpeedValue(s)
-        });
-
-        let mut sp_device = Device {
-            vendor_id: Some(device_info.vendor_id()),
-            product_id: Some(device_info.product_id()),
-            device_speed: speed,
-            location_id: DeviceLocation {
-                // nusb bus_id is a string; busnum on Linux (number)
-                bus: device_info.bus_id().parse::<u8>().unwrap_or(0),
-                number: device_info.device_address(),
-                tree_positions: device_info.port_chain().to_vec(),
-            },
-            bcd_device: Some(usb::Version::from_bcd(device_info.device_version())),
-            // gets added on the extra read
-            bcd_usb: None,
-            class: Some(usb::ClassCode::from(device_info.class())),
-            sub_class: Some(device_info.subclass()),
-            protocol: Some(device_info.protocol()),
-            ..Default::default()
-        };
-
-        sp_device.manufacturer = device_info
-            .manufacturer_string()
-            .map(|s| s.to_string())
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "manufacturer"))
-            .or(names::vendor(device_info.vendor_id()))
-            .or(usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_string()));
-        sp_device.name = device_info
-            .product_string()
-            .map(|s| s.to_string())
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "product"))
-            .or(names::product(
-                device_info.vendor_id(),
-                device_info.product_id(),
-            ))
-            .or(
-                usb_ids::Device::from_vid_pid(device_info.vendor_id(), device_info.product_id())
-                    .map(|d| d.name().to_string()),
-            )
-            .unwrap_or_default();
-        sp_device.serial_num = device_info
-            .serial_number()
-            .map(|s| s.to_string())
-            .or(get_sysfs_string(&sp_device.sysfs_name(), "serial"));
+        let mut sp_device: Device = device_info.into();
 
         if with_extra {
             if let Ok(device) = device_info.open() {
@@ -574,11 +695,13 @@ impl Profiler<UsbDevice> for NusbProfiler {
         Ok(devices)
     }
 
+    #[cfg(target_os = "linux")]
     fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
         let mut root_hubs = HashMap::new();
-        for device in nusb::list_root_hubs()? {
+        for bus in nusb::list_buses()? {
+            let device = bus.root_hub();
             // get with extra data only on Linux as others _really_ don't exist
-            match self.build_spdevice(&device, cfg!(target_os = "linux")) {
+            match self.build_spdevice(&device, true) {
                 #[allow(unused_mut)]
                 Ok(mut sp_device) => {
                     if !sp_device.is_root_hub() {
@@ -602,17 +725,6 @@ impl Profiler<UsbDevice> for NusbProfiler {
                         }
                     });
 
-                    #[cfg(target_os = "windows")]
-                    {
-                        if let Some(existing_no) = self.bus_id_map.get(device.bus_id()) {
-                            sp_device.location_id.bus = *existing_no;
-                        } else {
-                            let bus = self.bus_id_map.len() as u8;
-                            self.bus_id_map.insert(device.bus_id().to_owned(), bus);
-                            sp_device.location_id.bus = bus;
-                        }
-                    }
-
                     root_hubs.insert(sp_device.location_id.bus, sp_device);
                 }
                 Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e),
@@ -620,6 +732,60 @@ impl Profiler<UsbDevice> for NusbProfiler {
         }
 
         Ok(root_hubs)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
+        let mut root_hubs = HashMap::new();
+        for bus in nusb::list_buses()? {
+            #[allow(unused_mut)]
+            let mut device: Device = Device::from(&bus);
+
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(existing_no) = self.bus_id_map.get(bus.bus_id()) {
+                    device.location_id.bus = *existing_no;
+                } else {
+                    let bus_no = self.bus_id_map.len() as u8;
+                    self.bus_id_map.insert(bus.bus_id().to_owned(), bus_no);
+                    device.location_id.bus = bus_no;
+                }
+            }
+
+            root_hubs.insert(device.location_id.bus, device);
+        }
+
+        Ok(root_hubs)
+    }
+
+    fn get_buses(&mut self) -> Result<HashMap<u8, Bus>> {
+        let mut buses = HashMap::new();
+        for nusb_bus in nusb::list_buses()? {
+            #[allow(unused_mut)]
+            let mut bus: Bus = Bus::from(&nusb_bus);
+
+            // Windows doesn't have a bus number for root hubs, so we track the bus_id string
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(existing_no) = self.bus_id_map.get(nusb_bus.bus_id()) {
+                    bus.usb_bus_number = Some(*existing_no);
+                } else {
+                    let bus_no = self.bus_id_map.len() as u8;
+                    self.bus_id_map.insert(nusb_bus.bus_id().to_owned(), bus_no);
+                    bus.usb_bus_number = Some(bus_no);
+                }
+            }
+
+            // add root hub to devices like lsusb on Linux since they are displayed like devices
+            #[cfg(target_os = "linux")]
+            {
+                bus.devices = Some(vec![nusb_bus.root_hub().into()]);
+            }
+
+            buses.insert(bus.usb_bus_number.unwrap(), bus);
+        }
+
+        Ok(buses)
     }
 }
 

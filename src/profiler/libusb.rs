@@ -684,6 +684,20 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
     fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
         Ok(HashMap::new())
     }
+
+    fn get_buses(&mut self) -> Result<HashMap<u8, Bus>> {
+        <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::get_root_hubs(self).map(|hubs| {
+            hubs.into_iter()
+                .filter_map(|(k, d)| match Bus::try_from(d) {
+                    Ok(b) => Some((k, b)),
+                    Err(e) => {
+                        eprintln!("Failed to convert root hub to bus: {}", e);
+                        None
+                    }
+                })
+                .collect()
+        })
+    }
 }
 
 pub(crate) fn fill_spusb(spusb: &mut SystemProfile) -> Result<()> {

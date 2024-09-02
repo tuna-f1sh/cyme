@@ -602,6 +602,10 @@ where
     /// root hubs are pseudo devices and not always listed in the device list, so this is a separate function to get them. The data is used to help create [`Bus`]es; root hubs are an abstraction over Host Controller information.
     fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>>;
 
+    /// Get the [`Bus`]s connected to the host for building the [`SystemProfile`]
+    fn get_buses(&mut self) -> Result<HashMap<u8, Bus>>;
+
+    /// Create a new [`Bus`] from a root hub [`Device`]
     fn new_sp_bus(&self, bus_number: u8, root_hub: Option<Device>) -> Bus {
         root_hub
             .map(|rh| {
@@ -623,24 +627,14 @@ where
         let mut cache = self.get_devices(with_extra)?;
         cache.sort_by_key(|d| d.location_id.bus);
         log::trace!("Sorted devices {:#?}", cache);
-        // lookup for root hubs to assign info to bus on linux
-        let mut root_hubs = self.get_root_hubs()?;
-        log::trace!("Root hubs: {:#?}", root_hubs);
+        // get system buses
+        let mut buses = self.get_buses()?;
+        log::trace!("Buses {:#?}", buses);
 
         // group by bus number and then stick them into a bus in the returned SystemProfile
         for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
-            // create the bus, we'll add devices at next step
-            // if root hub exists, add it to the bus and remove so we can add empty buses if missing after
-            let mut new_bus = if let Some(mut root_hub) = root_hubs.remove(&key) {
-                // add root hub to devices like lsusb on Linux since they are displayed like devices
-                if cfg!(target_os = "linux") {
-                    root_hub.devices = Some(vec![root_hub.clone()])
-                }
-
-                self.new_sp_bus(key, Some(root_hub))
-            } else {
-                self.new_sp_bus(key, None)
-            };
+            // create the bus if missing, we'll add devices at next step
+            let mut new_bus = buses.remove(&key).unwrap_or(Bus::from(key));
 
             // group into parent groups with parent path as key or trunk devices so they end up in same place
             let parent_groups = group.group_by(|d| d.parent_path().unwrap_or(d.trunk_path()));
@@ -687,15 +681,9 @@ where
             spusb.buses.push(new_bus);
         }
 
-        // add empty root_hubs if missing
-        if !root_hubs.is_empty() {
-            for (key, mut root_hub) in root_hubs {
-                // add root hub to devices like lsusb on Linux since they are displayed like devices
-                if cfg!(target_os = "linux") {
-                    root_hub.devices = Some(vec![root_hub.clone()])
-                }
-
-                let bus = self.new_sp_bus(key, Some(root_hub));
+        // add empty buses if missing
+        if !buses.is_empty() {
+            for (_, bus) in buses {
                 spusb.buses.push(bus);
             }
             spusb.buses.sort_by_key(|b| b.usb_bus_number);

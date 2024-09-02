@@ -37,7 +37,7 @@ uuid = { version = "1.9.1", features = ["serde"] }
 pci-ids = "0.2.5"
 
 [patch.crates-io]
-nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "cyme" }
+nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "root_hub" }
 
 [dev-dependencies]
 diff = "0.1"
@@ -70,7 +70,7 @@ usb_test = []
 regex_icon = ["dep:regex"]
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
 native = ["nusb", "udev"] # pure Rust USB and udev bindings
-libc = ["libusb", "udevlib"] # C bindings for libusb and libudev
+ffi = ["libusb", "udevlib"] # C bindings for libusb and libudev
 default = ["nusb", "libusb", "udev", "regex_icon"] # default libusb C binding (same as lsusb) and (Rust) udevrs with regex icon name lookup
 
 [[bin]]
