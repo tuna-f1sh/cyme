@@ -35,5 +35,6 @@ complete -c cyme -l json -d 'Output as json format after sorting, filters and tr
 complete -c cyme -s F -l force-libusb -d 'Force libusb profiler on macOS rather than using/combining system_profiler output'
 complete -c cyme -s z -l debug -d 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE'
 complete -c cyme -l gen -d 'Generate cli completions and man page'
+complete -c cyme -l system-profiler -d 'Use the system_profiler command on macOS to get USB data'
 complete -c cyme -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c cyme -s V -l version -d 'Print version'

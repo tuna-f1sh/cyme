@@ -146,7 +146,9 @@ struct Args {
     #[arg(long)]
     from_json: Option<String>,
 
-    /// Force libusb profiler on macOS rather than using/combining system_profiler output
+    /// Force pure libusb profiler on macOS rather than combining system_profiler output
+    ///
+    /// Has no effect on other platforms or when using nusb
     #[arg(short = 'F', long, default_value_t = false)]
     force_libusb: bool,
 
@@ -166,6 +168,12 @@ struct Args {
     /// Generate cli completions and man page
     #[arg(long, hide = true, exclusive = true)]
     gen: bool,
+
+    /// Use the system_profiler command on macOS to get USB data
+    ///
+    /// If not using nusb this is the default for macOS, merging with libusb data for verbose output. nusb uses IOKit directly so does not use system_profiler by default
+    #[arg(long, default_value_t = false)]
+    system_profiler: bool,
 }
 
 /// Print in bold red and exit with error
@@ -304,7 +312,43 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     }
 }
 
-fn get_libusb_spusb(args: &Args) -> Result<profiler::SystemProfile> {
+fn get_macos_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
+    if cfg!(feature = "libusb") || args.system_profiler {
+        if !args.force_libusb
+            && args.device.is_none() // device path requires extra
+                && args.filter_class.is_none() // class filter requires extra
+                && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
+        {
+            profiler::macos::get_spusb()
+                .map_or_else(|e| {
+                    // For non-zero return, report but continue in this case
+                    if e.kind() == ErrorKind::SystemProfiler {
+                        eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
+                        get_system_profile(args)
+                    } else {
+                        Err(e)
+                    }
+                }, Ok)
+        } else if !args.force_libusb {
+            log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
+            profiler::macos::get_spusb_with_extra().map_or_else(|e| {
+                // For non-zero return, report but continue in this case
+                if e.kind() == ErrorKind::SystemProfiler {
+                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
+                    get_system_profile(args)
+                } else {
+                    Err(e)
+                }
+            }, Ok)
+        } else {
+            return get_system_profile(args);
+        }
+    } else {
+        get_system_profile(args)
+    }
+}
+
+fn get_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
     if args.verbose > 0
         || args.tree
         || args.device.is_some()
@@ -475,39 +519,10 @@ fn cyme() -> Result<()> {
                 profiler::read_flat_json_to_phony_bus(file_path.as_str())?
             }
         }
-    } else if cfg!(target_os = "macos") 
-        && !args.force_libusb
-        && args.device.is_none() // device path requires extra
-        && args.filter_class.is_none() // class filter requires extra
-        && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
-    {
-        profiler::macos::get_spusb()
-            .map_or_else(|e| {
-                // For non-zero return, report but continue in this case
-                if e.kind() == ErrorKind::SystemProfiler {
-                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
-                    get_libusb_spusb(&args)
-                // parsing error abort
-                } else {
-                    Err(e)
-                }
-            }, Ok)?
+    } else if cfg!(target_os = "macos") {
+        get_macos_system_profile(&args)?
     } else {
-        // if not forcing libusb, get system_profiler and the merge with libusb
-        if cfg!(target_os = "macos") && !args.force_libusb {
-            log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
-            profiler::macos::get_spusb_with_extra().map_or_else(|e| {
-                // For non-zero return, report but continue in this case
-                if e.kind() == ErrorKind::SystemProfiler {
-                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
-                    get_libusb_spusb(&args)
-                } else {
-                    Err(e)
-                }
-            }, Ok)?
-        } else {
-            get_libusb_spusb(&args)?
-        }
+        get_system_profile(&args)?
     };
 
     log::trace!("Returned system_profiler data\n\r{:#?}", spusb);

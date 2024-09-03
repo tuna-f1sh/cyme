@@ -189,6 +189,7 @@ replace\:"Mask by replacing length with random chars"))' \
 '*-z[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
 '*--debug[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
 '--gen[Generate cli completions and man page]' \
+'--system-profiler[Use the system_profiler command on macOS to get USB data]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 '-V[Print version]' \
