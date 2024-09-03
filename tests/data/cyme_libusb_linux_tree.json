@@ -3,8 +3,8 @@
     {
       "name": "EHCI Host Controller",
       "host_controller": "Linux 6.0.10-arch2-1 ehci_hcd",
-      "pci_device": 2,
       "pci_vendor": 7531,
+      "pci_device": 2,
       "usb_bus_number": 1,
       "devices": [
         {
@@ -285,8 +285,8 @@
     {
       "name": "UHCI Host Controller",
       "host_controller": "Linux 6.0.10-arch2-1 uhci_hcd",
-      "pci_device": 1,
       "pci_vendor": 7531,
+      "pci_device": 1,
       "usb_bus_number": 2,
       "devices": [
         {
@@ -944,8 +944,8 @@
     {
       "name": "xHCI Host Controller",
       "host_controller": "Linux 6.0.10-arch2-1 xhci-hcd",
-      "pci_device": 2,
       "pci_vendor": 7531,
+      "pci_device": 2,
       "usb_bus_number": 3,
       "devices": [
         {
@@ -1034,8 +1034,8 @@
     {
       "name": "xHCI Host Controller",
       "host_controller": "Linux 6.0.10-arch2-1 xhci-hcd",
-      "pci_device": 3,
       "pci_vendor": 7531,
+      "pci_device": 3,
       "usb_bus_number": 4,
       "devices": [
         {

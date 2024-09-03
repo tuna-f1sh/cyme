@@ -235,7 +235,7 @@ impl Bus {
     /// Not very pretty or efficient, probably a better way...
     pub fn into_flattened_devices(&mut self) {
         if let Some(mut devices) = self.devices.take() {
-            let mut new_devices: Vec<USBDevice> = Vec::new();
+            let mut new_devices: Vec<Device> = Vec::new();
             while let Some(device) = devices.pop() {
                 new_devices.extend(device.into_flattened())
             }
@@ -1253,9 +1253,9 @@ impl Device {
             .map(|c| (c, self.sub_class.unwrap_or(0), self.protocol.unwrap_or(0)).into())
     }
 
-    /// Recursively gets all devices in a [`USBDevice`] and flattens them into a Vec of references, including self
-    pub fn flatten(&self) -> Vec<&USBDevice> {
-        let mut ret: Vec<&USBDevice> = Vec::with_capacity(self.len());
+    /// Recursively gets all devices in a [`Device`] and flattens them into a Vec of references, including self
+    pub fn flatten(&self) -> Vec<&Device> {
+        let mut ret: Vec<&Device> = Vec::with_capacity(self.len());
         ret.push(self);
         if let Some(d) = self.devices.as_ref() {
             for child in d {
@@ -1266,11 +1266,11 @@ impl Device {
         ret
     }
 
-    /// Recursively gets all devices in a [`USBDevice`] and flattens them into a Vec, including self
+    /// Recursively gets all devices in a [`Device`] and flattens them into a Vec, including self
     ///
     /// Similar to `flatten` but flattens in place rather than returning references so is destructive
-    pub fn into_flattened(mut self) -> Vec<USBDevice> {
-        let mut ret: Vec<USBDevice> = Vec::with_capacity(self.len());
+    pub fn into_flattened(mut self) -> Vec<Device> {
+        let mut ret: Vec<Device> = Vec::with_capacity(self.len());
         if let Some(mut d) = self.devices.take() {
             while let Some(child) = d.pop() {
                 ret.extend(child.into_flattened());
