@@ -167,6 +167,7 @@ impl From<&nusb::BusInfo> for Bus {
                 host_controller_device,
                 pci_vendor: Some(pci_info.vendor_id()),
                 pci_device: Some(pci_info.device_id()),
+                pci_revision: pci_info.revision(),
                 ..Default::default()
             }
         } else {
@@ -621,7 +622,7 @@ impl NusbProfiler {
                     }
                 };
             } else {
-                log::warn!("Failed to open device for extra data: {:04x}:{:04x}. Ensure user has USB access permissions: https://docs.rs/nusb/latest/nusb/#linux", device_info.vendor_id(), device_info.product_id());
+                log::warn!("Failed to open device for extra data: {:04x}:{:04x}. Ensure user has USB access permissions: https://docs.rs/nusb/latest/nusb", device_info.vendor_id(), device_info.product_id());
                 sp_device.profiler_error = Some(
                     "Failed to open device, extra data incomplete and possibly inaccurate"
                         .to_string(),

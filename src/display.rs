@@ -945,6 +945,18 @@ impl Block<BusBlocks, Bus> for BusBlocks {
             BusBlocks::HostController => {
                 d.iter().map(|d| d.host_controller.len()).max().unwrap_or(0)
             }
+            BusBlocks::HostControllerVendor => {
+                d.iter()
+                    .map(|d| d.host_controller_vendor.as_ref().unwrap_or(&String::new()).len())
+                    .max()
+                    .unwrap_or(0)
+            }
+            BusBlocks::HostControllerDevice => {
+                d.iter()
+                    .map(|d| d.host_controller_device.as_ref().unwrap_or(&String::new()).len())
+                    .max()
+                    .unwrap_or(0)
+            }
             BusBlocks::PortPath => d.iter().map(|d| d.path().len()).max().unwrap_or(0),
             _ => self.block_length().len(),
         }
