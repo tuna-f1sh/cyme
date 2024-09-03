@@ -19,7 +19,7 @@ _cyme() {
 
     case "${cmd}" in
         cyme)
-            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --help --version"
+            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --system-profiler --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

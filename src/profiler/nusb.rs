@@ -104,7 +104,9 @@ impl From<&nusb::BusInfo> for Device {
                 name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
                 manufacturer: bus.provider_class().map(|s| s.to_string()),
                 // serial number is the PCI instance on Linux
-                serial_num: bus.pci_info().map(|i| i.instance_id().to_string()),
+                serial_num: bus
+                    .pci_info()
+                    .map(|i| i.instance_id().to_string_lossy().to_string()),
                 ..Default::default()
             }
         }
@@ -702,7 +704,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
         for bus in nusb::list_buses()? {
             let device = bus.root_hub();
             // get with extra data only on Linux as others _really_ don't exist
-            match self.build_spdevice(&device, true) {
+            match self.build_spdevice(device, true) {
                 #[allow(unused_mut)]
                 Ok(mut sp_device) => {
                     if !sp_device.is_root_hub() {

@@ -574,12 +574,12 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             DeviceBlocks::Serial => d
                 .iter()
-                .map(|d| d.serial_num.as_ref().unwrap_or(&String::new()).len())
+                .flat_map(|d| d.serial_num.as_ref().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::Manufacturer => d
                 .iter()
-                .map(|d| d.manufacturer.as_ref().unwrap_or(&String::new()).len())
+                .flat_map(|d| d.manufacturer.as_ref().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::TreePositions => d
@@ -590,63 +590,58 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::PortPath => d.iter().map(|d| d.port_path().len()).max().unwrap_or(0),
             DeviceBlocks::SysPath => d
                 .iter()
-                .map(|d| {
+                .flat_map(|d| {
                     d.extra
                         .as_ref()
-                        .map_or(0, |e| e.syspath.as_ref().unwrap_or(&String::new()).len())
+                        .and_then(|e| e.syspath.as_ref().map(|s| s.len()))
                 })
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::Driver => d
                 .iter()
-                .map(|d| {
+                .flat_map(|d| {
                     d.extra
                         .as_ref()
-                        .map_or(0, |e| e.driver.as_ref().unwrap_or(&String::new()).len())
+                        .and_then(|e| e.driver.as_ref().map(|s| s.len()))
                 })
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::ProductName => d
                 .iter()
-                .map(|d| {
-                    d.extra.as_ref().map_or(0, |e| {
-                        e.product_name.as_ref().unwrap_or(&String::new()).len()
-                    })
+                .flat_map(|d| {
+                    d.extra
+                        .as_ref()
+                        .and_then(|e| e.product_name.as_ref().map(|s| s.len()))
                 })
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::VendorName => d
                 .iter()
-                .map(|d| {
+                .flat_map(|d| {
                     d.extra
                         .as_ref()
-                        .map_or(0, |e| e.vendor.as_ref().unwrap_or(&String::new()).len())
+                        .and_then(|e| e.vendor.as_ref().map(|s| s.len()))
                 })
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::ClassCode => d
                 .iter()
-                .map(|d| {
-                    d.class
-                        .as_ref()
-                        .map_or(String::new(), |c| c.to_string())
-                        .len()
-                })
+                .flat_map(|d| d.class.as_ref().map(|c| c.to_string().len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::UidClass => d
                 .iter()
-                .map(|d| d.class_name().unwrap_or_default().len())
+                .flat_map(|d| d.class_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::UidSubClass => d
                 .iter()
-                .map(|d| d.sub_class_name().unwrap_or_default().len())
+                .flat_map(|d| d.sub_class_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::UidProtocol => d
                 .iter()
-                .map(|d| d.protocol_name().unwrap_or_default().len())
+                .flat_map(|d| d.protocol_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::Class => d
@@ -945,18 +940,16 @@ impl Block<BusBlocks, Bus> for BusBlocks {
             BusBlocks::HostController => {
                 d.iter().map(|d| d.host_controller.len()).max().unwrap_or(0)
             }
-            BusBlocks::HostControllerVendor => {
-                d.iter()
-                    .map(|d| d.host_controller_vendor.as_ref().unwrap_or(&String::new()).len())
-                    .max()
-                    .unwrap_or(0)
-            }
-            BusBlocks::HostControllerDevice => {
-                d.iter()
-                    .map(|d| d.host_controller_device.as_ref().unwrap_or(&String::new()).len())
-                    .max()
-                    .unwrap_or(0)
-            }
+            BusBlocks::HostControllerVendor => d
+                .iter()
+                .flat_map(|d| d.host_controller_vendor.as_ref().map(|v| v.len()))
+                .max()
+                .unwrap_or(0),
+            BusBlocks::HostControllerDevice => d
+                .iter()
+                .flat_map(|d| d.host_controller_device.as_ref().map(|v| v.len()))
+                .max()
+                .unwrap_or(0),
             BusBlocks::PortPath => d.iter().map(|d| d.path().len()).max().unwrap_or(0),
             _ => self.block_length().len(),
         }
@@ -1232,27 +1225,27 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
             InterfaceBlocks::PortPath => d.iter().map(|d| d.path.len()).max().unwrap_or(0),
             InterfaceBlocks::SysPath => d
                 .iter()
-                .map(|d| d.syspath.as_ref().unwrap_or(&String::new()).len())
+                .flat_map(|d| d.syspath.as_ref().map(|v| v.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::Driver => d
                 .iter()
-                .map(|d| d.driver.as_ref().unwrap_or(&String::new()).len())
+                .flat_map(|d| d.driver.as_ref().map(|v| v.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::UidClass => d
                 .iter()
-                .map(|d| d.class_name().unwrap_or_default().len())
+                .flat_map(|d| d.class_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::UidSubClass => d
                 .iter()
-                .map(|d| d.sub_class_name().unwrap_or_default().len())
+                .flat_map(|d| d.sub_class_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::UidProtocol => d
                 .iter()
-                .map(|d| d.protocol_name().unwrap_or_default().len())
+                .flat_map(|d| d.protocol_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::Class => d

@@ -590,7 +590,7 @@ fn cyme() -> Result<()> {
         // * json - for --from-json support
         // * list_root_hubs - user wants to see root hubs in list
         if cfg!(target_os = "linux") {
-            Some(system_profiler::USBFilter {
+            Some(profiler::Filter {
                 no_exclude_root_hub: (args.lsusb || args.json || args.list_root_hubs),
                 ..Default::default()
             })

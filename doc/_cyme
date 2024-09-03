@@ -184,8 +184,8 @@ replace\:"Mask by replacing length with random chars"))' \
 '--no-icons[Disables all Block icons by not using any IconTheme. Providing custom XxxxBlocks without any icons is a nicer way to do this]' \
 '--headings[Show block headings]' \
 '--json[Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices]' \
-'-F[Force libusb profiler on macOS rather than using/combining system_profiler output]' \
-'--force-libusb[Force libusb profiler on macOS rather than using/combining system_profiler output]' \
+'-F[Force pure libusb profiler on macOS rather than combining system_profiler output]' \
+'--force-libusb[Force pure libusb profiler on macOS rather than combining system_profiler output]' \
 '*-z[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
 '*--debug[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
 '--gen[Generate cli completions and man page]' \
