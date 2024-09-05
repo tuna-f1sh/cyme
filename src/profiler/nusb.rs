@@ -381,7 +381,7 @@ impl NusbProfiler {
                 let interface_extra = interface_alt
                     .descriptors()
                     .skip(1)
-                    // only want device and interface descriptors - nusb everything trailing
+                    // only want device and interface descriptors - nusb has everything trailing including endpoint
                     .filter(|d| {
                         (d.descriptor_type() & 0x0F) == 0x04 || (d.descriptor_type() & 0x0F) == 0x01
                     })
@@ -456,7 +456,7 @@ impl NusbProfiler {
             let config_extra = c
                 .descriptors()
                 .skip(1)
-                // only config descriptors - nusb everything trailing
+                // only config descriptors - nusb has everything trailing
                 .filter(|d| d.descriptor_type() == 0x02)
                 .flat_map(|d| d.to_vec())
                 .collect::<Vec<u8>>();
@@ -540,7 +540,7 @@ impl NusbProfiler {
             hub: None,
         };
 
-        // flag allows us to try again without udev if it raises an nting
+        // flag allows us to try again without udev if it raises anything
         // but record the error for printing
         if with_udev {
             let sysfs_name = sp_device.sysfs_name();
@@ -581,7 +581,7 @@ impl NusbProfiler {
 
         if with_extra {
             if let Ok(device) = device_info.open() {
-                // get the first language - proably US English
+                // get the first language - probably US English
                 let languages: Vec<u16> = device
                     .get_string_descriptor_supported_languages(std::time::Duration::from_secs(1))
                     .map(|i| i.collect())

@@ -264,7 +264,7 @@ checksum = "f64009896348fc5af4222e9cf7d7d82a95a256c634ebcf61c53e4ea461422242"
 
 [[package]]
 name = "cyme"
-version = "1.8.5"
+version = "2.0.0-beta.1"
 dependencies = [
  "assert-json-diff",
  "clap",
@@ -695,7 +695,7 @@ dependencies = [
 [[package]]
 name = "nusb"
 version = "0.1.10"
-source = "git+https://github.com/tuna-f1sh/nusb?branch=root_hub#4de15c1dc4e0785d25e8f155b2a175cd47a2b4f7"
+source = "git+https://github.com/tuna-f1sh/nusb?branch=cyme#0376645c6ae002568c501790314ab504b0149305"
 dependencies = [
  "atomic-waker",
  "core-foundation",
