@@ -246,7 +246,7 @@ impl Bus {
 
     /// Returns a flattened `Vec` of references to all `Device`s on the bus
     ///
-    /// Note that whilst `Vec` of references is flat, the `Device`s still contain a `devices` `Vec` where the references point; recursive functions on the returned `Vec` will produce wierd results
+    /// Note that whilst `Vec` of references is flat, the `Device`s still contain a `devices` `Vec` where the references point; recursive functions on the returned `Vec` will produce weird results
     pub fn flattened_devices(&self) -> Vec<&Device> {
         if let Some(devices) = &self.devices {
             devices.iter().flat_map(|d| d.flatten()).collect()

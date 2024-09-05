@@ -932,7 +932,7 @@ pub struct Endpoint {
     pub sync_type: SyncType,
     /// Usage type (Iso mode)
     pub usage_type: UsageType,
-    /// Maximum packet size in bytes endpoint can send/recieve - encoded with multiplier, use `max_packet_string` for packet information
+    /// Maximum packet size in bytes endpoint can send/receive - encoded with multiplier, use `max_packet_string` for packet information
     pub max_packet_size: u16,
     /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     pub interval: u8,
@@ -946,7 +946,7 @@ pub struct Endpoint {
 pub type USBEndpoint = Endpoint;
 
 impl Endpoint {
-    /// Decodes the max packet value into a multipler and number of bytes like lsusb
+    /// Decodes the max packet value into a multiplier and number of bytes like lsusb
     ///
     /// ```
     /// # use cyme::usb::*;
