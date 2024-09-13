@@ -62,7 +62,12 @@ If wishing to use only macOS `system_profiler` and not obtain more verbose infor
 brew install cyme
 ```
 
-* [Arch AUR 'cyme-bin'](https://aur.archlinux.org/packages/cyme-bin)
+* [Arch Linux official package](https://archlinux.org/packages/extra/x86_64/cyme/)
+
+```bash
+pacman -S cyme
+```
+
 * [Debian packages as part of release](https://github.com/tuna-f1sh/cyme/releases) - need a Debian maintainer for this.
 
 More package managers to come/package distribution, please feel free to create a PR if you want to help out here.
