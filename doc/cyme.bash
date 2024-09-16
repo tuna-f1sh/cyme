@@ -58,7 +58,7 @@ _cyme() {
                     return 0
                     ;;
                 --filter-class)
-                    COMPREPLY=($(compgen -W "use-interface-descriptor audio cdc-communications hid physical image printer mass-storage hub cdc-data smart-cart content-security video personal-healthcare audio-video billboard usb-type-c-bridge bdp mctp i3c-device diagnostic wireless-controller miscellaneous application-specific-interface vendor-specific-class" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "use-interface-descriptor audio cdc-communications hid physical image printer mass-storage hub cdc-data smart-card content-security video personal-healthcare audio-video billboard usb-type-c-bridge bdp mctp i3c-device diagnostic wireless-controller miscellaneous application-specific-interface vendor-specific-class" -- "${cur}"))
                     return 0
                     ;;
                 --blocks)
