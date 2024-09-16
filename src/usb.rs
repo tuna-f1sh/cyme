@@ -1,6 +1,6 @@
 //! Defines for USB, mainly thosed covered at [usb.org](https://www.usb.org)
 //!
-//! Also refering to [beyondlogic](https://beyondlogic.org/usbnutshell/usb5.shtml)
+//! Also referring to [beyondlogic](https://beyondlogic.org/usbnutshell/usb5.shtml)
 //!
 //! There are some repeated/copied Enum defines from rusb in order to control Serialize/Deserialize and add impl
 use clap::ValueEnum;
@@ -309,7 +309,7 @@ impl From<Class> for ClassCode {
             Class::AudioVideoAVDataAudio => ClassCode::Audio,
             Class::MCTPManagementController => ClassCode::MCTP,
             Class::MCTPHostInterfaceEndpoint => ClassCode::MCTP,
-            Class::USB2CompliaceDevice => ClassCode::Diagnostic,
+            Class::USB2ComplianceDevice => ClassCode::Diagnostic,
             Class::DebugTargetVendorDefined => ClassCode::Diagnostic,
             Class::GNURemoteDebugCommandSet => ClassCode::Diagnostic,
             Class::VendorDefinedTraceDbC => ClassCode::Diagnostic,
@@ -319,7 +319,7 @@ impl From<Class> for ClassCode {
             Class::VendorDefinedDfxDvC => ClassCode::Diagnostic,
             Class::VendorDefinedTraceDvC => ClassCode::Diagnostic,
             Class::BluetoothProgrammingInterface => ClassCode::WirelessController,
-            Class::UWBRadioControlInterace => ClassCode::WirelessController,
+            Class::UWBRadioControlInterface => ClassCode::WirelessController,
             Class::RemoteNDIS => ClassCode::WirelessController,
             Class::BluetoothAMPController => ClassCode::WirelessController,
             Class::HostWireAdaptor => ClassCode::WirelessController,
@@ -434,7 +434,7 @@ pub enum Class {
     /// MCTP Host Interface endpoint
     MCTPHostInterfaceEndpoint,
     /// USB2 Compliance Device. Definition for this device can be found at http://www.intel.com/technology/usb/spec.htm
-    USB2CompliaceDevice,
+    USB2ComplianceDevice,
     /// Debug Target vendor defined. Please see http://www.intel.com/content/www/us/en/io/universal-serial-bus/extensible-host-controler-interface-usb-xhci.html for more info.
     DebugTargetVendorDefined,
     /// GNU Remote Debug Command Set. Please see http://www.intel.com/content/www/us/en/io/universal-serial-bus/extensible-host-controler-interface-usb-xhci.html for more info.
@@ -456,7 +456,7 @@ pub enum Class {
     /// Bluetooth Programming Interface. Get specific information from www.bluetooth.com.
     BluetoothProgrammingInterface,
     /// UWB Radio Control Interface. Definition for this is found in the Wireless USB Specification in Chapter 8.
-    UWBRadioControlInterace,
+    UWBRadioControlInterface,
     /// Remote NDIS. Information can be found at: http://www.microsoft.com/windowsmobile/mobileoperators/default.mspx
     RemoteNDIS,
     /// Bluetooth AMP Controller. Get specific information from www.bluetooth.com.
@@ -556,7 +556,7 @@ where
             (ClassCode::Audio, 0x03, 0x00) => Class::AudioVideoAVDataAudio,
             (ClassCode::MCTP, 0x00, 0x01) => Class::MCTPManagementController,
             (ClassCode::MCTP, 0x00, 0x02) => Class::MCTPHostInterfaceEndpoint,
-            (ClassCode::Diagnostic, 0x01, 0x01) => Class::USB2CompliaceDevice,
+            (ClassCode::Diagnostic, 0x01, 0x01) => Class::USB2ComplianceDevice,
             (ClassCode::Diagnostic, 0x02, 0x00) => Class::DebugTargetVendorDefined,
             (ClassCode::Diagnostic, 0x02, 0x01) => Class::GNURemoteDebugCommandSet,
             (ClassCode::Diagnostic, 0x03, 0x01) => Class::VendorDefinedTraceDbC,
@@ -566,7 +566,7 @@ where
             (ClassCode::Diagnostic, 0x06, 0x01) => Class::VendorDefinedDfxDvC,
             (ClassCode::Diagnostic, 0x07, 0x01) => Class::VendorDefinedTraceDvC,
             (ClassCode::WirelessController, 0x01, 0x01) => Class::BluetoothProgrammingInterface,
-            (ClassCode::WirelessController, 0x01, 0x02) => Class::UWBRadioControlInterace,
+            (ClassCode::WirelessController, 0x01, 0x02) => Class::UWBRadioControlInterface,
             (ClassCode::WirelessController, 0x01, 0x03) => Class::RemoteNDIS,
             (ClassCode::WirelessController, 0x01, 0x04) => Class::BluetoothAMPController,
             (ClassCode::WirelessController, 0x02, 0x01) => Class::HostWireAdaptor,
@@ -901,7 +901,7 @@ pub struct USBEndpoint {
     pub sync_type: SyncType,
     /// Usage type (Iso mode)
     pub usage_type: UsageType,
-    /// Maximum packet size in bytes endpoint can send/recieve - encoded with multipler, use `max_packet_string` for packet information
+    /// Maximum packet size in bytes endpoint can send/recieve - encoded with multiplier, use `max_packet_string` for packet information
     pub max_packet_size: u16,
     /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     pub interval: u8,
@@ -911,7 +911,7 @@ pub struct USBEndpoint {
 }
 
 impl USBEndpoint {
-    /// Decodes the max packet value into a multipler and number of bytes like lsusb
+    /// Decodes the max packet value into a multiplier and number of bytes like lsusb
     ///
     /// ```
     /// # use cyme::usb::*;
@@ -1047,7 +1047,7 @@ impl USBConfiguration {
         ConfigAttributes::attributes_to_string(&self.attributes)
     }
 
-    /// Convert attibutes back to reg value
+    /// Convert attributes back to reg value
     pub fn attributes_value(&self) -> u8 {
         let mut ret: u8 = 0x80; // always set reserved bit
         for attr in self.attributes.iter() {

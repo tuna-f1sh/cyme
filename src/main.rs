@@ -119,11 +119,11 @@ struct Args {
     #[arg(long, default_value_t = false, hide = true, aliases = &["no_colour"])]
     no_color: bool,
 
-    /// Output charactor encoding
+    /// Output character encoding
     #[arg(long, value_enum, default_value_t = display::Encoding::Glyphs)]
     encoding: display::Encoding,
 
-    /// Disables icons and utf-8 charactors
+    /// Disables icons and utf-8 characters
     #[arg(long, default_value_t = false, hide = true)]
     ascii: bool,
 
@@ -175,7 +175,7 @@ macro_rules! eprintexit {
         // `stringify!` will convert the expression *as it is* into a string.
         eprintln!(
             "{}\n{}",
-            "cyme encounted a runtime error:".bold().red(),
+            "cyme encountered a runtime error:".bold().red(),
             $error.to_string().bold().red()
         );
         std::process::exit(1);
@@ -449,7 +449,7 @@ fn cyme() -> Result<()> {
 
     merge_config(&config, &mut args);
 
-    // legacy arg, hidden but still suport with new format
+    // legacy arg, hidden but still support with new format
     if args.no_color {
         args.color = display::ColorWhen::Never;
     }
@@ -473,7 +473,7 @@ fn cyme() -> Result<()> {
         }
     };
 
-    // legacy arg, hidden but still suport with new format
+    // legacy arg, hidden but still support with new format
     if args.ascii {
         args.encoding = display::Encoding::Ascii;
     }
@@ -492,7 +492,7 @@ fn cyme() -> Result<()> {
             Ok(s) => s,
             Err(e) => {
                 log::warn!(
-                    "Failed to read json dump, attemping as flattened with phony bus: Error({})",
+                    "Failed to read json dump, attempting as flattened with phony bus: Error({})",
                     e
                 );
                 system_profiler::read_flat_json_to_phony_bus(file_path.as_str())?
@@ -609,7 +609,7 @@ fn cyme() -> Result<()> {
 
     log::info!("Filtering with {:?}", filter);
 
-    // no sort if just dumping because it looks wierd with buses out of order
+    // no sort if just dumping because it looks weird with buses out of order
     let sort_devices = match args.sort_devices {
         Some(v) => v,
         None => {

@@ -1,6 +1,6 @@
 mod common;
 
-/// Tests lsusb with no args compatiability mode
+/// Tests lsusb with no args compatibility mode
 #[test]
 fn test_lsusb_list() {
     let te = common::TestEnv::new();
@@ -15,7 +15,7 @@ fn test_lsusb_list() {
     );
 }
 
-/// Tests lsusb --tree compatiability mode
+/// Tests lsusb --tree compatibility mode
 #[test]
 fn test_lsusb_tree() {
     let te = common::TestEnv::new();
@@ -30,7 +30,7 @@ fn test_lsusb_tree() {
     );
 }
 
-/// Tests lsusb --tree fully verbose compatiability mode
+/// Tests lsusb --tree fully verbose compatibility mode
 #[test]
 fn test_lsusb_tree_verbose() {
     let te = common::TestEnv::new();

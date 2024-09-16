@@ -12,7 +12,7 @@ complete -c cyme -l endpoint-blocks -d 'Specify the blocks which will be display
 complete -c cyme -l sort-devices -d 'Sort devices by value' -r -f -a "{branch-position\t'Sort by position in parent branch',device-number\t'Sort by bus device number',no-sort\t'No sorting; whatever order it was parsed'}"
 complete -c cyme -l group-devices -d 'Group devices by value when listing' -r -f -a "{no-group\t'No grouping',bus\t'Group into buses with bus info as heading - like a flat tree'}"
 complete -c cyme -l color -d 'Output coloring mode' -r -f -a "{auto\t'Show colours if the output goes to an interactive console',always\t'Always apply colouring to the output',never\t'Never apply colouring to the output'}"
-complete -c cyme -l encoding -d 'Output charactor encoding' -r -f -a "{glyphs\t'Use UTF-8 private use area charactors such as those used by NerdFont to show glyph icons',utf8\t'Use only standard UTF-8 charactors for the output; no private use area glyph icons',ascii\t'Use only ASCII charactors for the output; 0x00 - 0x7F (127 chars)'}"
+complete -c cyme -l encoding -d 'Output character encoding' -r -f -a "{glyphs\t'Use UTF-8 private use area characters such as those used by NerdFont to show glyph icons',utf8\t'Use only standard UTF-8 characters for the output; no private use area glyph icons',ascii\t'Use only ASCII characters for the output; 0x00 - 0x7F (127 chars)'}"
 complete -c cyme -l icon -d 'When to print icon blocks' -r -f -a "{auto\t'Show icon blocks if the [`Encoding`] supports icons matched in the [`icon::IconTheme`]',always\t'Always print icon blocks if included in configured blocks',never\t'Never print icon blocks'}"
 complete -c cyme -l from-json -d 'Read from json output rather than profiling system' -r
 complete -c cyme -s c -l config -d 'Path to user config file to use for custom icons, colours and default settings' -r
@@ -28,7 +28,7 @@ complete -c cyme -l list-root-hubs -d 'Show root hubs when listing; Linux only'
 complete -c cyme -l decimal -d 'Show base16 values as base10 decimal instead'
 complete -c cyme -l no-padding -d 'Disable padding to align blocks - will cause --headings to become maligned'
 complete -c cyme -l no-color -d 'Disable coloured output, can also use NO_COLOR environment variable'
-complete -c cyme -l ascii -d 'Disables icons and utf-8 charactors'
+complete -c cyme -l ascii -d 'Disables icons and utf-8 characters'
 complete -c cyme -l no-icons -d 'Disables all Block icons by not using any IconTheme. Providing custom XxxxBlocks without any icons is a nicer way to do this'
 complete -c cyme -l headings -d 'Show block headings'
 complete -c cyme -l json -d 'Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices'

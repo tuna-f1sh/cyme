@@ -29,7 +29,7 @@ pub struct NumericalUnit<T> {
     pub value: T,
     /// SI unit for the numerical value
     pub unit: String,
-    /// Description of numerial value
+    /// Description of numerical value
     pub description: Option<String>,
 }
 

@@ -162,7 +162,7 @@ impl USBBus {
 
     /// Returns a flattened `Vec` of references to all `USBDevice`s on the bus
     ///
-    /// Note that whilst `Vec` of references is flat, the `USBDevice`s still contain a `devices` `Vec` where the references point; recursive functions on the returned `Vec` will produce wierd results
+    /// Note that whilst `Vec` of references is flat, the `USBDevice`s still contain a `devices` `Vec` where the references point; recursive functions on the returned `Vec` will produce weird results
     pub fn flattened_devices(&self) -> Vec<&USBDevice> {
         if let Some(devices) = &self.devices {
             get_all_devices(devices)
@@ -480,7 +480,7 @@ impl FromStr for DeviceLocation {
 }
 
 impl DeviceLocation {
-    /// Linux style port path where it can be found on system device path - normaly /sys/bus/usb/devices
+    /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
     ///
     /// A wrapper for [`get_port_path`]
     pub fn port_path(&self) -> String {
@@ -653,7 +653,7 @@ impl FromStr for DeviceSpeed {
 
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
 ///
-/// Desgined to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb. Fields should probably be non-pub with getters/setters but treat them as read-only.
+/// Designed to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb. Fields should probably be non-pub with getters/setters but treat them as read-only.
 #[skip_serializing_none]
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct USBDevice {
@@ -864,7 +864,7 @@ impl USBDevice {
         None
     }
 
-    /// Returns position on branch (parent), which is the last number in `tree_positions` also sometimes refered to as port
+    /// Returns position on branch (parent), which is the last number in `tree_positions` also sometimes referred to as port
     pub fn get_branch_position(&self) -> u8 {
         *self.location_id.tree_positions.last().unwrap_or(&0)
     }
@@ -894,7 +894,7 @@ impl USBDevice {
             || self.class.as_ref().map_or(false, |c| *c == ClassCode::Hub)
     }
 
-    /// Linux style port path where it can be found on system device path - normaly /sys/bus/usb/devices
+    /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
     ///
     /// Normal device
     /// ```
@@ -1255,7 +1255,7 @@ pub struct USBFilter {
     pub serial: Option<String>,
     /// retain only device of ClassCode class
     pub class: Option<ClassCode>,
-    /// Exlcude empty hubs in the tree
+    /// Exclude empty hubs in the tree
     pub exclude_empty_hub: bool,
     /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`USBBus`]'s in the tree
     pub no_exclude_root_hub: bool,

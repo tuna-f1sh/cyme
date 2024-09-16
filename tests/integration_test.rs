@@ -1,6 +1,6 @@
-//! These test cyme CLI by reading from json but also output as json so that we can check without worrying about formating
+//! These test cyme CLI by reading from json but also output as json so that we can check without worrying about formatting
 //!
-//! It is sligtly the dog wagging the tail but is as integration as it gets! Could improve by adding some tests for actaul format like --block, --padding args etc
+//! It is slightly the dog wagging the tail but is as integration as it gets! Could improve by adding some tests for actual format like --block, --padding args etc
 mod common;
 
 #[test]

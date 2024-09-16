@@ -1,4 +1,4 @@
-//! Runs tests using actual binary, apapted from 'fd' method: https://github.com/sharkdp/fd/blob/master/tests/testenv/mod.rs
+//! Runs tests using actual binary, adapted from 'fd' method: https://github.com/sharkdp/fd/blob/master/tests/testenv/mod.rs
 #![allow(dead_code)]
 use serde_json::json;
 use std::env;

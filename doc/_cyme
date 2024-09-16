@@ -151,9 +151,9 @@ bus\:"Group into buses with bus info as heading - like a flat tree"))' \
 '--color=[Output coloring mode]:COLOR:((auto\:"Show colours if the output goes to an interactive console"
 always\:"Always apply colouring to the output"
 never\:"Never apply colouring to the output"))' \
-'--encoding=[Output charactor encoding]:ENCODING:((glyphs\:"Use UTF-8 private use area charactors such as those used by NerdFont to show glyph icons"
-utf8\:"Use only standard UTF-8 charactors for the output; no private use area glyph icons"
-ascii\:"Use only ASCII charactors for the output; 0x00 - 0x7F (127 chars)"))' \
+'--encoding=[Output character encoding]:ENCODING:((glyphs\:"Use UTF-8 private use area characters such as those used by NerdFont to show glyph icons"
+utf8\:"Use only standard UTF-8 characters for the output; no private use area glyph icons"
+ascii\:"Use only ASCII characters for the output; 0x00 - 0x7F (127 chars)"))' \
 '--icon=[When to print icon blocks]:ICON:((auto\:"Show icon blocks if the \[\`Encoding\`\] supports icons matched in the \[\`icon\:\:IconTheme\`\]"
 always\:"Always print icon blocks if included in configured blocks"
 never\:"Never print icon blocks"))' \
@@ -178,7 +178,7 @@ replace\:"Mask by replacing length with random chars"))' \
 '--decimal[Show base16 values as base10 decimal instead]' \
 '--no-padding[Disable padding to align blocks - will cause --headings to become maligned]' \
 '--no-color[Disable coloured output, can also use NO_COLOR environment variable]' \
-'--ascii[Disables icons and utf-8 charactors]' \
+'--ascii[Disables icons and utf-8 characters]' \
 '--no-icons[Disables all Block icons by not using any IconTheme. Providing custom XxxxBlocks without any icons is a nicer way to do this]' \
 '--headings[Show block headings]' \
 '--json[Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices]' \

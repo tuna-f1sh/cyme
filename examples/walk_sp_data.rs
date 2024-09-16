@@ -1,12 +1,12 @@
 use cyme::system_profiler::USBDevice;
 use cyme::usb::profiler;
 
-fn recusive_map_devices(device: &USBDevice) {
+fn recursive_map_devices(device: &USBDevice) {
     // the alternate format will print with colour
     println!("Device: {:#}", device);
     if let Some(v) = device.devices.as_ref() {
         for d in v {
-            recusive_map_devices(d)
+            recursive_map_devices(d)
         }
     };
 }
@@ -22,7 +22,7 @@ fn main() -> Result<(), String> {
         if let Some(devices) = bus.devices {
             // to walk all the devices, since each device can have devices attached, call a recursive function
             for device in devices {
-                recusive_map_devices(&device);
+                recursive_map_devices(&device);
             }
         }
     }

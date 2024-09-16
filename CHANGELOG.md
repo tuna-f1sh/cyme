@@ -21,7 +21,7 @@
 
 `cyme` should now match `lsusb --verbose` mode with full device descriptor dumps, including using USB control messages to get BOS, Hub device status, HID reports and more. It's been a lot of grunt work and lines of code (not very creative lines!) creating all the types but it should be useful as a USB profiling crate moving forwards and I think more robust than `lsusb` in some cases. There may still be some formatting differences but the data _should_ be the same. `cyme` without `--lsusb --verbose` display isn't changed for the most part, since the dumping is extremely device specific and verbose. I may add device status as a display block in future.
 
-### Addded
+### Added
 
 - Full dumps of device descriptors for matching `--lsusb --verbose` [#23](https://github.com/tuna-f1sh/cyme/pull/23) ([#15](https://github.com/tuna-f1sh/cyme/issues/15))
 - Device name pattern matching for icon with `Icon::name(String)` ([#22](https://github.com/tuna-f1sh/cyme/pull/22))

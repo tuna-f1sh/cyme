@@ -265,7 +265,7 @@ fn dump_video_output_header(oh: &video::OutputHeader, indent: usize, width: usiz
 }
 
 fn dump_video_color_format(cf: &video::ColorFormat, indent: usize, width: usize) {
-    let color_primatives = |c: u8| match c {
+    let color_primitives = |c: u8| match c {
         1 => "BT.709,sRGB",
         2 => "BT.470-2 (M)",
         3 => "BT.470-2 (B,G)",
@@ -297,7 +297,7 @@ fn dump_video_color_format(cf: &video::ColorFormat, indent: usize, width: usize)
     dump_value_string(
         cf.color_primaries,
         "bColorPrimaries",
-        format!("({})", color_primatives(cf.color_primaries)),
+        format!("({})", color_primitives(cf.color_primaries)),
         indent + 2,
         width,
     );
