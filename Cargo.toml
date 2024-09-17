@@ -93,3 +93,8 @@ changelog = "CHANGELOG.md"
 extended-description = """\
 List system USB buses and devices; a lib and modern cross-platform 'lsusb' \
 that attempts to maintain compatibility with, but also add new features."""
+assets = [
+  ["target/release/cyme", "usr/bin/", "755"],
+  ["README.md", "usr/share/doc/cyme/README", "644"],
+  ["doc/cyme.1", "/usr/share/man/man1/cyme.1", "644"],
+]
