@@ -985,7 +985,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
     );
     dump_value(
         ccid.max_clock,
-        "dwMaximumClock",
+        "dwMaxiumumClock",
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
