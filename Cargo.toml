@@ -88,7 +88,7 @@ pre-build = ["apt-get update && apt-get install --assume-yes libusb-1.0-0-dev li
 
 [package.metadata.deb]
 section = "utility"
-change-log = "CHANGELOG.md"
+changelog = "CHANGELOG.md"
 extended-description = """\
 List system USB buses and devices; a lib and modern cross-platform 'lsusb' \
 that attempts to maintain compatibility with, but also add new features."""
