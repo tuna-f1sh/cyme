@@ -573,7 +573,7 @@ impl ClassDescriptor {
                 (ClassCode::HID, _, _) => {
                     *self = ClassDescriptor::Hid(HidDescriptor::try_from(gd.to_owned())?)
                 }
-                (ClassCode::SmartCart, _, _) => {
+                (ClassCode::SmartCard, _, _) => {
                     *self = ClassDescriptor::Ccid(CcidDescriptor::try_from(gd.to_owned())?)
                 }
                 (ClassCode::Printer, _, _) => {

@@ -298,7 +298,7 @@ lazy_static! {
             (Icon::Classifier(ClassCode::MassStorage), "\u{f0a0}"), // 
             (Icon::Classifier(ClassCode::Hub), "\u{f126}"), // 
             (Icon::Classifier(ClassCode::ContentSecurity), "\u{f084}"), // 
-            (Icon::Classifier(ClassCode::SmartCart), "\u{f084}"), // 
+            (Icon::Classifier(ClassCode::SmartCard), "\u{f084}"), // 
             (Icon::Classifier(ClassCode::PersonalHealthcare), "\u{f21e}"), // 
             (Icon::Classifier(ClassCode::AudioVideo), "\u{f0841}"), // 󰡁
             (Icon::Classifier(ClassCode::Billboard), "\u{f05a}"), // 

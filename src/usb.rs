@@ -220,7 +220,7 @@ pub enum ClassCode {
     /// Used together with class 02h (Communications and CDC Control) above
     CDCData = 0x0a,
     /// USB smart card reader
-    SmartCart = 0x0b,
+    SmartCard = 0x0b,
     /// Fingerprint reader
     ContentSecurity = 0x0d,
     /// Webcam
@@ -270,7 +270,7 @@ impl From<u8> for ClassCode {
             0x08 => ClassCode::MassStorage,
             0x09 => ClassCode::Hub,
             0x0a => ClassCode::CDCData,
-            0x0b => ClassCode::SmartCart,
+            0x0b => ClassCode::SmartCard,
             0x0d => ClassCode::ContentSecurity,
             0x0e => ClassCode::Video,
             0x0f => ClassCode::PersonalHealthcare,
