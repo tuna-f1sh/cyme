@@ -1,7 +1,7 @@
 [package]
 name = "cyme"
 authors = ["John Whittington <john@jbrengineering.co.uk>"]
-description = "List system USB buses and devices; a modern cross-platform `lsusb`"
+description = "List system USB buses and devices; a modern cross-platform lsusb"
 repository = "https://github.com/tuna-f1sh/cyme"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -88,3 +88,13 @@ pre-build = ["apt-get update && apt-get install --assume-yes libusb-1.0-0-dev li
 
 [package.metadata.deb]
 section = "utility"
+copyright = "2024, John Whittington <john@jbrengineering.co.uk>"
+changelog = "CHANGELOG.md"
+extended-description = """\
+List system USB buses and devices; a lib and modern cross-platform 'lsusb' \
+that attempts to maintain compatibility with, but also add new features."""
+assets = [
+  ["target/release/cyme", "usr/bin/", "755"],
+  ["README.md", "usr/share/doc/cyme/README", "644"],
+  ["doc/cyme.1", "/usr/share/man/man1/cyme.1", "644"],
+]
