@@ -31,7 +31,7 @@ pub struct Config {
     pub interface_blocks: Option<Vec<display::InterfaceBlocks>>,
     /// Default [`crate::display::EndpointBlocks`] to use for device endpoints
     pub endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
-    /// Wether to hide device serial numbers by default
+    /// Whether to hide device serial numbers by default
     pub mask_serials: Option<display::MaskSerial>,
     /// Max variable string length to display before truncating - descriptors and classes for example
     pub max_variable_string_len: Option<usize>,
@@ -58,9 +58,9 @@ pub struct Config {
     pub no_padding: bool,
     // /// Output coloring mode
     // pub color: display::ColorWhen,
-    /// Disables icons and utf-8 charactors
+    /// Disables icons and utf-8 characters
     pub ascii: bool,
-    // /// Output charactor encoding
+    // /// Output character encoding
     // pub encoding: display::Encoding,
     /// Disables all [`display::Block`] icons
     pub no_icons: bool,

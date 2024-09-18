@@ -12,7 +12,7 @@ fn main() -> Result<(), String> {
     // print with default [`display::PrintSettings`]
     display::print_flattened_devices(&devices, &display::PrintSettings::default());
 
-    // alternatively interate over devices and do something with them
+    // alternatively iterate over devices and do something with them
     for device in devices {
         if let (Some(0x05ac), Some(_)) = (device.vendor_id, device.product_id) {
             println!("Found Apple device: {}", device);

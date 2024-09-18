@@ -336,7 +336,7 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
                 Some(device_extra) => {
                     println!(); // new lines separate in verbose lsusb
                     println!("{}", device.to_lsusb_string());
-                    // print error regarding open if non-critcal during probe like lsusb --verbose
+                    // print error regarding open if non-critical during probe like lsusb --verbose
                     if device.profiler_error.is_some() {
                         eprintln!("Couldn't open device, some information will be missing");
                     }
@@ -2249,7 +2249,7 @@ fn dump_device_status(status: u16, otg: bool, super_speed: bool, indent: usize) 
     }
 }
 
-/// Verbatum port of lsusb's dump_unit - not very Rust, don't judge!
+/// Verbatim port of lsusb's dump_unit - not very Rust, don't judge!
 fn dump_unit(mut data: u16, len: usize, indent: usize) {
     let systems = |t: u16| match t {
         0x01 => "SI Linear",

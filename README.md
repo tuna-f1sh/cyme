@@ -26,7 +26,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Features
 
-* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb. Output is identical for use with no args (list), almost matching for tree (driver port number not included) and should match for verbose (minor formating differences).
+* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb. Output is identical for use with no args (list), almost matching for tree (driver port number not included) and should match for verbose (minor formatting differences).
 * Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial`, `--filter_class` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
 * Controllable block data like `lsd --blocks` for device, bus, configurations, interfaces and endpoints. Use `--more` to see more by default.
@@ -108,7 +108,7 @@ There are also some examples in 'examples/', these can be run with `cargo run --
 * macOS: "$HOME/Library/Application Support/cyme"
 * Windows: "{FOLDERID\_RoamingAppData}/cyme"
 
-One can also be supplied with `--config`. Copy or refer to './doc/cyme\_example\_config.json' for configurables. Tthe file is essentially the default args; supplied args will override these. Use `--debug` to see where it is looking or if it's not loading.
+One can also be supplied with `--config`. Copy or refer to './doc/cyme\_example\_config.json' for configurables. The file is essentially the default args; supplied args will override these. Use `--debug` to see where it is looking or if it's not loading.
 
 ### Custom Icons and Colours
 
@@ -127,7 +127,7 @@ To check if the font you are using is setup correctly, try running the following
 echo $'\uf115'
 ```
 
-If one does not want icons, provide a config file with custom blocks not including the any 'icon\*' blocks - see the example config. Alternatively, to only use standard UTF-8 charactors supported by all fonts (no private use area) pass `--encoding utf8` and `--icon auto` (default). The `--icon auto` will drop the icon blocks if the charactors matched are not supported by the `--encoding`.
+If one does not want icons, provide a config file with custom blocks not including the any 'icon\*' blocks - see the example config. Alternatively, to only use standard UTF-8 characters supported by all fonts (no private use area) pass `--encoding utf8` and `--icon auto` (default). The `--icon auto` will drop the icon blocks if the characters matched are not supported by the `--encoding`.
 
 For no icons at all, use the hidden `--no-icons` or `--icon never` args.
 

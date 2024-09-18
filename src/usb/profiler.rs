@@ -441,7 +441,7 @@ fn get_webusb_url<T: libusb::UsbContext>(
     }
 }
 
-/// Covert to our crate speed
+/// Convert to our crate speed
 impl From<libusb::Speed> for usb::Speed {
     fn from(libusb: libusb::Speed) -> Self {
         match libusb {
@@ -1232,7 +1232,7 @@ fn _get_spusb(
 
 /// Get [`system_profiler::SPUSBDataType`] using `libusb`. Does not source [`usb::USBDeviceExtra`] - use [`get_spusb_with_extra`] for that; the extra operation is mostly moving data around so the only hit is to stack.
 ///
-/// Runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. Then sorts into parent groups, accending in depth to build the [`system_profiler::USBBus`] tree.
+/// Runs through `libusb::DeviceList` creating a cache of [`system_profiler::USBDevice`]. Then sorts into parent groups, ascending in depth to build the [`system_profiler::USBBus`] tree.
 ///
 /// Building the [`system_profiler::SPUSBDataType`] depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
 pub fn get_spusb(print_stderr: bool) -> Result<system_profiler::SPUSBDataType, Error> {

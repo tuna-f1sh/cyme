@@ -10,7 +10,7 @@ pub mod bos;
 pub mod cdc;
 pub mod video;
 
-/// USB descritor types
+/// USB descriptor types
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 #[repr(u8)]

@@ -6,7 +6,7 @@ use std::fmt;
 
 /// Colours [`crate::display::Block`] fields based on loose typing of field type
 ///
-/// Considered using HashMap with Colouring Enum like IconTheme but this seemed to suit better, it is less flexiable though...
+/// Considered using HashMap with Colouring Enum like IconTheme but this seemed to suit better, it is less flexible though...
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ColourTheme {

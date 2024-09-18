@@ -128,16 +128,16 @@ impl IconWhen {
     }
 }
 
-/// Charactor encoding control for the output
+/// Character encoding control for the output
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, ValueEnum, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum Encoding {
-    /// Use UTF-8 private use area charactors such as those used by NerdFont to show glyph icons
+    /// Use UTF-8 private use area characters such as those used by NerdFont to show glyph icons
     #[default]
     Glyphs,
-    /// Use only standard UTF-8 charactors for the output; no private use area glyph icons
+    /// Use only standard UTF-8 characters for the output; no private use area glyph icons
     Utf8,
-    /// Use only ASCII charactors for the output; 0x00 - 0x7F (127 chars)
+    /// Use only ASCII characters for the output; 0x00 - 0x7F (127 chars)
     Ascii,
 }
 
@@ -1600,7 +1600,7 @@ pub struct PrintSettings {
     pub more: bool,
     /// Print as json
     pub json: bool,
-    /// Charactor encoding to use
+    /// Character encoding to use
     pub encoding: Encoding,
     /// Scramble serial numbers, useful if sharing sensitive device dumps
     pub mask_serials: Option<MaskSerial>,
@@ -1720,7 +1720,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
             remaining_chars
         );
 
-        // equally divide remaning chars between variable > auto_max_string - not perfect as could be shared per how much longer each is but this would require unique max for each block
+        // equally divide remaining chars between variable > auto_max_string - not perfect as could be shared per how much longer each is but this would require unique max for each block
         let variable_longer = variable_lens
             .iter()
             .filter(|v| **v > auto_max_string)
@@ -1824,7 +1824,7 @@ pub fn render_heading<B: Eq + Hash, T>(
     ret
 }
 
-/// Generates tree formating and values given `current_tree`, current `branch_length` and item `index` in branch
+/// Generates tree formatting and values given `current_tree`, current `branch_length` and item `index` in branch
 fn generate_tree_data(
     current_tree: &TreeData,
     branch_length: usize,
