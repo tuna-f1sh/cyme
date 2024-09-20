@@ -1677,10 +1677,9 @@ pub fn truncate_string(s: &mut String, len: usize) {
     }
     // use char_indices to find last char boundary before len - 3
     // not s.len() as this is the byte length and utf-8 chars can be multiple bytes
-    for (i, _) in s.char_indices().skip(len - 3) {
+    if let Some((i, _)) = s.char_indices().nth(len - 3) {
         s.truncate(i);
         s.push_str("...");
-        break;
     }
 }
 
