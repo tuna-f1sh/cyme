@@ -1647,17 +1647,40 @@ fn attributes_to_icons(attributes: &Vec<ConfigAttributes>, settings: &PrintSetti
 ///
 /// `len` is length of resulting String, with '...' so original `s` content will be len - 3
 ///
+/// If `len` is less than 3, `s` truncated to this length
+///
 /// ```
 /// use cyme::display::truncate_string;
 /// let mut string = String::from("Hello world");
 /// truncate_string(&mut string, 8);
 /// assert_eq!(string, "Hello...");
+/// // emoji are 2 bytes so will be truncated correctly on char boundary
+/// let mut string = String::from("Hell😅 world");
+/// truncate_string(&mut string, 8);
+/// assert_eq!(string, "Hell😅...");
+/// let mut string = String::from("bl");
+/// truncate_string(&mut string, 2);
+/// assert_eq!(string, "bl");
+/// // don't shorten if already length
+/// let mut string = String::from("blah");
+/// truncate_string(&mut string, 4);
+/// assert_eq!(string, "blah");
+/// // just over length
+/// let mut string = String::from("blahx");
+/// truncate_string(&mut string, 4);
+/// assert_eq!(string, "b...");
 /// ```
 pub fn truncate_string(s: &mut String, len: usize) {
-    if s.len() > len {
-        s.truncate(len - 3);
-        // push trailing char
-        (0..3).for_each(|_| s.push('.'));
+    // if already less than or equal to len, or len is less than 3, return
+    if s.chars().count() <= len || len <= 3 {
+        return;
+    }
+    // use char_indices to find last char boundary before len - 3
+    // not s.len() as this is the byte length and utf-8 chars can be multiple bytes
+    for (i, _) in s.char_indices().skip(len - 3) {
+        s.truncate(i);
+        s.push_str("...");
+        break;
     }
 }
 
