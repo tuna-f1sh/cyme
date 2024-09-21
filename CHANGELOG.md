@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.3] - 2024-09-20
+
+### Fixes
+
+- Fix panic when using auto-width and utf-8 charactors landing on non-char boundary ([#30](https://github.com/tuna-f1sh/cyme/issues/32)).
+- Corrected some typos ([#28](https://github.com/tuna-f1sh/cyme/pull/28)).
+- Fix lintian errors with cargo-deb package ([#29](https://github.com/tuna-f1sh/cyme/pull/31)).
+
 ## [1.8.2] - 2024-08-20
 
 ### Changed
