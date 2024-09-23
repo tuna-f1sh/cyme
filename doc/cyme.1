@@ -272,23 +272,23 @@ interval: Interval for polling endpoint data transfers. Value in frame counts. I
 \fB\-m\fR, \fB\-\-more\fR
 Print more blocks by default at each verbosity
 .TP
-\fB\-\-sort\-devices\fR=\fISORT_DEVICES\fR
-Sort devices by value
+\fB\-\-sort\-devices\fR=\fISORT_DEVICES\fR [default: device\-number]
+Sort devices operation
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-branch\-position: Sort by position in parent branch
-.IP \(bu 2
 device\-number: Sort by bus device number
+.IP \(bu 2
+branch\-position: Sort by position in parent branch
 .IP \(bu 2
 no\-sort: No sorting; whatever order it was parsed
 .RE
 .TP
 \fB\-\-sort\-buses\fR
-Sort devices by bus number
+Sort devices by bus number. If using any sort\-devices other than no\-sort, this happens automatically
 .TP
 \fB\-\-group\-devices\fR=\fIGROUP_DEVICES\fR [default: no\-group]
 Group devices by value when listing

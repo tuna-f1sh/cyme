@@ -86,7 +86,7 @@ _cyme() {
                     return 0
                     ;;
                 --sort-devices)
-                    COMPREPLY=($(compgen -W "branch-position device-number no-sort" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "device-number branch-position no-sort" -- "${cur}"))
                     return 0
                     ;;
                 --group-devices)

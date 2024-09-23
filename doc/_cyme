@@ -143,8 +143,8 @@ sync-type\:"Synchronisation type (Iso mode)"
 usage-type\:"Usage type (Iso mode)"
 max-packet-size\:"Maximum packet size in bytes endpoint can send/recieve"
 interval\:"Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints"))' \
-'--sort-devices=[Sort devices by value]:SORT_DEVICES:((branch-position\:"Sort by position in parent branch"
-device-number\:"Sort by bus device number"
+'--sort-devices=[Sort devices operation]:SORT_DEVICES:((device-number\:"Sort by bus device number"
+branch-position\:"Sort by position in parent branch"
 no-sort\:"No sorting; whatever order it was parsed"))' \
 '--group-devices=[Group devices by value when listing]:GROUP_DEVICES:((no-group\:"No grouping"
 bus\:"Group into buses with bus info as heading - like a flat tree"))' \
@@ -171,7 +171,7 @@ replace\:"Mask by replacing length with random chars"))' \
 '*--verbose[Verbosity level\: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks]' \
 '-m[Print more blocks by default at each verbosity]' \
 '--more[Print more blocks by default at each verbosity]' \
-'--sort-buses[Sort devices by bus number]' \
+'--sort-buses[Sort devices by bus number. If using any sort-devices other than no-sort, this happens automatically]' \
 '--hide-buses[Hide empty buses when printing tree; those with no devices]' \
 '--hide-hubs[Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless of whether empty of not]' \
 '--list-root-hubs[Show root hubs when listing; Linux only]' \
