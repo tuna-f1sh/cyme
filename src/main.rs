@@ -78,11 +78,11 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     more: bool,
 
-    /// Sort devices by value
-    #[arg(long, value_enum)]
-    sort_devices: Option<display::Sort>,
+    /// Sort devices operation
+    #[arg(long, value_enum, default_value_t = display::Sort::DeviceNumber)]
+    sort_devices: display::Sort,
 
-    /// Sort devices by bus number
+    /// Sort devices by bus number. If using any sort-devices other than no-sort, this happens automatically
     #[arg(long, default_value_t = false)]
     sort_buses: bool,
 
@@ -364,13 +364,12 @@ fn print_lsusb(
             return Err(Error::new(ErrorKind::Unsupported, "libusb feature is required to do this, install with `cargo install --features libusb`"));
         }
 
-        let devices = sp_usb.flatten_devices();
+        let devices = sp_usb.flattened_devices();
         // even though we filtered using filter.show and using prepare, keep this here because it will match the exact Linux dev path and exit error if it doesn't match like lsusb
         if let Some(dev_path) = &device {
             lsusb::dump_one_device(&devices, dev_path)?
         } else {
-            let sorted = settings.sort_devices.sort_devices_ref(&devices);
-            lsusb::print(&sorted, settings.verbosity > 0);
+            lsusb::print(&devices, settings.verbosity > 0);
         }
     };
 
@@ -607,19 +606,18 @@ fn cyme() -> Result<()> {
         }
     };
 
-    log::info!("Filtering with {:?}", filter);
-
-    // no sort if just dumping because it looks weird with buses out of order
-    let sort_devices = match args.sort_devices {
-        Some(v) => v,
-        None => {
-            if args.tree || args.group_devices != display::Group::NoGroup {
-                display::Sort::default()
-            } else {
-                display::Sort::NoSort
-            }
-        }
-    };
+    //let sort_devices = match args.sort_devices {
+    //    Some(v) => v,
+    //    None => {
+    //        if args.tree || args.group_devices != display::Group::NoGroup {
+    //            // default for tree is port number so sorted at branch level
+    //            display::Sort::BranchPosition
+    //        } else {
+    //            // device number so appear in increasing order when flat list
+    //            display::Sort::DeviceNumber
+    //        }
+    //    }
+    //};
 
     let group_devices = if args.group_devices == display::Group::Bus && args.tree {
         eprintln!("--group-devices with --tree is ignored; will print as tree");
@@ -633,7 +631,7 @@ fn cyme() -> Result<()> {
         decimal: args.decimal,
         tree: args.tree,
         hide_buses: args.hide_buses,
-        sort_devices,
+        sort_devices: args.sort_devices,
         sort_buses: args.sort_buses,
         group_devices,
         json: args.json,
@@ -661,7 +659,7 @@ fn cyme() -> Result<()> {
         print_lsusb(&spusb, &args.device, &settings)?;
     } else {
         // check and report if was looking for args.device
-        if args.device.is_some() && !spusb.buses.iter().any(|b| b.has_devices()) {
+        if args.device.is_some() && !spusb.buses.iter().any(|b| b.is_empty()) {
             return Err(Error::new(
                 ErrorKind::NotFound,
                 &format!("Unable to find device at {:?}", args.device.unwrap()),

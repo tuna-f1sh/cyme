@@ -1517,37 +1517,67 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
 #[derive(Default, PartialEq, Eq, Debug, ValueEnum, Clone, Serialize, Deserialize)]
 pub enum Sort {
     #[default]
-    /// Sort by position in parent branch
-    BranchPosition,
     /// Sort by bus device number
     DeviceNumber,
+    /// Sort by position in parent branch
+    BranchPosition,
     /// No sorting; whatever order it was parsed
     NoSort,
 }
 
 impl Sort {
-    /// The clone and sort the [`USBDevice`]s `d`
-    pub fn sort_devices(&self, d: &Vec<USBDevice>) -> Vec<USBDevice> {
-        let mut sorted = d.to_owned();
+    /// Sort the [`USBDevice`]s in place
+    pub fn sort_devices(&self, devices: &mut [USBDevice]) {
+        // add bus number to maintain bus order when sorting
         match self {
-            Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
-            Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number),
+            Sort::BranchPosition => {
+                devices.sort_by_key(|d| d.get_branch_position() + d.location_id.bus)
+            }
+            Sort::DeviceNumber => devices.sort_by_key(|d| d.location_id.number + d.location_id.bus),
             _ => (),
         }
-
-        sorted
     }
 
-    /// The clone and sort the references to [`USBDevice`]s `d`
-    pub fn sort_devices_ref<'a>(&self, d: &Vec<&'a USBDevice>) -> Vec<&'a USBDevice> {
-        let mut sorted = d.to_owned();
+    /// Sort the references to [`USBDevice`]s in place
+    pub fn sort_devices_ref(&self, devices: &mut [&USBDevice]) {
         match self {
-            Sort::BranchPosition => sorted.sort_by_key(|d| d.get_branch_position()),
-            Sort::DeviceNumber => sorted.sort_by_key(|d| d.location_id.number),
+            Sort::BranchPosition => {
+                devices.sort_by_key(|d| d.get_branch_position() + d.location_id.bus)
+            }
+            Sort::DeviceNumber => devices.sort_by_key(|d| d.location_id.number + d.location_id.bus),
             _ => (),
         }
+    }
 
-        sorted
+    /// Sort the devices at each branch by calling this recursively after sorting the devices at this level
+    pub fn sort_devices_recursive(&self, devices: &mut Vec<USBDevice>) {
+        // sort the devices at this level
+        self.sort_devices(devices);
+        // then sort the devices at each branch
+        for device in devices {
+            if let Some(branch_devices) = &mut device.devices {
+                self.sort_devices_recursive(branch_devices);
+            }
+        }
+    }
+
+    /// Walk the bus tree and sort the devices at each branch
+    pub fn sort_bus(&self, bus: &mut USBBus) {
+        if matches!(self, Sort::NoSort) {
+            return;
+        }
+
+        if let Some(devices) = &mut bus.devices {
+            self.sort_devices_recursive(devices);
+        }
+    }
+
+    /// Sort buses in place, sorting devices on each bus and then by bus number
+    pub fn sort_buses(&self, buses: &mut Vec<USBBus>) {
+        buses.sort_by_key(|b| b.get_bus_number());
+        for bus in buses {
+            self.sort_bus(bus);
+        }
     }
 }
 
@@ -1955,7 +1985,7 @@ fn generate_extra_blocks(
 }
 
 /// Print `devices` `USBDevice` references without looking down each device's devices!
-pub fn print_flattened_devices(devices: &Vec<&USBDevice>, settings: &PrintSettings) {
+pub fn print_flattened_devices(devices: &[&USBDevice], settings: &PrintSettings) {
     let mut db = settings
         .device_blocks
         .to_owned()
@@ -1988,8 +2018,6 @@ pub fn print_flattened_devices(devices: &Vec<&USBDevice>, settings: &PrintSettin
     pad.retain(|k, _| db.contains(k));
     log::trace!("Flattened devices padding {:?}", pad);
 
-    let sorted = settings.sort_devices.sort_devices_ref(devices);
-
     let max_variable_string_len: Option<usize> = if settings.auto_width {
         let mut variable_lens = pad.clone();
         variable_lens.retain(|k, _| k.value_is_variable_length());
@@ -2013,10 +2041,10 @@ pub fn print_flattened_devices(devices: &Vec<&USBDevice>, settings: &PrintSettin
         println!("{}", heading.bold().underline());
     }
 
-    for (i, device) in sorted.into_iter().enumerate() {
+    for (i, device) in devices.iter().enumerate() {
         println!(
             "{}",
-            render_value(device, &db, &pad, settings, max_variable_string_len).join(" ")
+            render_value(*device, &db, &pad, settings, max_variable_string_len).join(" ")
         );
         // print the configurations
         if let Some(extra) = device.extra.as_ref() {
@@ -2487,7 +2515,7 @@ pub fn print_configurations(
 ///
 /// Will draw tree if `settings.tree`, otherwise it will be flat
 pub fn print_devices(
-    devices: &Vec<USBDevice>,
+    devices: &[USBDevice],
     db: &Vec<DeviceBlocks>,
     settings: &PrintSettings,
     tree: &TreeData,
@@ -2521,10 +2549,10 @@ pub fn print_devices(
 
     log::trace!("Print devices padding {:?}, tree {:?}", pad, tree);
 
-    // sort so that can be ascending along branch
-    let sorted = settings.sort_devices.sort_devices(devices);
+    //// sort so that can be ascending along branch
+    //let sorted = settings.sort_devices.sort_devices(devices);
 
-    for (i, device) in sorted.iter().enumerate() {
+    for (i, device) in devices.iter().enumerate() {
         // get current prefix based on if last in tree and whether we are within the tree
         if settings.tree {
             let mut prefix = if tree.depth > 0 {
@@ -2788,21 +2816,23 @@ pub fn mask_serial(device: &mut USBDevice, hide: &MaskSerial, recursive: bool) {
 /// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
 pub fn prepare(sp_usb: &mut SPUSBDataType, filter: Option<USBFilter>, settings: &PrintSettings) {
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
-    // but only do it if there is a filter, grouping by bus (which uses tree print without tree...) or json
-    // flattening now will also mean hubs will be removed when listing if `hide_hubs` because they will appear empty
-    if !settings.tree && (filter.is_some() || settings.group_devices == Group::Bus || settings.json)
-    {
-        sp_usb.flatten();
+    // flattening now will also mean hubs will be removed when listing if `hide_hubs` because they will appear empty and sorting will be in bus -> device order rather than tree position
+    log::debug!("Running prepare pre-printing");
+    if !settings.tree {
+        log::debug!("Flattening SPUSBDataType");
+        sp_usb.into_flattened();
     }
 
     // do the filter if present; will keep parents of matched devices even if they do not match
+    log::debug!("Filtering with {:?}", filter);
     filter
         .iter()
         .for_each(|f| f.retain_buses(&mut sp_usb.buses));
 
     // hide any empty buses and hubs now we've filtered
     if settings.hide_buses {
-        sp_usb.buses.retain(|b| b.has_devices());
+        log::debug!("Hiding empty buses");
+        sp_usb.buses.retain(|b| b.is_empty());
         // may still be empty hubs if the hub had an empty hub!
         if let Some(f) = filter.as_ref() {
             if f.exclude_empty_hub {
@@ -2811,13 +2841,19 @@ pub fn prepare(sp_usb: &mut SPUSBDataType, filter: Option<USBFilter>, settings: 
         }
     }
 
-    // sort the buses if asked
-    if settings.sort_buses {
+    // sort device tree based on sort option
+    log::debug!("Sorting with {:?}", settings.sort_devices);
+    settings.sort_devices.sort_buses(&mut sp_usb.buses);
+
+    // sort the buses if asked and not already sorted
+    if settings.sort_buses && matches!(settings.sort_devices, Sort::NoSort) {
+        log::debug!("Sorting buses by bus number");
         sp_usb.buses.sort_by_key(|d| d.get_bus_number());
     }
 
     // hide serials Recursively
     if let Some(hide) = settings.mask_serials.as_ref() {
+        log::debug!("Masking serials with {:?}", hide);
         for bus in &mut sp_usb.buses {
             bus.devices.iter_mut().for_each(|devices| {
                 for device in devices {
@@ -2826,8 +2862,6 @@ pub fn prepare(sp_usb: &mut SPUSBDataType, filter: Option<USBFilter>, settings: 
             });
         }
     }
-
-    // adjust strings and blocks for width
 
     log::trace!("sp_usb data post filter and bus sort\n\r{:#}", sp_usb);
 }
@@ -2845,7 +2879,7 @@ pub fn print(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSettings) 
     } else {
         {
             // get a list of all devices
-            let devs = sp_usb.flatten_devices();
+            let devs = sp_usb.flattened_devices();
 
             if settings.json {
                 println!("{}", serde_json::to_string_pretty(&devs).unwrap());

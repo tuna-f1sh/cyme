@@ -234,9 +234,9 @@ fn get_guid(buf: &[u8]) -> String {
 /// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
 pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
     fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, settings: &PrintSettings) {
-        let sorted = settings.sort_devices.sort_devices(devices);
+        //let sorted = settings.sort_devices.sort_devices(devices);
 
-        for device in sorted {
+        for device in devices {
             if device.is_root_hub() {
                 log::debug!("lsusb tree skipping root_hub {}", device);
                 continue;

@@ -5,7 +5,7 @@ fn main() -> Result<(), String> {
     let sp_usb = profiler::get_spusb_with_extra(false)
         .map_err(|e| format!("Failed to gather system USB data from libusb, Error({})", e))?;
 
-    let devices = sp_usb.flatten_devices();
+    let devices = sp_usb.flattened_devices();
 
     // print all configurations
     for device in devices {

@@ -25,8 +25,8 @@ fn test_list() {
     let te = common::TestEnv::new();
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
-    comp_sp.flatten();
-    let devices = comp_sp.flatten_devices();
+    comp_sp.into_flattened();
+    let devices = comp_sp.flattened_devices();
     let comp = serde_json::to_string_pretty(&devices).unwrap();
 
     // TODO not sure why assert_output_json doesn't work, might help to have module which shows diff
@@ -48,8 +48,8 @@ fn test_list_filtering() {
         no_exclude_root_hub: true,
         ..Default::default()
     };
-    comp_sp.flatten();
-    let mut devices = comp_sp.flatten_devices();
+    comp_sp.into_flattened();
+    let mut devices = comp_sp.flattened_devices();
     filter.retain_flattened_devices_ref(&mut devices);
     let comp = serde_json::to_string_pretty(&devices).unwrap();
 
@@ -92,8 +92,8 @@ fn test_list_filtering() {
         no_exclude_root_hub: true,
         ..Default::default()
     };
-    comp_sp.flatten();
-    let mut devices = comp_sp.flatten_devices();
+    comp_sp.into_flattened();
+    let mut devices = comp_sp.flattened_devices();
     filter.retain_flattened_devices_ref(&mut devices);
     let comp = serde_json::to_string_pretty(&devices).unwrap();
 

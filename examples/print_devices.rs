@@ -7,7 +7,7 @@ fn main() -> Result<(), String> {
         .map_err(|e| format!("Failed to gather system USB data from libusb, Error({})", e))?;
 
     // flatten since we don't care tree/buses
-    let devices = sp_usb.flatten_devices();
+    let devices = sp_usb.flattened_devices();
 
     // print with default [`display::PrintSettings`]
     display::print_flattened_devices(&devices, &display::PrintSettings::default());
