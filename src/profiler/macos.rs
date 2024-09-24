@@ -1,13 +1,13 @@
 //! Parser for macOS `system_profiler` command -json output with SPUSBDataType. Merged with libusb or nusb for extra data.
 //!
-//! USBBus and USBDevice structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
+//! Bus and Device structs are used as deserializers for serde. The JSON output with the -json flag is not really JSON; all values are String regardless of contained data so it requires some extra work. Additionally, some values differ slightly from the non json output such as the speed - it is a description rather than numerical.
 use super::*;
 use std::process::Command;
 
-/// Runs the system_profiler command for SPUSBDataType and parses the json stdout into a [`SPUSBDataType`]
+/// Runs the system_profiler command for SPUSBDataType and parses the json stdout into a [`SystemProfile`].
 ///
-/// Ok result not contain [`usb::USBDeviceExtra`] because system_profiler does not provide this. Use `get_spusb_with_extra` to combine with libusb output for [`USBDevice`]s with `extra`
-pub fn get_spusb() -> Result<SPUSBDataType> {
+/// Ok result not contain [`usb::DeviceExtra`] because system_profiler does not provide this. Use `get_spusb_with_extra` to combine with libusb output for [`Device`]s with `extra`
+pub fn get_spusb() -> Result<SystemProfile> {
     let output = if cfg!(target_os = "macos") {
         Command::new("system_profiler")
             .args(["-json", "SPUSBDataType"])
@@ -47,7 +47,7 @@ pub fn get_spusb() -> Result<SPUSBDataType> {
 /// `system_profiler` captures Apple buses (essentially root_hubs) that are not captured by libusb or nusb; this method merges the two to so the bus information is kept.
 // TODO capture the Apple buses with IOKit directly not through system_profiler by impl Profiler::get_root_hubs
 #[cfg(any(feature = "libusb", feature = "nusb"))]
-pub fn get_spusb_with_extra() -> Result<SPUSBDataType> {
+pub fn get_spusb_with_extra() -> Result<SystemProfile> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
     {
         get_spusb().and_then(|mut spusb| {

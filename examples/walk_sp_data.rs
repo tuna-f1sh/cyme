@@ -1,6 +1,6 @@
-use cyme::profiler::{self, USBDevice};
+use cyme::profiler::{self, Device};
 
-fn recursive_map_devices(device: &USBDevice) {
+fn recursive_map_devices(device: &Device) {
     // the alternate format will print with colour
     println!("Device: {:#}", device);
     if let Some(v) = device.devices.as_ref() {

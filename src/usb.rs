@@ -1096,7 +1096,7 @@ impl USBConfiguration {
 /// Extra USB device data for verbose printing
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct USBDeviceExtra {
+pub struct DeviceExtra {
     /// Maximum packet size in bytes
     pub max_packet_size: u8,
     /// Driver obtained from udev on Linux only
@@ -1123,6 +1123,10 @@ pub struct USBDeviceExtra {
     /// Hub descriptor if present (is a hub)
     pub hub: Option<HubDescriptor>,
 }
+
+/// Deprecated alias for [`DeviceExtra`]
+#[deprecated(since = "2.0.0", note = "Use DeviceExtra instead")]
+pub type USBDeviceExtra = DeviceExtra;
 
 /// Builds a replica of sysfs path; excludes config.interface
 ///

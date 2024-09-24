@@ -304,7 +304,7 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     }
 }
 
-fn get_libusb_spusb(args: &Args) -> Result<profiler::SPUSBDataType> {
+fn get_libusb_spusb(args: &Args) -> Result<profiler::SystemProfile> {
     if args.verbose > 0
         || args.tree
         || args.device.is_some()
@@ -321,7 +321,7 @@ fn get_libusb_spusb(args: &Args) -> Result<profiler::SPUSBDataType> {
 }
 
 fn print_lsusb(
-    sp_usb: &profiler::SPUSBDataType,
+    sp_usb: &profiler::SystemProfile,
     device: &Option<String>,
     settings: &display::PrintSettings,
 ) -> Result<()> {

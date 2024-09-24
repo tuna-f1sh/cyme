@@ -320,9 +320,9 @@ impl NusbProfiler {
     fn build_spdevice_extra(
         &self,
         device: &UsbDevice,
-        sp_device: &mut USBDevice,
+        sp_device: &mut Device,
         with_udev: bool,
-    ) -> Result<usb::USBDeviceExtra> {
+    ) -> Result<usb::DeviceExtra> {
         // get the Device Descriptor since not all data is cached
         let device_desc_raw = device
             .handle
@@ -356,7 +356,7 @@ impl NusbProfiler {
             sp_device.serial_num = Some(serial);
         }
 
-        let mut extra = usb::USBDeviceExtra {
+        let mut extra = usb::DeviceExtra {
             max_packet_size: device_desc.max_packet_size,
             string_indexes: (
                 device_desc.product_string_index,
@@ -416,13 +416,13 @@ impl NusbProfiler {
         &mut self,
         device_info: &nusb::DeviceInfo,
         with_extra: bool,
-    ) -> Result<USBDevice> {
+    ) -> Result<Device> {
         let speed = device_info.speed().map(|s| {
             let s = usb::Speed::from(s);
             DeviceSpeed::SpeedValue(s)
         });
 
-        let mut sp_device = USBDevice {
+        let mut sp_device = Device {
             vendor_id: Some(device_info.vendor_id()),
             product_id: Some(device_info.product_id()),
             device_speed: speed,
@@ -515,7 +515,7 @@ impl NusbProfiler {
                     "Failed to open device, extra data incomplete and possibly inaccurate"
                         .to_string(),
                 );
-                sp_device.extra = Some(usb::USBDeviceExtra {
+                sp_device.extra = Some(usb::DeviceExtra {
                     max_packet_size: device_info.max_packet_size_0(),
                     // nusb doesn't have these cached
                     string_indexes: (0, 0, 0),
@@ -545,7 +545,7 @@ impl NusbProfiler {
 }
 
 impl Profiler<UsbDevice> for NusbProfiler {
-    fn get_devices(&mut self, with_extra: bool) -> Result<Vec<USBDevice>> {
+    fn get_devices(&mut self, with_extra: bool) -> Result<Vec<Device>> {
         let mut devices = Vec::new();
         for device in nusb::list_devices()? {
             match self.build_spdevice(&device, with_extra) {
@@ -584,7 +584,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
         Ok(devices)
     }
 
-    fn get_root_hubs(&mut self) -> Result<HashMap<u8, USBDevice>> {
+    fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
         let mut root_hubs = HashMap::new();
         for device in nusb::list_root_hubs()? {
             match self.build_spdevice(&device, true) {
@@ -632,7 +632,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
     }
 }
 
-pub(crate) fn fill_spusb(spusb: &mut SPUSBDataType) -> Result<()> {
+pub(crate) fn fill_spusb(spusb: &mut SystemProfile) -> Result<()> {
     let mut profiler = NusbProfiler::new();
     profiler.fill_spusb(spusb)
 }

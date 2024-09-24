@@ -16,7 +16,7 @@
 //! let sp_usb = profiler::get_spusb_with_extra().unwrap();
 //! ```
 //!
-//! It's often useful to then flatten this into a list of devices ([`profiler::USBDevice`]):
+//! It's often useful to then flatten this into a list of devices ([`profiler::Device`]):
 //!
 //! ```no_run
 //! # use cyme::profiler;
@@ -40,7 +40,7 @@
 //! display::print_flattened_devices(&devices, &display::PrintSettings::default());
 //! ```
 //!
-//! The [`profiler::SPUSBDataType`] struct contains system [`profiler::USBBus`]s, which contain [`profiler::USBDevice`]s as a USB tree.
+//! The [`profiler::SystemProfile`] struct contains system [`profiler::Bus`]s, which contain [`profiler::Device`]s as a USB tree.
 #![allow(dead_code)]
 #![warn(missing_docs)]
 use simple_logger::SimpleLogger;
