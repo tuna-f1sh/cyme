@@ -274,7 +274,7 @@ impl LibUsbProfiler {
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
                     path,
-                    class: usb::ClassCode::from(interface_desc.class_code()),
+                    class: usb::BaseClass::from(interface_desc.class_code()),
                     sub_class: interface_desc.sub_class_code(),
                     protocol: interface_desc.protocol_code(),
                     alt_setting: interface_desc.setting_number(),
@@ -445,7 +445,7 @@ impl LibUsbProfiler {
         if device_desc.usb_version() >= rusb::Version::from_bcd(0x0200) {
             extra.qualifier = Self::get_device_qualifier(handle).ok();
         }
-        if device_desc.class_code() == usb::ClassCode::Hub as u8 {
+        if device_desc.class_code() == usb::BaseClass::Hub as u8 {
             let has_ssp = if let Some(bos) = &extra.binary_object_store {
                 bos.capabilities
                     .iter()
@@ -531,7 +531,7 @@ impl LibUsbProfiler {
             },
             bcd_device: Some(device_desc.device_version().into()),
             bcd_usb: Some(device_desc.usb_version().into()),
-            class: Some(usb::ClassCode::from(device_desc.class_code())),
+            class: Some(usb::BaseClass::from(device_desc.class_code())),
             sub_class: Some(device_desc.sub_class_code()),
             protocol: Some(device_desc.protocol_code()),
             ..Default::default()

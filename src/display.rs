@@ -269,7 +269,7 @@ pub enum DeviceBlocks {
     /// The supported USB version
     BcdUsb,
     /// Base class enum of interface provided by USB IF - only available when using libusb
-    ClassCode,
+    BaseClass,
     /// Sub-class value of interface provided by USB IF - only available when using libusb
     SubClass,
     /// Prototol value for interface provided by USB IF - only available when using libusb
@@ -357,7 +357,7 @@ pub enum InterfaceBlocks {
     /// Interface port path, applicable to Linux
     PortPath,
     /// Class enum of interface provided by USB IF
-    ClassCode,
+    BaseClass,
     /// Sub-class value of interface provided by USB IF
     SubClass,
     /// Prototol value for interface provided by USB IF
@@ -370,7 +370,7 @@ pub enum InterfaceBlocks {
     SysPath,
     /// An interface can have many endpoints
     NumEndpoints,
-    /// Icon based on ClassCode/SubCode/Protocol
+    /// Icon based on BaseClass/SubCode/Protocol
     Icon,
     /// Class name from USB IDs repository
     UidClass,
@@ -544,7 +544,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 DeviceBlocks::BcdDevice,
                 DeviceBlocks::BcdUsb,
                 DeviceBlocks::ClassValue,
-                DeviceBlocks::ClassCode,
+                DeviceBlocks::BaseClass,
                 DeviceBlocks::SubClass,
                 DeviceBlocks::UidSubClass,
                 DeviceBlocks::Protocol,
@@ -624,7 +624,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 })
                 .max()
                 .unwrap_or(0),
-            DeviceBlocks::ClassCode => d
+            DeviceBlocks::BaseClass => d
                 .iter()
                 .flat_map(|d| d.class.as_ref().map(|c| c.to_string().len()))
                 .max()
@@ -773,7 +773,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 Some(v) => format!("{:5}", v.to_string()),
                 None => format!("{:>5}", "-"),
             }),
-            DeviceBlocks::ClassCode => Some(match d.class.as_ref() {
+            DeviceBlocks::BaseClass => Some(match d.class.as_ref() {
                 Some(v) => format!("{:pad$}", v.to_string(), pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
@@ -834,7 +834,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::BusPower
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => ct.power.map_or(s.normal(), |c| s.color(c)),
-            DeviceBlocks::ClassCode
+            DeviceBlocks::BaseClass
             | DeviceBlocks::UidClass
             | DeviceBlocks::Class
             | DeviceBlocks::ClassValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
@@ -871,7 +871,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             // 00.00 = 5
             DeviceBlocks::BcdDevice => "Dev V",
             DeviceBlocks::BcdUsb => "USB V",
-            DeviceBlocks::ClassCode => "BaseC",
+            DeviceBlocks::BaseClass => "BaseC",
             DeviceBlocks::SubClass => "SubC",
             DeviceBlocks::Protocol => "Pcol",
             DeviceBlocks::UidClass => "UidCl",
@@ -1192,7 +1192,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 InterfaceBlocks::Icon,
                 InterfaceBlocks::AltSetting,
                 InterfaceBlocks::ClassValue,
-                InterfaceBlocks::ClassCode,
+                InterfaceBlocks::BaseClass,
                 InterfaceBlocks::SubClass,
                 InterfaceBlocks::UidSubClass,
                 InterfaceBlocks::Protocol,
@@ -1206,7 +1206,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 InterfaceBlocks::PortPath,
                 InterfaceBlocks::Icon,
                 InterfaceBlocks::AltSetting,
-                InterfaceBlocks::ClassCode,
+                InterfaceBlocks::BaseClass,
                 InterfaceBlocks::SubClass,
                 InterfaceBlocks::Protocol,
                 InterfaceBlocks::Name,
@@ -1217,7 +1217,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
     fn len(&self, d: &[&Interface]) -> usize {
         match self {
             InterfaceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
-            InterfaceBlocks::ClassCode => d
+            InterfaceBlocks::BaseClass => d
                 .iter()
                 .map(|d| d.class.to_string().len())
                 .max()
@@ -1271,7 +1271,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 ct.path.map_or(s.normal(), |c| s.color(c))
             }
             InterfaceBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
-            InterfaceBlocks::ClassCode
+            InterfaceBlocks::BaseClass
             | InterfaceBlocks::UidClass
             | InterfaceBlocks::Class
             | InterfaceBlocks::ClassValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
@@ -1315,7 +1315,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            InterfaceBlocks::ClassCode => Some(format!(
+            InterfaceBlocks::BaseClass => Some(format!(
                 "{:pad$}",
                 interface.class.to_string(),
                 pad = pad.get(self).unwrap_or(&0)
@@ -1359,7 +1359,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
             InterfaceBlocks::PortPath => "PPath",
             InterfaceBlocks::SysPath => "SPath",
             InterfaceBlocks::Driver => "Driver",
-            InterfaceBlocks::ClassCode => "BaseC",
+            InterfaceBlocks::BaseClass => "BaseC",
             InterfaceBlocks::SubClass => "SubC",
             InterfaceBlocks::Protocol => "Pcol",
             InterfaceBlocks::AltSetting => "Alt#",

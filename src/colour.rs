@@ -94,7 +94,7 @@ pub struct ColourTheme {
         deserialize_with = "deserialize_option_color_from_string"
     )]
     pub pid: Option<Color>,
-    /// Colour to use for generic ClassCode
+    /// Colour to use for generic BaseClass
     #[serde(
         default,
         serialize_with = "color_serializer",

@@ -10,7 +10,7 @@ use std::str::FromStr;
 use crate::display::Encoding;
 use crate::error::{Error, ErrorKind};
 use crate::profiler::{Bus, Device};
-use crate::usb::{ClassCode, Direction};
+use crate::usb::{BaseClass, Direction};
 
 /// If only standard UTF-8 characters are used, this is the default icon for a device
 // const UTF8_DEFAULT_DEVICE_ICON: &str = "\u{2023}"; // ‣
@@ -34,9 +34,9 @@ pub enum Icon {
     /// Use to mask on msb of product ID
     VidPidMsb((u16, u8)),
     /// Class classifier icon
-    Classifier(ClassCode),
+    Classifier(BaseClass),
     /// Class classifier lookup with SubClass and Protocol
-    ClassifierSubProtocol((ClassCode, u8, u8)),
+    ClassifierSubProtocol((BaseClass, u8, u8)),
     /// Pattern match device name icon
     Name(String),
     /// Icon for unknown vendors
@@ -137,12 +137,12 @@ impl FromStr for Icon {
                     None => Err(Error::new(ErrorKind::Parsing, "No value for enum after $")),
                 },
                 "classifier" => match numbers.first() {
-                    Some(i) => Ok(Icon::Classifier(ClassCode::from(*i as u8))),
+                    Some(i) => Ok(Icon::Classifier(BaseClass::from(*i as u8))),
                     None => Err(Error::new(ErrorKind::Parsing, "No value for enum after $")),
                 },
                 "classifier-sub-protocol" => match numbers.get(0..3) {
                     Some(slice) => Ok(Icon::ClassifierSubProtocol((
-                        ClassCode::from(slice[0] as u8),
+                        BaseClass::from(slice[0] as u8),
                         slice[1] as u8,
                         slice[2] as u8,
                     ))),
@@ -275,8 +275,8 @@ lazy_static! {
             (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}"), // st-link 
             (Icon::VidPid((0x0483, 0xdf11)), "\u{f019}"), // STM DFU 
             (Icon::VidPid((0x1d50, 0x6017)), "\u{f188}"), // black magic probe DFU 
-            (Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecificInterface, 0x01, 0x01)), "\u{f188}"), // DFU 
-            (Icon::ClassifierSubProtocol((ClassCode::WirelessController, 0x01, 0x01)), "\u{f188}"), // bluetooth DFU 
+            (Icon::ClassifierSubProtocol((BaseClass::ApplicationSpecificInterface, 0x01, 0x01)), "\u{f188}"), // DFU 
+            (Icon::ClassifierSubProtocol((BaseClass::WirelessController, 0x01, 0x01)), "\u{f188}"), // bluetooth DFU 
             (Icon::Vid(0x2341), "\u{f2db}"), // arduino 
             (Icon::Vid(0x239A), "\u{f2db}"), // adafruit 
             (Icon::Vid(0x2e8a), "\u{f315}"), // raspberry pi foundation 
@@ -291,24 +291,24 @@ lazy_static! {
             (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
             (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
             (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f0379}"), // lg monitor 󰍹
-            (Icon::Classifier(ClassCode::Audio), "\u{f001}"), // 
-            (Icon::Classifier(ClassCode::Image), "\u{f03e}"), // 
-            (Icon::Classifier(ClassCode::Video), "\u{f03d}"), // 
-            (Icon::Classifier(ClassCode::Printer), "\u{f02f}"), // 
-            (Icon::Classifier(ClassCode::MassStorage), "\u{f0a0}"), // 
-            (Icon::Classifier(ClassCode::Hub), "\u{f126}"), // 
-            (Icon::Classifier(ClassCode::ContentSecurity), "\u{f084}"), // 
-            (Icon::Classifier(ClassCode::SmartCard), "\u{f084}"), // 
-            (Icon::Classifier(ClassCode::PersonalHealthcare), "\u{f21e}"), // 
-            (Icon::Classifier(ClassCode::AudioVideo), "\u{f0841}"), // 󰡁
-            (Icon::Classifier(ClassCode::Billboard), "\u{f05a}"), // 
-            (Icon::Classifier(ClassCode::I3CDevice), "\u{f493}"), // 
-            (Icon::Classifier(ClassCode::Diagnostic), "\u{f489}"), // 
-            (Icon::Classifier(ClassCode::WirelessController), "\u{f1eb}"), // 
-            (Icon::Classifier(ClassCode::Miscellaneous), "\u{f074}"), // 
-            (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}"), // serial 
-            (Icon::Classifier(ClassCode::CDCData), "\u{e795}"), // serial 
-            (Icon::Classifier(ClassCode::HID), "\u{f030c}"), // 󰌌
+            (Icon::Classifier(BaseClass::Audio), "\u{f001}"), // 
+            (Icon::Classifier(BaseClass::Image), "\u{f03e}"), // 
+            (Icon::Classifier(BaseClass::Video), "\u{f03d}"), // 
+            (Icon::Classifier(BaseClass::Printer), "\u{f02f}"), // 
+            (Icon::Classifier(BaseClass::MassStorage), "\u{f0a0}"), // 
+            (Icon::Classifier(BaseClass::Hub), "\u{f126}"), // 
+            (Icon::Classifier(BaseClass::ContentSecurity), "\u{f084}"), // 
+            (Icon::Classifier(BaseClass::SmartCard), "\u{f084}"), // 
+            (Icon::Classifier(BaseClass::PersonalHealthcare), "\u{f21e}"), // 
+            (Icon::Classifier(BaseClass::AudioVideo), "\u{f0841}"), // 󰡁
+            (Icon::Classifier(BaseClass::Billboard), "\u{f05a}"), // 
+            (Icon::Classifier(BaseClass::I3cDevice), "\u{f493}"), // 
+            (Icon::Classifier(BaseClass::Diagnostic), "\u{f489}"), // 
+            (Icon::Classifier(BaseClass::WirelessController), "\u{f1eb}"), // 
+            (Icon::Classifier(BaseClass::Miscellaneous), "\u{f074}"), // 
+            (Icon::Classifier(BaseClass::CdcCommunication), "\u{e795}"), // serial 
+            (Icon::Classifier(BaseClass::CdcData), "\u{e795}"), // serial 
+            (Icon::Classifier(BaseClass::Hid), "\u{f030c}"), // 󰌌
             (Icon::UndefinedClassifier, "\u{2636}"), //☶
         ])
     };
@@ -430,7 +430,7 @@ impl IconTheme {
     }
 
     /// Drill through `DEFAULT_ICONS` first looking for `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> ""
-    pub fn get_default_classifier_icon(class: &ClassCode, sub: u8, protocol: u8) -> String {
+    pub fn get_default_classifier_icon(class: &BaseClass, sub: u8, protocol: u8) -> String {
         // try vid pid first
         DEFAULT_ICONS
             .get(&Icon::ClassifierSubProtocol((
@@ -447,7 +447,7 @@ impl IconTheme {
     }
 
     /// Drill through `Self` icons first looking for `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> get_default_classifier_icon
-    pub fn get_classifier_icon(&self, class: &ClassCode, sub: u8, protocol: u8) -> String {
+    pub fn get_classifier_icon(&self, class: &BaseClass, sub: u8, protocol: u8) -> String {
         if let Some(user_icons) = self.user.as_ref() {
             user_icons
                 .get(&Icon::ClassifierSubProtocol((
@@ -532,12 +532,12 @@ pub fn example() -> HashMap<Icon, String> {
         (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}".into()), // black magic probe 
         (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}".into()), // st-link 
         (
-            Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecificInterface, 0x01, 0x01)),
+            Icon::ClassifierSubProtocol((BaseClass::ApplicationSpecificInterface, 0x01, 0x01)),
             "\u{f188}".into(),
         ), // DFU 
         (Icon::Vid(0x2e8a), "\u{f315}".into()),   // raspberry pi foundation 
         (
-            Icon::Classifier(ClassCode::CDCCommunications),
+            Icon::Classifier(BaseClass::CdcCommunication),
             "\u{e795}".into(),
         ), // serial 
         (Icon::UndefinedClassifier, "\u{2636}".into()), //☶
@@ -614,7 +614,7 @@ mod tests {
         assert_eq!(item_ser, r#"["endpoint_in",">"]"#);
 
         let item: (Icon, &'static str) = (
-            Icon::ClassifierSubProtocol((ClassCode::HID, 0x01, 0x0a)),
+            Icon::ClassifierSubProtocol((BaseClass::Hid, 0x01, 0x0a)),
             "K",
         );
         let item_ser = serde_json::to_string(&item).unwrap();
@@ -633,13 +633,13 @@ mod tests {
 
         let str = "classifier#03";
         let icon = Icon::from_str(str);
-        assert_eq!(icon.unwrap(), Icon::Classifier(ClassCode::HID));
+        assert_eq!(icon.unwrap(), Icon::Classifier(BaseClass::Hid));
 
         let str = "classifier-sub-protocol#03:01:0a";
         let icon = Icon::from_str(str);
         assert_eq!(
             icon.unwrap(),
-            Icon::ClassifierSubProtocol((ClassCode::HID, 1, 10))
+            Icon::ClassifierSubProtocol((BaseClass::Hid, 1, 10))
         );
 
         let str = "endpoint_in";

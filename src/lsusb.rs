@@ -684,12 +684,12 @@ fn dump_interface(interface: &Interface, indent: usize) {
                         }
                     },
                     ClassDescriptor::Generic(cc, gd) => match cc {
-                        Some((ClassCode::Audio, 3, _)) => {
+                        Some((BaseClass::Audio, 3, _)) => {
                             if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {
                                 dump_midistreaming_interface(&md, indent + 4);
                             }
                         }
-                        Some((ClassCode::Audio, s, p)) => {
+                        Some((BaseClass::Audio, s, p)) => {
                             if let Ok(uacd) =
                                 audio::UacDescriptor::try_from((gd.to_owned(), *s, *p))
                             {
@@ -705,7 +705,7 @@ fn dump_interface(interface: &Interface, indent: usize) {
                                 }
                             }
                         }
-                        Some((ClassCode::Video, s, p)) => {
+                        Some((BaseClass::Video, s, p)) => {
                             if let Ok(uvcd) =
                                 video::UvcDescriptor::try_from((gd.to_owned(), *s, *p))
                             {
@@ -719,7 +719,7 @@ fn dump_interface(interface: &Interface, indent: usize) {
                                 }
                             }
                         }
-                        Some((ClassCode::ApplicationSpecificInterface, 1, _)) => {
+                        Some((BaseClass::ApplicationSpecificInterface, 1, _)) => {
                             if let Ok(dfud) = DfuDescriptor::try_from(gd.to_owned()) {
                                 dump_dfu_interface(&dfud, indent + 4);
                             }
@@ -803,13 +803,13 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                     }
                     // legacy as context should have been added to the descriptor
                     ClassDescriptor::Generic(cc, gd) => match cc {
-                        Some((ClassCode::Audio, 2, p)) => {
+                        Some((BaseClass::Audio, 2, p)) => {
                             if let Ok(uacd) = audio::UacDescriptor::try_from((gd.to_owned(), 2, *p))
                             {
                                 dump_audiostreaming_endpoint(&uacd, indent + 2);
                             }
                         }
-                        Some((ClassCode::Audio, 3, _)) => {
+                        Some((BaseClass::Audio, 3, _)) => {
                             if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {
                                 dump_midistreaming_endpoint(&md, indent + 2);
                             }
@@ -838,13 +838,13 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                 },
                 Descriptor::Interface(cd) => match cd {
                     ClassDescriptor::Generic(cc, gd) => match cc {
-                        Some((ClassCode::CDCData, _, _))
-                        | Some((ClassCode::CDCCommunications, _, _)) => {
+                        Some((BaseClass::CdcData, _, _))
+                        | Some((BaseClass::CdcCommunication, _, _)) => {
                             if let Ok(cd) = gd.to_owned().try_into() {
                                 dump_comm_descriptor(&cd, indent)
                             }
                         }
-                        Some((ClassCode::MassStorage, _, _)) => {
+                        Some((BaseClass::MassStorage, _, _)) => {
                             dump_pipe_desc(gd, indent + 2);
                         }
                         _ => {

@@ -2,7 +2,7 @@
 ///
 /// See [`Filter`] docs for more information
 use cyme::profiler::{self, Filter};
-use cyme::usb::ClassCode;
+use cyme::usb::BaseClass;
 
 fn main() -> Result<(), String> {
     // get all system devices
@@ -11,7 +11,7 @@ fn main() -> Result<(), String> {
 
     // if one does want the tree, use the utility
     let filter = Filter {
-        class: Some(ClassCode::HID),
+        class: Some(BaseClass::Hid),
         ..Default::default()
     };
 
@@ -22,7 +22,7 @@ fn main() -> Result<(), String> {
         .retain(|b| b.devices.as_ref().map_or(false, |d| d.is_empty()));
 
     // if one does not care about the tree, flatten the devices and do manually
-    // let hid_devices = sp_usb.flatten_devices().iter().filter(|d| d.class == Some(ClassCode::HID));
+    // let hid_devices = sp_usb.flatten_devices().iter().filter(|d| d.class == Some(BaseClass::HID));
 
     if sp_usb.buses.is_empty() {
         println!("No HID devices found");
