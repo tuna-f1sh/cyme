@@ -650,7 +650,7 @@ impl ClassDescriptor {
                 (BaseClass::Printer, _, _) => {
                     *self = ClassDescriptor::Printer(PrinterDescriptor::try_from(gd.to_owned())?)
                 }
-                (BaseClass::CdcCommunication, _, _) | (BaseClass::CdcData, _, _) => {
+                (BaseClass::CdcCommunications, _, _) | (BaseClass::CdcData, _, _) => {
                     *self = ClassDescriptor::Communication(cdc::CommunicationDescriptor::try_from(
                         gd.to_owned(),
                     )?)

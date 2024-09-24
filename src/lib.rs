@@ -22,7 +22,7 @@
 //! # use cyme::profiler;
 //! # let sp_usb = profiler::get_spusb().unwrap();
 //! // flatten since we don't care tree/buses
-//! let devices = sp_usb.flatten_devices();
+//! let devices = sp_usb.flattened_devices();
 //!
 //! for device in devices {
 //!    format!("{}", device);
@@ -34,7 +34,7 @@
 //! ```no_run
 //! # use cyme::profiler;
 //! # let sp_usb = profiler::get_spusb().unwrap();
-//! # let devices = sp_usb.flatten_devices();
+//! # let devices = sp_usb.flattened_devices();
 //! use cyme::display;
 //! // print with default [`display::PrintSettings`]
 //! display::print_flattened_devices(&devices, &display::PrintSettings::default());

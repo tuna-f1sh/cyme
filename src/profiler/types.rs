@@ -1248,7 +1248,7 @@ impl Device {
     }
 
     /// Returns fully defined USB [`Class`] based on base_class, sub_class and protocol triplet
-    pub fn fully_defined_class(&self) -> Option<Class> {
+    pub fn fully_defined_class(&self) -> Option<ClassCode> {
         self.class
             .map(|c| (c, self.sub_class.unwrap_or(0), self.protocol.unwrap_or(0)).into())
     }
@@ -1438,7 +1438,7 @@ pub type USBFilter = Filter;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/cyme_libusb_merge_macos_tree.json").unwrap();
 /// let filter = Filter {
-///     class: Some(cyme::usb::BaseClass::CDCCommunications),
+///     class: Some(cyme::usb::BaseClass::CdcCommunications),
 ///     ..Default::default()
 /// };
 /// let mut flattened = spusb.flattened_devices();
