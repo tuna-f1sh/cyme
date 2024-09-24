@@ -98,7 +98,7 @@ impl From<&nusb::BusInfo> for Device {
                     .map(|i| i.revision().map(|r| usb::Version::from_bcd(r)))
                     .flatten(),
                 bcd_usb: bcd_usb.map(|v| usb::Version::from_bcd(v)),
-                class: Some(usb::ClassCode::Hub),
+                class: Some(usb::BaseClass::Hub),
                 sub_class: Some(0),
                 protocol,
                 name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
@@ -134,7 +134,7 @@ impl From<&nusb::BusInfo> for Device {
                     .pci_info()
                     .and_then(|i| i.revision().map(usb::Version::from_bcd)),
                 bcd_usb: bcd_usb.map(usb::Version::from_bcd),
-                class: Some(usb::ClassCode::Hub),
+                class: Some(usb::BaseClass::Hub),
                 sub_class: Some(0),
                 protocol,
                 name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
@@ -225,7 +225,7 @@ impl From<&nusb::DeviceInfo> for Device {
             bcd_device: Some(usb::Version::from_bcd(device_info.device_version())),
             // gets added on the extra read
             bcd_usb: None,
-            class: Some(usb::ClassCode::from(device_info.class())),
+            class: Some(usb::BaseClass::from(device_info.class())),
             sub_class: Some(device_info.subclass()),
             protocol: Some(device_info.protocol()),
             name,
@@ -397,7 +397,7 @@ impl NusbProfiler {
                     string_index: interface_alt.string_index().unwrap_or(0),
                     number: interface_alt.interface_number(),
                     path,
-                    class: usb::ClassCode::from(interface_alt.class()),
+                    class: usb::BaseClass::from(interface_alt.class()),
                     sub_class: interface_alt.subclass(),
                     protocol: interface_alt.subclass(),
                     alt_setting: interface_alt.alternate_setting(),
@@ -556,7 +556,7 @@ impl NusbProfiler {
             extra.qualifier = Self::get_device_qualifier(device).ok();
         }
 
-        if device_desc.device_class == usb::ClassCode::Hub as u8 {
+        if device_desc.device_class == usb::BaseClass::Hub as u8 {
             let has_ssp = if let Some(bos) = &extra.binary_object_store {
                 bos.capabilities
                     .iter()

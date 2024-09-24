@@ -174,7 +174,7 @@ impl ConfigAttributes {
     }
 }
 
-/// Explains how the `ClassCode` is used
+/// Explains how the `BaseClass` is used
 #[derive(Debug)]
 pub enum DescriptorUsage {
     /// Describes device
@@ -187,21 +187,21 @@ pub enum DescriptorUsage {
 
 /// USB class code defines [ref](https://www.usb.org/defined-class-codes)
 ///
-/// Technically this is the 'Base Class' - the 'Class Code' is the full triplet of (Base Class, Sub Class, Protocol). TODO rename in 2.0 release
+/// Technically this is the 'Base Class' - the 'Class Code' is the full triplet of (Base Class, Sub Class, Protocol).
 #[derive(Debug, ValueEnum, Default, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
 #[repr(u8)]
-pub enum ClassCode {
+pub enum BaseClass {
     #[default]
     /// Device class is unspecified, interface descriptors are used to determine needed drivers
     UseInterfaceDescriptor = 0x00,
     /// Speaker, microphone, sound card, MIDI
     Audio = 0x01,
     /// The modern serial interface; appears as a UART/RS232 port on most systems
-    CDCCommunications = 0x02,
+    CdcCommunication = 0x02,
     /// Human Interface Device; game controllers, keyboards, mice etc. Also commonly used as a device data interface rather then creating something from scratch
-    HID = 0x03,
+    Hid = 0x03,
     /// Force feedback joystick
     Physical = 0x05,
     /// Still imaging device; scanners, cameras
@@ -213,7 +213,7 @@ pub enum ClassCode {
     /// High speed USB hub
     Hub = 0x09,
     /// Used together with class 02h (Communications and CDC Control) above
-    CDCData = 0x0a,
+    CdcData = 0x0a,
     /// USB smart card reader
     SmartCard = 0x0b,
     /// Fingerprint reader
@@ -227,13 +227,13 @@ pub enum ClassCode {
     /// Describes USB-C alternate modes supported by device
     Billboard = 0x11,
     /// An interface to expose and configure the USB Type-C capabilities of Connectors on USB Hubs or Alternate Mode Adapters
-    USBTypeCBridge = 0x12,
+    UsbTypeCBridge = 0x12,
     /// This base class is defined for devices that conform to the “VESA USB BDP Device Specification” found at the VESA website. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors.
-    BDP = 0x13,
+    Bdp = 0x13,
     /// This base class is defined for devices that conform to the “MCTP over USB” found at the DMTF website as DSP0283. This specification defines the usable set of SubClass and Protocol values. Values outside of this defined spec are reserved. These class codes can only be used in Interface Descriptors.
-    MCTP = 0x14,
+    Mctp = 0x14,
     /// An interface to expose and configure I3C function within a USB device to allow interaction between host software and the I3C device, to drive transaction on the I3C bus to/from target devices
-    I3CDevice = 0x3c,
+    I3cDevice = 0x3c,
     /// Trace and debugging equipment
     Diagnostic = 0xdc,
     /// Wireless controllers: Bluetooth adaptors, Microsoft RNDIS
@@ -246,143 +246,143 @@ pub enum ClassCode {
     VendorSpecificClass = 0xff,
 }
 
-impl fmt::Display for ClassCode {
+impl fmt::Display for BaseClass {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-impl From<u8> for ClassCode {
-    fn from(b: u8) -> ClassCode {
+impl From<u8> for BaseClass {
+    fn from(b: u8) -> BaseClass {
         match b {
-            0x00 => ClassCode::UseInterfaceDescriptor,
-            0x01 => ClassCode::Audio,
-            0x02 => ClassCode::CDCCommunications,
-            0x03 => ClassCode::HID,
-            0x05 => ClassCode::Physical,
-            0x06 => ClassCode::Image,
-            0x07 => ClassCode::Printer,
-            0x08 => ClassCode::MassStorage,
-            0x09 => ClassCode::Hub,
-            0x0a => ClassCode::CDCData,
-            0x0b => ClassCode::SmartCard,
-            0x0d => ClassCode::ContentSecurity,
-            0x0e => ClassCode::Video,
-            0x0f => ClassCode::PersonalHealthcare,
-            0x10 => ClassCode::AudioVideo,
-            0x11 => ClassCode::Billboard,
-            0x12 => ClassCode::USBTypeCBridge,
-            0x13 => ClassCode::BDP,
-            0x14 => ClassCode::MCTP,
-            0x3c => ClassCode::I3CDevice,
-            0xdc => ClassCode::Diagnostic,
-            0xe0 => ClassCode::WirelessController,
-            0xef => ClassCode::Miscellaneous,
-            0xfe => ClassCode::ApplicationSpecificInterface,
-            0xff => ClassCode::VendorSpecificClass,
-            _ => ClassCode::UseInterfaceDescriptor,
+            0x00 => BaseClass::UseInterfaceDescriptor,
+            0x01 => BaseClass::Audio,
+            0x02 => BaseClass::CdcCommunication,
+            0x03 => BaseClass::Hid,
+            0x05 => BaseClass::Physical,
+            0x06 => BaseClass::Image,
+            0x07 => BaseClass::Printer,
+            0x08 => BaseClass::MassStorage,
+            0x09 => BaseClass::Hub,
+            0x0a => BaseClass::CdcData,
+            0x0b => BaseClass::SmartCard,
+            0x0d => BaseClass::ContentSecurity,
+            0x0e => BaseClass::Video,
+            0x0f => BaseClass::PersonalHealthcare,
+            0x10 => BaseClass::AudioVideo,
+            0x11 => BaseClass::Billboard,
+            0x12 => BaseClass::UsbTypeCBridge,
+            0x13 => BaseClass::Bdp,
+            0x14 => BaseClass::Mctp,
+            0x3c => BaseClass::I3cDevice,
+            0xdc => BaseClass::Diagnostic,
+            0xe0 => BaseClass::WirelessController,
+            0xef => BaseClass::Miscellaneous,
+            0xfe => BaseClass::ApplicationSpecificInterface,
+            0xff => BaseClass::VendorSpecificClass,
+            _ => BaseClass::UseInterfaceDescriptor,
         }
     }
 }
 
-impl From<ClassCode> for u8 {
-    fn from(val: ClassCode) -> Self {
+impl From<BaseClass> for u8 {
+    fn from(val: BaseClass) -> Self {
         // set as repr(u8) so this will do the conversion
         val as u8
     }
 }
 
-impl From<Class> for ClassCode {
+impl From<Class> for BaseClass {
     fn from(c: Class) -> Self {
         match c {
             Class::Generic(c) => c,
-            Class::FullSpeedHub => ClassCode::Hub,
-            Class::HighSpeedHubSingleTT => ClassCode::Hub,
-            Class::HighSpeedHubMultiTT => ClassCode::Hub,
-            Class::AudioVideoAVControlInterface => ClassCode::Audio,
-            Class::AudioVideoAVDataVideo => ClassCode::Audio,
-            Class::AudioVideoAVDataAudio => ClassCode::Audio,
-            Class::MCTPManagementController => ClassCode::MCTP,
-            Class::MCTPHostInterfaceEndpoint => ClassCode::MCTP,
-            Class::USB2ComplianceDevice => ClassCode::Diagnostic,
-            Class::DebugTargetVendorDefined => ClassCode::Diagnostic,
-            Class::GNURemoteDebugCommandSet => ClassCode::Diagnostic,
-            Class::VendorDefinedTraceDbC => ClassCode::Diagnostic,
-            Class::VendorDefinedDfxDbC => ClassCode::Diagnostic,
-            Class::VendorDefinedTraceGPDvC => ClassCode::Diagnostic,
-            Class::GNUProtocolGPDvC => ClassCode::Diagnostic,
-            Class::VendorDefinedDfxDvC => ClassCode::Diagnostic,
-            Class::VendorDefinedTraceDvC => ClassCode::Diagnostic,
-            Class::BluetoothProgrammingInterface => ClassCode::WirelessController,
-            Class::UWBRadioControlInterface => ClassCode::WirelessController,
-            Class::RemoteNDIS => ClassCode::WirelessController,
-            Class::BluetoothAMPController => ClassCode::WirelessController,
-            Class::HostWireAdaptor => ClassCode::WirelessController,
-            Class::DeviceWireAdaptor => ClassCode::WirelessController,
-            Class::DeviceWireAdaptorIsochronous => ClassCode::WirelessController,
-            Class::ActiveSync => ClassCode::Miscellaneous,
-            Class::PalmSync => ClassCode::Miscellaneous,
-            Class::InterfaceAssociationDescriptor => ClassCode::Miscellaneous,
-            Class::WireAdaptorMultifunctionPeripheral => ClassCode::Miscellaneous,
-            Class::CableBasedAssociationFramework => ClassCode::Miscellaneous,
-            Class::RNDISOverEthernet => ClassCode::Miscellaneous,
-            Class::RNDISOverWiFi => ClassCode::Miscellaneous,
-            Class::RNDISOverWiMAX => ClassCode::Miscellaneous,
-            Class::RNDISOverWWAN => ClassCode::Miscellaneous,
-            Class::RNDISforRawIPv4 => ClassCode::Miscellaneous,
-            Class::RNDISforRawIPv6 => ClassCode::Miscellaneous,
-            Class::RNDISforGPRS => ClassCode::Miscellaneous,
-            Class::USB3VisionControlInterface => ClassCode::Miscellaneous,
-            Class::USB3VisionEventInterface => ClassCode::Miscellaneous,
-            Class::USB3VisionStreamingInterface => ClassCode::Miscellaneous,
-            Class::STEPStreamTransport => ClassCode::Miscellaneous,
-            Class::STEPRAWStreamTransport => ClassCode::Miscellaneous,
-            Class::CommandInterfaceIAD => ClassCode::Miscellaneous,
-            Class::CommandInterfaceID => ClassCode::Miscellaneous,
-            Class::MediaInterfaceID => ClassCode::Miscellaneous,
-            Class::DeviceFirmwareUpgrade => ClassCode::ApplicationSpecificInterface,
-            Class::IRDABridge => ClassCode::ApplicationSpecificInterface,
-            Class::USBTestMeasurement => ClassCode::ApplicationSpecificInterface,
-            Class::USBTestMeasurementUSBTMC488 => ClassCode::ApplicationSpecificInterface,
+            Class::FullSpeedHub => BaseClass::Hub,
+            Class::HighSpeedHubSingleTT => BaseClass::Hub,
+            Class::HighSpeedHubMultiTT => BaseClass::Hub,
+            Class::AudioVideoAVControlInterface => BaseClass::Audio,
+            Class::AudioVideoAVDataVideo => BaseClass::Audio,
+            Class::AudioVideoAVDataAudio => BaseClass::Audio,
+            Class::MCTPManagementController => BaseClass::Mctp,
+            Class::MCTPHostInterfaceEndpoint => BaseClass::Mctp,
+            Class::USB2ComplianceDevice => BaseClass::Diagnostic,
+            Class::DebugTargetVendorDefined => BaseClass::Diagnostic,
+            Class::GNURemoteDebugCommandSet => BaseClass::Diagnostic,
+            Class::VendorDefinedTraceDbC => BaseClass::Diagnostic,
+            Class::VendorDefinedDfxDbC => BaseClass::Diagnostic,
+            Class::VendorDefinedTraceGPDvC => BaseClass::Diagnostic,
+            Class::GNUProtocolGPDvC => BaseClass::Diagnostic,
+            Class::VendorDefinedDfxDvC => BaseClass::Diagnostic,
+            Class::VendorDefinedTraceDvC => BaseClass::Diagnostic,
+            Class::BluetoothProgrammingInterface => BaseClass::WirelessController,
+            Class::UWBRadioControlInterface => BaseClass::WirelessController,
+            Class::RemoteNDIS => BaseClass::WirelessController,
+            Class::BluetoothAMPController => BaseClass::WirelessController,
+            Class::HostWireAdaptor => BaseClass::WirelessController,
+            Class::DeviceWireAdaptor => BaseClass::WirelessController,
+            Class::DeviceWireAdaptorIsochronous => BaseClass::WirelessController,
+            Class::ActiveSync => BaseClass::Miscellaneous,
+            Class::PalmSync => BaseClass::Miscellaneous,
+            Class::InterfaceAssociationDescriptor => BaseClass::Miscellaneous,
+            Class::WireAdaptorMultifunctionPeripheral => BaseClass::Miscellaneous,
+            Class::CableBasedAssociationFramework => BaseClass::Miscellaneous,
+            Class::RNDISOverEthernet => BaseClass::Miscellaneous,
+            Class::RNDISOverWiFi => BaseClass::Miscellaneous,
+            Class::RNDISOverWiMAX => BaseClass::Miscellaneous,
+            Class::RNDISOverWWAN => BaseClass::Miscellaneous,
+            Class::RNDISforRawIPv4 => BaseClass::Miscellaneous,
+            Class::RNDISforRawIPv6 => BaseClass::Miscellaneous,
+            Class::RNDISforGPRS => BaseClass::Miscellaneous,
+            Class::USB3VisionControlInterface => BaseClass::Miscellaneous,
+            Class::USB3VisionEventInterface => BaseClass::Miscellaneous,
+            Class::USB3VisionStreamingInterface => BaseClass::Miscellaneous,
+            Class::STEPStreamTransport => BaseClass::Miscellaneous,
+            Class::STEPRAWStreamTransport => BaseClass::Miscellaneous,
+            Class::CommandInterfaceIAD => BaseClass::Miscellaneous,
+            Class::CommandInterfaceID => BaseClass::Miscellaneous,
+            Class::MediaInterfaceID => BaseClass::Miscellaneous,
+            Class::DeviceFirmwareUpgrade => BaseClass::ApplicationSpecificInterface,
+            Class::IRDABridge => BaseClass::ApplicationSpecificInterface,
+            Class::USBTestMeasurement => BaseClass::ApplicationSpecificInterface,
+            Class::USBTestMeasurementUSBTMC488 => BaseClass::ApplicationSpecificInterface,
         }
     }
 }
 
-impl ClassCode {
-    /// How the ClassCode is used [`DescriptorUsage`]
+impl BaseClass {
+    /// How the BaseClass is used [`DescriptorUsage`]
     pub fn usage(&self) -> DescriptorUsage {
         match self {
-            ClassCode::UseInterfaceDescriptor | ClassCode::Hub | ClassCode::Billboard => {
+            BaseClass::UseInterfaceDescriptor | BaseClass::Hub | BaseClass::Billboard => {
                 DescriptorUsage::Device
             }
-            ClassCode::CDCCommunications
-            | ClassCode::Diagnostic
-            | ClassCode::Miscellaneous
-            | ClassCode::VendorSpecificClass => DescriptorUsage::Both,
+            BaseClass::CdcCommunication
+            | BaseClass::Diagnostic
+            | BaseClass::Miscellaneous
+            | BaseClass::VendorSpecificClass => DescriptorUsage::Both,
             _ => DescriptorUsage::Interface,
         }
     }
 
     /// lsusb is explicit for some in styling of tree
     /// ```
-    /// # use cyme::usb::ClassCode;
+    /// # use cyme::usb::BaseClass;
     ///
-    /// assert_eq!(ClassCode::HID.to_lsusb_string(), "Human Interface Device");
+    /// assert_eq!(BaseClass::Hid.to_lsusb_string(), "Human Interface Device");
     /// ```
     pub fn to_lsusb_string(&self) -> String {
         match self {
-            ClassCode::HID => "Human Interface Device".into(),
-            ClassCode::CDCCommunications => "Communications".into(),
+            BaseClass::Hid => "Human Interface Device".into(),
+            BaseClass::CdcCommunication => "Communications".into(),
             _ => self.to_title_case(),
         }
     }
 
     /// Converts Pascal case enum to space separated on capitals
     /// ```
-    /// # use cyme::usb::ClassCode;
+    /// # use cyme::usb::BaseClass;
     ///
-    /// assert_eq!(ClassCode::UseInterfaceDescriptor.to_title_case(), "Use Interface Descriptor");
-    /// assert_eq!(ClassCode::CDCData.to_title_case(), "CDC Data");
+    /// assert_eq!(BaseClass::UseInterfaceDescriptor.to_title_case(), "Use Interface Descriptor");
+    /// assert_eq!(BaseClass::CdcData.to_title_case(), "CDC Data");
     /// ```
     pub fn to_title_case(&self) -> String {
         let title = heck::AsTitleCase(self.to_string()).to_string();
@@ -391,14 +391,14 @@ impl ClassCode {
 
         // keep capitalised abbreviations
         match first.to_owned() {
-            "Cdc" | "Usb" | "I3c" | "Hid" => title.replace(first, &first.to_uppercase()),
+            "Cdc" | "Usb" | "I3c" | "Hid" |  "Bdp" | "Mctp" => title.replace(first, &first.to_uppercase()),
             _ => title,
         }
     }
 }
 
-impl From<ClassCode> for DescriptorUsage {
-    fn from(c: ClassCode) -> DescriptorUsage {
+impl From<BaseClass> for DescriptorUsage {
+    fn from(c: BaseClass) -> DescriptorUsage {
         c.usage()
     }
 }
@@ -411,7 +411,7 @@ impl From<ClassCode> for DescriptorUsage {
 #[non_exhaustive]
 pub enum Class {
     /// Generic devices just have a 'Base Class'. It is a device without a defining SubClass or Protocol
-    Generic(ClassCode),
+    Generic(BaseClass),
     /// Full speed Hub
     FullSpeedHub,
     /// Hi-speed hub with single TT
@@ -539,58 +539,58 @@ pub type ClassCodeTriplet<T> = (T, u8, u8);
 
 impl<T> From<ClassCodeTriplet<T>> for Class
 where
-    T: Into<ClassCode>,
+    T: Into<BaseClass>,
 {
     fn from(triplet: ClassCodeTriplet<T>) -> Self {
         match (triplet.0.into(), triplet.1, triplet.2) {
-            (ClassCode::Hub, 0x00, 0x00) => Class::FullSpeedHub,
-            (ClassCode::Hub, 0x00, 0x01) => Class::HighSpeedHubSingleTT,
-            (ClassCode::Hub, 0x00, 0x02) => Class::HighSpeedHubMultiTT,
-            (ClassCode::Audio, 0x01, 0x00) => Class::AudioVideoAVControlInterface,
-            (ClassCode::Audio, 0x02, 0x00) => Class::AudioVideoAVDataVideo,
-            (ClassCode::Audio, 0x03, 0x00) => Class::AudioVideoAVDataAudio,
-            (ClassCode::MCTP, 0x00, 0x01) => Class::MCTPManagementController,
-            (ClassCode::MCTP, 0x00, 0x02) => Class::MCTPHostInterfaceEndpoint,
-            (ClassCode::Diagnostic, 0x01, 0x01) => Class::USB2ComplianceDevice,
-            (ClassCode::Diagnostic, 0x02, 0x00) => Class::DebugTargetVendorDefined,
-            (ClassCode::Diagnostic, 0x02, 0x01) => Class::GNURemoteDebugCommandSet,
-            (ClassCode::Diagnostic, 0x03, 0x01) => Class::VendorDefinedTraceDbC,
-            (ClassCode::Diagnostic, 0x04, 0x01) => Class::VendorDefinedDfxDbC,
-            (ClassCode::Diagnostic, 0x05, 0x00) => Class::VendorDefinedTraceGPDvC,
-            (ClassCode::Diagnostic, 0x05, 0x01) => Class::GNUProtocolGPDvC,
-            (ClassCode::Diagnostic, 0x06, 0x01) => Class::VendorDefinedDfxDvC,
-            (ClassCode::Diagnostic, 0x07, 0x01) => Class::VendorDefinedTraceDvC,
-            (ClassCode::WirelessController, 0x01, 0x01) => Class::BluetoothProgrammingInterface,
-            (ClassCode::WirelessController, 0x01, 0x02) => Class::UWBRadioControlInterface,
-            (ClassCode::WirelessController, 0x01, 0x03) => Class::RemoteNDIS,
-            (ClassCode::WirelessController, 0x01, 0x04) => Class::BluetoothAMPController,
-            (ClassCode::WirelessController, 0x02, 0x01) => Class::HostWireAdaptor,
-            (ClassCode::WirelessController, 0x02, 0x02) => Class::DeviceWireAdaptor,
-            (ClassCode::WirelessController, 0x02, 0x03) => Class::DeviceWireAdaptorIsochronous,
-            (ClassCode::Miscellaneous, 0x01, 0x01) => Class::ActiveSync,
-            (ClassCode::Miscellaneous, 0x01, 0x02) => Class::PalmSync,
-            (ClassCode::Miscellaneous, 0x02, 0x01) => Class::InterfaceAssociationDescriptor,
-            (ClassCode::Miscellaneous, 0x02, 0x02) => Class::WireAdaptorMultifunctionPeripheral,
-            (ClassCode::Miscellaneous, 0x03, 0x01) => Class::CableBasedAssociationFramework,
-            (ClassCode::Miscellaneous, 0x04, 0x01) => Class::RNDISOverEthernet,
-            (ClassCode::Miscellaneous, 0x04, 0x02) => Class::RNDISOverWiFi,
-            (ClassCode::Miscellaneous, 0x04, 0x03) => Class::RNDISOverWiMAX,
-            (ClassCode::Miscellaneous, 0x04, 0x04) => Class::RNDISOverWWAN,
-            (ClassCode::Miscellaneous, 0x04, 0x05) => Class::RNDISforRawIPv4,
-            (ClassCode::Miscellaneous, 0x04, 0x06) => Class::RNDISforRawIPv6,
-            (ClassCode::Miscellaneous, 0x04, 0x07) => Class::RNDISforGPRS,
-            (ClassCode::Miscellaneous, 0x05, 0x00) => Class::USB3VisionControlInterface,
-            (ClassCode::Miscellaneous, 0x05, 0x01) => Class::USB3VisionEventInterface,
-            (ClassCode::Miscellaneous, 0x05, 0x02) => Class::USB3VisionStreamingInterface,
-            (ClassCode::Miscellaneous, 0x06, 0x01) => Class::STEPStreamTransport,
-            (ClassCode::Miscellaneous, 0x06, 0x02) => Class::STEPRAWStreamTransport,
-            // (ClassCode::Miscellaneous, 0x07, 0x01) => DeviceClass::CommandInterfaceIAD,
-            (ClassCode::Miscellaneous, 0x07, 0x01) => Class::CommandInterfaceID,
-            (ClassCode::Miscellaneous, 0x07, 0x02) => Class::MediaInterfaceID,
-            (ClassCode::ApplicationSpecificInterface, 0x01, 0x01) => Class::DeviceFirmwareUpgrade,
-            (ClassCode::ApplicationSpecificInterface, 0x02, 0x00) => Class::IRDABridge,
-            (ClassCode::ApplicationSpecificInterface, 0x03, 0x00) => Class::USBTestMeasurement,
-            (ClassCode::ApplicationSpecificInterface, 0x03, 0x01) => {
+            (BaseClass::Hub, 0x00, 0x00) => Class::FullSpeedHub,
+            (BaseClass::Hub, 0x00, 0x01) => Class::HighSpeedHubSingleTT,
+            (BaseClass::Hub, 0x00, 0x02) => Class::HighSpeedHubMultiTT,
+            (BaseClass::Audio, 0x01, 0x00) => Class::AudioVideoAVControlInterface,
+            (BaseClass::Audio, 0x02, 0x00) => Class::AudioVideoAVDataVideo,
+            (BaseClass::Audio, 0x03, 0x00) => Class::AudioVideoAVDataAudio,
+            (BaseClass::Mctp, 0x00, 0x01) => Class::MCTPManagementController,
+            (BaseClass::Mctp, 0x00, 0x02) => Class::MCTPHostInterfaceEndpoint,
+            (BaseClass::Diagnostic, 0x01, 0x01) => Class::USB2ComplianceDevice,
+            (BaseClass::Diagnostic, 0x02, 0x00) => Class::DebugTargetVendorDefined,
+            (BaseClass::Diagnostic, 0x02, 0x01) => Class::GNURemoteDebugCommandSet,
+            (BaseClass::Diagnostic, 0x03, 0x01) => Class::VendorDefinedTraceDbC,
+            (BaseClass::Diagnostic, 0x04, 0x01) => Class::VendorDefinedDfxDbC,
+            (BaseClass::Diagnostic, 0x05, 0x00) => Class::VendorDefinedTraceGPDvC,
+            (BaseClass::Diagnostic, 0x05, 0x01) => Class::GNUProtocolGPDvC,
+            (BaseClass::Diagnostic, 0x06, 0x01) => Class::VendorDefinedDfxDvC,
+            (BaseClass::Diagnostic, 0x07, 0x01) => Class::VendorDefinedTraceDvC,
+            (BaseClass::WirelessController, 0x01, 0x01) => Class::BluetoothProgrammingInterface,
+            (BaseClass::WirelessController, 0x01, 0x02) => Class::UWBRadioControlInterface,
+            (BaseClass::WirelessController, 0x01, 0x03) => Class::RemoteNDIS,
+            (BaseClass::WirelessController, 0x01, 0x04) => Class::BluetoothAMPController,
+            (BaseClass::WirelessController, 0x02, 0x01) => Class::HostWireAdaptor,
+            (BaseClass::WirelessController, 0x02, 0x02) => Class::DeviceWireAdaptor,
+            (BaseClass::WirelessController, 0x02, 0x03) => Class::DeviceWireAdaptorIsochronous,
+            (BaseClass::Miscellaneous, 0x01, 0x01) => Class::ActiveSync,
+            (BaseClass::Miscellaneous, 0x01, 0x02) => Class::PalmSync,
+            (BaseClass::Miscellaneous, 0x02, 0x01) => Class::InterfaceAssociationDescriptor,
+            (BaseClass::Miscellaneous, 0x02, 0x02) => Class::WireAdaptorMultifunctionPeripheral,
+            (BaseClass::Miscellaneous, 0x03, 0x01) => Class::CableBasedAssociationFramework,
+            (BaseClass::Miscellaneous, 0x04, 0x01) => Class::RNDISOverEthernet,
+            (BaseClass::Miscellaneous, 0x04, 0x02) => Class::RNDISOverWiFi,
+            (BaseClass::Miscellaneous, 0x04, 0x03) => Class::RNDISOverWiMAX,
+            (BaseClass::Miscellaneous, 0x04, 0x04) => Class::RNDISOverWWAN,
+            (BaseClass::Miscellaneous, 0x04, 0x05) => Class::RNDISforRawIPv4,
+            (BaseClass::Miscellaneous, 0x04, 0x06) => Class::RNDISforRawIPv6,
+            (BaseClass::Miscellaneous, 0x04, 0x07) => Class::RNDISforGPRS,
+            (BaseClass::Miscellaneous, 0x05, 0x00) => Class::USB3VisionControlInterface,
+            (BaseClass::Miscellaneous, 0x05, 0x01) => Class::USB3VisionEventInterface,
+            (BaseClass::Miscellaneous, 0x05, 0x02) => Class::USB3VisionStreamingInterface,
+            (BaseClass::Miscellaneous, 0x06, 0x01) => Class::STEPStreamTransport,
+            (BaseClass::Miscellaneous, 0x06, 0x02) => Class::STEPRAWStreamTransport,
+            // (BaseClass::Miscellaneous, 0x07, 0x01) => DeviceClass::CommandInterfaceIAD,
+            (BaseClass::Miscellaneous, 0x07, 0x01) => Class::CommandInterfaceID,
+            (BaseClass::Miscellaneous, 0x07, 0x02) => Class::MediaInterfaceID,
+            (BaseClass::ApplicationSpecificInterface, 0x01, 0x01) => Class::DeviceFirmwareUpgrade,
+            (BaseClass::ApplicationSpecificInterface, 0x02, 0x00) => Class::IRDABridge,
+            (BaseClass::ApplicationSpecificInterface, 0x03, 0x00) => Class::USBTestMeasurement,
+            (BaseClass::ApplicationSpecificInterface, 0x03, 0x01) => {
                 Class::USBTestMeasurementUSBTMC488
             }
             (c, _, _) => Class::Generic(c),
@@ -604,8 +604,8 @@ impl fmt::Display for Class {
     }
 }
 
-impl From<ClassCode> for Class {
-    fn from(class: ClassCode) -> Self {
+impl From<BaseClass> for Class {
+    fn from(class: BaseClass) -> Self {
         Class::Generic(class)
     }
 }
@@ -998,7 +998,7 @@ pub struct Interface {
     /// Interface port path - could be generated from device but stored here for ease
     pub path: String,
     /// Class of interface provided by USB IF
-    pub class: ClassCode,
+    pub class: BaseClass,
     /// Sub-class of interface provided by USB IF
     pub sub_class: u8,
     /// Prototol code for interface provided by USB IF

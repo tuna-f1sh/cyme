@@ -132,7 +132,7 @@ alt-setting\:"Interfaces can have the same number but an alternate settings defi
 driver\:"Driver obtained from udev on Linux only"
 sys-path\:"syspath obtained from udev on Linux only"
 num-endpoints\:"An interface can have many endpoints"
-icon\:"Icon based on ClassCode/SubCode/Protocol"
+icon\:"Icon based on BaseClass/SubCode/Protocol"
 uid-class\:"Class name from USB IDs repository"
 uid-sub-class\:"Sub-class name from USB IDs repository"
 uid-protocol\:"Protocol name from USB IDs repository"

@@ -11,7 +11,7 @@ use cyme::display;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::profiler;
-use cyme::usb::ClassCode;
+use cyme::usb::BaseClass;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -47,7 +47,7 @@ struct Args {
 
     /// Filter on USB class code
     #[arg(long)]
-    filter_class: Option<ClassCode>,
+    filter_class: Option<BaseClass>,
 
     /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]

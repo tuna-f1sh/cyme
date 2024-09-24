@@ -312,8 +312,8 @@ impl From<Descriptor> for Vec<u8> {
 }
 
 impl Descriptor {
-    /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`ClassCode`] for class specific descriptors
-    pub fn update_with_class_context<T: Into<ClassCode> + Copy>(
+    /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`BaseClass`] for class specific descriptors
+    pub fn update_with_class_context<T: Into<BaseClass> + Copy>(
         &mut self,
         class_triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
@@ -596,10 +596,10 @@ pub enum ClassDescriptor {
     Video(video::UvcDescriptor, u8),
     /// Device Firmware Upgrade (DFU) descriptor
     Dfu(DfuDescriptor),
-    /// Generic descriptor with `Option<ClassCode>`
+    /// Generic descriptor with `Option<BaseClass>`
     ///
-    /// Used for most descriptors and allows for TryFrom without knowing the [`ClassCode`]
-    Generic(Option<ClassCodeTriplet<ClassCode>>, GenericDescriptor),
+    /// Used for most descriptors and allows for TryFrom without knowing the [`BaseClass`]
+    Generic(Option<ClassCodeTriplet<BaseClass>>, GenericDescriptor),
 }
 
 impl TryFrom<&[u8]> for ClassDescriptor {
@@ -634,48 +634,48 @@ impl From<ClassDescriptor> for Vec<u8> {
 }
 
 impl ClassDescriptor {
-    /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`ClassCode`] and descriptor if it is not [`GenericDescriptor`]
-    pub fn update_with_class_context<T: Into<ClassCode> + Copy>(
+    /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`BaseClass`] and descriptor if it is not [`GenericDescriptor`]
+    pub fn update_with_class_context<T: Into<BaseClass> + Copy>(
         &mut self,
         triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
         if let ClassDescriptor::Generic(_, gd) = self {
             match (triplet.0.into(), triplet.1, triplet.2) {
-                (ClassCode::HID, _, _) => {
+                (BaseClass::Hid, _, _) => {
                     *self = ClassDescriptor::Hid(HidDescriptor::try_from(gd.to_owned())?)
                 }
-                (ClassCode::SmartCard, _, _) => {
+                (BaseClass::SmartCard, _, _) => {
                     *self = ClassDescriptor::Ccid(CcidDescriptor::try_from(gd.to_owned())?)
                 }
-                (ClassCode::Printer, _, _) => {
+                (BaseClass::Printer, _, _) => {
                     *self = ClassDescriptor::Printer(PrinterDescriptor::try_from(gd.to_owned())?)
                 }
-                (ClassCode::CDCCommunications, _, _) | (ClassCode::CDCData, _, _) => {
+                (BaseClass::CdcCommunication, _, _) | (BaseClass::CdcData, _, _) => {
                     *self = ClassDescriptor::Communication(cdc::CommunicationDescriptor::try_from(
                         gd.to_owned(),
                     )?)
                 }
                 // For legacy purposes, MIDI is defined as a SubClass of Audio Class
                 // but we define at as a separate ClassDescriptor
-                (ClassCode::Audio, 3, p) => {
+                (BaseClass::Audio, 3, p) => {
                     *self =
                         ClassDescriptor::Midi(audio::MidiDescriptor::try_from(gd.to_owned())?, p)
                 }
                 // UAC
-                (ClassCode::Audio, s, p) => {
+                (BaseClass::Audio, s, p) => {
                     *self = ClassDescriptor::Audio(
                         // endpoint is included in UacInterfaceDescriptor::try_from
                         audio::UacDescriptor::try_from((gd.to_owned(), s, p))?,
                         audio::UacProtocol::from(p),
                     )
                 }
-                (ClassCode::Video, s, p) => {
+                (BaseClass::Video, s, p) => {
                     *self = ClassDescriptor::Video(
                         video::UvcDescriptor::try_from((gd.to_owned(), s, p))?,
                         p,
                     )
                 }
-                (ClassCode::ApplicationSpecificInterface, 1, _) => {
+                (BaseClass::ApplicationSpecificInterface, 1, _) => {
                     *self = ClassDescriptor::Dfu(DfuDescriptor::try_from(gd.to_owned())?)
                 }
                 ct => *self = ClassDescriptor::Generic(Some(ct), gd.to_owned()),
@@ -1298,7 +1298,7 @@ pub struct DeviceQualifierDescriptor {
     pub length: u8,
     pub descriptor_type: u8,
     pub version: Version,
-    pub device_class: ClassCode,
+    pub device_class: BaseClass,
     pub device_subclass: u8,
     pub device_protocol: u8,
     pub max_packet_size: u8,
@@ -1328,7 +1328,7 @@ impl TryFrom<&[u8]> for DeviceQualifierDescriptor {
             length: value[0],
             descriptor_type: value[1],
             version: Version::from_bcd(u16::from_le_bytes([value[2], value[3]])),
-            device_class: ClassCode::from(value[4]),
+            device_class: BaseClass::from(value[4]),
             device_subclass: value[5],
             device_protocol: value[6],
             max_packet_size: value[7],

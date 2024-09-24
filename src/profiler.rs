@@ -304,7 +304,7 @@ where
     /// Build fully described USB device descriptor with extra bytes
     ///
     /// Fully described is based on the [`usb::ClassCodeTriplet`] and [`usb::Descriptor`] types. Any string indexes (or data which requires a control message) will be fetched and added to the descriptor while the device is still available.
-    fn build_descriptor_extra<C: Into<usb::ClassCode> + Copy>(
+    fn build_descriptor_extra<C: Into<usb::BaseClass> + Copy>(
         &self,
         device: &T,
         class_code: Option<usb::ClassCodeTriplet<C>>,
@@ -518,7 +518,7 @@ where
     }
 
     /// Build [`usb::Descriptor`]s from extra bytes of an Interface Descriptor
-    fn build_interface_descriptor_extra<C: Into<usb::ClassCode> + Copy>(
+    fn build_interface_descriptor_extra<C: Into<usb::BaseClass> + Copy>(
         &self,
         device: &T,
         class_code: usb::ClassCodeTriplet<C>,
@@ -558,7 +558,7 @@ where
     }
 
     /// Build [`usb::Descriptor`]s from extra bytes of an Endpoint Descriptor
-    fn build_endpoint_descriptor_extra<C: Into<usb::ClassCode> + Copy>(
+    fn build_endpoint_descriptor_extra<C: Into<usb::BaseClass> + Copy>(
         &self,
         device: &T,
         class_code: usb::ClassCodeTriplet<C>,

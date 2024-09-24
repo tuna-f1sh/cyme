@@ -771,7 +771,7 @@ pub struct Device {
     pub devices: Option<Vec<Device>>,
     // below are not in macOS system profiler but useful enough to have outside of extra
     /// USB device class
-    pub class: Option<ClassCode>,
+    pub class: Option<BaseClass>,
     /// USB sub-class
     pub sub_class: Option<u8>,
     /// USB protocol
@@ -806,7 +806,7 @@ impl Device {
     }
 
     /// Does the device have an interface with `class`
-    pub fn has_interface_class(&self, c: &ClassCode) -> bool {
+    pub fn has_interface_class(&self, c: &BaseClass) -> bool {
         if let Some(extra) = self.extra.as_ref() {
             extra
                 .configurations
@@ -963,7 +963,7 @@ impl Device {
     /// assert_eq!(d.is_hub(), true);
     ///
     /// // Class is hub
-    /// let d = cyme::profiler::Device{ name: String::from("Not named but Class"), class: Some(cyme::usb::ClassCode::Hub),  ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Not named but Class"), class: Some(cyme::usb::BaseClass::Hub),  ..Default::default() };
     /// assert_eq!(d.is_hub(), true);
     ///
     /// // not a hub
@@ -972,7 +972,7 @@ impl Device {
     /// ```
     pub fn is_hub(&self) -> bool {
         self.name.to_lowercase().contains("hub")
-            || self.class.as_ref().map_or(false, |c| *c == ClassCode::Hub)
+            || self.class.as_ref().map_or(false, |c| *c == BaseClass::Hub)
     }
 
     /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
@@ -1212,7 +1212,7 @@ impl Device {
         format_strs
     }
 
-    /// Gets the base class code byte from [`ClassCode`]
+    /// Gets the base class code byte from [`BaseClass`]
     pub fn base_class_code(&self) -> Option<u8> {
         self.class.as_ref().map(|c| u8::from(*c))
     }
@@ -1363,8 +1363,8 @@ pub struct Filter {
     pub name: Option<String>,
     /// retain only devices with serial.contains(serial)
     pub serial: Option<String>,
-    /// retain only device of ClassCode class
-    pub class: Option<ClassCode>,
+    /// retain only device of BaseClass class
+    pub class: Option<BaseClass>,
     /// Exclude empty hubs in the tree
     pub exclude_empty_hub: bool,
     /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`Bus`]'s in the tree
@@ -1438,7 +1438,7 @@ pub type USBFilter = Filter;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/cyme_libusb_merge_macos_tree.json").unwrap();
 /// let filter = Filter {
-///     class: Some(cyme::usb::ClassCode::CDCCommunications),
+///     class: Some(cyme::usb::BaseClass::CDCCommunications),
 ///     ..Default::default()
 /// };
 /// let mut flattened = spusb.flattened_devices();
