@@ -306,7 +306,7 @@ lazy_static! {
             (Icon::Classifier(BaseClass::Diagnostic), "\u{f489}"), // 
             (Icon::Classifier(BaseClass::WirelessController), "\u{f1eb}"), // 
             (Icon::Classifier(BaseClass::Miscellaneous), "\u{f074}"), // 
-            (Icon::Classifier(BaseClass::CdcCommunication), "\u{e795}"), // serial 
+            (Icon::Classifier(BaseClass::CdcCommunications), "\u{e795}"), // serial 
             (Icon::Classifier(BaseClass::CdcData), "\u{e795}"), // serial 
             (Icon::Classifier(BaseClass::Hid), "\u{f030c}"), // 󰌌
             (Icon::UndefinedClassifier, "\u{2636}"), //☶
@@ -537,7 +537,7 @@ pub fn example() -> HashMap<Icon, String> {
         ), // DFU 
         (Icon::Vid(0x2e8a), "\u{f315}".into()),   // raspberry pi foundation 
         (
-            Icon::Classifier(BaseClass::CdcCommunication),
+            Icon::Classifier(BaseClass::CdcCommunications),
             "\u{e795}".into(),
         ), // serial 
         (Icon::UndefinedClassifier, "\u{2636}".into()), //☶

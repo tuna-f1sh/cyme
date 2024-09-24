@@ -269,6 +269,7 @@ pub enum DeviceBlocks {
     /// The supported USB version
     BcdUsb,
     /// Base class enum of interface provided by USB IF - only available when using libusb
+    #[serde(alias = "class-code")] // was called ClassCode in previous versions
     BaseClass,
     /// Sub-class value of interface provided by USB IF - only available when using libusb
     SubClass,
@@ -280,10 +281,11 @@ pub enum DeviceBlocks {
     UidSubClass,
     /// Protocol name from USB IDs repository
     UidProtocol,
-    /// Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+    /// Fully defined USB Class Code enum based on BaseClass/SubClass/Protocol triplet
     Class,
-    /// Base class as number value
-    ClassValue,
+    /// Base class as number value rather than enum
+    #[serde(alias = "class-value")] // was called ClassCode in previous versions
+    BaseValue,
 }
 
 /// Info that can be printed about a [`Bus`]
@@ -356,7 +358,8 @@ pub enum InterfaceBlocks {
     Number,
     /// Interface port path, applicable to Linux
     PortPath,
-    /// Class enum of interface provided by USB IF
+    /// Base class enum of interface provided by USB IF
+    #[serde(alias = "class-code")] // was called ClassCode in previous versions
     BaseClass,
     /// Sub-class value of interface provided by USB IF
     SubClass,
@@ -378,10 +381,11 @@ pub enum InterfaceBlocks {
     UidSubClass,
     /// Protocol name from USB IDs repository
     UidProtocol,
-    /// Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+    /// Fully defined USB Class Code based on BaseClass/SubClass/Protocol triplet
     Class,
-    /// Base class as number value
-    ClassValue,
+    /// Base class as number value rather than enum
+    #[serde(alias = "class-value")]
+    BaseValue,
 }
 
 /// Info that can be printed about a [`Endpoint`]
@@ -543,7 +547,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 DeviceBlocks::ProductId,
                 DeviceBlocks::BcdDevice,
                 DeviceBlocks::BcdUsb,
-                DeviceBlocks::ClassValue,
+                DeviceBlocks::BaseValue,
                 DeviceBlocks::BaseClass,
                 DeviceBlocks::SubClass,
                 DeviceBlocks::UidSubClass,
@@ -801,7 +805,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            DeviceBlocks::ClassValue => Some(match d.class.as_ref() {
+            DeviceBlocks::BaseValue => Some(match d.class.as_ref() {
                 Some(v) => Self::format_base_u8((*v).into(), settings),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
@@ -837,7 +841,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::BaseClass
             | DeviceBlocks::UidClass
             | DeviceBlocks::Class
-            | DeviceBlocks::ClassValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
+            | DeviceBlocks::BaseValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::SubClass | DeviceBlocks::UidSubClass => {
                 ct.sub_code.map_or(s.normal(), |c| s.color(c))
             }
@@ -878,7 +882,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::UidSubClass => "UidSc",
             DeviceBlocks::UidProtocol => "UidPc",
             DeviceBlocks::Class => "Class",
-            DeviceBlocks::ClassValue => "CVal",
+            DeviceBlocks::BaseValue => "CVal",
             DeviceBlocks::Icon => ICON_HEADING,
         }
     }
@@ -903,7 +907,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => BlockLength::Fixed(6),
             DeviceBlocks::BcdDevice | DeviceBlocks::BcdUsb => BlockLength::Fixed(5),
-            DeviceBlocks::SubClass | DeviceBlocks::Protocol | DeviceBlocks::ClassValue => {
+            DeviceBlocks::SubClass | DeviceBlocks::Protocol | DeviceBlocks::BaseValue => {
                 BlockLength::Fixed(4)
             }
             _ => BlockLength::Variable(self.heading().len()),
@@ -1191,7 +1195,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 InterfaceBlocks::PortPath,
                 InterfaceBlocks::Icon,
                 InterfaceBlocks::AltSetting,
-                InterfaceBlocks::ClassValue,
+                InterfaceBlocks::BaseValue,
                 InterfaceBlocks::BaseClass,
                 InterfaceBlocks::SubClass,
                 InterfaceBlocks::UidSubClass,
@@ -1274,7 +1278,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
             InterfaceBlocks::BaseClass
             | InterfaceBlocks::UidClass
             | InterfaceBlocks::Class
-            | InterfaceBlocks::ClassValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
+            | InterfaceBlocks::BaseValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::SubClass | InterfaceBlocks::UidSubClass => {
                 ct.sub_code.map_or(s.normal(), |c| s.color(c))
             }
@@ -1345,7 +1349,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 interface.fully_defined_class(),
                 pad = pad.get(self).unwrap_or(&0)
             )),
-            InterfaceBlocks::ClassValue => {
+            InterfaceBlocks::BaseValue => {
                 Some(Self::format_base_u8(interface.class.into(), settings))
             }
         }
@@ -1367,7 +1371,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
             InterfaceBlocks::UidSubClass => "UidSc",
             InterfaceBlocks::UidProtocol => "UidPc",
             InterfaceBlocks::Class => "Class",
-            InterfaceBlocks::ClassValue => "CVal",
+            InterfaceBlocks::BaseValue => "CVal",
             InterfaceBlocks::Icon => ICON_HEADING,
         }
     }
@@ -1388,7 +1392,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
             InterfaceBlocks::SubClass
             | InterfaceBlocks::Protocol
             | InterfaceBlocks::AltSetting
-            | InterfaceBlocks::ClassValue => BlockLength::Fixed(4),
+            | InterfaceBlocks::BaseValue => BlockLength::Fixed(4),
             _ => BlockLength::Variable(self.heading().len()),
         }
     }

@@ -839,7 +839,7 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                 Descriptor::Interface(cd) => match cd {
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((BaseClass::CdcData, _, _))
-                        | Some((BaseClass::CdcCommunication, _, _)) => {
+                        | Some((BaseClass::CdcCommunications, _, _)) => {
                             if let Ok(cd) = gd.to_owned().try_into() {
                                 dump_comm_descriptor(&cd, indent)
                             }
