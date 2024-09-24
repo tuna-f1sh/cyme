@@ -62,11 +62,11 @@ _cyme() {
                     return 0
                     ;;
                 --blocks)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb class-code sub-class protocol uid-class uid-sub-class uid-protocol class class-value" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
                     return 0
                     ;;
                 -b)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb class-code sub-class protocol uid-class uid-sub-class uid-protocol class class-value" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
                     return 0
                     ;;
                 --bus-blocks)
@@ -78,7 +78,7 @@ _cyme() {
                     return 0
                     ;;
                 --interface-blocks)
-                    COMPREPLY=($(compgen -W "name number port-path class-code sub-class protocol alt-setting driver sys-path num-endpoints icon uid-class uid-sub-class uid-protocol class class-value" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "name number port-path base-class sub-class protocol alt-setting driver sys-path num-endpoints icon uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
                     return 0
                     ;;
                 --endpoint-blocks)

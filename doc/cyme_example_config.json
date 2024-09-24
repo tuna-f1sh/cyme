@@ -74,7 +74,7 @@
     "port-path",
     "icon",
     "alt-setting",
-    "class-code",
+    "base-class",
     "sub-class",
     "protocol",
     "name"
