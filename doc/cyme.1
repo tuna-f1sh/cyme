@@ -142,7 +142,7 @@ bcd\-device: The device version
 .IP \(bu 2
 bcd\-usb: The supported USB version
 .IP \(bu 2
-class\-code: Base class enum of interface provided by USB IF \- only available when using libusb
+base\-class: Base class enum of interface provided by USB IF \- only available when using libusb
 .IP \(bu 2
 sub\-class: Sub\-class value of interface provided by USB IF \- only available when using libusb
 .IP \(bu 2
@@ -154,9 +154,9 @@ uid\-sub\-class: Sub\-class name from USB IDs repository
 .IP \(bu 2
 uid\-protocol: Protocol name from USB IDs repository
 .IP \(bu 2
-class: Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+class: Fully defined USB Class Code enum based on BaseClass/SubClass/Protocol triplet
 .IP \(bu 2
-class\-value: Base class as number value
+base\-value: Base class as number value rather than enum
 .RE
 .TP
 \fB\-\-bus\-blocks\fR=\fIBUS_BLOCKS\fR
@@ -223,7 +223,7 @@ number: Interface number
 .IP \(bu 2
 port\-path: Interface port path, applicable to Linux
 .IP \(bu 2
-class\-code: Class enum of interface provided by USB IF
+base\-class: Base class enum of interface provided by USB IF
 .IP \(bu 2
 sub\-class: Sub\-class value of interface provided by USB IF
 .IP \(bu 2
@@ -245,9 +245,9 @@ uid\-sub\-class: Sub\-class name from USB IDs repository
 .IP \(bu 2
 uid\-protocol: Protocol name from USB IDs repository
 .IP \(bu 2
-class: Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+class: Fully defined USB Class Code based on BaseClass/SubClass/Protocol triplet
 .IP \(bu 2
-class\-value: Base class as number value
+base\-value: Base class as number value rather than enum
 .RE
 .TP
 \fB\-\-endpoint\-blocks\fR=\fIENDPOINT_BLOCKS\fR
