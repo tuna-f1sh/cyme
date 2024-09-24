@@ -41,24 +41,30 @@ pub struct SPUSBDataType {
 }
 
 impl SPUSBDataType {
-    /// Flattens entire data store by cloning the `buses`, flattening them and pushing into a new `Vec` and then assigning it to `buses`
-    ///
-    /// Requires clone of buses so not in place - maybe a more efficient method?
-    pub fn flatten(&mut self) {
-        let mut new_buses: Vec<USBBus> = Vec::new();
-        for mut bus in self.buses.clone() {
-            bus.flatten();
-            new_buses.push(bus);
-        }
+    /// Returns total number of devices across all buses
+    pub fn len(&self) -> usize {
+        self.buses.iter().map(|b| b.len()).sum()
+    }
 
-        self.buses = new_buses
+    /// Whether all buses are empty
+    pub fn is_empty(&self) -> bool {
+        self.buses.iter().all(|b| b.is_empty())
+    }
+
+    /// Flattens all [`USBBus`]es by calling `into_flattened_devices` on each
+    ///
+    /// In place operation so it mutates the data and tree structure is lost. Location data is still present in each device.
+    pub fn into_flattened(&mut self) {
+        for bus in &mut self.buses {
+            bus.into_flattened_devices();
+        }
     }
 
     /// Returns a flattened Vec of references to all `USBDevice`s in each of the `buses`
-    pub fn flatten_devices(&self) -> Vec<&USBDevice> {
-        let mut ret = Vec::new();
+    pub fn flattened_devices(&self) -> Vec<&USBDevice> {
+        let mut ret = Vec::with_capacity(self.len());
         for bus in &self.buses {
-            ret.append(&mut bus.flattened_devices());
+            ret.extend(bus.flattened_devices());
         }
 
         ret
@@ -142,22 +148,27 @@ pub struct USBBus {
 
 /// Returns of Vec of devices in the USBBus as a reference
 impl USBBus {
+    /// Returns total number of devices in the bus
+    pub fn len(&self) -> usize {
+        self.devices
+            .as_ref()
+            .map_or(0, |d| d.iter().map(|dd| dd.len()).sum())
+    }
+
     /// Flattens the bus by copying each device into a new devices `Vec`
     ///
     /// Unlike the `flattened_devices` which returns references that may still contain a `Vec` of `USBDevice`, this function makes those `None` too since it is doing a hard copy.
     ///
     /// Not very pretty or efficient, probably a better way...
-    pub fn flatten(&mut self) {
-        self.devices = Some(
-            self.flattened_devices()
-                .iter()
-                .map(|d| {
-                    let mut new = (*d).to_owned();
-                    new.devices = None;
-                    new
-                })
-                .collect(),
-        );
+    pub fn into_flattened_devices(&mut self) {
+        if let Some(mut devices) = self.devices.take() {
+            let mut new_devices: Vec<USBDevice> = Vec::new();
+            while let Some(device) = devices.pop() {
+                new_devices.extend(device.into_flattened())
+            }
+
+            self.devices = Some(new_devices)
+        }
     }
 
     /// Returns a flattened `Vec` of references to all `USBDevice`s on the bus
@@ -165,14 +176,14 @@ impl USBBus {
     /// Note that whilst `Vec` of references is flat, the `USBDevice`s still contain a `devices` `Vec` where the references point; recursive functions on the returned `Vec` will produce weird results
     pub fn flattened_devices(&self) -> Vec<&USBDevice> {
         if let Some(devices) = &self.devices {
-            get_all_devices(devices)
+            devices.iter().flat_map(|d| d.flatten()).collect()
         } else {
             Vec::new()
         }
     }
 
     /// Whether the bus has [`USBDevice`]s
-    pub fn has_devices(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         match &self.devices {
             Some(d) => !d.is_empty(),
             None => false,
@@ -335,21 +346,6 @@ impl USBBus {
             )])
         }
     }
-}
-
-/// Recursively gets reference to all devices in a [`USBDevice`]
-pub fn get_all_devices(devices: &Vec<USBDevice>) -> Vec<&USBDevice> {
-    let mut ret: Vec<&USBDevice> = Vec::new();
-    for device in devices {
-        // push each device into pointer array
-        ret.push(device);
-        // and run recursively for the device if it has some
-        if let Some(d) = &device.devices {
-            ret.append(&mut get_all_devices(d))
-        }
-    }
-
-    ret
 }
 
 /// Recursively writeln! of all [`USBDevice`] references
@@ -722,6 +718,14 @@ impl USBDevice {
             Some(d) => !d.is_empty(),
             None => false,
         }
+    }
+
+    /// Returns total number of devices in the tree including self
+    fn len(&self) -> usize {
+        1 + self
+            .devices
+            .as_ref()
+            .map_or(0, |d| d.iter().map(|dd| dd.len()).sum())
     }
 
     /// Does the device have an interface with `class`
@@ -1171,6 +1175,35 @@ impl USBDevice {
         self.class
             .map(|c| (c, self.sub_class.unwrap_or(0), self.protocol.unwrap_or(0)).into())
     }
+
+    /// Recursively gets all devices in a [`USBDevice`] and flattens them into a Vec of references, including self
+    pub fn flatten(&self) -> Vec<&USBDevice> {
+        let mut ret: Vec<&USBDevice> = Vec::with_capacity(self.len());
+        ret.push(self);
+        if let Some(d) = self.devices.as_ref() {
+            for child in d {
+                ret.extend(child.flatten());
+            }
+        }
+
+        ret
+    }
+
+    /// Recursively gets all devices in a [`USBDevice`] and flattens them into a Vec, including self
+    ///
+    /// Similar to `flatten` but flattens in place rather than returning references so is destructive
+    pub fn into_flattened(mut self) -> Vec<USBDevice> {
+        let mut ret: Vec<USBDevice> = Vec::with_capacity(self.len());
+        if let Some(mut d) = self.devices.take() {
+            while let Some(child) = d.pop() {
+                ret.extend(child.into_flattened());
+            }
+        }
+
+        ret.insert(0, self);
+
+        ret
+    }
 }
 
 impl fmt::Display for USBDevice {
@@ -1272,7 +1305,7 @@ pub struct USBFilter {
 ///     ..Default::default()
 /// };
 /// filter.retain_buses(&mut spusb.buses);
-/// let flattened = spusb.flatten_devices();
+/// let flattened = spusb.flattened_devices();
 /// // node was on a hub so that will remain with it
 /// assert_eq!(flattened.len(), 2);
 /// // get the node from path known before for purpose of test
@@ -1291,7 +1324,7 @@ pub struct USBFilter {
 ///     ..Default::default()
 /// };
 /// filter.retain_buses(&mut spusb.buses);
-/// let flattened = spusb.flatten_devices();
+/// let flattened = spusb.flattened_devices();
 /// // node was on a hub so that will remain with it
 /// assert_eq!(flattened.len(), 2);
 /// // get the node from path known before for purpose of test
@@ -1310,7 +1343,7 @@ pub struct USBFilter {
 ///     bus: Some(20),
 ///     ..Default::default()
 /// };
-/// let mut flattened = spusb.flatten_devices();
+/// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // now no hub
 /// assert_eq!(flattened.len(), 1);
@@ -1327,7 +1360,7 @@ pub struct USBFilter {
 ///     class: Some(cyme::usb::ClassCode::CDCCommunications),
 ///     ..Default::default()
 /// };
-/// let mut flattened = spusb.flatten_devices();
+/// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // black magic probe has CDCCommunications serial
 /// let device = spusb.get_node(&"20-3.3");
