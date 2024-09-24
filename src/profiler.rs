@@ -1,6 +1,6 @@
 //! System USB profiler for getting system USB information, devices and descriptors
 //!
-//! Get [`SPUSBDataType`] struct of system USB buses and devices with extra data like configs, interfaces and endpoints. The mod function will be based on the feature enabled, either `libusb` or `nusb`. To use a specific profiler, see the submodules [`libusb`], [`nusb`] and [`macos`].
+//! Get [`SystemProfile`] struct of system USB buses and devices with extra data like configs, interfaces and endpoints. The mod function will be based on the feature enabled, either `libusb` or `nusb`. To use a specific profiler, see the submodules [`libusb`], [`nusb`] and [`macos`].
 //!
 //! ```no_run
 //! use cyme::profiler;
@@ -594,30 +594,30 @@ where
         Ok(Some(ret))
     }
 
-    /// Get [`USBDevice`]s connected to the host, excluding root hubs
-    fn get_devices(&mut self, with_extra: bool) -> Result<Vec<USBDevice>>;
+    /// Get [`Device`]s connected to the host, excluding root hubs
+    fn get_devices(&mut self, with_extra: bool) -> Result<Vec<Device>>;
 
-    /// Get root hubs connected to the host as [`USBDevice`]s
+    /// Get root hubs connected to the host as [`Device`]s
     ///
-    /// root hubs are pseudo devices and not always listed in the device list, so this is a separate function to get them. The data is used to help create [`USBBus`]es; root hubs are an abstraction over Host Controller information.
-    fn get_root_hubs(&mut self) -> Result<HashMap<u8, USBDevice>>;
+    /// root hubs are pseudo devices and not always listed in the device list, so this is a separate function to get them. The data is used to help create [`Bus`]es; root hubs are an abstraction over Host Controller information.
+    fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>>;
 
-    fn new_sp_bus(&self, bus_number: u8, root_hub: Option<USBDevice>) -> USBBus {
+    fn new_sp_bus(&self, bus_number: u8, root_hub: Option<Device>) -> Bus {
         root_hub
             .map(|rh| {
                 rh.try_into().unwrap_or_else(|e| {
-                    log::warn!("Failed to convert root hub to USBBus: {:?}", e);
-                    USBBus::from(bus_number)
+                    log::warn!("Failed to convert root hub to Bus: {:?}", e);
+                    Bus::from(bus_number)
                 })
             })
-            .unwrap_or(USBBus::from(bus_number))
+            .unwrap_or(Bus::from(bus_number))
     }
 
-    /// Build the [`SPUSBDataType`] from the Profiler get_devices and get_root_hubs (for buses) functions
-    fn get_spusb(&mut self, with_extra: bool) -> Result<SPUSBDataType> {
-        let mut spusb = SPUSBDataType { buses: Vec::new() };
+    /// Build the [`SystemProfile`] from the Profiler get_devices and get_root_hubs (for buses) functions
+    fn get_spusb(&mut self, with_extra: bool) -> Result<SystemProfile> {
+        let mut spusb = SystemProfile { buses: Vec::new() };
 
-        log::info!("Building SPUSBDataType with {:?}", self);
+        log::info!("Building SystemProfile with {:?}", self);
 
         // temporary store of devices created when iterating through DeviceList
         let mut cache = self.get_devices(with_extra)?;
@@ -627,7 +627,7 @@ where
         let mut root_hubs = self.get_root_hubs()?;
         log::trace!("Root hubs: {:#?}", root_hubs);
 
-        // group by bus number and then stick them into a bus in the returned SPUSBDataType
+        // group by bus number and then stick them into a bus in the returned SystemProfile
         for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
             // create the bus, we'll add devices at next step
             // if root hub exists, add it to the bus and remove so we can add empty buses if missing after
@@ -704,10 +704,10 @@ where
         Ok(spusb)
     }
 
-    /// Fills a passed mutable `spusb` reference to fill using `get_spusb`. Will replace existing [`USBDevice`]s found in the Profiler tree but leave others and the buses.
+    /// Fills a passed mutable `spusb` reference to fill using `get_spusb`. Will replace existing [`Device`]s found in the Profiler tree but leave others and the buses.
     ///
-    /// The main use case for this is to merge with macOS `system_profiler` data, so that [`usb::USBDeviceExtra`] can be obtained but internal buses kept. One could also use it to update a static .json dump.
-    fn fill_spusb(&mut self, spusb: &mut SPUSBDataType) -> Result<()> {
+    /// The main use case for this is to merge with macOS `system_profiler` data, so that [`usb::DeviceExtra`] can be obtained but internal buses kept. One could also use it to update a static .json dump.
+    fn fill_spusb(&mut self, spusb: &mut SystemProfile) -> Result<()> {
         let libusb_spusb = self.get_spusb(true)?;
 
         // merge if passed has any buses
@@ -856,12 +856,14 @@ fn get_syspath(port_path: &str) -> Option<String> {
     return None;
 }
 
-/// Build [`SPUSBDataType`] by profiling system. Does not source [`usb::USBDeviceExtra`] - use [`get_spusb_with_extra`] for that; the extra operation is mostly moving data around so the only hit is to stack.
+/// Build [`SystemProfile`] by profiling system. Does not source [`usb::DeviceExtra`] - use [`get_spusb_with_extra`] for that; the extra operation is mostly moving data around so the only hit is to stack.
 ///
-/// Runs through `libusb::DeviceList` creating a cache of [`USBDevice`]. Then sorts into parent groups, accending in depth to build the [`USBBus`] tree.
+/// Runs through [`Profiler::get_devices()`] creating a cache of [`Device`]. Then sorts into parent groups, where the [`Bus`] is created -  with root hub information if available from [`Profiler::get_root_hubs()`] - and the tree built.
 ///
-/// Building the [`SPUSBDataType`] depends on system; on Linux, the root devices are at buses where as macOS the buses are not listed
-pub fn get_spusb() -> Result<SPUSBDataType> {
+/// The function will call which library is available based on the features enabled: 'nusb' or 'libusb'. If neither are enabled, it will return an error.If both are enabled, it will default to 'nusb'. 
+///
+/// Bus data on Windows is only available with 'nusb', and on this bus numbers are created in order of appearance since it is not a concept in the Windows USB stack.
+pub fn get_spusb() -> Result<SystemProfile> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
     {
         let mut profiler = libusb::LibUsbProfiler;
@@ -885,10 +887,10 @@ pub fn get_spusb() -> Result<SPUSBDataType> {
     }
 }
 
-/// Build [`SPUSBDataType`] including [`usb::USBDeviceExtra`] - the main function to use for most use cases unless one does not want verbose data. The extra data requires opening the device to read device descriptors.
+/// Build [`SystemProfile`] including [`usb::DeviceExtra`] - the main function to use for most use cases unless one does not want verbose data. The extra data requires opening the device to read device descriptors.
 ///
-/// Like `get_spusb`, runs through `libusb::DeviceList` creating a cache of [`USBDevice`]. On Linux and with the 'udev' feature enabled, the syspath and driver will attempt to be obtained.
-pub fn get_spusb_with_extra() -> Result<SPUSBDataType> {
+/// See [`Profiler::get_spusb()`] for more information.
+pub fn get_spusb_with_extra() -> Result<SystemProfile> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
     {
         let mut profiler = libusb::LibUsbProfiler;

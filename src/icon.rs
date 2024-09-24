@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use crate::display::Encoding;
 use crate::error::{Error, ErrorKind};
-use crate::profiler::{USBBus, USBDevice};
+use crate::profiler::{Bus, Device};
 use crate::usb::{ClassCode, Direction};
 
 /// If only standard UTF-8 characters are used, this is the default icon for a device
@@ -51,9 +51,9 @@ pub enum Icon {
     TreeCorner,
     /// Blanking icon for inset without edge
     TreeBlank,
-    /// Icon at prepended before printing `USBBus`
+    /// Icon at prepended before printing `Bus`
     TreeBusStart,
-    /// Icon printed at end of tree before printing `USBDevice`
+    /// Icon printed at end of tree before printing `Device`
     TreeDeviceTerminator,
     /// Icon printed at end of tree before printing configuration
     TreeConfigurationTerminator,
@@ -379,7 +379,7 @@ impl IconTheme {
     }
 
     /// Get icon for device from static default lookup
-    pub fn get_default_device_icon(d: &USBDevice) -> String {
+    pub fn get_default_device_icon(d: &Device) -> String {
         if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
             IconTheme::get_default_vidpid_icon(vid, pid)
         } else {
@@ -387,9 +387,9 @@ impl IconTheme {
         }
     }
 
-    /// Get icon for USBDevice `d` by checking `Self` using Name, Vendor ID and Product ID
+    /// Get icon for Device `d` by checking `Self` using Name, Vendor ID and Product ID
     #[cfg(feature = "regex_icon")]
-    pub fn get_device_icon(&self, d: &USBDevice) -> String {
+    pub fn get_device_icon(&self, d: &Device) -> String {
         // try name first since vidpid will return UnknownVendor default icon if not found
         // does mean regex will be built/checked for every device
         match self.get_name_icon(&d.name) {
@@ -404,9 +404,9 @@ impl IconTheme {
         }
     }
 
-    /// Get icon for USBDevice `d` by checking `Self` using Vendor ID and Product ID
+    /// Get icon for Device `d` by checking `Self` using Vendor ID and Product ID
     #[cfg(not(feature = "regex_icon"))]
-    pub fn get_device_icon(&self, d: &USBDevice) -> String {
+    pub fn get_device_icon(&self, d: &Device) -> String {
         if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
             self.get_vidpid_icon(vid, pid)
         } else {
@@ -414,8 +414,8 @@ impl IconTheme {
         }
     }
 
-    /// Get icon for USBBus `d` by checking `Self` using PCI Vendor and PCI Device
-    pub fn get_bus_icon(&self, d: &USBBus) -> String {
+    /// Get icon for Bus `d` by checking `Self` using PCI Vendor and PCI Device
+    pub fn get_bus_icon(&self, d: &Bus) -> String {
         if let (Some(vid), Some(pid)) = (d.pci_vendor, d.pci_device) {
             self.get_vidpid_icon(vid, pid)
         } else {
@@ -661,7 +661,7 @@ mod tests {
     #[test]
     #[cfg(feature = "regex_icon")]
     fn icon_match_name() {
-        let mut device = USBDevice {
+        let mut device = Device {
             name: "SD Card Reader".to_string(),
             ..Default::default()
         };

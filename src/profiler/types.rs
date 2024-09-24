@@ -18,13 +18,13 @@ use crate::usb::*;
 
 /// Root JSON returned from system_profiler and used as holder for all static USB bus data
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SPUSBDataType {
+pub struct SystemProfile {
     /// system buses
     #[serde(rename(deserialize = "SPUSBDataType"), alias = "buses")]
-    pub buses: Vec<USBBus>,
+    pub buses: Vec<Bus>,
 }
 
-impl SPUSBDataType {
+impl SystemProfile {
     /// Returns total number of devices across all buses
     pub fn len(&self) -> usize {
         self.buses.iter().map(|b| b.len()).sum()
@@ -35,7 +35,7 @@ impl SPUSBDataType {
         self.buses.iter().all(|b| b.is_empty())
     }
 
-    /// Flattens all [`USBBus`]es by calling `into_flattened_devices` on each
+    /// Flattens all [`Bus`]es by calling `into_flattened_devices` on each
     ///
     /// In place operation so it mutates the data and tree structure is lost. Location data is still present in each device.
     pub fn into_flattened(&mut self) {
@@ -44,8 +44,8 @@ impl SPUSBDataType {
         }
     }
 
-    /// Returns a flattened Vec of references to all `USBDevice`s in each of the `buses`
-    pub fn flattened_devices(&self) -> Vec<&USBDevice> {
+    /// Returns a flattened Vec of references to all [`Device`]s in each of the `buses`
+    pub fn flattened_devices(&self) -> Vec<&Device> {
         let mut ret = Vec::with_capacity(self.len());
         for bus in &self.buses {
             ret.extend(bus.flattened_devices());
@@ -54,18 +54,18 @@ impl SPUSBDataType {
         ret
     }
 
-    /// Returns reference to [`USBBus`] `number` if it exists in data
-    pub fn get_bus(&self, number: u8) -> Option<&USBBus> {
+    /// Returns reference to [`Bus`] `number` if it exists in data
+    pub fn get_bus(&self, number: u8) -> Option<&Bus> {
         self.buses.iter().find(|b| b.get_bus_number() == number)
     }
 
-    /// Returns mutable reference to [`USBBus`] `number` if it exists in data
-    pub fn get_bus_mut(&mut self, number: u8) -> Option<&mut USBBus> {
+    /// Returns mutable reference to [`Bus`] `number` if it exists in data
+    pub fn get_bus_mut(&mut self, number: u8) -> Option<&mut Bus> {
         self.buses.iter_mut().find(|b| b.get_bus_number() == number)
     }
 
-    /// Search for reference to [`USBDevice`] at `port_path` in all buses
-    pub fn get_node(&self, port_path: &str) -> Option<&USBDevice> {
+    /// Search for reference to [`Device`] at `port_path` in all buses
+    pub fn get_node(&self, port_path: &str) -> Option<&Device> {
         for bus in self.buses.iter() {
             if let Some(node) = bus.get_node(port_path) {
                 return Some(node);
@@ -74,8 +74,8 @@ impl SPUSBDataType {
         None
     }
 
-    /// Search for mutable reference to [`USBDevice`] at `port_path` in all buses
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
+    /// Search for mutable reference to [`Device`] at `port_path` in all buses
+    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
         for bus in self.buses.iter_mut() {
             if let Some(node) = bus.get_node_mut(port_path) {
                 return Some(node);
@@ -85,7 +85,7 @@ impl SPUSBDataType {
     }
 }
 
-impl fmt::Display for SPUSBDataType {
+impl fmt::Display for SystemProfile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for v in &self.buses {
             if f.alternate() {
@@ -104,12 +104,16 @@ impl fmt::Display for SPUSBDataType {
     }
 }
 
+/// Deprecated alias for [`SystemProfile`]
+#[deprecated(since = "2.0.0", note = "Use SystemProfile instead")]
+pub type SPUSBDataType = SystemProfile;
+
 /// USB bus returned from system_profiler but now used for other platforms.
 ///
 /// It is a merging of the PCI Host Controller information and root hub device data (if present). Essentially a root hub but not as a pseudo device but an explicit type - since the root hub is a bit confusing in that sense.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct USBBus {
+pub struct Bus {
     /// System internal bus name based on Root Hub device name
     ///
     /// Normally something generic like 'Root Hub', 'USB 3.0 Bus'
@@ -133,21 +137,25 @@ pub struct USBBus {
     /// Number of bus on system
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub usb_bus_number: Option<u8>,
-    /// [`USBDevice`]s on the [`USBBus`]. Since a device can have devices too, need to walk down all devices to get all devices on the bus
+    /// [`Device`]s on the [`Bus`]. Since a device can have devices too, need to walk down all devices to get all devices on the bus
     ///
     /// On Linux, the root hub is also included in this list
     #[serde(rename(deserialize = "_items"), alias = "devices")]
-    pub devices: Option<Vec<USBDevice>>,
+    pub devices: Option<Vec<Device>>,
 }
 
-impl TryFrom<USBDevice> for USBBus {
+/// Deprecated alias for [`Bus`]
+#[deprecated(since = "2.0.0", note = "Use Bus instead")]
+pub type USBBus = Bus;
+
+impl TryFrom<Device> for Bus {
     type Error = Error;
 
-    fn try_from(device: USBDevice) -> Result<Self> {
+    fn try_from(device: Device) -> Result<Self> {
         if !device.is_root_hub() {
             return Err(Error::new(
                 ErrorKind::InvalidArg,
-                "USBDevice is not a root hub",
+                "Device is not a root hub",
             ));
         }
 
@@ -186,7 +194,7 @@ impl TryFrom<USBDevice> for USBBus {
                 (None, None)
             };
 
-        Ok(USBBus {
+        Ok(Bus {
             name: device.name,
             host_controller: device.manufacturer.unwrap_or_default(),
             host_controller_vendor,
@@ -200,9 +208,9 @@ impl TryFrom<USBDevice> for USBBus {
     }
 }
 
-impl From<u8> for USBBus {
+impl From<u8> for Bus {
     fn from(bus: u8) -> Self {
-        USBBus {
+        Bus {
             name: format!("USB Bus {:03}", bus),
             host_controller: String::from("USB Host Controller"),
             usb_bus_number: Some(bus),
@@ -211,8 +219,8 @@ impl From<u8> for USBBus {
     }
 }
 
-/// Returns of Vec of devices in the USBBus as a reference
-impl USBBus {
+/// Returns of Vec of devices in the Bus as a reference
+impl Bus {
     /// Returns total number of devices in the bus
     pub fn len(&self) -> usize {
         self.devices
@@ -222,7 +230,7 @@ impl USBBus {
 
     /// Flattens the bus by copying each device into a new devices `Vec`
     ///
-    /// Unlike the `flattened_devices` which returns references that may still contain a `Vec` of `USBDevice`, this function makes those `None` too since it is doing a hard copy.
+    /// Unlike the `flattened_devices` which returns references that may still contain a `Vec` of `Device`, this function makes those `None` too since it is doing a hard copy.
     ///
     /// Not very pretty or efficient, probably a better way...
     pub fn into_flattened_devices(&mut self) {
@@ -236,10 +244,10 @@ impl USBBus {
         }
     }
 
-    /// Returns a flattened `Vec` of references to all `USBDevice`s on the bus
+    /// Returns a flattened `Vec` of references to all `Device`s on the bus
     ///
-    /// Note that whilst `Vec` of references is flat, the `USBDevice`s still contain a `devices` `Vec` where the references point; recursive functions on the returned `Vec` will produce weird results
-    pub fn flattened_devices(&self) -> Vec<&USBDevice> {
+    /// Note that whilst `Vec` of references is flat, the `Device`s still contain a `devices` `Vec` where the references point; recursive functions on the returned `Vec` will produce wierd results
+    pub fn flattened_devices(&self) -> Vec<&Device> {
         if let Some(devices) = &self.devices {
             devices.iter().flat_map(|d| d.flatten()).collect()
         } else {
@@ -247,7 +255,7 @@ impl USBBus {
         }
     }
 
-    /// Whether the bus has [`USBDevice`]s
+    /// Whether the bus has [`Device`]s
     pub fn is_empty(&self) -> bool {
         match &self.devices {
             Some(d) => !d.is_empty(),
@@ -291,17 +299,17 @@ impl USBBus {
     }
 
     /// Gets the device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
-    pub fn get_root_hub_device(&self) -> Option<&USBDevice> {
+    pub fn get_root_hub_device(&self) -> Option<&Device> {
         self.get_node(&self.interface())
     }
 
     /// Gets a mutable device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
-    pub fn get_root_hub_device_mut(&mut self) -> Option<&mut USBDevice> {
+    pub fn get_root_hub_device_mut(&mut self) -> Option<&mut Device> {
         self.get_node_mut(&self.interface())
     }
 
-    /// Search for [`USBDevice`] in branches of bus and return reference
-    pub fn get_node(&self, port_path: &str) -> Option<&USBDevice> {
+    /// Search for [`Device`] in branches of bus and return reference
+    pub fn get_node(&self, port_path: &str) -> Option<&Device> {
         if let Some(devices) = self.devices.as_ref() {
             for dev in devices {
                 if let Some(node) = dev.get_node(port_path) {
@@ -314,8 +322,8 @@ impl USBBus {
         None
     }
 
-    /// Search for [`USBDevice`] in branches of bus and return mutable if found
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
+    /// Search for [`Device`] in branches of bus and return mutable if found
+    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {
                 if let Some(node) = dev.get_node_mut(port_path) {
@@ -413,8 +421,8 @@ impl USBBus {
     }
 }
 
-/// Recursively writeln! of all [`USBDevice`] references
-pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>) -> fmt::Result {
+/// Recursively writeln! of all [`Device`] references
+pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<Device>) -> fmt::Result {
     for device in devices {
         // don't print root hubs in tree
         if f.sign_plus() && device.is_root_hub() {
@@ -442,7 +450,7 @@ pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<USBDevice>)
     Ok(())
 }
 
-impl fmt::Display for USBBus {
+impl fmt::Display for Bus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // use plus formatter to add tree
         let tree: &str = if !f.sign_plus() {
@@ -562,7 +570,7 @@ impl DeviceLocation {
         get_trunk_path(self.bus, &self.tree_positions)
     }
 
-    /// Linux sysfs name of [`USBDevice`] similar to `port_path` but root_hubs use the USB controller name instead of port
+    /// Linux sysfs name of [`Device`] similar to `port_path` but root_hubs use the USB controller name instead of port
     pub fn sysfs_name(&self) -> String {
         get_sysfs_name(self.bus, &self.tree_positions)
     }
@@ -717,7 +725,7 @@ impl FromStr for DeviceSpeed {
 /// Designed to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb. Fields should probably be non-pub with getters/setters but treat them as read-only.
 #[skip_serializing_none]
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct USBDevice {
+pub struct Device {
     /// The device product name as reported in descriptor or using usb_ids if None
     #[serde(rename(deserialize = "_name"), alias = "name")]
     pub name: String,
@@ -760,7 +768,7 @@ pub struct USBDevice {
     pub extra_current_used: Option<u16>,
     /// Devices can be hub and have devices attached so need to walk each device's devices...
     #[serde(rename(deserialize = "_items"), alias = "devices")]
-    pub devices: Option<Vec<USBDevice>>,
+    pub devices: Option<Vec<Device>>,
     // below are not in macOS system profiler but useful enough to have outside of extra
     /// USB device class
     pub class: Option<ClassCode>,
@@ -770,13 +778,17 @@ pub struct USBDevice {
     pub protocol: Option<u8>,
     /// Extra data obtained by libusb/udev exploration
     #[serde(default)]
-    pub extra: Option<USBDeviceExtra>,
+    pub extra: Option<DeviceExtra>,
     /// Internal to store any non-critical errors captured whilst profiling, unable to open for example
     #[serde(skip)]
     pub profiler_error: Option<String>,
 }
 
-impl USBDevice {
+/// Deprecated alias for [`Device`]
+#[deprecated(since = "2.0.0", note = "Use Device instead")]
+pub type USBDevice = Device;
+
+impl Device {
     /// Does the device have child devices; `devices` is Some and > 0
     pub fn has_devices(&self) -> bool {
         match &self.devices {
@@ -805,20 +817,20 @@ impl USBDevice {
         }
     }
 
-    /// Gets root_hub [`USBDevice`] if it is one
+    /// Gets root_hub [`Device`] if it is one
     ///
     /// root_hub returns `Some(Self)`
     /// ```
-    /// let d = cyme::profiler::USBDevice{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.get_root_hub().is_some(), true);
     /// ```
     ///
     /// Not a root_hub returns `None`
     /// ```
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
     /// assert_eq!(d.get_root_hub().is_some(), false);
     /// ```
-    pub fn get_root_hub(&self) -> Option<&USBDevice> {
+    pub fn get_root_hub(&self) -> Option<&Device> {
         if self.is_root_hub() {
             Some(self)
         } else {
@@ -826,10 +838,10 @@ impl USBDevice {
         }
     }
 
-    /// Recursively walk all [`USBDevice`] from self, looking for the one with `port_path` and returning reference
+    /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning reference
     ///
     /// Will panic if `port_path` is not a child device or if it sits shallower than self
-    pub fn get_node(&self, port_path: &str) -> Option<&USBDevice> {
+    pub fn get_node(&self, port_path: &str) -> Option<&Device> {
         // special case for root_hub, it ends with :1.0
         if port_path.ends_with(":1.0") {
             return self.get_root_hub();
@@ -878,10 +890,10 @@ impl USBDevice {
         None
     }
 
-    /// Recursively walk all [`USBDevice`] from self, looking for the one with `port_path` and returning mutable
+    /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning mutable
     ///
     /// Will panic if `port_path` is not a child device or if it sits shallower than self
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut USBDevice> {
+    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
         if port_path.ends_with(":1.0") {
             if self.is_root_hub() {
                 return Some(self);
@@ -938,7 +950,7 @@ impl USBDevice {
         *self.location_id.tree_positions.last().unwrap_or(&0)
     }
 
-    /// The number of [`USBDevice`] deep; branch depth
+    /// The number of [`Device`] deep; branch depth
     pub fn get_depth(&self) -> usize {
         self.location_id.tree_positions.len()
     }
@@ -947,15 +959,15 @@ impl USBDevice {
     ///
     /// ```
     /// // hub in name
-    /// let d = cyme::profiler::USBDevice{ name: String::from("My special hub"), ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("My special hub"), ..Default::default() };
     /// assert_eq!(d.is_hub(), true);
     ///
     /// // Class is hub
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Not named but Class"), class: Some(cyme::usb::ClassCode::Hub),  ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Not named but Class"), class: Some(cyme::usb::ClassCode::Hub),  ..Default::default() };
     /// assert_eq!(d.is_hub(), true);
     ///
     /// // not a hub
-    /// let d = cyme::profiler::USBDevice{ name: String::from("My special device"), ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("My special device"), ..Default::default() };
     /// assert_eq!(d.is_hub(), false);
     /// ```
     pub fn is_hub(&self) -> bool {
@@ -967,13 +979,13 @@ impl USBDevice {
     ///
     /// Normal device
     /// ```
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
     /// assert_eq!(d.port_path(), "1-1.2.3");
     /// ```
     ///
     /// Get a root_hub port path
     /// ```
-    /// let d = cyme::profiler::USBDevice{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.port_path(), "1-0:1.0");
     /// ```
     pub fn port_path(&self) -> String {
@@ -985,45 +997,45 @@ impl USBDevice {
         }
     }
 
-    /// Path of parent [`USBDevice`]; one above in tree
+    /// Path of parent [`Device`]; one above in tree
     ///
     /// Device with parent
     /// ```
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
     /// assert_eq!(d.parent_path(), Ok(String::from("1-1.2")));
     /// ```
     ///
     /// Trunk device parent is path to bus
     /// ```
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
     /// assert_eq!(d.parent_path(), Ok(String::from("1-0")));
     /// ```
     ///
     /// Cannot get parent for root_hub
     /// ```
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.parent_path().is_err(), true);
     /// ```
     pub fn parent_path(&self) -> Result<String> {
         self.location_id.parent_path()
     }
 
-    /// Path of trunk [`USBDevice`]; first in tree
+    /// Path of trunk [`Device`]; first in tree
     ///
     /// ```
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
     /// assert_eq!(d.trunk_path(), "1-1");
     /// ```
     pub fn trunk_path(&self) -> String {
         self.location_id.trunk_path()
     }
 
-    /// Linux devpath to [`USBDevice`]
+    /// Linux devpath to [`Device`]
     pub fn dev_path(&self) -> String {
         get_dev_path(self.location_id.bus, Some(self.location_id.number))
     }
 
-    /// Linux sysfs name of [`USBDevice`]
+    /// Linux sysfs name of [`Device`]
     pub fn sysfs_name(&self) -> String {
         self.location_id.sysfs_name()
     }
@@ -1032,11 +1044,11 @@ impl USBDevice {
     ///
     /// ```
     /// // trunk device only 1 position in tree
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
     /// assert_eq!(d.is_trunk_device(), true);
     ///
     /// // not a trunk device
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2] }, ..Default::default() };
     /// assert_eq!(d.is_trunk_device(), false);
     /// ```
     pub fn is_trunk_device(&self) -> bool {
@@ -1047,11 +1059,11 @@ impl USBDevice {
     ///
     /// ```
     /// // a root hub no tree positions
-    /// let d = cyme::profiler::USBDevice{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.is_root_hub(), true);
     ///
     /// // not a root hub has tree positions
-    /// let d = cyme::profiler::USBDevice{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
+    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
     /// assert_eq!(d.is_root_hub(), false);
     /// ```
     pub fn is_root_hub(&self) -> bool {
@@ -1084,7 +1096,7 @@ impl USBDevice {
 
     /// Generate a String from self like lsusb default list device
     /// ```
-    /// let d = cyme::profiler::USBDevice{
+    /// let d = cyme::profiler::Device{
     ///     name: String::from("Test device"),
     ///     manufacturer: Some(String::from("Test Devices Inc.")),
     ///     vendor_id: Some(0x1234),
@@ -1271,7 +1283,7 @@ impl USBDevice {
     }
 }
 
-impl fmt::Display for USBDevice {
+impl fmt::Display for Device {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut spaces = if f.sign_plus() {
             self.location_id.tree_positions.len() * 4
@@ -1336,7 +1348,7 @@ impl fmt::Display for USBDevice {
 
 /// Used to filter devices within buses
 ///
-/// The tree to a [`USBDevice`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
+/// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct USBFilter {
     /// Retain only devices with vendor id matching this
@@ -1355,7 +1367,7 @@ pub struct USBFilter {
     pub class: Option<ClassCode>,
     /// Exclude empty hubs in the tree
     pub exclude_empty_hub: bool,
-    /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`USBBus`]'s in the tree
+    /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`Bus`]'s in the tree
     pub no_exclude_root_hub: bool,
 }
 
@@ -1439,7 +1451,7 @@ impl USBFilter {
     }
 
     /// Checks whether `device` passes through filter
-    pub fn is_match(&self, device: &USBDevice) -> bool {
+    pub fn is_match(&self, device: &Device) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
@@ -1461,8 +1473,8 @@ impl USBFilter {
             && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
-    /// Recursively retain only `USBBus` in `buses` with `USBDevice` matching filter
-    pub fn retain_buses(&self, buses: &mut Vec<USBBus>) {
+    /// Recursively retain only `Bus` in `buses` with `Device` matching filter
+    pub fn retain_buses(&self, buses: &mut Vec<Bus>) {
         buses.retain(|b| {
             b.usb_bus_number == self.bus || self.bus.is_none() || b.usb_bus_number.is_none()
         });
@@ -1472,10 +1484,10 @@ impl USBFilter {
         }
     }
 
-    /// Recursively retain only `USBDevice` in `devices` matching filter
+    /// Recursively retain only `Device` in `devices` matching filter
     ///
-    /// Note that non-matching parents will still be retained if they have a matching `USBDevice` within their branches
-    pub fn retain_devices(&self, devices: &mut Vec<USBDevice>) {
+    /// Note that non-matching parents will still be retained if they have a matching `Device` within their branches
+    pub fn retain_devices(&self, devices: &mut Vec<Device>) {
         devices.retain(|d| self.exists_in_tree(d));
 
         for d in devices {
@@ -1486,7 +1498,7 @@ impl USBFilter {
     /// Recursively looks down tree for any `device` matching filter
     ///
     /// Important because a simple check of trunk device might remove a matching device further down the tree
-    pub fn exists_in_tree(&self, device: &USBDevice) -> bool {
+    pub fn exists_in_tree(&self, device: &Device) -> bool {
         // if device itself is a match, just return now and don't bother going keeper
         if self.is_match(device) {
             return true;
@@ -1498,10 +1510,10 @@ impl USBFilter {
         }
     }
 
-    /// Retains only `&USBDevice` in `devices` which match filter
+    /// Retains only `&Device` in `devices` which match filter
     ///
     /// Does not check down tree so should be used to flattened devices only (`get_all_devices`). Will remove hubs if `hide_hubs` since when flattened they will have no devices
-    pub fn retain_flattened_devices_ref(&self, devices: &mut Vec<&USBDevice>) {
+    pub fn retain_flattened_devices_ref(&self, devices: &mut Vec<&Device>) {
         devices.retain(|d| self.is_match(d))
     }
 }
@@ -1509,13 +1521,13 @@ impl USBFilter {
 /// Reads a json dump at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
 ///
 /// Must be a full tree including buses. Use `read_flat_json_dump` for devices only
-pub fn read_json_dump(file_path: &str) -> Result<SPUSBDataType> {
+pub fn read_json_dump(file_path: &str) -> Result<SystemProfile> {
     let mut file = fs::File::options().read(true).open(file_path)?;
 
     let mut data = String::new();
     file.read_to_string(&mut data)?;
 
-    let json_dump: SPUSBDataType = serde_json::from_str(&data).map_err(|e| {
+    let json_dump: SystemProfile = serde_json::from_str(&data).map_err(|e| {
         Error::new(
             ErrorKind::Parsing,
             &format!("Failed to parse dump at {:?}; Error({})", file_path, e),
@@ -1526,13 +1538,13 @@ pub fn read_json_dump(file_path: &str) -> Result<SPUSBDataType> {
 }
 
 /// Reads a flat json dump (devices no buses) at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
-pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<USBDevice>> {
+pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<Device>> {
     let mut file = fs::File::options().read(true).open(file_path)?;
 
     let mut data = String::new();
     file.read_to_string(&mut data)?;
 
-    let json_dump: Vec<USBDevice> = serde_json::from_str(&data).map_err(|e| {
+    let json_dump: Vec<Device> = serde_json::from_str(&data).map_err(|e| {
         Error::new(
             ErrorKind::Parsing,
             &format!("Failed to parse dump at {:?}; Error({})", file_path, e),
@@ -1545,9 +1557,9 @@ pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<USBDevice>> {
 /// Reads a flat json dump (devices no buses) at `file_path` with serde deserializer from `cyme --json` and converts to `SPUSBDataType`
 ///
 /// This is useful for converting a flat json dump to a full tree for use with `USBFilter`. Bus information is phony however.
-pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SPUSBDataType> {
+pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SystemProfile> {
     let devices = read_flat_json_dump(file_path)?;
-    let bus = USBBus {
+    let bus = Bus {
         name: String::from("Phony Flat JSON Import Bus"),
         host_controller: String::from("Phony Host Controller"),
         host_controller_vendor: None,
@@ -1559,7 +1571,7 @@ pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SPUSBDataType> {
         devices: Some(devices),
     };
 
-    Ok(SPUSBDataType { buses: vec![bus] })
+    Ok(SystemProfile { buses: vec![bus] })
 }
 
 /// Deserializes an option number from String (base10 or base16 encoding) or a number
@@ -1694,7 +1706,7 @@ mod tests {
               \"vendor_id\" : \"0x2341\"
             }";
 
-        let device: USBDevice = serde_json::from_str(device_json).unwrap();
+        let device: Device = serde_json::from_str(device_json).unwrap();
 
         assert_eq!(device.name, "Arduino Zero");
         assert_eq!(device.bcd_device, Some(Version(1, 0, 0)));
@@ -1729,7 +1741,7 @@ mod tests {
             \"usb_bus_number\" : \"0x00 \"
         }";
 
-        let device: USBBus = serde_json::from_str(device_json).unwrap();
+        let device: Bus = serde_json::from_str(device_json).unwrap();
 
         assert_eq!(device.name, "USB31Bus");
         assert_eq!(device.host_controller, "AppleUSBXHCITR");

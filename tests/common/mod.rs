@@ -9,17 +9,17 @@ use std::process;
 // #[cfg(windows)]
 // use std::os::windows;
 
-// if changing content of USBDeviceX structs, update the tests data with `--from-json TEST_DUMP --json TEST_ARGS > file.json`
+// if changing content of DeviceX structs, update the tests data with `--from-json TEST_DUMP --json TEST_ARGS > file.json`
 /// Dump from the `system_profiler` command on macOS
 pub const SYSTEM_PROFILER_DUMP_PATH: &str = "./tests/data/system_profiler_dump.json";
-/// Dump using macOS system_profiler so no [`USBDeviceExtra`]
+/// Dump using macOS system_profiler so no [`DeviceExtra`]
 pub const CYME_SP_TREE_DUMP: &str = "./tests/data/cyme_sp_macos_tree.json";
-/// Dump using macOS system_profiler and libusb merge so with [`USBDeviceExtra`]
+/// Dump using macOS system_profiler and libusb merge so with [`DeviceExtra`]
 pub const CYME_LIBUSB_MERGE_MACOS_TREE_DUMP: &str =
     "./tests/data/cyme_libusb_merge_macos_tree.json";
-/// Dump using macOS force libusb merge so with [`USBDeviceExtra`] but not Apple internal buses
+/// Dump using macOS force libusb merge so with [`DeviceExtra`] but not Apple internal buses
 pub const CYME_LIBUSB_MACOS_TREE_DUMP: &str = "./tests/data/cyme_libusb_macos_tree.json";
-/// Dump using Linux with libusb so with [`USBDeviceExtra`]
+/// Dump using Linux with libusb so with [`DeviceExtra`]
 pub const CYME_LIBUSB_LINUX_TREE_DUMP: &str = "./tests/data/cyme_libusb_linux_tree.json";
 /// Output of lsusb --tree
 pub const LSUSB_TREE_OUTPUT: &str = "./tests/data/lsusb_tree.txt";
@@ -43,20 +43,20 @@ pub fn read_dump_to_string(file_name: &str) -> String {
     ret
 }
 
-pub fn sp_data_from_system_profiler() -> cyme::profiler::SPUSBDataType {
+pub fn sp_data_from_system_profiler() -> cyme::profiler::SystemProfile {
     let mut br = read_dump(SYSTEM_PROFILER_DUMP_PATH);
     let mut data = String::new();
     br.read_to_string(&mut data).expect("Unable to read string");
 
-    serde_json::from_str::<cyme::profiler::SPUSBDataType>(&data).unwrap()
+    serde_json::from_str::<cyme::profiler::SystemProfile>(&data).unwrap()
 }
 
-pub fn sp_data_from_libusb_linux() -> cyme::profiler::SPUSBDataType {
+pub fn sp_data_from_libusb_linux() -> cyme::profiler::SystemProfile {
     let mut br = read_dump(CYME_LIBUSB_LINUX_TREE_DUMP);
     let mut data = String::new();
     br.read_to_string(&mut data).expect("Unable to read string");
 
-    serde_json::from_str::<cyme::profiler::SPUSBDataType>(&data).unwrap()
+    serde_json::from_str::<cyme::profiler::SystemProfile>(&data).unwrap()
 }
 
 /// Environment for the integration tests.
@@ -256,7 +256,7 @@ impl TestEnv {
         assert_json_diff::assert_json_include!(actual: json!(actual), expected: json!(expected));
     }
 
-    /// Parses output back to SPUSBDataType and checks device with `port_path` exists in it
+    /// Parses output back to [`cyme::profiler::SystemProfile`] and checks device with `port_path` exists in it
     pub fn assert_output_contains_port_path(
         &self,
         dump_file: Option<&str>,
@@ -266,7 +266,7 @@ impl TestEnv {
         // Normalize both expected and actual output.
         let output = self.assert_success_and_get_output(dump_file, args);
         let actual = String::from_utf8_lossy(&output.stdout).to_string();
-        let spdata_out = serde_json::from_str::<cyme::profiler::SPUSBDataType>(&actual).unwrap();
+        let spdata_out = serde_json::from_str::<cyme::profiler::SystemProfile>(&actual).unwrap();
 
         assert!(spdata_out.get_node(port_path).is_some());
     }

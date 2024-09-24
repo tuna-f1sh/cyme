@@ -3,7 +3,7 @@
 //! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb output. The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for the styling and content; even odities/inconsistencies were kept!
 use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
-use crate::profiler::{SPUSBDataType, USBDevice};
+use crate::profiler::{SystemProfile, Device};
 use uuid::Uuid;
 
 use crate::usb::descriptors::audio;
@@ -230,10 +230,10 @@ fn get_guid(buf: &[u8]) -> String {
         buf[10], buf[11], buf[12], buf[13], buf[14], buf[15])
 }
 
-/// Print [`SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
-pub fn print_tree(spusb: &SPUSBDataType, settings: &PrintSettings) {
-    fn print_tree_devices(devices: &Vec<USBDevice>, settings: &PrintSettings) {
-        for device in devices {
+/// Print [`SystemProfile`] as a lsusb style tree with the two optional `verbosity` levels
+pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
+    fn print_tree_devices(devices: &Vec<Device>, settings: &PrintSettings) {
+        for device in sorted {
             if device.is_root_hub() {
                 log::debug!("lsusb tree skipping root_hub {}", device);
                 continue;
@@ -278,8 +278,8 @@ pub fn print_tree(spusb: &SPUSBDataType, settings: &PrintSettings) {
     }
 }
 
-/// Dump a single [`USBDevice`] matching `dev_path` verbosely
-pub fn dump_one_device(devices: &Vec<&USBDevice>, dev_path: &String) -> Result<(), Error> {
+/// Dump a single [`Device`] matching `dev_path` verbosely
+pub fn dump_one_device(devices: &Vec<&Device>, dev_path: &String) -> Result<(), Error> {
     for device in devices {
         if &device.dev_path() == dev_path {
             // error if extra is none because we need it for vebose
@@ -315,7 +315,7 @@ fn find_otg(extra: &[Descriptor]) -> Option<&OnTheGoDescriptor> {
 /// Print USB devices in lsusb style flat dump
 ///
 /// `verbose` flag enables verbose printing like lsusb (configs, interfaces and endpoints) - a huge dump!
-pub fn print(devices: &Vec<&USBDevice>, verbose: bool) {
+pub fn print(devices: &Vec<&Device>, verbose: bool) {
     if !verbose {
         for device in devices {
             println!("{}", device.to_lsusb_string());
@@ -386,8 +386,8 @@ pub fn print(devices: &Vec<&USBDevice>, verbose: bool) {
     }
 }
 
-/// Dump a [`USBDevice`] in style of lsusb --verbose
-fn dump_device(device: &USBDevice) {
+/// Dump a [`Device`] in style of lsusb --verbose
+fn dump_device(device: &Device) {
     let device_extra = device
         .extra
         .as_ref()

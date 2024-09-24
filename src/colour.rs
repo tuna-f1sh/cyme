@@ -136,14 +136,14 @@ pub struct ColourTheme {
         deserialize_with = "deserialize_option_color_from_string"
     )]
     pub tree: Option<Color>,
-    /// Colour at prepended before printing `USBBus`
+    /// Colour at prepended before printing `Bus`
     #[serde(
         default,
         serialize_with = "color_serializer",
         deserialize_with = "deserialize_option_color_from_string"
     )]
     pub tree_bus_start: Option<Color>,
-    /// Colour printed at end of tree before printing `USBDevice`
+    /// Colour printed at end of tree before printing `Device`
     #[serde(
         default,
         serialize_with = "color_serializer",
