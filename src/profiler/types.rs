@@ -208,6 +208,7 @@ impl TryFrom<Device> for Bus {
     }
 }
 
+/// A generic Bus from a u8 bus number - used if Bus profiling is not available
 impl From<u8> for Bus {
     fn from(bus: u8) -> Self {
         Bus {
