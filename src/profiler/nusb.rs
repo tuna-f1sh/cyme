@@ -89,7 +89,7 @@ impl From<&nusb::BusInfo> for Device {
                 product_id: bus.pci_info().map(|i| i.device_id()),
                 device_speed: None,
                 location_id: DeviceLocation {
-                    bus: bus.bus_id().parse::<u8>().unwrap_or(0),
+                    bus: 0,
                     number: 0,
                     tree_positions: vec![],
                 },
@@ -126,7 +126,8 @@ impl From<&nusb::BusInfo> for Device {
                 product_id: bus.pci_info().map(|i| i.device_id()),
                 device_speed: None,
                 location_id: DeviceLocation {
-                    bus: bus.bus_id().parse::<u8>().unwrap_or(0),
+                    // macOS bus_id is a hex string
+                    bus: u8::from_str_radix(bus.bus_id(), 16).unwrap_or(0),
                     number: 0,
                     tree_positions: vec![],
                 },
@@ -148,6 +149,17 @@ impl From<&nusb::BusInfo> for Device {
 
 impl From<&nusb::BusInfo> for Bus {
     fn from(bus: &nusb::BusInfo) -> Self {
+        let bus_no = if cfg!(target_os = "macos") {
+            // macOS bus_id is a hex string
+            u8::from_str_radix(bus.bus_id(), 16).unwrap_or(0)
+        } else if cfg!(target_os = "linux") {
+            // Linux bus_id is a string decimal
+            bus.bus_id().parse::<u8>().unwrap_or(0)
+        } else {
+            // Windows bus_id is a string string so 0
+            0
+        };
+
         if let Some(pci_info) = bus.pci_info() {
             let (host_controller_vendor, host_controller_device) =
                 match pci_ids::Device::from_vid_pid(pci_info.vendor_id(), pci_info.device_id()) {
@@ -159,7 +171,7 @@ impl From<&nusb::BusInfo> for Bus {
                 };
 
             Bus {
-                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                usb_bus_number: Some(bus_no),
                 name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
                 host_controller: bus
                     .provider_class()
@@ -174,7 +186,7 @@ impl From<&nusb::BusInfo> for Bus {
             }
         } else {
             Bus {
-                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                usb_bus_number: Some(bus_no),
                 name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
                 host_controller: bus
                     .provider_class()
@@ -212,13 +224,23 @@ impl From<&nusb::DeviceInfo> for Device {
             .unwrap_or_default();
         let serial_num = device_info.serial_number().map(|s| s.to_string());
 
+        let bus_no = if cfg!(target_os = "macos") {
+            // macOS bus_id is a hex string
+            u8::from_str_radix(device_info.bus_id(), 16).unwrap_or(0)
+        } else if cfg!(target_os = "linux") {
+            // Linux bus_id is a string decimal
+            device_info.bus_id().parse::<u8>().unwrap_or(0)
+        } else {
+            // Windows bus_id is a string string so 0
+            0
+        };
+
         Device {
             vendor_id: Some(device_info.vendor_id()),
             product_id: Some(device_info.product_id()),
             device_speed,
             location_id: DeviceLocation {
-                // nusb bus_id is a string; busnum on Linux (number) will be 0 on Windows as it's a String
-                bus: device_info.bus_id().parse::<u8>().unwrap_or(0),
+                bus: bus_no,
                 number: device_info.device_address(),
                 tree_positions: device_info.port_chain().to_vec(),
             },
