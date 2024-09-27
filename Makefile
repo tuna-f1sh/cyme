@@ -3,7 +3,7 @@ CARGO_TARGET_DIR ?= target
 RELEASE_BIN = $(CARGO_TARGET_DIR)/release/$(PROJECT_NAME)
 VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
 
-RSRCS += $(wildcard src/**/*.rs)
+RSRCS += $(wildcard src/*.rs src/**/*.rs)
 DOCS = doc/_$(PROJECT_NAME) doc/$(PROJECT_NAME).1 doc/$(PROJECT_NAME).bash doc/cyme_example_config.json
 
 .PHONY: bump version release enter_version new_version
