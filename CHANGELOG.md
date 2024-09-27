@@ -1,10 +1,17 @@
 # Changelog
 
+## [1.8.4] - 2024-09-27
+
+### Changed
+
+- Default sort by bus number and device address within buses for all display modes (matching lsusb) ([#33](https://github.com/tuna-f1sh/cyme/issues/33)).
+- Default Rust udev feature no longer supports hwdb lookup as it's broken - usb-ids is used. Use `--no-default-features -F=udevlib -F=udev_hwdb` if really wishing to use local 'hwdb.bin'. ([#35](https://github.com/tuna-f1sh/cyme/issues/35)).
+
 ## [1.8.3] - 2024-09-20
 
 ### Fixes
 
-- Fix panic when using auto-width and utf-8 charactors landing on non-char boundary ([#30](https://github.com/tuna-f1sh/cyme/issues/32)).
+- Fix panic when using auto-width and utf-8 characters landing on non-char boundary ([#30](https://github.com/tuna-f1sh/cyme/issues/32)).
 - Corrected some typos ([#28](https://github.com/tuna-f1sh/cyme/pull/28)).
 - Fix lintian errors with cargo-deb package ([#29](https://github.com/tuna-f1sh/cyme/pull/31)).
 
