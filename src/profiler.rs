@@ -792,6 +792,12 @@ impl From<String> for SysfsPath {
     }
 }
 
+impl From<PathBuf> for SysfsPath {
+    fn from(p: PathBuf) -> Self {
+        SysfsPath(p)
+    }
+}
+
 impl std::ops::Deref for SysfsPath {
     type Target = PathBuf;
 
