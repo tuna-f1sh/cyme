@@ -160,7 +160,7 @@ impl TryFrom<Device> for Bus {
         }
 
         // on Linux, attempt to get the PCI host controller information, the kernel name of which is the root hub serial
-        let (pci_vid, pci_pid) = if cfg!(target_os = "linux") {
+        let (pci_vid, pci_pid, pci_rev) = if cfg!(target_os = "linux") {
             if let Some(sysfs_pci_name) = device.serial_num {
                 let pci_path = SysfsPath::from(format!("{}{}", SYSFS_PCI_PREFIX, sysfs_pci_name));
                 if pci_path.exists() {
@@ -168,16 +168,17 @@ impl TryFrom<Device> for Bus {
                     (
                         pci_path.read_attr_hex("vendor").ok(),
                         pci_path.read_attr_hex("device").ok(),
+                        pci_path.read_attr_hex("revision").ok(),
                     )
                 } else {
-                    (None, None)
+                    (None, None, None)
                 }
             } else {
-                (device.vendor_id, device.product_id)
+                (device.vendor_id, device.product_id, None)
             }
         // otherwise pseudo root hub should have PCI IDs
         } else {
-            (device.vendor_id, device.product_id)
+            (device.vendor_id, device.product_id, None)
         };
 
         let (host_controller_device, host_controller_vendor) =
@@ -201,9 +202,9 @@ impl TryFrom<Device> for Bus {
             host_controller_device,
             pci_device: pci_pid.filter(|v| *v != 0xffff && *v != 0),
             pci_vendor: pci_vid.filter(|v| *v != 0xffff && *v != 0),
+            pci_revision: pci_rev.filter(|v| *v != 0xffff && *v != 0),
             usb_bus_number: Some(device.location_id.bus),
             devices: device.devices,
-            ..Default::default()
         })
     }
 }

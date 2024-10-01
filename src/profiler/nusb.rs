@@ -69,61 +69,62 @@ impl From<nusb::Speed> for usb::Speed {
 /// Convert a bus into a root hub device - following the same sort of abstraction as Linux
 impl From<&nusb::BusInfo> for Device {
     fn from(bus: &nusb::BusInfo) -> Self {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "android"))]
         {
             bus.root_hub().into()
         }
 
         #[cfg(target_os = "windows")]
         {
-            let (bcd_usb, protocol) = match bus.controller() {
-                Some(nusb::UsbController::XHCI) => (Some(0x300), Some(0x03)),
-                Some(nusb::UsbController::EHCI) => (Some(0x200), Some(0x01)),
-                Some(nusb::UsbController::OHCI) => (Some(0x110), Some(0x00)),
-                Some(nusb::UsbController::VHCI) => (Some(0x000), Some(0x00)),
+            let (bcd_device, protocol) = match bus.controller_type() {
+                Some(nusb::UsbControllerType::XHCI) => (Some(0x300), Some(0x03)),
+                Some(nusb::UsbControllerType::EHCI) => (Some(0x200), Some(0x01)),
+                Some(nusb::UsbControllerType::OHCI) => (Some(0x110), Some(0x00)),
+                Some(nusb::UsbControllerType::VHCI) => (Some(0x000), Some(0x00)),
                 _ => (None, None),
             };
 
+            let (vendor_id, product_id) = if let Some(pci_info) = platform::pci_info(bus) {
+                (Some(pci_info.vendor_id), Some(pci_info.product_id))
+            } else {
+                (None, None)
+            };
+
             Device {
-                vendor_id: bus.pci_info().map(|i| i.vendor_id()),
-                product_id: bus.pci_info().map(|i| i.device_id()),
+                vendor_id,
+                product_id,
                 device_speed: None,
                 location_id: DeviceLocation {
                     bus: 0,
                     number: 0,
                     tree_positions: vec![],
                 },
-                bcd_device: bus
-                    .pci_info()
-                    .map(|i| i.revision().map(|r| usb::Version::from_bcd(r)))
-                    .flatten(),
-                bcd_usb: bcd_usb.map(|v| usb::Version::from_bcd(v)),
+                bcd_device: bcd_device.map(|v| usb::Version::from_bcd(v)),
+                bcd_usb: None,
                 class: Some(usb::BaseClass::Hub),
                 sub_class: Some(0),
                 protocol,
-                name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
-                manufacturer: bus.provider_class().map(|s| s.to_string()),
+                name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
+                manufacturer: None,
                 // serial number is the PCI instance on Linux
-                serial_num: bus
-                    .pci_info()
-                    .map(|i| i.instance_id().to_string_lossy().to_string()),
+                serial_num: Some(bus.parent_instance_id().to_string_lossy().to_string()),
                 ..Default::default()
             }
         }
 
         #[cfg(target_os = "macos")]
         {
-            let (bcd_usb, protocol) = match bus.controller() {
-                Some(nusb::UsbController::XHCI) => (Some(0x300), Some(0x03)),
-                Some(nusb::UsbController::EHCI) => (Some(0x200), Some(0x01)),
-                Some(nusb::UsbController::OHCI) => (Some(0x110), Some(0x00)),
-                Some(nusb::UsbController::VHCI) => (Some(0x000), Some(0x00)),
+            let (bcd_device, protocol) = match bus.controller_type() {
+                Some(nusb::UsbControllerType::XHCI) => (Some(0x300), Some(0x03)),
+                Some(nusb::UsbControllerType::EHCI) => (Some(0x200), Some(0x01)),
+                Some(nusb::UsbControllerType::OHCI) => (Some(0x110), Some(0x00)),
+                Some(nusb::UsbControllerType::VHCI) => (Some(0x000), Some(0x00)),
                 _ => (None, None),
             };
 
             Device {
-                vendor_id: bus.pci_info().map(|i| i.vendor_id()),
-                product_id: bus.pci_info().map(|i| i.device_id()),
+                vendor_id: None,
+                product_id: None,
                 device_speed: None,
                 location_id: DeviceLocation {
                     // macOS bus_id is a hex string
@@ -131,15 +132,13 @@ impl From<&nusb::BusInfo> for Device {
                     number: 0,
                     tree_positions: vec![],
                 },
-                bcd_device: bus
-                    .pci_info()
-                    .and_then(|i| i.revision().map(usb::Version::from_bcd)),
-                bcd_usb: bcd_usb.map(usb::Version::from_bcd),
+                bcd_device: bcd_device.map(usb::Version::from_bcd),
+                bcd_usb: None,
                 class: Some(usb::BaseClass::Hub),
                 sub_class: Some(0),
                 protocol,
-                name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
-                manufacturer: bus.provider_class().map(|s| s.to_string()),
+                name: bus.class_name().to_string(),
+                manufacturer: Some(bus.provider_class_name().to_string()),
                 serial_num: bus.name().map(|s| s.to_string()),
                 ..Default::default()
             }
@@ -149,52 +148,7 @@ impl From<&nusb::BusInfo> for Device {
 
 impl From<&nusb::BusInfo> for Bus {
     fn from(bus: &nusb::BusInfo) -> Self {
-        let bus_no = if cfg!(target_os = "macos") {
-            // macOS bus_id is a hex string
-            u8::from_str_radix(bus.bus_id(), 16).unwrap_or(0)
-        } else if cfg!(target_os = "linux") {
-            // Linux bus_id is a string decimal
-            bus.bus_id().parse::<u8>().unwrap_or(0)
-        } else {
-            // Windows bus_id is a string string so 0
-            0
-        };
-
-        if let Some(pci_info) = bus.pci_info() {
-            let (host_controller_vendor, host_controller_device) =
-                match pci_ids::Device::from_vid_pid(pci_info.vendor_id(), pci_info.device_id()) {
-                    Some(d) => (
-                        Some(d.vendor().name().to_string()),
-                        Some(d.name().to_string()),
-                    ),
-                    None => (None, None),
-                };
-
-            Bus {
-                usb_bus_number: Some(bus_no),
-                name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
-                host_controller: bus
-                    .provider_class()
-                    .map(|s| s.to_string())
-                    .unwrap_or_default(),
-                host_controller_vendor,
-                host_controller_device,
-                pci_vendor: Some(pci_info.vendor_id()),
-                pci_device: Some(pci_info.device_id()),
-                pci_revision: pci_info.revision(),
-                ..Default::default()
-            }
-        } else {
-            Bus {
-                usb_bus_number: Some(bus_no),
-                name: bus.class_name().map(|s| s.to_string()).unwrap_or_default(),
-                host_controller: bus
-                    .provider_class()
-                    .map(|s| s.to_string())
-                    .unwrap_or_default(),
-                ..Default::default()
-            }
-        }
+        platform::from(bus)
     }
 }
 
@@ -817,4 +771,178 @@ impl Profiler<UsbDevice> for NusbProfiler {
 pub(crate) fn fill_spusb(spusb: &mut SystemProfile) -> Result<()> {
     let mut profiler = NusbProfiler::new();
     profiler.fill_spusb(spusb)
+}
+
+#[derive(Debug, Clone)]
+struct PciInfo {
+    vendor_id: u16,
+    product_id: u16,
+    revision: u16,
+}
+
+#[cfg(target_os = "windows")]
+mod platform {
+    use super::*;
+    use std::ffi::OsStr;
+
+    /// Parse VID, PID, revision, subsys and ID from a Host Controller ID: https://learn.microsoft.com/en-us/windows-hardware/drivers/install/identifiers-for-pci-devices
+    ///
+    /// The subsys is a 32-bit value with SID in the high 16 bits and CID in the low 16 bits.
+    fn parse_host_controller_id(s: &OsStr) -> Option<(u16, u16, u8, u32, Option<String>)> {
+        let s = s.to_str()?;
+        let s = s.strip_prefix("PCI\\VEN_")?;
+        let vid = u16::from_str_radix(s.get(0..4)?, 16).ok()?;
+        let s = s.get(4..)?.strip_prefix("&DEV_")?;
+        let pid = u16::from_str_radix(s.get(0..4)?, 16).ok()?;
+        let s = s.get(4..)?.strip_prefix("&SUBSYS_")?;
+        let sidcid = u32::from_str_radix(s.get(0..8)?, 16).ok()?;
+        let s = s.get(8..)?.strip_prefix("&REV_")?;
+        let rev = u8::from_str_radix(s.get(0..2)?, 16).ok()?;
+        let id = s.get(2..)?.strip_prefix("\\").map(|s| s.to_owned());
+        Some((vid, pid, rev, sidcid, id))
+    }
+
+    pub(crate) fn pci_info(bus_info: &nusb::BusInfo) -> Option<PciInfo> {
+        let pci_id = parse_host_controller_id(bus_info.parent_instance_id())?;
+
+        Some(PciInfo {
+            vendor_id: pci_id.0,
+            product_id: pci_id.1,
+            revision: pci_id.2 as u16,
+        })
+    }
+
+    pub(crate) fn from(bus: &nusb::BusInfo) -> Bus {
+        if let Some(pci_info) = platform::pci_info(bus) {
+            let (host_controller_vendor, host_controller_device) =
+                match pci_ids::Device::from_vid_pid(pci_info.vendor_id, pci_info.product_id) {
+                    Some(d) => (
+                        Some(d.vendor().name().to_string()),
+                        Some(d.name().to_string()),
+                    ),
+                    None => (None, None),
+                };
+
+            Bus {
+                usb_bus_number: Some(0),
+                name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus.parent_instance_id().to_string_lossy().to_string(),
+                host_controller_vendor,
+                host_controller_device,
+                pci_vendor: Some(pci_info.vendor_id),
+                pci_device: Some(pci_info.product_id),
+                pci_revision: Some(pci_info.revision),
+                ..Default::default()
+            }
+        } else {
+            Bus {
+                usb_bus_number: Some(0),
+                name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus.parent_instance_id().to_string_lossy().to_string(),
+                ..Default::default()
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_host_controller_id() {
+        assert_eq!(parse_host_controller_id(OsStr::new("")), None);
+        assert_eq!(
+            parse_host_controller_id(OsStr::new(
+                "PCI\\VEN_8086&DEV_2658&SUBSYS_04001AB8&REV_02\\3&11583659&0&E8"
+            )),
+            Some((
+                0x8086,
+                0x2658,
+                2,
+                0x04001AB8,
+                Some("3&11583659&0&E8".to_string())
+            ))
+        );
+        assert_eq!(
+            parse_host_controller_id(OsStr::new("PCI\\VEN_8086&DEV_2658")),
+            None
+        );
+        assert_eq!(
+            parse_host_controller_id(OsStr::new("PCI\\VEN_8086&DEV_2658&SUBSYS_04001AB8&REV_02")),
+            Some((0x8086, 0x2658, 2, 0x04001AB8, None))
+        );
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+mod platform {
+    use super::*;
+
+    #[allow(unused_variables)]
+    pub(crate) fn pci_info(bus_info: &nusb::BusInfo) -> Option<PciInfo> {
+        let pci_path =
+            SysfsPath::from(PathBuf::from(SYSFS_PCI_PREFIX).join(bus_info.parent_sysfs_path()));
+        log::debug!("Probing bus parent device {:?}", pci_path);
+
+        Some(PciInfo {
+            vendor_id: pci_path.read_attr_hex("vendor").ok()?,
+            product_id: pci_path.read_attr_hex("device").ok()?,
+            revision: pci_path.read_attr_hex("revision").ok()?,
+        })
+    }
+
+    pub(crate) fn from(bus: &nusb::BusInfo) -> Bus {
+        if let Some(pci_info) = platform::pci_info(bus) {
+            let (host_controller_vendor, host_controller_device) =
+                match pci_ids::Device::from_vid_pid(pci_info.vendor_id, pci_info.product_id) {
+                    Some(d) => (
+                        Some(d.vendor().name().to_string()),
+                        Some(d.name().to_string()),
+                    ),
+                    None => (None, None),
+                };
+
+            Bus {
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus
+                    .root_hub()
+                    .manufacturer_string()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default(),
+                host_controller_vendor,
+                host_controller_device,
+                pci_vendor: Some(pci_info.vendor_id),
+                pci_device: Some(pci_info.product_id),
+                pci_revision: Some(pci_info.revision),
+                ..Default::default()
+            }
+        } else {
+            Bus {
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus
+                    .root_hub()
+                    .manufacturer_string()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default(),
+                ..Default::default()
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod platform {
+    use super::*;
+
+    #[allow(unused_variables)]
+    pub(crate) fn pci_info(bus_info: &nusb::BusInfo) -> Option<PciInfo> {
+        None
+    }
+
+    pub(crate) fn from(bus: &nusb::BusInfo) -> Bus {
+        Bus {
+            usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).unwrap_or(0)),
+            name: bus.class_name().to_string(),
+            host_controller: bus.provider_class_name().to_string(),
+            ..Default::default()
+        }
+    }
 }

@@ -5,7 +5,7 @@ description = "List system USB buses and devices; a modern cross-platform lsusb"
 repository = "https://github.com/tuna-f1sh/cyme"
 readme = "README.md"
 license = "GPL-3.0-or-later"
-version = "2.0.0-beta.1"
+version = "2.0.0-b1"
 edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
 categories = ["command-line-utilities"]
@@ -37,7 +37,7 @@ uuid = { version = "1.9.1", features = ["serde"] }
 pci-ids = "0.2.5"
 
 [patch.crates-io]
-nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "cyme" }
+nusb = { git = "https://github.com/kevinmehall/nusb", branch = "main" }
 
 [dev-dependencies]
 diff = "0.1"
