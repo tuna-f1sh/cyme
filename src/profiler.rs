@@ -14,9 +14,6 @@
 use crate::error::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
-use std::str::FromStr;
 
 use crate::error::{Error, ErrorKind};
 use crate::types::NumericalUnit;
@@ -716,102 +713,6 @@ where
     }
 }
 
-// SysfsPath, parsing etc is taken from nusb crate (since not pub) and modified for our use
-#[derive(Debug, Clone)]
-struct SysfsPath(pub(crate) PathBuf);
-
-impl SysfsPath {
-    pub(crate) fn exists(&self) -> bool {
-        self.0.exists()
-    }
-
-    fn parse_attr<T>(&self, attr: &str, parse: impl FnOnce(&str) -> Result<T>) -> Result<T> {
-        let attr_path = self.0.join(attr);
-        fs::read_to_string(&attr_path)
-            .map_err(|e| Error::new(ErrorKind::Io, &e.to_string()))
-            .and_then(|v| parse(v.trim()))
-    }
-
-    pub(crate) fn read_attr<T: FromStr>(&self, attr: &str) -> Result<T> {
-        self.parse_attr(attr, |s| {
-            s.parse().map_err(|_| {
-                Error::new(
-                    ErrorKind::Parsing,
-                    &format!("Failed to parse attr: {}", attr),
-                )
-            })
-        })
-    }
-
-    fn read_attr_hex<T: FromHexStr>(&self, attr: &str) -> Result<T> {
-        self.parse_attr(attr, |s| T::from_hex_str(s.strip_prefix("0x").unwrap_or(s)))
-    }
-
-    fn children(&self) -> impl Iterator<Item = SysfsPath> {
-        fs::read_dir(&self.0)
-            .ok()
-            .into_iter()
-            .flatten()
-            .filter_map(|f| f.ok())
-            .filter(|f| f.file_type().ok().is_some_and(|t| t.is_dir()))
-            .map(|f| SysfsPath(f.path()))
-    }
-}
-
-trait FromHexStr: Sized {
-    fn from_hex_str(s: &str) -> Result<Self>;
-}
-
-impl FromHexStr for u8 {
-    fn from_hex_str(s: &str) -> Result<Self> {
-        u8::from_str_radix(s, 16).map_err(|_| Error::new(ErrorKind::Parsing, s))
-    }
-}
-
-impl FromHexStr for u16 {
-    fn from_hex_str(s: &str) -> Result<Self> {
-        u16::from_str_radix(s, 16).map_err(|_| Error::new(ErrorKind::Parsing, s))
-    }
-}
-
-impl std::fmt::Display for SysfsPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.display().fmt(f)
-    }
-}
-
-impl From<&str> for SysfsPath {
-    fn from(s: &str) -> Self {
-        SysfsPath(PathBuf::from(s))
-    }
-}
-
-impl From<String> for SysfsPath {
-    fn from(s: String) -> Self {
-        SysfsPath(PathBuf::from(s))
-    }
-}
-
-impl From<PathBuf> for SysfsPath {
-    fn from(p: PathBuf) -> Self {
-        SysfsPath(p)
-    }
-}
-
-impl std::ops::Deref for SysfsPath {
-    type Target = PathBuf;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<SysfsPath> for PathBuf {
-    fn from(s: SysfsPath) -> Self {
-        s.0
-    }
-}
-
 /// Get a USB device attribute String from sysfs on Linux
 #[allow(unused_variables)]
 fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
@@ -906,5 +807,303 @@ pub fn get_spusb_with_extra() -> Result<SystemProfile> {
             crate::error::ErrorKind::Unsupported,
             "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`",
         ))
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod platform {
+    use super::*;
+    use std::ffi::{OsStr, OsString};
+
+    /// Parse VID, PID, revision, subsys and ID from a Host Controller ID: https://learn.microsoft.com/en-us/windows-hardware/drivers/install/identifiers-for-pci-devices
+    ///
+    /// The subsys is a 32-bit value with SID in the high 16 bits and CID in the low 16 bits.
+    fn parse_host_controller_id(s: &OsStr) -> Option<(u16, u16, u8, u32, Option<String>)> {
+        let s = s.to_str()?;
+        let s = s.strip_prefix("PCI\\VEN_")?;
+        let vid = u16::from_str_radix(s.get(0..4)?, 16).ok()?;
+        let s = s.get(4..)?.strip_prefix("&DEV_")?;
+        let pid = u16::from_str_radix(s.get(0..4)?, 16).ok()?;
+        let s = s.get(4..)?.strip_prefix("&SUBSYS_")?;
+        let sidcid = u32::from_str_radix(s.get(0..8)?, 16).ok()?;
+        let s = s.get(8..)?.strip_prefix("&REV_")?;
+        let rev = u8::from_str_radix(s.get(0..2)?, 16).ok()?;
+        let id = s.get(2..)?.strip_prefix("\\").map(|s| s.to_owned());
+        Some((vid, pid, rev, sidcid, id))
+    }
+
+    pub(crate) fn pci_info_from_parent(pci_path: &OsStr) -> Option<PciInfo> {
+        let pci_id = parse_host_controller_id(pci_path)?;
+
+        Some(PciInfo {
+            vendor_id: pci_id.0,
+            product_id: pci_id.1,
+            revision: pci_id.2 as u16,
+        })
+    }
+
+    pub(crate) fn pci_info_from_device(device: &Device) -> Option<PciInfo> {
+        device
+            .serial_num
+            .as_ref()
+            .and_then(|s| pci_info_from_parent(&OsString::from(s)))
+    }
+
+    #[cfg(feature = "nusb")]
+    pub(crate) fn pci_info_from_bus(bus_info: &::nusb::BusInfo) -> Option<PciInfo> {
+        pci_info_from_parent(bus_info.parent_instance_id())
+    }
+
+    #[cfg(feature = "nusb")]
+    pub(crate) fn from(bus: &::nusb::BusInfo) -> Bus {
+        if let Some(pci_info) = platform::pci_info_from_bus(bus) {
+            let (host_controller_vendor, host_controller_device) =
+                match pci_ids::Device::from_vid_pid(pci_info.vendor_id, pci_info.product_id) {
+                    Some(d) => (
+                        Some(d.vendor().name().to_string()),
+                        Some(d.name().to_string()),
+                    ),
+                    None => (None, None),
+                };
+
+            Bus {
+                usb_bus_number: Some(0),
+                name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus.parent_instance_id().to_string_lossy().to_string(),
+                host_controller_vendor,
+                host_controller_device,
+                pci_vendor: Some(pci_info.vendor_id),
+                pci_device: Some(pci_info.product_id),
+                pci_revision: Some(pci_info.revision),
+                ..Default::default()
+            }
+        } else {
+            Bus {
+                usb_bus_number: Some(0),
+                name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus.parent_instance_id().to_string_lossy().to_string(),
+                ..Default::default()
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_host_controller_id() {
+        assert_eq!(parse_host_controller_id(OsStr::new("")), None);
+        assert_eq!(
+            parse_host_controller_id(OsStr::new(
+                "PCI\\VEN_8086&DEV_2658&SUBSYS_04001AB8&REV_02\\3&11583659&0&E8"
+            )),
+            Some((
+                0x8086,
+                0x2658,
+                2,
+                0x04001AB8,
+                Some("3&11583659&0&E8".to_string())
+            ))
+        );
+        assert_eq!(
+            parse_host_controller_id(OsStr::new("PCI\\VEN_8086&DEV_2658")),
+            None
+        );
+        assert_eq!(
+            parse_host_controller_id(OsStr::new("PCI\\VEN_8086&DEV_2658&SUBSYS_04001AB8&REV_02")),
+            Some((0x8086, 0x2658, 2, 0x04001AB8, None))
+        );
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+mod platform {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::str::FromStr;
+
+    // SysfsPath, parsing etc is taken from nusb crate (since not pub) and modified for our use
+    #[derive(Debug, Clone)]
+    struct SysfsPath(pub(crate) PathBuf);
+
+    impl SysfsPath {
+        pub(crate) fn exists(&self) -> bool {
+            self.0.exists()
+        }
+
+        fn parse_attr<T>(&self, attr: &str, parse: impl FnOnce(&str) -> Result<T>) -> Result<T> {
+            let attr_path = self.0.join(attr);
+            fs::read_to_string(&attr_path)
+                .map_err(|e| Error::new(ErrorKind::Io, &e.to_string()))
+                .and_then(|v| parse(v.trim()))
+        }
+
+        pub(crate) fn read_attr<T: FromStr>(&self, attr: &str) -> Result<T> {
+            self.parse_attr(attr, |s| {
+                s.parse().map_err(|_| {
+                    Error::new(
+                        ErrorKind::Parsing,
+                        &format!("Failed to parse attr: {}", attr),
+                    )
+                })
+            })
+        }
+
+        fn read_attr_hex<T: FromHexStr>(&self, attr: &str) -> Result<T> {
+            self.parse_attr(attr, |s| T::from_hex_str(s.strip_prefix("0x").unwrap_or(s)))
+        }
+
+        fn children(&self) -> impl Iterator<Item = SysfsPath> {
+            fs::read_dir(&self.0)
+                .ok()
+                .into_iter()
+                .flatten()
+                .filter_map(|f| f.ok())
+                .filter(|f| f.file_type().ok().is_some_and(|t| t.is_dir()))
+                .map(|f| SysfsPath(f.path()))
+        }
+    }
+
+    trait FromHexStr: Sized {
+        fn from_hex_str(s: &str) -> Result<Self>;
+    }
+
+    impl FromHexStr for u8 {
+        fn from_hex_str(s: &str) -> Result<Self> {
+            u8::from_str_radix(s, 16).map_err(|_| Error::new(ErrorKind::Parsing, s))
+        }
+    }
+
+    impl FromHexStr for u16 {
+        fn from_hex_str(s: &str) -> Result<Self> {
+            u16::from_str_radix(s, 16).map_err(|_| Error::new(ErrorKind::Parsing, s))
+        }
+    }
+
+    impl std::fmt::Display for SysfsPath {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            self.0.display().fmt(f)
+        }
+    }
+
+    impl From<&str> for SysfsPath {
+        fn from(s: &str) -> Self {
+            SysfsPath(PathBuf::from(s))
+        }
+    }
+
+    impl From<String> for SysfsPath {
+        fn from(s: String) -> Self {
+            SysfsPath(PathBuf::from(s))
+        }
+    }
+
+    impl From<PathBuf> for SysfsPath {
+        fn from(p: PathBuf) -> Self {
+            SysfsPath(p)
+        }
+    }
+
+    impl std::ops::Deref for SysfsPath {
+        type Target = PathBuf;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl From<SysfsPath> for PathBuf {
+        fn from(s: SysfsPath) -> Self {
+            s.0
+        }
+    }
+
+    fn pci_info_from_parent(pci_path: &SysfsPath) -> Option<PciInfo> {
+        Some(PciInfo {
+            vendor_id: pci_path.read_attr_hex("vendor").ok()?,
+            product_id: pci_path.read_attr_hex("device").ok()?,
+            revision: pci_path.read_attr_hex("revision").ok()?,
+        })
+    }
+
+    pub(crate) fn pci_info_from_device(device: &Device) -> Option<PciInfo> {
+        device.serial_num.as_ref().and_then(|s| {
+            let pci_path = SysfsPath::from(PathBuf::from(SYSFS_PCI_PREFIX).join(s));
+            log::debug!("Probing device {:?}", pci_path);
+            pci_info_from_parent(&pci_path)
+        })
+    }
+
+    #[cfg(feature = "nusb")]
+    pub(crate) fn pci_info_from_bus(bus_info: &::nusb::BusInfo) -> Option<PciInfo> {
+        let pci_path =
+            SysfsPath::from(PathBuf::from(SYSFS_PCI_PREFIX).join(bus_info.parent_sysfs_path()));
+        log::debug!("Probing bus parent device {:?}", pci_path);
+        pci_info_from_parent(&pci_path)
+    }
+
+    #[cfg(feature = "nusb")]
+    pub(crate) fn from(bus: &::nusb::BusInfo) -> Bus {
+        if let Some(pci_info) = platform::pci_info_from_bus(bus) {
+            let (host_controller_vendor, host_controller_device) =
+                match pci_ids::Device::from_vid_pid(pci_info.vendor_id, pci_info.product_id) {
+                    Some(d) => (
+                        Some(d.vendor().name().to_string()),
+                        Some(d.name().to_string()),
+                    ),
+                    None => (None, None),
+                };
+
+            Bus {
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus
+                    .root_hub()
+                    .manufacturer_string()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default(),
+                host_controller_vendor,
+                host_controller_device,
+                pci_vendor: Some(pci_info.vendor_id),
+                pci_device: Some(pci_info.product_id),
+                pci_revision: Some(pci_info.revision),
+                ..Default::default()
+            }
+        } else {
+            Bus {
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
+                host_controller: bus
+                    .root_hub()
+                    .manufacturer_string()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default(),
+                ..Default::default()
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod platform {
+    use super::*;
+
+    #[allow(unused_variables)]
+    pub(crate) fn pci_info_from_device(device: &Device) -> Option<PciInfo> {
+        None
+    }
+
+    #[allow(unused_variables)]
+    #[cfg(feature = "nusb")]
+    pub(crate) fn pci_info_from_bus(bus_info: &::nusb::BusInfo) -> Option<PciInfo> {
+        None
+    }
+
+    #[cfg(feature = "nusb")]
+    pub(crate) fn from(bus: &::nusb::BusInfo) -> Bus {
+        Bus {
+            usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).unwrap_or(0)),
+            name: bus.class_name().to_string(),
+            host_controller: bus.provider_class_name().to_string(),
+            ..Default::default()
+        }
     }
 }
