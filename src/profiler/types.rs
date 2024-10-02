@@ -108,6 +108,13 @@ impl fmt::Display for SystemProfile {
 #[deprecated(since = "2.0.0", note = "Use SystemProfile instead")]
 pub type SPUSBDataType = SystemProfile;
 
+#[derive(Debug, Clone)]
+pub(crate) struct PciInfo {
+    pub vendor_id: u16,
+    pub product_id: u16,
+    pub revision: u16,
+}
+
 /// USB bus returned from system_profiler but now used for other platforms.
 ///
 /// It is a merging of the PCI Host Controller information and root hub device data (if present). Essentially a root hub but not as a pseudo device but an explicit type - since the root hub is a bit confusing in that sense.
@@ -159,30 +166,14 @@ impl TryFrom<Device> for Bus {
             ));
         }
 
-        // on Linux, attempt to get the PCI host controller information, the kernel name of which is the root hub serial
-        let (pci_vid, pci_pid, pci_rev) = if cfg!(target_os = "linux") {
-            if let Some(sysfs_pci_name) = device.serial_num {
-                let pci_path = SysfsPath::from(format!("{}{}", SYSFS_PCI_PREFIX, sysfs_pci_name));
-                if pci_path.exists() {
-                    log::debug!("probing PCI path for bus data: {}", pci_path);
-                    (
-                        pci_path.read_attr_hex("vendor").ok(),
-                        pci_path.read_attr_hex("device").ok(),
-                        pci_path.read_attr_hex("revision").ok(),
-                    )
-                } else {
-                    (None, None, None)
-                }
-            } else {
-                (device.vendor_id, device.product_id, None)
-            }
-        // otherwise pseudo root hub should have PCI IDs
-        } else {
-            (device.vendor_id, device.product_id, None)
+        // attempt to get PCI info from platform
+        let (pci_vendor, pci_device, pci_revision) = match platform::pci_info_from_device(&device) {
+            Some(v) => (Some(v.vendor_id), Some(v.product_id), Some(v.revision)),
+            None => (None, None, None),
         };
 
-        let (host_controller_device, host_controller_vendor) =
-            if let (Some(v), Some(p)) = (pci_vid, pci_pid) {
+        let (host_controller_vendor, host_controller_device) =
+            if let (Some(v), Some(p)) = (pci_vendor, pci_device) {
                 log::debug!("looking up PCI IDs: {:04x}:{:04x}", v, p);
                 match pci_ids::Device::from_vid_pid(v, p) {
                     Some(d) => (
@@ -200,9 +191,9 @@ impl TryFrom<Device> for Bus {
             host_controller: device.manufacturer.unwrap_or_default(),
             host_controller_vendor,
             host_controller_device,
-            pci_device: pci_pid.filter(|v| *v != 0xffff && *v != 0),
-            pci_vendor: pci_vid.filter(|v| *v != 0xffff && *v != 0),
-            pci_revision: pci_rev.filter(|v| *v != 0xffff && *v != 0),
+            pci_device,
+            pci_vendor,
+            pci_revision,
             usb_bus_number: Some(device.location_id.bus),
             devices: device.devices,
         })
