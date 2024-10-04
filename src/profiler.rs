@@ -1091,19 +1091,64 @@ mod platform {
         None
     }
 
-    #[allow(unused_variables)]
     #[cfg(feature = "nusb")]
     pub(crate) fn pci_info_from_bus(bus_info: &::nusb::BusInfo) -> Option<PciInfo> {
-        None
+        // PCI buses have a IOKit 'name' key of 'pci' 'pci<vendor>,<product>'
+        // TODO not perfect or documented - would be better to either use `system_profiler SPPCIDataType -timeout 5 -json` and find device or even better io-kit-sys and core-foundation-sys bindings
+        bus_info
+            .system_name()
+            .and_then(|name| name.strip_prefix("pci"))
+            .and_then(|name| {
+                let pci_id = name.split(',').collect::<Vec<&str>>();
+                if pci_id.len() == 2 {
+                    Some(PciInfo {
+                        vendor_id: u16::from_str_radix(pci_id[0], 16).ok()?,
+                        product_id: u16::from_str_radix(pci_id[1], 16).ok()?,
+                        revision: 0x00,
+                    })
+                } else {
+                    None
+                }
+            })
     }
 
     #[cfg(feature = "nusb")]
     pub(crate) fn from(bus: &::nusb::BusInfo) -> Bus {
-        Bus {
-            usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).unwrap_or(0)),
-            name: bus.class_name().to_string(),
-            host_controller: bus.provider_class_name().to_string(),
-            ..Default::default()
+        if let Some(pci_info) = platform::pci_info_from_bus(bus) {
+            let (host_controller_vendor, host_controller_device) =
+                match pci_ids::Device::from_vid_pid(pci_info.vendor_id, pci_info.product_id) {
+                    Some(d) => (
+                        Some(d.vendor().name().to_string()),
+                        Some(d.name().to_string()),
+                    ),
+                    None => (None, None),
+                };
+
+            // TODO filter phony value
+            let pci_revision = if pci_info.revision == 0 || pci_info.revision == 0xffff {
+                None
+            } else {
+                Some(pci_info.revision)
+            };
+
+            Bus {
+                usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).unwrap_or(0)),
+                name: bus.class_name().to_string(),
+                host_controller: bus.provider_class_name().to_string(),
+                host_controller_vendor,
+                host_controller_device,
+                pci_vendor: Some(pci_info.vendor_id),
+                pci_device: Some(pci_info.product_id),
+                pci_revision,
+                ..Default::default()
+            }
+        } else {
+            Bus {
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                name: bus.class_name().to_string(),
+                host_controller: bus.provider_class_name().to_string(),
+                ..Default::default()
+            }
         }
     }
 }

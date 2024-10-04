@@ -191,9 +191,9 @@ impl TryFrom<Device> for Bus {
             host_controller: device.manufacturer.unwrap_or_default(),
             host_controller_vendor,
             host_controller_device,
-            pci_device,
-            pci_vendor,
-            pci_revision,
+            pci_device: pci_device.filter(|v| *v != 0xffff && *v != 0),
+            pci_vendor: pci_vendor.filter(|v| *v != 0xffff && *v != 0),
+            pci_revision: pci_revision.filter(|v| *v != 0xffff && *v != 0),
             usb_bus_number: Some(device.location_id.bus),
             devices: device.devices,
         })

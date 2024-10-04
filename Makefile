@@ -6,7 +6,7 @@ VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.package
 RSRCS += $(wildcard src/*.rs src/**/*.rs)
 DOCS = doc/_$(PROJECT_NAME) doc/$(PROJECT_NAME).1 doc/$(PROJECT_NAME).bash doc/cyme_example_config.json
 
-.PHONY: bump version release enter_version new_version
+.PHONY: release generated enter_version new_version
 
 release: $(RELEASE_BIN)
 
@@ -20,10 +20,10 @@ enter_version:
 
 new_version: enter_version generated
 
-$(RELEASE_BIN): $(RSRCS)
+$(RELEASE_BIN): Cargo.toml $(RSRCS)
 	@echo "Building version $(PROJECT_NAME) $(VERSION)"
 	cargo build --release
 
 $(DOCS): Cargo.toml $(RSRCS)
 	@echo "Generating docs for $(PROJECT_NAME) $(VERSION)"
-	cargo run --all-features -- --gen
+	cargo run -F=cli_generate -- --gen
