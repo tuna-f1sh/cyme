@@ -56,12 +56,14 @@ impl SystemProfile {
 
     /// Returns reference to [`Bus`] `number` if it exists in data
     pub fn get_bus(&self, number: u8) -> Option<&Bus> {
-        self.buses.iter().find(|b| b.get_bus_number() == number)
+        self.buses.iter().find(|b| b.usb_bus_number == Some(number))
     }
 
     /// Returns mutable reference to [`Bus`] `number` if it exists in data
     pub fn get_bus_mut(&mut self, number: u8) -> Option<&mut Bus> {
-        self.buses.iter_mut().find(|b| b.get_bus_number() == number)
+        self.buses
+            .iter_mut()
+            .find(|b| b.usb_bus_number == Some(number))
     }
 
     /// Search for reference to [`Device`] at `port_path` in all buses
@@ -270,7 +272,7 @@ impl Bus {
             self.devices
                 .as_ref()
                 .and_then(|d| d.first().map(|dd| dd.location_id.bus))
-                .unwrap_or(0),
+                .unwrap_or(0xFF),
         )
     }
 

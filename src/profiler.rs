@@ -701,7 +701,8 @@ where
                 if let Some(existing) = spusb
                     .buses
                     .iter_mut()
-                    .find(|b| b.get_bus_number() == bus.get_bus_number())
+                    .filter(|b| b.usb_bus_number.is_some())
+                    .find(|b| b.usb_bus_number == bus.usb_bus_number)
                 {
                     // just take the devices and put them in since nusb/libusb will be more verbose
                     existing.devices = std::mem::take(&mut bus.devices);
@@ -867,7 +868,7 @@ mod platform {
                 };
 
             Bus {
-                usb_bus_number: Some(0),
+                usb_bus_number: None,
                 name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
                 host_controller: bus.parent_instance_id().to_string_lossy().to_string(),
                 host_controller_vendor,
@@ -879,7 +880,7 @@ mod platform {
             }
         } else {
             Bus {
-                usb_bus_number: Some(0),
+                usb_bus_number: None,
                 name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
                 host_controller: bus.parent_instance_id().to_string_lossy().to_string(),
                 ..Default::default()
@@ -1053,7 +1054,7 @@ mod platform {
                 };
 
             Bus {
-                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap()),
                 name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
                 host_controller: bus
                     .root_hub()
@@ -1069,7 +1070,7 @@ mod platform {
             }
         } else {
             Bus {
-                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap()),
                 name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
                 host_controller: bus
                     .root_hub()
@@ -1132,7 +1133,7 @@ mod platform {
             };
 
             Bus {
-                usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).unwrap_or(0)),
+                usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).unwrap()),
                 name: bus.class_name().to_string(),
                 host_controller: bus.provider_class_name().to_string(),
                 host_controller_vendor,
@@ -1144,7 +1145,7 @@ mod platform {
             }
         } else {
             Bus {
-                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap_or(0)),
+                usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).unwrap()),
                 name: bus.class_name().to_string(),
                 host_controller: bus.provider_class_name().to_string(),
                 ..Default::default()
