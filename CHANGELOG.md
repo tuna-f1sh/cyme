@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- risv64 support ([#37](https://github.com/tuna-f1sh/cyme/pull/37)).
+
 ## [1.8.4] - 2024-09-27
 
 ### Changed
