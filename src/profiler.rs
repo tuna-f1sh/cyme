@@ -1054,7 +1054,9 @@ mod platform {
                 };
 
             Bus {
-                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap()),
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().expect(
+                    "Failed to parse bus_id: Linux bus_id should be a decimal string and not None",
+                )),
                 name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
                 host_controller: bus
                     .root_hub()
@@ -1070,7 +1072,9 @@ mod platform {
             }
         } else {
             Bus {
-                usb_bus_number: Some(bus.bus_id().parse::<u8>().unwrap()),
+                usb_bus_number: Some(bus.bus_id().parse::<u8>().expect(
+                    "Failed to parse bus_id: Linux bus_id should be a decimal string and not None",
+                )),
                 name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
                 host_controller: bus
                     .root_hub()
@@ -1086,6 +1090,10 @@ mod platform {
 #[cfg(target_os = "macos")]
 mod platform {
     use super::*;
+    use std::sync::OnceLock;
+
+    /// Static SystemProfile for macOS lookup of PCI data
+    static SP_USB: OnceLock<Result<SystemProfile>> = OnceLock::new();
 
     #[allow(unused_variables)]
     pub(crate) fn pci_info_from_device(device: &Device) -> Option<PciInfo> {
@@ -1094,23 +1102,20 @@ mod platform {
 
     #[cfg(feature = "nusb")]
     pub(crate) fn pci_info_from_bus(bus_info: &::nusb::BusInfo) -> Option<PciInfo> {
-        // PCI buses have a IOKit 'name' key of 'pci' 'pci<vendor>,<product>'
-        // TODO not perfect or documented - would be better to either use `system_profiler SPPCIDataType -timeout 5 -json` and find device or even better io-kit-sys and core-foundation-sys bindings
-        bus_info
-            .system_name()
-            .and_then(|name| name.strip_prefix("pci"))
-            .and_then(|name| {
-                let pci_id = name.split(',').collect::<Vec<&str>>();
-                if pci_id.len() == 2 {
-                    Some(PciInfo {
-                        vendor_id: u16::from_str_radix(pci_id[0], 16).ok()?,
-                        product_id: u16::from_str_radix(pci_id[1], 16).ok()?,
-                        revision: 0x00,
-                    })
-                } else {
-                    None
-                }
-            })
+        // TODO would be better io-kit-sys and core-foundation-sys bindings directly
+        let sp_usb = SP_USB.get_or_init(macos::get_spusb).as_ref().ok()?;
+
+        sp_usb.buses.iter().find_map(|b| {
+            if b.host_controller == bus_info.class_name() {
+                Some(PciInfo {
+                    vendor_id: b.pci_vendor?,
+                    product_id: b.pci_device?,
+                    revision: b.pci_revision?,
+                })
+            } else {
+                None
+            }
+        })
     }
 
     #[cfg(feature = "nusb")]
@@ -1125,27 +1130,20 @@ mod platform {
                     None => (None, None),
                 };
 
-            // TODO filter phony value
-            let pci_revision = if pci_info.revision == 0 || pci_info.revision == 0xffff {
-                None
-            } else {
-                Some(pci_info.revision)
-            };
-
             Bus {
-                usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).unwrap()),
+                usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).expect("Failed to parse bus_id: macOS bus_id should be a hexadecimal string and not None")),
                 name: bus.class_name().to_string(),
                 host_controller: bus.provider_class_name().to_string(),
                 host_controller_vendor,
                 host_controller_device,
                 pci_vendor: Some(pci_info.vendor_id),
                 pci_device: Some(pci_info.product_id),
-                pci_revision,
+                pci_revision: Some(pci_info.revision),
                 ..Default::default()
             }
         } else {
             Bus {
-                usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).unwrap()),
+                usb_bus_number: Some(u8::from_str_radix(bus.bus_id(), 16).expect("Failed to parse bus_id: macOS bus_id should be a hexadecimal string and not None")),
                 name: bus.class_name().to_string(),
                 host_controller: bus.provider_class_name().to_string(),
                 ..Default::default()
