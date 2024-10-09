@@ -53,6 +53,11 @@ udevrs = { version = "^0.3.0", optional = true }
 udevlib = { package = "udev", version = "^0.8.0", optional = true }
 rusb = "0.9.4"
 
+[target.riscv64gc-unknown-linux-gnu.dependencies]
+udevrs = { version = "^0.3.0", optional = true }
+udevlib = { package = "udev", version = "^0.8.0", optional = true }
+rusb = "0.9.4"
+
 [features]
 libusb = ["dep:rusb"]
 udev = ["libusb", "dep:udevrs"]
