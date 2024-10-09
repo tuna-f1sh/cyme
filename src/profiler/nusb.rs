@@ -128,7 +128,9 @@ impl From<&nusb::BusInfo> for Device {
                 device_speed: None,
                 location_id: DeviceLocation {
                     // macOS bus_id is a hex string
-                    bus: u8::from_str_radix(bus.bus_id(), 16).unwrap_or(0),
+                    bus: u8::from_str_radix(bus.bus_id(), 16).expect(
+                        "Failed to parse bus_id: macOS bus_id should be a hex string and not None",
+                    ),
                     number: 0,
                     tree_positions: vec![],
                 },
@@ -180,10 +182,13 @@ impl From<&nusb::DeviceInfo> for Device {
 
         let bus_no = if cfg!(target_os = "macos") {
             // macOS bus_id is a hex string
-            u8::from_str_radix(device_info.bus_id(), 16).unwrap_or(0)
+            u8::from_str_radix(device_info.bus_id(), 16)
+                .expect("Failed to parse bus_id: macOS bus_id should be a hex string and not None")
         } else if cfg!(target_os = "linux") {
             // Linux bus_id is a string decimal
-            device_info.bus_id().parse::<u8>().unwrap_or(0)
+            device_info.bus_id().parse::<u8>().expect(
+                "Failed to parse bus_id: Linux bus_id should be a decimal string and not None",
+            )
         } else {
             // Windows bus_id is a string string so 0
             0
@@ -761,7 +766,11 @@ impl Profiler<UsbDevice> for NusbProfiler {
                 bus.devices = Some(vec![nusb_bus.root_hub().into()]);
             }
 
-            buses.insert(bus.usb_bus_number.unwrap(), bus);
+            buses.insert(
+                bus.usb_bus_number
+                    .expect("Bus has no usb_bus_number, unable to use as key"),
+                bus,
+            );
         }
 
         Ok(buses)

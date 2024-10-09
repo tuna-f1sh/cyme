@@ -10,7 +10,7 @@ use std::process::Command;
 pub fn get_spusb() -> Result<SystemProfile> {
     let output = if cfg!(target_os = "macos") {
         Command::new("system_profiler")
-            .args(["-json", "SPUSBDataType"])
+            .args(["-timeout", "5", "-json", "SPUSBDataType"])
             .output()?
     } else {
         return Err(Error::new(
