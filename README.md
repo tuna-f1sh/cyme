@@ -12,7 +12,7 @@ o---/
 [![Crates.io](https://img.shields.io/crates/v/cyme?style=flat-square)](https://crates.io/crates/cyme)
 [![docs.rs](https://img.shields.io/docsrs/cyme?style=flat-square)](https://docs.rs/cyme/latest/cyme/)
 
-List system USB buses and devices. A modern cross-platform `lsusb` that attempts to maintain compatibility with, but also add new features.
+List system USB buses and devices. A modern cross-platform `lsusb` that attempts to maintain compatibility with, but also add new features. Profiles system USB buses and the devices on those buses, including full device descriptors.
 
 As a developer of embedded devices, I use a USB list tool on a frequent basis and developed this to cater to what I believe are the short comings of `lsusb`: verbose dump is mostly _too_ verbose, tree doesn't contain useful data on the whole, it barely works on non-Linux platforms and modern terminals support features that make glancing through the data easier.
 
