@@ -2,6 +2,7 @@
 use super::*;
 use crate::error::{Error, ErrorKind};
 use crate::lsusb::names;
+use crate::types::NumericalUnit;
 use ::nusb;
 use usb_ids::{self, FromId};
 
