@@ -1,9 +1,9 @@
 use cyme::display;
-use cyme::usb::profiler;
+use cyme::profiler;
 
 fn main() -> Result<(), String> {
     // get all system devices - use get_spusb_with_extra for verbose info
-    let sp_usb = profiler::get_spusb(false)
+    let sp_usb = profiler::get_spusb()
         .map_err(|e| format!("Failed to gather system USB data from libusb, Error({})", e))?;
 
     // flatten since we don't care tree/buses

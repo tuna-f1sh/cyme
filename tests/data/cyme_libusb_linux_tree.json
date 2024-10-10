@@ -3,8 +3,8 @@
     {
       "name": "EHCI Host Controller",
       "host_controller": "Linux 6.0.10-arch2-1 ehci_hcd",
-      "pci_device": 2,
       "pci_vendor": 7531,
+      "pci_device": 2,
       "usb_bus_number": 1,
       "devices": [
         {
@@ -128,7 +128,7 @@
                     "string_index": 4,
                     "number": 0,
                     "path": "1-2:1.0",
-                    "class": "h-i-d",
+                    "class": "hid",
                     "sub_class": 0,
                     "protocol": 2,
                     "alt_setting": 0,
@@ -158,7 +158,7 @@
                     "string_index": 5,
                     "number": 1,
                     "path": "1-2:1.1",
-                    "class": "h-i-d",
+                    "class": "hid",
                     "sub_class": 0,
                     "protocol": 2,
                     "alt_setting": 0,
@@ -285,8 +285,8 @@
     {
       "name": "UHCI Host Controller",
       "host_controller": "Linux 6.0.10-arch2-1 uhci_hcd",
-      "pci_device": 1,
       "pci_vendor": 7531,
+      "pci_device": 1,
       "usb_bus_number": 2,
       "devices": [
         {
@@ -428,7 +428,7 @@
                         "string_index": 5,
                         "number": 0,
                         "path": "2-2.1:1.0",
-                        "class": "c-d-c-communications",
+                        "class": "cdc-communications",
                         "sub_class": 2,
                         "protocol": 1,
                         "alt_setting": 0,
@@ -458,7 +458,7 @@
                         "string_index": 6,
                         "number": 1,
                         "path": "2-2.1:1.1",
-                        "class": "c-d-c-data",
+                        "class": "cdc-data",
                         "sub_class": 0,
                         "protocol": 0,
                         "alt_setting": 0,
@@ -502,7 +502,7 @@
                         "string_index": 7,
                         "number": 2,
                         "path": "2-2.1:1.2",
-                        "class": "c-d-c-communications",
+                        "class": "cdc-communications",
                         "sub_class": 2,
                         "protocol": 1,
                         "alt_setting": 0,
@@ -532,7 +532,7 @@
                         "string_index": 8,
                         "number": 3,
                         "path": "2-2.1:1.3",
-                        "class": "c-d-c-data",
+                        "class": "cdc-data",
                         "sub_class": 0,
                         "protocol": 0,
                         "alt_setting": 0,
@@ -671,7 +671,7 @@
                         "string_index": 4,
                         "number": 0,
                         "path": "2-2.8:1.0",
-                        "class": "c-d-c-communications",
+                        "class": "cdc-communications",
                         "sub_class": 2,
                         "protocol": 0,
                         "alt_setting": 0,
@@ -701,7 +701,7 @@
                         "string_index": 0,
                         "number": 1,
                         "path": "2-2.8:1.1",
-                        "class": "c-d-c-data",
+                        "class": "cdc-data",
                         "sub_class": 0,
                         "protocol": 0,
                         "alt_setting": 0,
@@ -745,7 +745,7 @@
                         "string_index": 5,
                         "number": 2,
                         "path": "2-2.8:1.2",
-                        "class": "c-d-c-communications",
+                        "class": "cdc-communications",
                         "sub_class": 2,
                         "protocol": 0,
                         "alt_setting": 0,
@@ -775,7 +775,7 @@
                         "string_index": 0,
                         "number": 3,
                         "path": "2-2.8:1.3",
-                        "class": "c-d-c-data",
+                        "class": "cdc-data",
                         "sub_class": 0,
                         "protocol": 0,
                         "alt_setting": 0,
@@ -944,8 +944,8 @@
     {
       "name": "xHCI Host Controller",
       "host_controller": "Linux 6.0.10-arch2-1 xhci-hcd",
-      "pci_device": 2,
       "pci_vendor": 7531,
+      "pci_device": 2,
       "usb_bus_number": 3,
       "devices": [
         {
@@ -1034,8 +1034,8 @@
     {
       "name": "xHCI Host Controller",
       "host_controller": "Linux 6.0.10-arch2-1 xhci-hcd",
-      "pci_device": 3,
       "pci_vendor": 7531,
+      "pci_device": 3,
       "usb_bus_number": 4,
       "devices": [
         {

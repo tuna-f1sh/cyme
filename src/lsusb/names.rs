@@ -7,7 +7,7 @@
 use crate::error::{Error, ErrorKind};
 use usb_ids::{self, FromId};
 
-/// Get name of vendor from [`usb_ids::Vendor`] or [`hwdb_get`] if feature is enabled
+/// Get name of vendor from [`usb_ids::Vendor`] or `hwdb_get` if feature is enabled
 ///
 /// ```
 /// use cyme::lsusb::names;
@@ -18,7 +18,7 @@ pub fn vendor(vid: u16) -> Option<String> {
         .unwrap_or(usb_ids::Vendor::from_id(vid).map(|v| v.name().to_owned()))
 }
 
-/// Get name of product from [`usb_ids::Device`] or [`hwdb_get`] if feature is enabled
+/// Get name of product from [`usb_ids::Device`] or `hwdb_get` if feature is enabled
 ///
 /// ```
 /// use cyme::lsusb::names;
@@ -32,7 +32,7 @@ pub fn product(vid: u16, pid: u16) -> Option<String> {
     .unwrap_or(usb_ids::Device::from_vid_pid(vid, pid).map(|v| v.name().to_owned()))
 }
 
-/// Get name of class from [`usb_ids::Class`] or [`hwdb_get`] if feature is enabled
+/// Get name of class from [`usb_ids::Class`] or `hwdb_get` if feature is enabled
 ///
 /// ```
 /// use cyme::lsusb::names;
@@ -46,7 +46,7 @@ pub fn class(id: u8) -> Option<String> {
     .unwrap_or(usb_ids::Class::from_id(id).map(|v| v.name().to_owned()))
 }
 
-/// Get name of sub class from [`usb_ids::SubClass`] or [`hwdb_get`] if feature is enabled
+/// Get name of sub class from [`usb_ids::SubClass`] or `hwdb_get` if feature is enabled
 ///
 /// ```
 /// use cyme::lsusb::names;
@@ -60,7 +60,7 @@ pub fn subclass(cid: u8, scid: u8) -> Option<String> {
     .unwrap_or(usb_ids::SubClass::from_cid_scid(cid, scid).map(|v| v.name().to_owned()))
 }
 
-/// Get name of protocol from [`usb_ids::Protocol`] or [`hwdb_get`] if feature is enabled
+/// Get name of protocol from [`usb_ids::Protocol`] or `hwdb_get` if feature is enabled
 ///
 /// ```
 /// use cyme::lsusb::names;
@@ -114,7 +114,7 @@ pub fn countrycode(id: u8) -> Option<String> {
     usb_ids::HidCountryCode::from_id(id).map(|v| v.name().to_owned())
 }
 
-/// Get name of [`usb_ids::VideoControl`] from id
+/// Get name of [`usb_ids::VideoTerminal`] from id
 pub fn videoterminal(id: u16) -> Option<String> {
     usb_ids::VideoTerminal::from_id(id).map(|v| v.name().to_owned())
 }

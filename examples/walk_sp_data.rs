@@ -1,7 +1,6 @@
-use cyme::system_profiler::USBDevice;
-use cyme::usb::profiler;
+use cyme::profiler::{self, Device};
 
-fn recursive_map_devices(device: &USBDevice) {
+fn recursive_map_devices(device: &Device) {
     // the alternate format will print with colour
     println!("Device: {:#}", device);
     if let Some(v) = device.devices.as_ref() {
@@ -13,7 +12,7 @@ fn recursive_map_devices(device: &USBDevice) {
 
 fn main() -> Result<(), String> {
     // get all system devices
-    let sp_usb = profiler::get_spusb(false)
+    let sp_usb = profiler::get_spusb()
         .map_err(|e| format!("Failed to gather system USB data from libusb, Error({})", e))?;
 
     // SPUSBDataType contains buses...

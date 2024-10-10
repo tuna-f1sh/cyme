@@ -1,10 +1,9 @@
-//! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb output and provide cross-platform [`crate::system_profiler::SPUSBDataType`] getter
-//! Printing functions for lsusb style output of USB data
+//! Methods to print system USB information in lsusb style
 //!
-//! The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for a lot of the styling and content of the display module
+//! Originally based on [libusb list_devices.rs example](https://github.com/dcuddeback/libusb-rs/blob/master/examples/list_devices.rs), attempts to mimic lsusb output. The [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c) was used as a reference for the styling and content; even odities/inconsistencies were kept!
 use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
-use crate::system_profiler;
+use crate::profiler::{Device, SystemProfile};
 use uuid::Uuid;
 
 use crate::usb::descriptors::audio;
@@ -231,11 +230,9 @@ fn get_guid(buf: &[u8]) -> String {
         buf[10], buf[11], buf[12], buf[13], buf[14], buf[15])
 }
 
-/// Print [`system_profiler::SPUSBDataType`] as a lsusb style tree with the two optional `verbosity` levels
-pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
-    fn print_tree_devices(devices: &Vec<system_profiler::USBDevice>, settings: &PrintSettings) {
-        //let sorted = settings.sort_devices.sort_devices(devices);
-
+/// Print [`SystemProfile`] as a lsusb style tree with the two optional `verbosity` levels
+pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
+    fn print_tree_devices(devices: &Vec<Device>, settings: &PrintSettings) {
         for device in devices {
             if device.is_root_hub() {
                 log::debug!("lsusb tree skipping root_hub {}", device);
@@ -281,11 +278,8 @@ pub fn print_tree(spusb: &system_profiler::SPUSBDataType, settings: &PrintSettin
     }
 }
 
-/// Dump a single [`system_profiler::USBDevice`] matching `dev_path` verbosely
-pub fn dump_one_device(
-    devices: &Vec<&system_profiler::USBDevice>,
-    dev_path: &String,
-) -> Result<(), Error> {
+/// Dump a single [`Device`] matching `dev_path` verbosely
+pub fn dump_one_device(devices: &Vec<&Device>, dev_path: &String) -> Result<(), Error> {
     for device in devices {
         if &device.dev_path() == dev_path {
             // error if extra is none because we need it for vebose
@@ -321,7 +315,7 @@ fn find_otg(extra: &[Descriptor]) -> Option<&OnTheGoDescriptor> {
 /// Print USB devices in lsusb style flat dump
 ///
 /// `verbose` flag enables verbose printing like lsusb (configs, interfaces and endpoints) - a huge dump!
-pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
+pub fn print(devices: &Vec<&Device>, verbose: bool) {
     if !verbose {
         for device in devices {
             println!("{}", device.to_lsusb_string());
@@ -392,8 +386,8 @@ pub fn print(devices: &Vec<&system_profiler::USBDevice>, verbose: bool) {
     }
 }
 
-/// Dump a [`system_profiler::USBDevice`] in style of lsusb --verbose
-fn dump_device(device: &system_profiler::USBDevice) {
+/// Dump a [`Device`] in style of lsusb --verbose
+fn dump_device(device: &Device) {
     let device_extra = device
         .extra
         .as_ref()
@@ -524,8 +518,8 @@ fn dump_device(device: &system_profiler::USBDevice) {
     );
 }
 
-/// Dump a [`USBConfiguration`] in style of lsusb --verbose
-fn dump_config(config: &USBConfiguration, indent: usize) {
+/// Dump a [`Configuration`] in style of lsusb --verbose
+fn dump_config(config: &Configuration, indent: usize) {
     dump_string("Configuration Descriptor:", indent);
     dump_value(config.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(2, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 2 for configuration
@@ -600,8 +594,8 @@ fn dump_config(config: &USBConfiguration, indent: usize) {
     }
 }
 
-/// Dump a [`USBInterfaceAssociation`] in style of lsusb --verbose
-fn dump_interface(interface: &USBInterface, indent: usize) {
+/// Dump a [`InterfaceAssociation`] in style of lsusb --verbose
+fn dump_interface(interface: &Interface, indent: usize) {
     let interface_name = names::class(interface.class.into());
     let sub_class_name = names::subclass(interface.class.into(), interface.sub_class);
     let protocol_name = names::protocol(
@@ -690,12 +684,12 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                         }
                     },
                     ClassDescriptor::Generic(cc, gd) => match cc {
-                        Some((ClassCode::Audio, 3, _)) => {
+                        Some((BaseClass::Audio, 3, _)) => {
                             if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {
                                 dump_midistreaming_interface(&md, indent + 4);
                             }
                         }
-                        Some((ClassCode::Audio, s, p)) => {
+                        Some((BaseClass::Audio, s, p)) => {
                             if let Ok(uacd) =
                                 audio::UacDescriptor::try_from((gd.to_owned(), *s, *p))
                             {
@@ -711,7 +705,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                                 }
                             }
                         }
-                        Some((ClassCode::Video, s, p)) => {
+                        Some((BaseClass::Video, s, p)) => {
                             if let Ok(uvcd) =
                                 video::UvcDescriptor::try_from((gd.to_owned(), *s, *p))
                             {
@@ -725,7 +719,7 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
                                 }
                             }
                         }
-                        Some((ClassCode::ApplicationSpecificInterface, 1, _)) => {
+                        Some((BaseClass::ApplicationSpecificInterface, 1, _)) => {
                             if let Ok(dfud) = DfuDescriptor::try_from(gd.to_owned()) {
                                 dump_dfu_interface(&dfud, indent + 4);
                             }
@@ -745,8 +739,8 @@ fn dump_interface(interface: &USBInterface, indent: usize) {
     }
 }
 
-/// Dump a [`USBEndpoint`] in style of lsusb --verbose
-fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
+/// Dump a [`Endpoint`] in style of lsusb --verbose
+fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
     dump_string("Endpoint Descriptor:", indent);
     dump_value(endpoint.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(5, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 5 for endpoint
@@ -809,13 +803,13 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                     }
                     // legacy as context should have been added to the descriptor
                     ClassDescriptor::Generic(cc, gd) => match cc {
-                        Some((ClassCode::Audio, 2, p)) => {
+                        Some((BaseClass::Audio, 2, p)) => {
                             if let Ok(uacd) = audio::UacDescriptor::try_from((gd.to_owned(), 2, *p))
                             {
                                 dump_audiostreaming_endpoint(&uacd, indent + 2);
                             }
                         }
-                        Some((ClassCode::Audio, 3, _)) => {
+                        Some((BaseClass::Audio, 3, _)) => {
                             if let Ok(md) = audio::MidiDescriptor::try_from(gd.to_owned()) {
                                 dump_midistreaming_endpoint(&md, indent + 2);
                             }
@@ -844,13 +838,13 @@ fn dump_endpoint(endpoint: &USBEndpoint, indent: usize) {
                 },
                 Descriptor::Interface(cd) => match cd {
                     ClassDescriptor::Generic(cc, gd) => match cc {
-                        Some((ClassCode::CDCData, _, _))
-                        | Some((ClassCode::CDCCommunications, _, _)) => {
+                        Some((BaseClass::CdcData, _, _))
+                        | Some((BaseClass::CdcCommunications, _, _)) => {
                             if let Ok(cd) = gd.to_owned().try_into() {
                                 dump_comm_descriptor(&cd, indent)
                             }
                         }
-                        Some((ClassCode::MassStorage, _, _)) => {
+                        Some((BaseClass::MassStorage, _, _)) => {
                             dump_pipe_desc(gd, indent + 2);
                         }
                         _ => {

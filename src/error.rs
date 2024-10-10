@@ -62,8 +62,10 @@ pub enum ErrorKind {
     Config,
     /// [`std::io::Error`] probably not found when reading file to parse
     Io,
-    /// [`rusb::Error`] error
+    /// libusb error
     LibUSB,
+    /// nusb error
+    Nusb,
     /// Error calling udev
     Udev,
     /// Invalid arg for method or cli
@@ -74,6 +76,8 @@ pub enum ErrorKind {
     InvalidDescriptor,
     /// Invalid device descriptor length
     DescriptorLength(ErrorArg<usize, usize>),
+    /// Invalid device used in context
+    InvalidDevice,
 }
 
 #[derive(Debug, PartialEq)]
