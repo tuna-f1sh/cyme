@@ -267,23 +267,23 @@ impl Bus {
     }
 
     /// usb_bus_number is not always present in system_profiler output so try to get from first device instead
-    pub fn get_bus_number(&self) -> u8 {
-        self.usb_bus_number.unwrap_or(
+    pub fn get_bus_number(&self) -> Option<u8> {
+        self.usb_bus_number.or_else(|| {
             self.devices
                 .as_ref()
                 .and_then(|d| d.first().map(|dd| dd.location_id.bus))
-                .unwrap_or(0xFF),
-        )
+        })
     }
 
     /// syspath style path to bus
-    pub fn path(&self) -> String {
-        get_trunk_path(self.get_bus_number(), &[])
+    pub fn path(&self) -> Option<String> {
+        self.get_bus_number().map(|n| get_trunk_path(n, &[]))
     }
 
     /// sysfs style path to bus interface
-    pub fn interface(&self) -> String {
-        get_interface_path(self.get_bus_number(), &Vec::new(), 1, 0)
+    pub fn interface(&self) -> Option<String> {
+        self.get_bus_number()
+            .map(|n| get_interface_path(n, &Vec::new(), 1, 0))
     }
 
     /// Remove the root_hub if existing in bus
@@ -295,12 +295,12 @@ impl Bus {
 
     /// Gets the device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device(&self) -> Option<&Device> {
-        self.get_node(&self.interface())
+        self.interface().and_then(|i| self.get_node(&i))
     }
 
     /// Gets a mutable device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device_mut(&mut self) -> Option<&mut Device> {
-        self.get_node_mut(&self.interface())
+        self.interface().and_then(|i| self.get_node_mut(&i))
     }
 
     /// Search for [`Device`] in branches of bus and return reference
@@ -335,7 +335,7 @@ impl Bus {
     pub fn to_lsusb_string(&self) -> String {
         format!(
             "Bus {:03} Device 000: ID {:04x}:{:04x} {} {}",
-            self.get_bus_number(),
+            self.get_bus_number().unwrap_or(0xff),
             self.pci_vendor.unwrap_or(0xffff),
             self.pci_device.unwrap_or(0xffff),
             self.name,
@@ -375,7 +375,7 @@ impl Bus {
             Vec::from([(
                 format!(
                     "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver={}, {}",
-                    self.get_bus_number(),
+                    self.get_bus_number().unwrap_or(0xff),
                     driver,
                     speed
                 ),
@@ -388,8 +388,8 @@ impl Bus {
                 ),
                 format!(
                     "/sys/bus/usb/devices/usb{}  {}",
-                    self.get_bus_number(),
-                    get_dev_path(self.get_bus_number(), None)
+                    self.get_bus_number().unwrap_or(0xff),
+                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None)
                 ),
             )])
         } else {
@@ -397,7 +397,7 @@ impl Bus {
             Vec::from([(
                 format!(
                     "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=[none],",
-                    self.get_bus_number(),
+                    self.get_bus_number().unwrap_or(0xff),
                 ),
                 format!(
                     "ID {:04x}:{:04x} {} {}",
@@ -408,8 +408,8 @@ impl Bus {
                 ),
                 format!(
                     "/sys/bus/usb/devices/usb{}  {}",
-                    self.get_bus_number(),
-                    get_dev_path(self.get_bus_number(), None)
+                    self.get_bus_number().unwrap_or(0xff),
+                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None)
                 ),
             )])
         }
