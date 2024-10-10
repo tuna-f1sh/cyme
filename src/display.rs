@@ -954,7 +954,11 @@ impl Block<BusBlocks, Bus> for BusBlocks {
                 .flat_map(|d| d.host_controller_device.as_ref().map(|v| v.len()))
                 .max()
                 .unwrap_or(0),
-            BusBlocks::PortPath => d.iter().map(|d| d.path().len()).max().unwrap_or(0),
+            BusBlocks::PortPath => d
+                .iter()
+                .map(|d| d.path().unwrap_or("-".to_string()).len())
+                .max()
+                .unwrap_or(0),
             _ => self.block_length().len(),
         }
     }
@@ -987,7 +991,10 @@ impl Block<BusBlocks, Bus> for BusBlocks {
         settings: &PrintSettings,
     ) -> Option<String> {
         match self {
-            BusBlocks::BusNumber => Some(format!("{:3}", bus.get_bus_number())),
+            BusBlocks::BusNumber => bus
+                .get_bus_number()
+                .map(|v| format!("{:3}", v))
+                .or(Some("---".to_string())),
             BusBlocks::Icon => settings
                 .icons
                 .as_ref()
@@ -1023,12 +1030,10 @@ impl Block<BusBlocks, Bus> for BusBlocks {
                 Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            BusBlocks::PortPath => Some(format!(
-                "{:pad$}",
-                bus.path(),
-                pad = pad.get(self).unwrap_or(&0)
-            )),
-            // _ => None,
+            BusBlocks::PortPath => Some(match bus.path() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
         }
     }
 
