@@ -414,6 +414,15 @@ impl Bus {
             )])
         }
     }
+
+    pub(crate) fn fill_host_controller_from_ids(&mut self) {
+        if let (Some(v), Some(p)) = (self.pci_vendor, self.pci_device) {
+            if let Some(d) = pci_ids::Device::from_vid_pid(v, p) {
+                self.host_controller_vendor = Some(d.vendor().name().to_string());
+                self.host_controller_device = Some(d.name().to_string());
+            }
+        }
+    }
 }
 
 /// Recursively writeln! of all [`Device`] references

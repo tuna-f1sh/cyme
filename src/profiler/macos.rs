@@ -20,15 +20,23 @@ pub fn get_spusb() -> Result<SystemProfile> {
     };
 
     if output.status.success() {
-        serde_json::from_str(String::from_utf8(output.stdout)?.as_str()).map_err(|e| {
-            Error::new(
-                ErrorKind::Parsing,
-                &format!(
-                    "Failed to parse 'system_profiler -json SPUSBDataType'; Error({})",
-                    e
-                ),
-            )
-        })
+        serde_json::from_str(String::from_utf8(output.stdout)?.as_str())
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::Parsing,
+                    &format!(
+                        "Failed to parse 'system_profiler -json SPUSBDataType'; Error({})",
+                        e
+                    ),
+                )
+                // map to get pci.ids host controller data
+            })
+            .map(|mut sp: SystemProfile| {
+                for bus in sp.buses.iter_mut() {
+                    bus.fill_host_controller_from_ids();
+                }
+                sp
+            })
     } else {
         log::error!(
             "system_profiler returned non-zero stderr: {:?}, stdout: {:?}",

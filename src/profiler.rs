@@ -16,7 +16,6 @@ use itertools::Itertools;
 use std::collections::HashMap;
 
 use crate::error::{Error, ErrorKind};
-use crate::types::NumericalUnit;
 #[cfg(all(target_os = "linux", any(feature = "udev", feature = "udevlib")))]
 use crate::udev;
 use crate::usb;
@@ -701,10 +700,10 @@ where
                 if let Some(existing) = spusb
                     .buses
                     .iter_mut()
-                    .filter(|b| b.usb_bus_number.is_some())
-                    .find(|b| b.usb_bus_number == bus.usb_bus_number)
+                    .find(|b| b.get_bus_number() == bus.get_bus_number())
                 {
                     // just take the devices and put them in since nusb/libusb will be more verbose
+                    // bus macOS profiler will have accurate bus information
                     existing.devices = std::mem::take(&mut bus.devices);
                 }
             }

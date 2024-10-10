@@ -26,12 +26,13 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Features
 
-* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb. Output is identical for use with no args (list), almost matching for tree (driver port number not included) and should match for verbose (minor formatting differences).
+* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output - fully parsed device descriptors! Output is identical for use with no args (list), almost matching for tree (driver port number not included) and should match for verbose (perhaps formatting differences).
+* Default build is a native Rust profiler using [nusb](https://docs.rs/nusb/latest/nusb).
 * Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial`, `--filter_class` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
 * Controllable block data like `lsd --blocks` for device, bus, configurations, interfaces and endpoints. Use `--more` to see more by default.
 * Modern terminal features with coloured output, utf-8 characters and icon look-up based device data. Can be turned off and customised. See `--encoding` (glyphs [default], utf8 and ascii), which can keep icons/tree within a certain encoding, `--color` (auto [default], always and never) and `--icon` (auto [default], always and never). Auto `--icon` will only show icons if all icons to be shown are supported by the `--encoding`.
-* Can be used as a library too with `system_profiler` parsing module, `lsusb` module using libusb and `display` module for printing amongst others.
+* Can be used as a library too with system profiler module, USB descriptor modules and `display` module for printing amongst others.
 * `--json` output that honours filters and `--tree`.
 * `--headers` to show meta data only when asked and not take space otherwise.
 * `--mask_serials` to either '\*' or randomise serial string for sharing dumps with sensitive serial numbers.
@@ -46,7 +47,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 ## Requirements
 
-For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases). Pre-compiled builds use native profiling backends.
+For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases). Pre-compiled builds use native profiling backends and should require no extra dependencies.
 
 From crates.io with a Rust tool-chain installed: `cargo install cyme --git https://github.com/tuna-f1sh/cyme` (from GitHub as crates.io pinned at the moment). To do it from within a local clone: `cargo install --path .`.
 
@@ -68,6 +69,12 @@ pacman -S cyme
 
 More package managers to come/package distribution, please feel free to create a PR if you want to help out here.
 
+## Alias `lsusb`
+
+If one wishes to create a macOS version of lsusb or just use this instead, create an alias one's environment with the `--lsusb` compatibility flag:
+
+`alias lsusb='cyme --lsusb'`
+
 ## Linux udev Information
 
 > [!NOTE]
@@ -77,13 +84,7 @@ To obtain device and interface drivers being used on Linux like `lsusb`, one can
 
 To lookup USB IDs from the udev hwdb as well (like `lsusb`) use `--features udev_hwdb`. Without hwdb, `cyme` will use the 'usb-ids' crate, which is the same source as the hwdb binary data but the bundled hwdb may differ due to customisations or last update ('usb-ids' will be most up to date).
 
-## Alias `lsusb`
-
-If one wishes to create a macOS version of lsusb or just use this instead, create an alias one's environment with the `--lsusb` compatibility flag:
-
-`alias lsusb='cyme --lsusb'`
-
-## Profilers
+## Profilers and Feature Flags
 
 ### Native
 
@@ -104,7 +105,7 @@ Was the default feature before 2.0.0 for gathering verbose information. It is th
 
 Uses the macOS `system_profiler SPUSBDataType` command to profile devices.
 
-Was the default feature before 2.0.0 for macOS systems to provide the base information; 'libusb' was used to open devices for verbose information. It is not used anymore if using the default native profiler but can be forced with `--system-profiler` - the native profiler uses the same IOKit backend but is much faster as it is not deserializing JSON.
+Was the default feature before 2.0.0 for macOS systems to provide the base information; 'libusb' was used to open devices for verbose information. It is not used anymore if using the default native profiler but can be forced with `--system-profiler` - the native profiler uses the same IOKit backend but is much faster as it is not deserializing JSON. It also always captures bus numbers where `system_profiler` does not.
 
 > [!TIP]
 > If wishing to use only macOS `system_profiler` and not obtain more verbose information, remove default features with `cargo install --no-default-features cyme`. There is not much to be gained by this considering that the default native profiler uses the same IOKit as a backend, can open devices to read descriptors (verbose mode) and is much faster.

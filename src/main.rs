@@ -313,7 +313,8 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
 }
 
 fn get_macos_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
-    if cfg!(feature = "libusb") || args.system_profiler {
+    // if requested or only have libusb, use system_profiler and merge with libusb
+    if args.system_profiler || !cfg!(feature = "nusb") {
         if !args.force_libusb
             && args.device.is_none() // device path requires extra
                 && args.filter_class.is_none() // class filter requires extra
@@ -323,18 +324,20 @@ fn get_macos_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
                 .map_or_else(|e| {
                     // For non-zero return, report but continue in this case
                     if e.kind() == ErrorKind::SystemProfiler {
-                        eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
+                        eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({})", e);
                         get_system_profile(args)
                     } else {
                         Err(e)
                     }
                 }, Ok)
         } else if !args.force_libusb {
-            log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
+            if cfg!(feature = "libusb") {
+                log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
+            }
             profiler::macos::get_spusb_with_extra().map_or_else(|e| {
                 // For non-zero return, report but continue in this case
                 if e.kind() == ErrorKind::SystemProfiler {
-                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
+                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({})", e);
                     get_system_profile(args)
                 } else {
                     Err(e)
