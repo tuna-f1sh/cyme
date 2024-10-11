@@ -6,9 +6,12 @@ VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.package
 RSRCS += $(wildcard src/*.rs src/**/*.rs)
 DOCS = doc/_$(PROJECT_NAME) doc/$(PROJECT_NAME).1 doc/$(PROJECT_NAME).bash doc/cyme_example_config.json
 
-.PHONY: release generated enter_version new_version
+.PHONY: release install generated enter_version new_version
 
 release: $(RELEASE_BIN)
+
+install:
+	$(shell ./install.sh)
 
 generated: $(DOCS)
 
