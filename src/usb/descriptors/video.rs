@@ -550,8 +550,8 @@ impl TryFrom<&[u8]> for ProcessingUnit {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 9 {
-            return Err(Error::new_descriptor_len("ProcessingUnit", 9, value.len()));
+        if value.len() < 7 {
+            return Err(Error::new_descriptor_len("ProcessingUnit", 7, value.len()));
         }
 
         let unit_id = value[0];
@@ -727,13 +727,13 @@ impl TryFrom<&[u8]> for EncodingUnit {
         let encoding_string_index = value[2];
         let control_size = value[3] as usize;
 
-        if value.len() < 4 + 2 * control_size {
+        if value.len() < 3 + 2 * control_size {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
                 &format!(
                     "Encoding Unit descriptor too short for control size {} < {}",
                     value.len(),
-                    4 + 2 * control_size
+                    3 + 2 * control_size
                 ),
             ));
         }
@@ -1279,8 +1279,8 @@ impl TryFrom<&[u8]> for FrameCommon {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 23 {
-            return Err(Error::new_descriptor_len("FrameCommon", 23, value.len()));
+        if value.len() < 14 {
+            return Err(Error::new_descriptor_len("FrameCommon", 14, value.len()));
         }
 
         let frame_index = value[0];

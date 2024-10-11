@@ -231,6 +231,7 @@ impl TryFrom<&[u8]> for OutputJack {
         }
 
         let num_input_pins = value[2] as usize;
+        // + 1 for the jack_string_index
         if value.len() < 3 + num_input_pins * 2 + 1 {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
@@ -2018,7 +2019,7 @@ impl TryFrom<&[u8]> for FormatSpecificMpeg {
 
         Ok(FormatSpecificMpeg {
             mpeg_capabilities: u16::from_le_bytes([value[0], value[1]]),
-            mpeg_features: value[3],
+            mpeg_features: value[2],
         })
     }
 }
@@ -2643,8 +2644,8 @@ impl TryFrom<&[u8]> for MixerUnit1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 6 {
-            return Err(Error::new_descriptor_len("MixerUnit1", 6, value.len()));
+        if value.len() < 7 {
+            return Err(Error::new_descriptor_len("MixerUnit1", 7, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
@@ -2653,7 +2654,7 @@ impl TryFrom<&[u8]> for MixerUnit1 {
             .get(2 + nr_in_pins)
             .ok_or_else(|| Error::new_descriptor_len("MixerUnit1", 2 + nr_in_pins, value.len()))?
             as usize;
-        let expected_len = 6 + nr_in_pins + nr_channels;
+        let expected_len = 7 + nr_in_pins + nr_channels;
         if value.len() < expected_len {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
@@ -2778,12 +2779,12 @@ impl TryFrom<&[u8]> for MixerUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 10 {
-            return Err(Error::new_descriptor_len("MixerUnit3", 10, value.len()));
+        if value.len() < 11 {
+            return Err(Error::new_descriptor_len("MixerUnit3", 11, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
-        let expected_len = 10 + nr_in_pins;
+        let expected_len = 11 + nr_in_pins;
         if value.len() < expected_len {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
@@ -3176,8 +3177,8 @@ impl TryFrom<&[u8]> for SelectorUnit1 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 4 {
-            return Err(Error::new_descriptor_len("SelectorUnit1", 4, value.len()));
+        if value.len() < 3 {
+            return Err(Error::new_descriptor_len("SelectorUnit1", 3, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
@@ -3195,7 +3196,7 @@ impl TryFrom<&[u8]> for SelectorUnit1 {
             unit_id: value[0],
             nr_in_pins: value[1],
             source_ids,
-            selector_index: value[expected_length - 1],
+            selector_index: value[2 + nr_in_pins],
             selector: None,
         })
     }
@@ -3227,8 +3228,8 @@ impl TryFrom<&[u8]> for SelectorUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 5 {
-            return Err(Error::new_descriptor_len("SelectorUnit2", 5, value.len()));
+        if value.len() < 4 {
+            return Err(Error::new_descriptor_len("SelectorUnit2", 4, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
@@ -3247,7 +3248,7 @@ impl TryFrom<&[u8]> for SelectorUnit2 {
             nr_in_pins: value[1],
             source_ids,
             controls: value[2 + nr_in_pins],
-            selector_index: value[expected_length - 1],
+            selector_index: value[3 + nr_in_pins],
             selector: None,
         })
     }
@@ -3284,7 +3285,7 @@ impl TryFrom<&[u8]> for SelectorUnit3 {
         }
 
         let nr_in_pins = value[1] as usize;
-        let expected_length = 6 + nr_in_pins;
+        let expected_length = 8 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
@@ -3305,10 +3306,7 @@ impl TryFrom<&[u8]> for SelectorUnit3 {
             nr_in_pins: value[1],
             source_ids,
             controls,
-            selector_descr_str: u16::from_le_bytes([
-                value[expected_length - 2],
-                value[expected_length - 1],
-            ]),
+            selector_descr_str: u16::from_le_bytes([value[6 + nr_in_pins], value[7 + nr_in_pins]]),
         })
     }
 }
@@ -3461,7 +3459,9 @@ impl TryFrom<&[u8]> for ProcessingUnit1 {
         }
 
         let nr_in_pins = value[3];
-        let control_size = value[9 + nr_in_pins as usize];
+        let control_size = *value.get(8 + nr_in_pins as usize).ok_or_else(|| {
+            Error::new_descriptor_len("ProcessingUnit1", 10 + nr_in_pins as usize, value.len())
+        })?;
         let expected_length = 10 + nr_in_pins as usize + control_size as usize;
         if value.len() < expected_length {
             return Err(Error::new(
@@ -3491,7 +3491,7 @@ impl TryFrom<&[u8]> for ProcessingUnit1 {
             channel_names: None,
             control_size,
             controls: value
-                [10 + nr_in_pins as usize..10 + nr_in_pins as usize + control_size as usize]
+                [9 + nr_in_pins as usize..9 + nr_in_pins as usize + control_size as usize]
                 .to_vec(),
             processing_index: value[expected_length - 1],
             processing: None,
@@ -3640,10 +3640,10 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3UpDownMix {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 6 {
+        if value.len() < 7 {
             return Err(Error::new_descriptor_len(
                 "AudioProcessingUnit3UpDownMix",
-                6,
+                7,
                 value.len(),
             ));
         }
@@ -3718,10 +3718,10 @@ impl TryFrom<&[u8]> for AudioProcessingUnit3MultiFunction {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 8 {
+        if value.len() < 10 {
             return Err(Error::new_descriptor_len(
                 "AudioProcessingUnit3MultiFunction",
-                8,
+                10,
                 value.len(),
             ));
         }
@@ -3785,16 +3785,16 @@ impl TryFrom<&[u8]> for ProcessingUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 12 {
+        if value.len() < 13 {
             return Err(Error::new_descriptor_len(
                 "ProcessingUnit2",
-                12,
+                13,
                 value.len(),
             ));
         }
 
-        let nr_in_pins = value[3];
-        let expected_length = 12 + nr_in_pins as usize;
+        let nr_in_pins = value[3] as usize;
+        let expected_length = 13 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
@@ -3815,22 +3815,19 @@ impl TryFrom<&[u8]> for ProcessingUnit2 {
         Ok(ProcessingUnit2 {
             unit_id: value[0],
             process_type: u16::from_le_bytes([value[1], value[2]]),
-            nr_in_pins,
-            source_ids: value[4..4 + nr_in_pins as usize].to_vec(),
-            nr_channels: value[4 + nr_in_pins as usize],
+            nr_in_pins: nr_in_pins as u8,
+            source_ids: value[4..4 + nr_in_pins].to_vec(),
+            nr_channels: value[4 + nr_in_pins],
             channel_config: u32::from_le_bytes([
-                value[5 + nr_in_pins as usize],
-                value[6 + nr_in_pins as usize],
-                value[7 + nr_in_pins as usize],
-                value[8 + nr_in_pins as usize],
+                value[5 + nr_in_pins],
+                value[6 + nr_in_pins],
+                value[7 + nr_in_pins],
+                value[8 + nr_in_pins],
             ]),
-            channel_names_index: value[9 + nr_in_pins as usize],
+            channel_names_index: value[9 + nr_in_pins],
             channel_names: None,
-            controls: u16::from_le_bytes([
-                value[10 + nr_in_pins as usize],
-                value[11 + nr_in_pins as usize],
-            ]),
-            processing_index: value[expected_length - 1],
+            controls: u16::from_le_bytes([value[10 + nr_in_pins], value[11 + nr_in_pins]]),
+            processing_index: value[12 + nr_in_pins],
             processing: None,
             specific,
         })
@@ -4053,8 +4050,8 @@ impl TryFrom<&[u8]> for EffectUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 6 {
-            return Err(Error::new_descriptor_len("EffectUnit2", 6, value.len()));
+        if value.len() < 9 {
+            return Err(Error::new_descriptor_len("EffectUnit2", 9, value.len()));
         }
 
         let controls = (4..value.len() - 1)
@@ -4102,8 +4099,8 @@ impl TryFrom<&[u8]> for EffectUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 7 {
-            return Err(Error::new_descriptor_len("EffectUnit3", 7, value.len()));
+        if value.len() < 10 {
+            return Err(Error::new_descriptor_len("EffectUnit3", 10, value.len()));
         }
 
         let controls = (4..value.len() - 2)
@@ -4171,7 +4168,7 @@ impl TryFrom<&[u8]> for FeatureUnit1 {
             source_id: value[1],
             control_size,
             controls,
-            feature_index: value[expected_length - 1],
+            feature_index: value[3 + control_size as usize],
             feature: None,
         })
     }
@@ -4204,8 +4201,8 @@ impl TryFrom<&[u8]> for FeatureUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 7 {
-            return Err(Error::new_descriptor_len("FeatureUnit2", 7, value.len()));
+        if value.len() < 8 {
+            return Err(Error::new_descriptor_len("FeatureUnit2", 8, value.len()));
         }
 
         Ok(FeatureUnit2 {
@@ -4361,12 +4358,12 @@ impl TryFrom<&[u8]> for ExtensionUnit2 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 11 {
-            return Err(Error::new_descriptor_len("ExtensionUnit2", 11, value.len()));
+        if value.len() < 12 {
+            return Err(Error::new_descriptor_len("ExtensionUnit2", 12, value.len()));
         }
 
         let nr_in_pins = value[3] as usize;
-        let expected_length = 10 + nr_in_pins;
+        let expected_length = 12 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
@@ -4430,12 +4427,12 @@ impl TryFrom<&[u8]> for ExtensionUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 10 {
-            return Err(Error::new_descriptor_len("ExtensionUnit3", 10, value.len()));
+        if value.len() < 12 {
+            return Err(Error::new_descriptor_len("ExtensionUnit3", 12, value.len()));
         }
 
         let nr_in_pins = value[3] as usize;
-        let expected_length = 9 + nr_in_pins;
+        let expected_length = 12 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
@@ -4581,7 +4578,7 @@ impl TryFrom<&[u8]> for ClockSelector2 {
         }
 
         let nr_in_pins = value[1] as usize;
-        let expected_length = 3 + nr_in_pins;
+        let expected_length = 4 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
@@ -4596,7 +4593,7 @@ impl TryFrom<&[u8]> for ClockSelector2 {
             nr_in_pins: value[1],
             csource_ids,
             controls: value[2 + nr_in_pins],
-            clock_selector_index: value[expected_length - 1],
+            clock_selector_index: value[3 + nr_in_pins],
             clock_selector: None,
         })
     }
@@ -4629,12 +4626,12 @@ impl TryFrom<&[u8]> for ClockSelector3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 6 {
-            return Err(Error::new_descriptor_len("ClockSelector3", 6, value.len()));
+        if value.len() < 8 {
+            return Err(Error::new_descriptor_len("ClockSelector3", 8, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
-        let expected_length = 5 + nr_in_pins;
+        let expected_length = 8 + nr_in_pins;
         if value.len() < expected_length {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
@@ -4655,10 +4652,7 @@ impl TryFrom<&[u8]> for ClockSelector3 {
             nr_in_pins: value[1],
             csource_ids,
             controls,
-            cselector_descr_str: u16::from_le_bytes([
-                value[expected_length - 2],
-                value[expected_length - 1],
-            ]),
+            cselector_descr_str: u16::from_le_bytes([value[6 + nr_in_pins], value[7 + nr_in_pins]]),
         })
     }
 }
