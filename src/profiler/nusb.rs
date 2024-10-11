@@ -225,7 +225,7 @@ impl UsbOperations for UsbDevice {
         }
         self.handle
             .get_string_descriptor(string_index, self.language, self.timeout)
-            .map(|s| s.to_string())
+            .map(|s| s.chars().filter(|c| !c.is_control()).collect())
             .ok()
     }
 
@@ -484,18 +484,25 @@ impl NusbProfiler {
         sp_device.bcd_usb = Some(device_desc.usb_version);
 
         // try to get strings from device descriptors
-        if let Some(name) = device.get_descriptor_string(device_desc.product_string_index) {
-            sp_device.name = name;
+        // if missing
+        if sp_device.name.is_empty() {
+            if let Some(name) = device.get_descriptor_string(device_desc.product_string_index) {
+                sp_device.name = name;
+            }
         }
 
-        if let Some(manufacturer) =
-            device.get_descriptor_string(device_desc.manufacturer_string_index)
-        {
-            sp_device.manufacturer = Some(manufacturer);
+        if sp_device.manufacturer.is_none() {
+            if let Some(manufacturer) =
+                device.get_descriptor_string(device_desc.manufacturer_string_index)
+            {
+                sp_device.manufacturer = Some(manufacturer);
+            }
         }
 
-        if let Some(serial) = device.get_descriptor_string(device_desc.serial_number_string_index) {
-            sp_device.serial_num = Some(serial);
+        if sp_device.serial_num.is_none() {
+            if let Some(serial) = device.get_descriptor_string(device_desc.serial_number_string_index) {
+                sp_device.serial_num = Some(serial);
+            }
         }
 
         let mut extra = usb::DeviceExtra {
