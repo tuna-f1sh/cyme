@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## [1.8.5] - 2024-10-11
 
 ### Added
 
 - risv64 support ([#37](https://github.com/tuna-f1sh/cyme/pull/37)).
+
+### Fixed
+
+- MixerUnit1 number of channels index incorrect causing OoB panic ([#38](https://github.com/tuna-f1sh/cyme/issues/38)).
 
 ## [1.8.4] - 2024-09-27
 
