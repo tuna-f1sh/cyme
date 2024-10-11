@@ -35,6 +35,7 @@ strum_macros = "0.26"
 regex = { version = "1.10.5", optional = true }
 uuid = { version = "1.9.1", features = ["serde"] }
 pci-ids = "0.2.5"
+unicode-width = "0.2.0"
 
 [patch.crates-io]
 nusb = { git = "https://github.com/kevinmehall/nusb", branch = "main" }

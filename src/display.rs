@@ -12,6 +12,7 @@ use std::hash::Hash;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use terminal_size::{Height, Width};
+use unicode_width::UnicodeWidthStr;
 
 use crate::colour;
 use crate::icon;
@@ -575,15 +576,15 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
 
     fn len(&self, d: &[&Device]) -> usize {
         match self {
-            DeviceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
+            DeviceBlocks::Name => d.iter().map(|d| d.name.width()).max().unwrap_or(0),
             DeviceBlocks::Serial => d
                 .iter()
-                .flat_map(|d| d.serial_num.as_ref().map(|s| s.len()))
+                .flat_map(|d| d.serial_num.as_ref().map(|s| s.width()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::Manufacturer => d
                 .iter()
-                .flat_map(|d| d.manufacturer.as_ref().map(|s| s.len()))
+                .flat_map(|d| d.manufacturer.as_ref().map(|s| s.width()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::TreePositions => d
@@ -615,7 +616,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .flat_map(|d| {
                     d.extra
                         .as_ref()
-                        .and_then(|e| e.product_name.as_ref().map(|s| s.len()))
+                        .and_then(|e| e.product_name.as_ref().map(|s| s.width()))
                 })
                 .max()
                 .unwrap_or(0),
@@ -624,7 +625,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .flat_map(|d| {
                     d.extra
                         .as_ref()
-                        .and_then(|e| e.vendor.as_ref().map(|s| s.len()))
+                        .and_then(|e| e.vendor.as_ref().map(|s| s.width()))
                 })
                 .max()
                 .unwrap_or(0),
@@ -940,18 +941,20 @@ impl Block<BusBlocks, Bus> for BusBlocks {
 
     fn len(&self, d: &[&Bus]) -> usize {
         match self {
-            BusBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
-            BusBlocks::HostController => {
-                d.iter().map(|d| d.host_controller.len()).max().unwrap_or(0)
-            }
+            BusBlocks::Name => d.iter().map(|d| d.name.width()).max().unwrap_or(0),
+            BusBlocks::HostController => d
+                .iter()
+                .map(|d| d.host_controller.width())
+                .max()
+                .unwrap_or(0),
             BusBlocks::HostControllerVendor => d
                 .iter()
-                .flat_map(|d| d.host_controller_vendor.as_ref().map(|v| v.len()))
+                .flat_map(|d| d.host_controller_vendor.as_ref().map(|v| v.width()))
                 .max()
                 .unwrap_or(0),
             BusBlocks::HostControllerDevice => d
                 .iter()
-                .flat_map(|d| d.host_controller_device.as_ref().map(|v| v.len()))
+                .flat_map(|d| d.host_controller_device.as_ref().map(|v| v.width()))
                 .max()
                 .unwrap_or(0),
             BusBlocks::PortPath => d
@@ -1737,7 +1740,7 @@ fn attributes_to_icons(attributes: &Vec<ConfigAttributes>, settings: &PrintSetti
 /// ```
 pub fn truncate_string(s: &mut String, len: usize) {
     // if already less than or equal to len, or len is less than 3, return
-    if s.chars().count() <= len || len <= 3 {
+    if s.width() <= len || len <= 3 {
         return;
     }
     // use char_indices to find last char boundary before len - 3

@@ -500,7 +500,9 @@ impl NusbProfiler {
         }
 
         if sp_device.serial_num.is_none() {
-            if let Some(serial) = device.get_descriptor_string(device_desc.serial_number_string_index) {
+            if let Some(serial) =
+                device.get_descriptor_string(device_desc.serial_number_string_index)
+            {
                 sp_device.serial_num = Some(serial);
             }
         }
