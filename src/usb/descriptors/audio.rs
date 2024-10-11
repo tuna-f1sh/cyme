@@ -2648,7 +2648,11 @@ impl TryFrom<&[u8]> for MixerUnit1 {
         }
 
         let nr_in_pins = value[1] as usize;
-        let nr_channels = value[3] as usize;
+        // The number of channels is after the source IDs so depends on the number of input pins
+        let nr_channels = *value
+            .get(2 + nr_in_pins)
+            .ok_or_else(|| Error::new_descriptor_len("MixerUnit1", 2 + nr_in_pins, value.len()))?
+            as usize;
         let expected_len = 6 + nr_in_pins + nr_channels;
         if value.len() < expected_len {
             return Err(Error::new(
@@ -2709,7 +2713,11 @@ impl TryFrom<&[u8]> for MixerUnit2 {
         }
 
         let nr_in_pins = value[1] as usize;
-        let nr_channels = value[3] as usize;
+        // The number of channels is after the source IDs so depends on the number of input pins
+        let nr_channels = *value
+            .get(2 + nr_in_pins)
+            .ok_or_else(|| Error::new_descriptor_len("MixerUnit1", 2 + nr_in_pins, value.len()))?
+            as usize;
         let expected_len = 10 + nr_in_pins + nr_channels;
         if value.len() < expected_len {
             return Err(Error::new(
@@ -2770,12 +2778,12 @@ impl TryFrom<&[u8]> for MixerUnit3 {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> error::Result<Self> {
-        if value.len() < 8 {
-            return Err(Error::new_descriptor_len("MixerUnit3", 8, value.len()));
+        if value.len() < 10 {
+            return Err(Error::new_descriptor_len("MixerUnit3", 10, value.len()));
         }
 
         let nr_in_pins = value[1] as usize;
-        let expected_len = 8 + nr_in_pins;
+        let expected_len = 10 + nr_in_pins;
         if value.len() < expected_len {
             return Err(Error::new(
                 ErrorKind::InvalidDescriptor,
