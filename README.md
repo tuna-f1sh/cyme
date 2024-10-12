@@ -50,7 +50,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases).
 
-From crates.io with a Rust tool-chain installed: `cargo install cyme`. To do it from within a local clone: `cargo install --path .`.
+From crates.io with a Rust tool-chain installed: `cargo install cyme --git https://github.com/tuna-f1sh/cyme` (from GitHub as crates.io pinned at the moment). To do it from within a local clone: `cargo install --path .`.
 
 If wishing to use only macOS `system_profiler` and not obtain more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
 
