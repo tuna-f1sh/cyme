@@ -696,7 +696,7 @@ dependencies = [
 [[package]]
 name = "nusb"
 version = "0.1.10"
-source = "git+https://github.com/kevinmehall/nusb?branch=main#809228038f43de2d7a636825d17439b445f612b7"
+source = "git+https://github.com/tuna-f1sh/nusb?branch=win-hub-devices#4667196b9800fd421ea8d95bb9acc4bac892cc83"
 dependencies = [
  "atomic-waker",
  "core-foundation",

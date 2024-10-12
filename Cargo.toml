@@ -38,7 +38,7 @@ pci-ids = "0.2.5"
 unicode-width = "0.2.0"
 
 [patch.crates-io]
-nusb = { git = "https://github.com/kevinmehall/nusb", branch = "main" }
+nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "win-hub-devices" }
 
 [dev-dependencies]
 diff = "0.1"
