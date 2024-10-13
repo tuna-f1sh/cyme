@@ -311,15 +311,15 @@ impl NusbProfiler {
             let endpoint_extra = endpoint
                 .descriptors()
                 .skip(1)
-                .filter(|d| d.descriptor_type() == 0x05 || d.descriptor_type() == 0x25)
+                // no filter as all are endpoint descriptors
                 .flat_map(|d| d.to_vec())
                 .collect::<Vec<u8>>();
 
             ret.push(usb::Endpoint {
                 address: usb::EndpointAddress::from(endpoint.address()),
-                transfer_type: usb::TransferType::from(endpoint.transfer_type() as u8),
-                sync_type: usb::SyncType::from(endpoint.transfer_type() as u8),
-                usage_type: usb::UsageType::from(endpoint.transfer_type() as u8),
+                transfer_type: usb::TransferType::from(endpoint.attributes() as u8),
+                sync_type: usb::SyncType::from(endpoint.attributes() as u8),
+                usage_type: usb::UsageType::from(endpoint.attributes() as u8),
                 max_packet_size: endpoint.max_packet_size() as u16,
                 interval: endpoint.interval(),
                 length: endpoint_desc[0],
@@ -381,7 +381,7 @@ impl NusbProfiler {
                     path,
                     class: usb::BaseClass::from(interface_alt.class()),
                     sub_class: interface_alt.subclass(),
-                    protocol: interface_alt.subclass(),
+                    protocol: interface_alt.protocol(),
                     alt_setting: interface_alt.alternate_setting(),
                     driver: None,
                     syspath: None,
@@ -453,7 +453,8 @@ impl NusbProfiler {
                 number: c.configuration_value(),
                 attributes,
                 max_power: NumericalUnit {
-                    value: c.max_power() as u32,
+                    // *2 because nusb returns in 2mA units
+                    value: (c.max_power() * 2) as u32,
                     unit: String::from("mA"),
                     description: None,
                 },
