@@ -452,8 +452,12 @@ impl NusbProfiler {
             let config_extra = c
                 .descriptors()
                 .skip(1)
-                // only config descriptors - nusb has everything trailing
-                .filter(|d| d.descriptor_type() == 0x02)
+                // only config, otg, interface association, security, and encryption type - printed by lsusb
+                // nusb has everything trailing including interfaces and endpoints
+                .filter(|d| match d.descriptor_type() {
+                    0x02 | 0x09 | 0x0b | 0x0c | 0x0e => true,
+                    _ => false,
+                })
                 .flat_map(|d| d.to_vec())
                 .collect::<Vec<u8>>();
             let total_length = u16::from_le_bytes(config_desc[2..4].try_into().unwrap());
