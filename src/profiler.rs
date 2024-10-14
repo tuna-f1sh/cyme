@@ -93,7 +93,7 @@ pub(crate) trait UsbOperations {
 /// OS level USB Profiler trait for profiling USB devices
 pub(crate) trait Profiler<T>
 where
-    T: UsbOperations,
+    T: UsbOperations + std::fmt::Debug,
     Self: std::fmt::Debug,
 {
     /// Get the USB HID Report Descriptor with a Control request
@@ -153,7 +153,12 @@ where
                     port_statues.push(data.try_into().unwrap());
                 }
                 Err(e) => {
-                    log::warn!("Failed to get port {} status: {}", p + 1, e);
+                    log::warn!(
+                        "Failed to get port {} status for {:?}: {}",
+                        p + 1,
+                        device,
+                        e
+                    );
                     return Ok(hub);
                 }
             }

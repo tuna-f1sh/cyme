@@ -17,6 +17,18 @@ pub(crate) struct UsbDevice<T: libusb::UsbContext> {
     timeout: std::time::Duration,
 }
 
+impl<T: libusb::UsbContext> std::fmt::Debug for UsbDevice<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "UsbDevice {{ vidpid: {:#04x}:{:#04x}, location: {} }}",
+            self.vidpid.0,
+            self.vidpid.1,
+            self.location.port_path()
+        )
+    }
+}
+
 /// Set log level for rusb
 pub fn set_log_level(debug: u8) {
     let log_level = match debug {

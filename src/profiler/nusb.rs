@@ -20,6 +20,18 @@ pub(crate) struct UsbDevice {
     timeout: std::time::Duration,
 }
 
+impl std::fmt::Debug for UsbDevice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "UsbDevice {{ vidpid: {:#04x}:{:#04x}, location: {} }}",
+            self.vidpid.0,
+            self.vidpid.1,
+            self.location.port_path()
+        )
+    }
+}
+
 impl From<ControlRequest> for nusb::transfer::Control {
     fn from(request: ControlRequest) -> Self {
         nusb::transfer::Control {
@@ -243,15 +255,16 @@ impl UsbOperations for UsbDevice {
 
         if n < control_request.length {
             log::debug!(
-                "Failed to get full control message, only read {} of {}",
+                "Failed to get full control message for {:?}, only read {} of {} bytes",
+                self,
                 n,
                 control_request.length
             );
             return Err(Error {
                 kind: ErrorKind::Nusb,
                 message: format!(
-                    "Failed to get full control message, only read {} of {}",
-                    n, control_request.length
+                    "Failed to get full control message for {:?}, only read {} of {} bytes",
+                    self, n, control_request.length
                 ),
             });
         }
@@ -274,15 +287,16 @@ impl UsbOperations for UsbDevice {
 
         if n < control_request.length {
             log::debug!(
-                "Failed to get full control message, only read {} of {}",
+                "Failed to get full control message for {:?}, only read {} of {} bytes",
+                self,
                 n,
                 control_request.length
             );
             return Err(Error {
                 kind: ErrorKind::Nusb,
                 message: format!(
-                    "Failed to get full control message, only read {} of {}",
-                    n, control_request.length
+                    "Failed to get full control message for {:?}, only read {} of {} bytes",
+                    self, n, control_request.length
                 ),
             });
         }
@@ -317,9 +331,9 @@ impl NusbProfiler {
 
             ret.push(usb::Endpoint {
                 address: usb::EndpointAddress::from(endpoint.address()),
-                transfer_type: usb::TransferType::from(endpoint.attributes() as u8),
-                sync_type: usb::SyncType::from(endpoint.attributes() as u8),
-                usage_type: usb::UsageType::from(endpoint.attributes() as u8),
+                transfer_type: usb::TransferType::from(endpoint.attributes()),
+                sync_type: usb::SyncType::from(endpoint.attributes()),
+                usage_type: usb::UsageType::from(endpoint.attributes()),
                 max_packet_size: endpoint.max_packet_size() as u16,
                 interval: endpoint.interval(),
                 length: endpoint_desc[0],
@@ -679,7 +693,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
                         if print_stderr {
                             eprintln!("{}", e);
                         } else {
-                            log::warn!("Non-critical error during profile: {}", e);
+                            log::warn!("Non-critical error during profile of {:?}: {}", device, e);
                         }
                     });
                 }
@@ -716,7 +730,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
                         if print_stderr {
                             eprintln!("{}", e);
                         } else {
-                            log::warn!("Non-critical error during profile: {}", e);
+                            log::warn!("Non-critical error during profile of {}: {}", sp_device, e);
                         }
                     });
 
