@@ -325,7 +325,7 @@ impl NusbProfiler {
             let endpoint_extra = endpoint
                 .descriptors()
                 .skip(1)
-                // no filter as all are endpoint descriptors
+                // no filter as all _should_ be endpoint descriptors at this point
                 .flat_map(|d| d.to_vec())
                 .collect::<Vec<u8>>();
 
@@ -378,9 +378,7 @@ impl NusbProfiler {
                     .descriptors()
                     .skip(1)
                     // only want device and interface descriptors - nusb has everything trailing including endpoint
-                    .filter(|d| {
-                        (d.descriptor_type() & 0x0F) == 0x04 || (d.descriptor_type() & 0x0F) == 0x01
-                    })
+                    .take_while(|d| d.descriptor_type() != 0x05)
                     .flat_map(|d| d.to_vec())
                     .collect::<Vec<u8>>();
 
@@ -452,12 +450,8 @@ impl NusbProfiler {
             let config_extra = c
                 .descriptors()
                 .skip(1)
-                // only config, otg, interface association, security, and encryption type - printed by lsusb
-                // nusb has everything trailing including interfaces and endpoints
-                .filter(|d| match d.descriptor_type() {
-                    0x02 | 0x09 | 0x0b | 0x0c | 0x0e => true,
-                    _ => false,
-                })
+                // nusb has everything trailing so take until interfaces
+                .take_while(|d| d.descriptor_type() != 0x04)
                 .flat_map(|d| d.to_vec())
                 .collect::<Vec<u8>>();
             let total_length = u16::from_le_bytes(config_desc[2..4].try_into().unwrap());
