@@ -1094,10 +1094,17 @@ mod platform {
 #[cfg(target_os = "macos")]
 mod platform {
     use super::*;
-    use std::sync::OnceLock;
+    use ::nusb::HostControllerInfo;
 
-    /// Static SystemProfile for macOS lookup of PCI data
-    static SP_USB: OnceLock<Result<SystemProfile>> = OnceLock::new();
+    impl From<&HostControllerInfo> for PciInfo {
+        fn from(pci_info: &HostControllerInfo) -> Self {
+            PciInfo {
+                vendor_id: pci_info.vendor_id(),
+                product_id: pci_info.device_id(),
+                revision: pci_info.revision_id(),
+            }
+        }
+    }
 
     #[allow(unused_variables)]
     pub(crate) fn pci_info_from_device(device: &Device) -> Option<PciInfo> {
@@ -1106,20 +1113,7 @@ mod platform {
 
     #[cfg(feature = "nusb")]
     pub(crate) fn pci_info_from_bus(bus_info: &::nusb::BusInfo) -> Option<PciInfo> {
-        // TODO would be better io-kit-sys and core-foundation-sys bindings directly
-        let sp_usb = SP_USB.get_or_init(macos::get_spusb).as_ref().ok()?;
-
-        sp_usb.buses.iter().find_map(|b| {
-            if b.host_controller == bus_info.class_name() {
-                Some(PciInfo {
-                    vendor_id: b.pci_vendor?,
-                    product_id: b.pci_device?,
-                    revision: b.pci_revision?,
-                })
-            } else {
-                None
-            }
-        })
+        bus_info.host_controller_info().map(Into::into)
     }
 
     #[cfg(feature = "nusb")]
