@@ -58,6 +58,7 @@
     "product-id",
     "name",
     "serial",
+    "driver",
     "speed"
   ],
   "bus-blocks": [
@@ -79,7 +80,8 @@
     "base-class",
     "sub-class",
     "protocol",
-    "name"
+    "name",
+    "driver"
   ],
   "endpoint-blocks": [
     "number",
