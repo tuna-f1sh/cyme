@@ -265,7 +265,6 @@ impl LibUsbProfiler {
         &self,
         handle: &UsbDevice<T>,
         config_desc: &libusb::ConfigDescriptor,
-        with_udev: bool,
     ) -> Result<Vec<usb::Interface>> {
         let mut ret: Vec<usb::Interface> = Vec::new();
 
@@ -278,9 +277,9 @@ impl LibUsbProfiler {
                     interface_desc.interface_number(),
                 );
 
-                let mut interface = usb::Interface {
+                let interface = usb::Interface {
                     name: get_sysfs_string(&path, "interface")
-                        .or(interface_desc
+                        .or_else(|| interface_desc
                             .description_string_index()
                             .and_then(|i| handle.get_descriptor_string(i)))
                         .unwrap_or_default(),
@@ -290,8 +289,10 @@ impl LibUsbProfiler {
                     sub_class: interface_desc.sub_class_code(),
                     protocol: interface_desc.protocol_code(),
                     alt_setting: interface_desc.setting_number(),
-                    driver: get_sysfs_readlink(&path, "driver"),
-                    syspath: get_syspath(&path),
+                    driver: get_sysfs_readlink(&path, "driver")
+                               .or_else(|| get_udev_driver_name(&path).ok().flatten()),
+                    syspath: get_syspath(&path)
+                               .or_else(|| get_udev_syspath(&path).ok().flatten()),
                     path,
                     length: interface_desc.length(),
                     endpoints: self.build_endpoints(handle, &interface_desc),
@@ -309,15 +310,6 @@ impl LibUsbProfiler {
                         .ok(),
                 };
 
-                // flag allows us to try again without udev if it raises an error
-                // but record the error for printing
-                if with_udev && interface.driver.is_none() {
-                    interface.driver = get_udev_driver_name(&interface.path)?;
-                }
-                if with_udev && interface.syspath.is_none() {
-                    interface.syspath = get_udev_syspath(&interface.path)?;
-                }
-
                 ret.push(interface);
             }
         }
@@ -331,7 +323,6 @@ impl LibUsbProfiler {
         handle: &UsbDevice<T>,
         device_desc: &libusb::DeviceDescriptor,
         sp_device: &Device,
-        with_udev: bool,
     ) -> Result<Vec<usb::Configuration>> {
         // Retrieve the current configuration (if available)
         let cur_config = get_sysfs_configuration_string(&sp_device.sysfs_name());
@@ -380,7 +371,7 @@ impl LibUsbProfiler {
                 },
                 length: config_desc.length(),
                 total_length: config_desc.total_length(),
-                interfaces: self.build_interfaces(handle, &config_desc, with_udev)?,
+                interfaces: self.build_interfaces(handle, &config_desc)?,
                 extra: self
                     .build_config_descriptor_extra(handle, config_desc.extra().to_vec())
                     .ok(),
@@ -397,7 +388,6 @@ impl LibUsbProfiler {
         handle: &UsbDevice<T>,
         device_desc: &libusb::DeviceDescriptor,
         sp_device: &mut Device,
-        with_udev: bool,
     ) -> Result<usb::DeviceExtra> {
         // attempt to get manufacturer and product strings from device itself
         sp_device.manufacturer = device_desc
@@ -423,12 +413,14 @@ impl LibUsbProfiler {
                 device_desc.manufacturer_string_index().unwrap_or(0),
                 device_desc.serial_number_string_index().unwrap_or(0),
             ),
-            driver: get_sysfs_readlink(&sysfs_name, "driver"),
-            syspath: get_syspath(&sysfs_name),
+            driver: get_sysfs_readlink(&sysfs_name, "driver")
+                .or_else(|| get_udev_driver_name(&sysfs_name).ok().flatten()),
+            syspath: get_syspath(&sysfs_name)
+                .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
             // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids
             vendor: names::vendor(device_desc.vendor_id())
-                .or(usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())),
-            product_name: names::product(device_desc.vendor_id(), device_desc.product_id()).or(
+                .or_else(|| usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())),
+            product_name: names::product(device_desc.vendor_id(), device_desc.product_id()).or_else(||
                 usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
                     .map(|v| v.name().to_owned()),
             ),
@@ -437,7 +429,6 @@ impl LibUsbProfiler {
                 handle,
                 device_desc,
                 sp_device,
-                with_udev,
             )?,
             status: Self::get_device_status(handle).ok(),
             debug: Self::get_debug_descriptor(handle).ok(),
@@ -445,15 +436,6 @@ impl LibUsbProfiler {
             qualifier: None,
             hub: None,
         };
-
-        // flag allows us to try again without udev if it raises an nting
-        // but record the error for printing
-        if with_udev && extra.driver.is_none() {
-            extra.driver = get_udev_driver_name(&sysfs_name)?;
-        }
-        if with_udev && extra.syspath.is_none() {
-            extra.syspath = get_udev_syspath(&sysfs_name)?;
-        }
 
         // Get device specific stuff: bos, hub, dualspeed, debug and status
         if device_desc.usb_version() >= rusb::Version::from_bcd(0x0201) {
@@ -557,12 +539,12 @@ impl LibUsbProfiler {
         // sysfs cache
         sp_device.name = get_sysfs_string(&sp_device.sysfs_name(), "product")
             // udev-hwdb
-            .or(names::product(
+            .or_else(|| names::product(
                 device_desc.vendor_id(),
                 device_desc.product_id(),
             ))
             // usb-ids
-            .or(
+            .or_else(||
                 usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
                     .map(|device| device.name().to_owned()),
             )
@@ -572,9 +554,9 @@ impl LibUsbProfiler {
         // sysfs cache
         sp_device.manufacturer = get_sysfs_string(&sp_device.sysfs_name(), "manufacturer")
             // udev-hwdb
-            .or(names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
+            .or_else(|| names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
             // usb-ids
-            .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
+            .or_else(|| usb_ids::Vendor::from_id(device_desc.vendor_id())
                 .map(|vendor| vendor.name().to_owned()));
 
         sp_device.serial_num = get_sysfs_string(&sp_device.sysfs_name(), "serial");
@@ -587,32 +569,16 @@ impl LibUsbProfiler {
                         &handle,
                         &device_desc,
                         &mut sp_device,
-                        cfg!(feature = "udevlib"),
                     ) {
                         Ok(extra) => {
                             sp_device.extra = Some(extra);
                             None
                         }
                         Err(e) => {
-                            // try again without udev if we have that feature but return message so device still added
-                            if cfg!(feature = "udevlib") && e.kind() == ErrorKind::Udev {
-                                sp_device.extra = Some(self.build_spdevice_extra(
-                                    device,
-                                    &handle,
-                                    &device_desc,
-                                    &mut sp_device,
-                                    false,
-                                )?);
-                                Some(format!(
-                                    "Failed to get udev data for {}, probably requires elevated permissions",
-                                    sp_device
-                                ))
-                            } else {
-                                Some(format!(
-                                    "Failed to get some extra data for {}, probably requires elevated permissions: {}",
-                                    sp_device, e
-                                ))
-                            }
+                            Some(format!(
+                                "Failed to get some extra data for {}, probably requires elevated permissions: {}",
+                                sp_device, e
+                            ))
                         }
                     }
                 }
@@ -627,13 +593,15 @@ impl LibUsbProfiler {
                         device_desc.manufacturer_string_index().unwrap_or(0),
                         device_desc.serial_number_string_index().unwrap_or(0),
                     ),
-                    driver: get_sysfs_readlink(&sysfs_name, "driver"),
-                    syspath: get_syspath(&sysfs_name),
+                    driver: get_sysfs_readlink(&sysfs_name, "driver")
+                        .or_else(|| get_udev_driver_name(&sysfs_name).ok().flatten()),
+                    syspath: get_syspath(&sysfs_name)
+                        .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
                     vendor: names::vendor(device_desc.vendor_id())
-                        .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
+                        .or_else(|| usb_ids::Vendor::from_id(device_desc.vendor_id())
                             .map(|v| v.name().to_owned())),
                     product_name: names::product(device_desc.vendor_id(), device_desc.product_id())
-                        .or(usb_ids::Device::from_vid_pid(
+                        .or_else(|| usb_ids::Device::from_vid_pid(
                             device_desc.vendor_id(),
                             device_desc.product_id(),
                         )

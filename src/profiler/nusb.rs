@@ -177,16 +177,16 @@ impl From<&nusb::DeviceInfo> for Device {
         let manufacturer = device_info
             .manufacturer_string()
             .map(|s| s.to_string())
-            .or(names::vendor(device_info.vendor_id()))
-            .or(usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_string()));
+            .or_else(|| names::vendor(device_info.vendor_id()))
+            .or_else(|| usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_string()));
         let name = device_info
             .product_string()
             .map(|s| s.to_string())
-            .or(names::product(
+            .or_else(|| names::product(
                 device_info.vendor_id(),
                 device_info.product_id(),
             ))
-            .or(
+            .or_else(||
                 usb_ids::Device::from_vid_pid(device_info.vendor_id(), device_info.product_id())
                     .map(|d| d.name().to_string()),
             )
@@ -360,7 +360,6 @@ impl NusbProfiler {
         &self,
         device: &UsbDevice,
         config: &nusb::descriptors::Configuration,
-        with_udev: bool,
     ) -> Result<Vec<usb::Interface>> {
         let mut ret: Vec<usb::Interface> = Vec::new();
 
@@ -382,9 +381,9 @@ impl NusbProfiler {
                     .flat_map(|d| d.to_vec())
                     .collect::<Vec<u8>>();
 
-                let mut interface = usb::Interface {
+                let interface = usb::Interface {
                     name: get_sysfs_string(&path, "interface")
-                        .or(interface_alt
+                        .or_else(|| interface_alt
                             .string_index()
                             .and_then(|i| device.get_descriptor_string(i)))
                         .unwrap_or_default(),
@@ -394,8 +393,10 @@ impl NusbProfiler {
                     sub_class: interface_alt.subclass(),
                     protocol: interface_alt.protocol(),
                     alt_setting: interface_alt.alternate_setting(),
-                    driver: get_sysfs_readlink(&path, "driver"),
-                    syspath: get_syspath(&path),
+                    driver: get_sysfs_readlink(&path, "driver")
+                               .or_else(|| get_udev_driver_name(&path).ok().flatten()),
+                    syspath: get_syspath(&path)
+                               .or_else(|| get_udev_syspath(&path).ok().flatten()),
                     length: interface_desc[0],
                     endpoints: self.build_endpoints(device, &interface_alt),
                     extra: self
@@ -413,15 +414,6 @@ impl NusbProfiler {
                     path
                 };
 
-                // flag allows us to try again without udev if it raises an error
-                // but record the error for printing
-                if with_udev && interface.driver.is_none() {
-                    interface.driver = get_udev_driver_name(&interface.path)?;
-                }
-                if with_udev && interface.syspath.is_none() {
-                    interface.syspath = get_udev_syspath(&interface.path)?;
-                };
-
                 ret.push(interface);
             }
         }
@@ -432,7 +424,6 @@ impl NusbProfiler {
     fn build_configurations(
         &self,
         device: &UsbDevice,
-        with_udev: bool,
     ) -> Result<Vec<usb::Configuration>> {
         let mut ret: Vec<usb::Configuration> = Vec::new();
 
@@ -474,7 +465,7 @@ impl NusbProfiler {
                 },
                 length: config_desc.len() as u8,
                 total_length,
-                interfaces: self.build_interfaces(device, &c, with_udev)?,
+                interfaces: self.build_interfaces(device, &c)?,
                 extra: self
                     .build_config_descriptor_extra(device, config_extra)
                     .ok(),
@@ -488,7 +479,6 @@ impl NusbProfiler {
         &self,
         device: &UsbDevice,
         sp_device: &mut Device,
-        with_udev: bool,
     ) -> Result<usb::DeviceExtra> {
         // get the Device Descriptor since not all data is cached
         let device_desc_raw = device
@@ -530,31 +520,24 @@ impl NusbProfiler {
                 device_desc.manufacturer_string_index,
                 device_desc.serial_number_string_index,
             ),
-            driver: get_sysfs_readlink(&sysfs_name, "driver"),
-            syspath: get_syspath(&sysfs_name),
+            driver: get_sysfs_readlink(&sysfs_name, "driver")
+                .or_else(|| get_udev_driver_name(&sysfs_name).ok().flatten()),
+            syspath: get_syspath(&sysfs_name)
+                .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
             // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids - not device descriptor
             vendor: names::vendor(device_desc.vendor_id)
-                .or(usb_ids::Vendor::from_id(device_desc.vendor_id).map(|v| v.name().to_owned())),
-            product_name: names::product(device_desc.vendor_id, device_desc.product_id).or(
+                .or_else(|| usb_ids::Vendor::from_id(device_desc.vendor_id).map(|v| v.name().to_owned())),
+            product_name: names::product(device_desc.vendor_id, device_desc.product_id).or_else(||
                 usb_ids::Device::from_vid_pid(device_desc.vendor_id, device_desc.product_id)
                     .map(|v| v.name().to_owned()),
             ),
-            configurations: self.build_configurations(device, with_udev)?,
+            configurations: self.build_configurations(device)?,
             status: Self::get_device_status(device).ok(),
             debug: Self::get_debug_descriptor(device).ok(),
             binary_object_store: None,
             qualifier: None,
             hub: None,
         };
-
-        // flag allows us to try again without udev if it raises anything
-        // but record the error for printing
-        if with_udev && extra.driver.is_none() {
-            extra.driver = get_udev_driver_name(&sysfs_name)?;
-        }
-        if with_udev && extra.syspath.is_none() {
-            extra.syspath = get_udev_syspath(&sysfs_name)?;
-        }
 
         // Get device specific stuff: bos, hub, dualspeed, debug and status
         if device_desc.usb_version >= usb::Version::from_bcd(0x0201) {
@@ -608,31 +591,19 @@ impl NusbProfiler {
                         timeout: std::time::Duration::from_secs(1),
                     };
 
-                    match self.build_spdevice_extra(&usb_device, &mut sp_device, cfg!(feature = "udev")) {
+                    match self.build_spdevice_extra(&usb_device, &mut sp_device) {
                         Ok(extra) => {
                             sp_device.extra = Some(extra);
                             None
-                        }
+                        },
                         Err(e) => {
-                            // try again without udev if we have that feature but return message so device still added
-                            if cfg!(feature = "udev") && e.kind() == ErrorKind::Udev {
-                                sp_device.extra = Some(self.build_spdevice_extra(
-                                    &usb_device,
-                                    &mut sp_device,
-                                    false,
-                                )?);
-                                Some(format!(
-                                        "Failed to get udev data for {}, probably requires elevated permissions",
-                                        sp_device
-                                ))
-                            } else {
-                                Some(format!("Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e))
-                            }
+                            Some(format!("Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e))
                         }
                     }
                 };
             } else {
                 log::warn!("Failed to open device for extra data: {:04x}:{:04x}. Ensure user has USB access permissions: https://docs.rs/nusb/latest/nusb", device_info.vendor_id(), device_info.product_id());
+                let sysfs_name = sp_device.sysfs_name();
                 sp_device.profiler_error = Some(
                     "Failed to open device, extra data incomplete and possibly inaccurate"
                         .to_string(),
@@ -641,13 +612,15 @@ impl NusbProfiler {
                     max_packet_size: device_info.max_packet_size_0(),
                     // nusb doesn't have these cached
                     string_indexes: (0, 0, 0),
-                    driver: get_sysfs_readlink(&sp_device.sysfs_name(), "driver"),
-                    syspath: get_syspath(&sp_device.sysfs_name()),
+                    driver: get_sysfs_readlink(&sysfs_name, "driver")
+                        .or_else(|| get_udev_driver_name(&sysfs_name).ok().flatten()),
+                    syspath: get_syspath(&sysfs_name)
+                        .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
                     vendor: names::vendor(device_info.vendor_id())
-                        .or(usb_ids::Vendor::from_id(device_info.vendor_id())
+                        .or_else(|| usb_ids::Vendor::from_id(device_info.vendor_id())
                             .map(|v| v.name().to_owned())),
                     product_name: names::product(device_info.vendor_id(), device_info.product_id())
-                        .or(usb_ids::Device::from_vid_pid(
+                        .or_else(|| usb_ids::Device::from_vid_pid(
                             device_info.vendor_id(),
                             device_info.product_id(),
                         )
