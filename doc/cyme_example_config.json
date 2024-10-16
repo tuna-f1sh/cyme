@@ -28,11 +28,11 @@
     "name": "bright blue",
     "serial": "green",
     "manufacturer": "blue",
-    "driver": "cyan",
+    "driver": "bright magenta",
     "string": "blue",
     "icon": null,
     "location": "magenta",
-    "path": "cyan",
+    "path": "bright cyan",
     "number": "cyan",
     "speed": "magenta",
     "vid": "bright yellow",
@@ -58,11 +58,14 @@
     "product-id",
     "name",
     "serial",
+    "driver",
     "speed"
   ],
   "bus-blocks": [
+    "port-path",
     "name",
-    "host-controller"
+    "host-controller",
+    "host-controller-device"
   ],
   "config-blocks": [
     "number",
@@ -77,7 +80,8 @@
     "base-class",
     "sub-class",
     "protocol",
-    "name"
+    "name",
+    "driver"
   ],
   "endpoint-blocks": [
     "number",

@@ -133,7 +133,8 @@ jobs:
         if: matrix.job.use-cross == false
         run: |
           "${{ steps.prepare.outputs.BIN_PATH }}" --gen
-          git diff --exit-code
+          # ignore example config because default_blocks different on Linux
+          git diff --exit-code -- ':!doc/cyme_example_config.json'
 
       - name: Create tarball
         id: package

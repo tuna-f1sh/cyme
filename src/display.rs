@@ -524,18 +524,35 @@ pub trait Block<B: Eq + Hash, T> {
 impl DeviceBlocks {
     /// Default `DeviceBlocks` for tree printing are different to list, get them here
     pub fn default_device_tree_blocks() -> Vec<Self> {
-        vec![
-            DeviceBlocks::Icon,
-            DeviceBlocks::DeviceNumber,
-            DeviceBlocks::VendorId,
-            DeviceBlocks::ProductId,
-            DeviceBlocks::Name,
-            DeviceBlocks::Serial,
-        ]
+        #[cfg(target_os = "linux")]
+        {
+            vec![
+                DeviceBlocks::Icon,
+                DeviceBlocks::DeviceNumber,
+                DeviceBlocks::VendorId,
+                DeviceBlocks::ProductId,
+                DeviceBlocks::Name,
+                DeviceBlocks::Serial,
+                DeviceBlocks::Driver,
+            ]
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            vec![
+                DeviceBlocks::Icon,
+                DeviceBlocks::DeviceNumber,
+                DeviceBlocks::VendorId,
+                DeviceBlocks::ProductId,
+                DeviceBlocks::Name,
+                DeviceBlocks::Serial,
+            ]
+        }
     }
 }
 
 impl Block<DeviceBlocks, Device> for DeviceBlocks {
+    #[cfg(target_os = "linux")]
     fn default_blocks(verbose: bool) -> Vec<Self> {
         if verbose {
             vec![
@@ -558,6 +575,46 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 DeviceBlocks::Manufacturer,
                 DeviceBlocks::Serial,
                 DeviceBlocks::Driver,
+                DeviceBlocks::SysPath,
+                DeviceBlocks::Speed,
+            ]
+        } else {
+            vec![
+                DeviceBlocks::BusNumber,
+                DeviceBlocks::DeviceNumber,
+                DeviceBlocks::Icon,
+                DeviceBlocks::VendorId,
+                DeviceBlocks::ProductId,
+                DeviceBlocks::Name,
+                DeviceBlocks::Serial,
+                DeviceBlocks::Driver,
+                DeviceBlocks::Speed,
+            ]
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn default_blocks(verbose: bool) -> Vec<Self> {
+        if verbose {
+            vec![
+                DeviceBlocks::BusNumber,
+                DeviceBlocks::DeviceNumber,
+                DeviceBlocks::TreePositions,
+                DeviceBlocks::PortPath,
+                DeviceBlocks::Icon,
+                DeviceBlocks::VendorId,
+                DeviceBlocks::ProductId,
+                DeviceBlocks::BcdDevice,
+                DeviceBlocks::BcdUsb,
+                DeviceBlocks::BaseValue,
+                DeviceBlocks::BaseClass,
+                DeviceBlocks::SubClass,
+                DeviceBlocks::UidSubClass,
+                DeviceBlocks::Protocol,
+                DeviceBlocks::UidProtocol,
+                DeviceBlocks::Name,
+                DeviceBlocks::Manufacturer,
+                DeviceBlocks::Serial,
                 DeviceBlocks::Speed,
             ]
         } else {
@@ -935,7 +992,12 @@ impl Block<BusBlocks, Bus> for BusBlocks {
                 BusBlocks::PciRevision,
             ]
         } else {
-            vec![BusBlocks::Name, BusBlocks::HostController]
+            vec![
+                BusBlocks::PortPath,
+                BusBlocks::Name,
+                BusBlocks::HostController,
+                BusBlocks::HostControllerDevice,
+            ]
         }
     }
 
@@ -1197,6 +1259,39 @@ impl Block<ConfigurationBlocks, Configuration> for ConfigurationBlocks {
 impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
     const INSET: u8 = 2;
 
+    #[cfg(target_os = "linux")]
+    fn default_blocks(verbose: bool) -> Vec<Self> {
+        if verbose {
+            vec![
+                InterfaceBlocks::PortPath,
+                InterfaceBlocks::Icon,
+                InterfaceBlocks::AltSetting,
+                InterfaceBlocks::BaseValue,
+                InterfaceBlocks::BaseClass,
+                InterfaceBlocks::SubClass,
+                InterfaceBlocks::UidSubClass,
+                InterfaceBlocks::Protocol,
+                InterfaceBlocks::UidProtocol,
+                InterfaceBlocks::Name,
+                InterfaceBlocks::NumEndpoints,
+                InterfaceBlocks::Driver,
+                InterfaceBlocks::SysPath,
+            ]
+        } else {
+            vec![
+                InterfaceBlocks::PortPath,
+                InterfaceBlocks::Icon,
+                InterfaceBlocks::AltSetting,
+                InterfaceBlocks::BaseClass,
+                InterfaceBlocks::SubClass,
+                InterfaceBlocks::Protocol,
+                InterfaceBlocks::Name,
+                InterfaceBlocks::Driver,
+            ]
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
     fn default_blocks(verbose: bool) -> Vec<Self> {
         if verbose {
             vec![
