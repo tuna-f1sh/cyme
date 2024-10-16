@@ -12,13 +12,13 @@ use std::hash::Hash;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use terminal_size::{Height, Width};
+use unicode_width::UnicodeWidthStr;
 
 use crate::colour;
 use crate::icon;
-use crate::system_profiler;
-use crate::system_profiler::{SPUSBDataType, USBBus, USBDevice, USBFilter};
-use crate::usb::USBDeviceExtra;
-use crate::usb::{ConfigAttributes, Direction, USBConfiguration, USBEndpoint, USBInterface};
+use crate::profiler::{Bus, Device, Filter, SystemProfile};
+use crate::usb::DeviceExtra;
+use crate::usb::{ConfigAttributes, Configuration, Direction, Endpoint, Interface};
 
 const MAX_VERBOSITY: u8 = 4;
 const ICON_HEADING: &str = "I";
@@ -209,7 +209,7 @@ impl Encoding {
     }
 }
 
-/// Info that can be printed about a [`USBDevice`]
+/// Info that can be printed about a [`Device`]
 #[non_exhaustive]
 #[derive(
     Debug,
@@ -270,7 +270,8 @@ pub enum DeviceBlocks {
     /// The supported USB version
     BcdUsb,
     /// Base class enum of interface provided by USB IF - only available when using libusb
-    ClassCode,
+    #[serde(alias = "class-code")] // was called ClassCode in previous versions
+    BaseClass,
     /// Sub-class value of interface provided by USB IF - only available when using libusb
     SubClass,
     /// Prototol value for interface provided by USB IF - only available when using libusb
@@ -281,13 +282,14 @@ pub enum DeviceBlocks {
     UidSubClass,
     /// Protocol name from USB IDs repository
     UidProtocol,
-    /// Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+    /// Fully defined USB Class Code enum based on BaseClass/SubClass/Protocol triplet
     Class,
-    /// Base class as number value
-    ClassValue,
+    /// Base class as number value rather than enum
+    #[serde(alias = "class-value")] // was called ClassCode in previous versions
+    BaseValue,
 }
 
-/// Info that can be printed about a [`USBBus`]
+/// Info that can be printed about a [`Bus`]
 #[non_exhaustive]
 #[derive(
     Debug,
@@ -309,21 +311,25 @@ pub enum BusBlocks {
     BusNumber,
     /// Icon based on VID/PID
     Icon,
-    /// Bus name from descriptor or usb_ids
+    /// System internal bus name based on Root Hub device name
     Name,
-    /// Host Controller on macOS, vendor put here when using libusb
+    /// System internal bus provider name
     HostController,
-    /// Understood to be vendor ID - it is when using libusb
+    /// Vendor name of PCI Host Controller from pci.ids
+    HostControllerVendor,
+    /// Device name of PCI Host Controller from pci.ids
+    HostControllerDevice,
+    /// PCI vendor ID (VID)
     PciVendor,
-    /// Understood to be product ID - it is when using libusb
+    /// PCI device ID (PID)
     PciDevice,
-    /// Revsision of hardware
+    /// PCI Revsision ID
     PciRevision,
     /// syspath style port path to bus, applicable to Linux only
     PortPath,
 }
 
-/// Info that can be printed about a [`USBConfiguration`]
+/// Info that can be printed about a [`Configuration`]
 #[non_exhaustive]
 #[derive(Debug, Copy, EnumIter, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -342,7 +348,7 @@ pub enum ConfigurationBlocks {
     MaxPower,
 }
 
-/// Info that can be printed about a [`USBInterface`]
+/// Info that can be printed about a [`Interface`]
 #[non_exhaustive]
 #[derive(Debug, Copy, EnumIter, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -353,8 +359,9 @@ pub enum InterfaceBlocks {
     Number,
     /// Interface port path, applicable to Linux
     PortPath,
-    /// Class enum of interface provided by USB IF
-    ClassCode,
+    /// Base class enum of interface provided by USB IF
+    #[serde(alias = "class-code")] // was called ClassCode in previous versions
+    BaseClass,
     /// Sub-class value of interface provided by USB IF
     SubClass,
     /// Prototol value for interface provided by USB IF
@@ -367,7 +374,7 @@ pub enum InterfaceBlocks {
     SysPath,
     /// An interface can have many endpoints
     NumEndpoints,
-    /// Icon based on ClassCode/SubCode/Protocol
+    /// Icon based on BaseClass/SubCode/Protocol
     Icon,
     /// Class name from USB IDs repository
     UidClass,
@@ -375,13 +382,14 @@ pub enum InterfaceBlocks {
     UidSubClass,
     /// Protocol name from USB IDs repository
     UidProtocol,
-    /// Fully defined USB Class Code based on Class/SubClass/Protocol triplet
+    /// Fully defined USB Class Code based on BaseClass/SubClass/Protocol triplet
     Class,
-    /// Base class as number value
-    ClassValue,
+    /// Base class as number value rather than enum
+    #[serde(alias = "class-value")]
+    BaseValue,
 }
 
-/// Info that can be printed about a [`USBEndpoint`]
+/// Info that can be printed about a [`Endpoint`]
 #[non_exhaustive]
 #[derive(Debug, Copy, EnumIter, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -527,7 +535,7 @@ impl DeviceBlocks {
     }
 }
 
-impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
+impl Block<DeviceBlocks, Device> for DeviceBlocks {
     fn default_blocks(verbose: bool) -> Vec<Self> {
         if verbose {
             vec![
@@ -540,8 +548,8 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 DeviceBlocks::ProductId,
                 DeviceBlocks::BcdDevice,
                 DeviceBlocks::BcdUsb,
-                DeviceBlocks::ClassValue,
-                DeviceBlocks::ClassCode,
+                DeviceBlocks::BaseValue,
+                DeviceBlocks::BaseClass,
                 DeviceBlocks::SubClass,
                 DeviceBlocks::UidSubClass,
                 DeviceBlocks::Protocol,
@@ -566,17 +574,17 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn len(&self, d: &[&USBDevice]) -> usize {
+    fn len(&self, d: &[&Device]) -> usize {
         match self {
-            DeviceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
+            DeviceBlocks::Name => d.iter().map(|d| d.name.width()).max().unwrap_or(0),
             DeviceBlocks::Serial => d
                 .iter()
-                .map(|d| d.serial_num.as_ref().unwrap_or(&String::new()).len())
+                .flat_map(|d| d.serial_num.as_ref().map(|s| s.width()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::Manufacturer => d
                 .iter()
-                .map(|d| d.manufacturer.as_ref().unwrap_or(&String::new()).len())
+                .flat_map(|d| d.manufacturer.as_ref().map(|s| s.width()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::TreePositions => d
@@ -587,63 +595,58 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::PortPath => d.iter().map(|d| d.port_path().len()).max().unwrap_or(0),
             DeviceBlocks::SysPath => d
                 .iter()
-                .map(|d| {
+                .flat_map(|d| {
                     d.extra
                         .as_ref()
-                        .map_or(0, |e| e.syspath.as_ref().unwrap_or(&String::new()).len())
+                        .and_then(|e| e.syspath.as_ref().map(|s| s.len()))
                 })
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::Driver => d
                 .iter()
-                .map(|d| {
+                .flat_map(|d| {
                     d.extra
                         .as_ref()
-                        .map_or(0, |e| e.driver.as_ref().unwrap_or(&String::new()).len())
+                        .and_then(|e| e.driver.as_ref().map(|s| s.len()))
                 })
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::ProductName => d
                 .iter()
-                .map(|d| {
-                    d.extra.as_ref().map_or(0, |e| {
-                        e.product_name.as_ref().unwrap_or(&String::new()).len()
-                    })
+                .flat_map(|d| {
+                    d.extra
+                        .as_ref()
+                        .and_then(|e| e.product_name.as_ref().map(|s| s.width()))
                 })
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::VendorName => d
                 .iter()
-                .map(|d| {
+                .flat_map(|d| {
                     d.extra
                         .as_ref()
-                        .map_or(0, |e| e.vendor.as_ref().unwrap_or(&String::new()).len())
+                        .and_then(|e| e.vendor.as_ref().map(|s| s.width()))
                 })
                 .max()
                 .unwrap_or(0),
-            DeviceBlocks::ClassCode => d
+            DeviceBlocks::BaseClass => d
                 .iter()
-                .map(|d| {
-                    d.class
-                        .as_ref()
-                        .map_or(String::new(), |c| c.to_string())
-                        .len()
-                })
+                .flat_map(|d| d.class.as_ref().map(|c| c.to_string().len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::UidClass => d
                 .iter()
-                .map(|d| d.class_name().unwrap_or_default().len())
+                .flat_map(|d| d.class_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::UidSubClass => d
                 .iter()
-                .map(|d| d.sub_class_name().unwrap_or_default().len())
+                .flat_map(|d| d.sub_class_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::UidProtocol => d
                 .iter()
-                .map(|d| d.protocol_name().unwrap_or_default().len())
+                .flat_map(|d| d.protocol_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::Class => d
@@ -655,7 +658,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
         }
     }
 
-    fn generate_padding(d: &[&system_profiler::USBDevice]) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&Device]) -> HashMap<Self, usize> {
         DeviceBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -663,7 +666,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
 
     fn format_value(
         &self,
-        d: &USBDevice,
+        d: &Device,
         pad: &HashMap<Self, usize>,
         settings: &PrintSettings,
     ) -> Option<String> {
@@ -775,7 +778,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 Some(v) => format!("{:5}", v.to_string()),
                 None => format!("{:>5}", "-"),
             }),
-            DeviceBlocks::ClassCode => Some(match d.class.as_ref() {
+            DeviceBlocks::BaseClass => Some(match d.class.as_ref() {
                 Some(v) => format!("{:pad$}", v.to_string(), pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
@@ -803,7 +806,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
                 Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            DeviceBlocks::ClassValue => Some(match d.class.as_ref() {
+            DeviceBlocks::BaseValue => Some(match d.class.as_ref() {
                 Some(v) => Self::format_base_u8((*v).into(), settings),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
@@ -836,10 +839,10 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             DeviceBlocks::BusPower
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => ct.power.map_or(s.normal(), |c| s.color(c)),
-            DeviceBlocks::ClassCode
+            DeviceBlocks::BaseClass
             | DeviceBlocks::UidClass
             | DeviceBlocks::Class
-            | DeviceBlocks::ClassValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
+            | DeviceBlocks::BaseValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::SubClass | DeviceBlocks::UidSubClass => {
                 ct.sub_code.map_or(s.normal(), |c| s.color(c))
             }
@@ -873,14 +876,14 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             // 00.00 = 5
             DeviceBlocks::BcdDevice => "Dev V",
             DeviceBlocks::BcdUsb => "USB V",
-            DeviceBlocks::ClassCode => "BaseC",
+            DeviceBlocks::BaseClass => "BaseC",
             DeviceBlocks::SubClass => "SubC",
             DeviceBlocks::Protocol => "Pcol",
             DeviceBlocks::UidClass => "UidCl",
             DeviceBlocks::UidSubClass => "UidSc",
             DeviceBlocks::UidProtocol => "UidPc",
             DeviceBlocks::Class => "Class",
-            DeviceBlocks::ClassValue => "CVal",
+            DeviceBlocks::BaseValue => "CVal",
             DeviceBlocks::Icon => ICON_HEADING,
         }
     }
@@ -905,7 +908,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => BlockLength::Fixed(6),
             DeviceBlocks::BcdDevice | DeviceBlocks::BcdUsb => BlockLength::Fixed(5),
-            DeviceBlocks::SubClass | DeviceBlocks::Protocol | DeviceBlocks::ClassValue => {
+            DeviceBlocks::SubClass | DeviceBlocks::Protocol | DeviceBlocks::BaseValue => {
                 BlockLength::Fixed(4)
             }
             _ => BlockLength::Variable(self.heading().len()),
@@ -917,7 +920,7 @@ impl Block<DeviceBlocks, USBDevice> for DeviceBlocks {
     }
 }
 
-impl Block<BusBlocks, USBBus> for BusBlocks {
+impl Block<BusBlocks, Bus> for BusBlocks {
     fn default_blocks(verbose: bool) -> Vec<Self> {
         if verbose {
             vec![
@@ -925,6 +928,8 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
                 BusBlocks::PortPath,
                 BusBlocks::Name,
                 BusBlocks::HostController,
+                BusBlocks::HostControllerDevice,
+                BusBlocks::HostControllerVendor,
                 BusBlocks::PciVendor,
                 BusBlocks::PciDevice,
                 BusBlocks::PciRevision,
@@ -934,18 +939,34 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
         }
     }
 
-    fn len(&self, d: &[&USBBus]) -> usize {
+    fn len(&self, d: &[&Bus]) -> usize {
         match self {
-            BusBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
-            BusBlocks::HostController => {
-                d.iter().map(|d| d.host_controller.len()).max().unwrap_or(0)
-            }
-            BusBlocks::PortPath => d.iter().map(|d| d.path().len()).max().unwrap_or(0),
+            BusBlocks::Name => d.iter().map(|d| d.name.width()).max().unwrap_or(0),
+            BusBlocks::HostController => d
+                .iter()
+                .map(|d| d.host_controller.width())
+                .max()
+                .unwrap_or(0),
+            BusBlocks::HostControllerVendor => d
+                .iter()
+                .flat_map(|d| d.host_controller_vendor.as_ref().map(|v| v.width()))
+                .max()
+                .unwrap_or(0),
+            BusBlocks::HostControllerDevice => d
+                .iter()
+                .flat_map(|d| d.host_controller_device.as_ref().map(|v| v.width()))
+                .max()
+                .unwrap_or(0),
+            BusBlocks::PortPath => d
+                .iter()
+                .map(|d| d.path().unwrap_or("-".to_string()).len())
+                .max()
+                .unwrap_or(0),
             _ => self.block_length().len(),
         }
     }
 
-    fn generate_padding(d: &[&USBBus]) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&Bus]) -> HashMap<Self, usize> {
         BusBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -957,7 +978,9 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::PciVendor => ct.vid.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::PciDevice => ct.pid.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::Name => ct.name.map_or(s.normal(), |c| s.color(c)),
-            BusBlocks::HostController => ct.serial.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::HostController => ct.class_code.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::HostControllerVendor => ct.manufacturer.map_or(s.normal(), |c| s.color(c)),
+            BusBlocks::HostControllerDevice => ct.name.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::PciRevision => ct.number.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
             BusBlocks::PortPath => ct.path.map_or(s.normal(), |c| s.color(c)),
@@ -966,13 +989,20 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
 
     fn format_value(
         &self,
-        bus: &USBBus,
+        bus: &Bus,
         pad: &HashMap<Self, usize>,
         settings: &PrintSettings,
     ) -> Option<String> {
         match self {
-            BusBlocks::BusNumber => Some(format!("{:3}", bus.get_bus_number())),
-            BusBlocks::Icon => settings.icons.as_ref().map(|i| i.get_bus_icon(bus)),
+            BusBlocks::BusNumber => bus
+                .get_bus_number()
+                .map(|v| format!("{:3}", v))
+                .or(Some("---".to_string())),
+            BusBlocks::Icon => settings
+                .icons
+                .as_ref()
+                .map(|i| i.get_bus_icon(bus))
+                .or(Some(" ".to_string())),
             BusBlocks::PciVendor => Some(match bus.pci_vendor {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
@@ -995,12 +1025,18 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
                 bus.host_controller,
                 pad = pad.get(self).unwrap_or(&0)
             )),
-            BusBlocks::PortPath => Some(format!(
-                "{:pad$}",
-                bus.path(),
-                pad = pad.get(self).unwrap_or(&0)
-            )),
-            // _ => None,
+            BusBlocks::HostControllerVendor => Some(match bus.host_controller_vendor.as_ref() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            BusBlocks::HostControllerDevice => Some(match bus.host_controller_device.as_ref() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            BusBlocks::PortPath => Some(match bus.path() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
         }
     }
 
@@ -1013,6 +1049,8 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
             BusBlocks::PciRevision => "Revisn",
             BusBlocks::Name => "Name",
             BusBlocks::HostController => "HostController",
+            BusBlocks::HostControllerVendor => "HostVendor",
+            BusBlocks::HostControllerDevice => "HostDevice",
             BusBlocks::Icon => ICON_HEADING,
         }
     }
@@ -1041,7 +1079,7 @@ impl Block<BusBlocks, USBBus> for BusBlocks {
     }
 }
 
-impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
+impl Block<ConfigurationBlocks, Configuration> for ConfigurationBlocks {
     const INSET: u8 = 1;
 
     fn default_blocks(verbose: bool) -> Vec<Self> {
@@ -1064,7 +1102,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         }
     }
 
-    fn len(&self, d: &[&USBConfiguration]) -> usize {
+    fn len(&self, d: &[&Configuration]) -> usize {
         match self {
             ConfigurationBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
             ConfigurationBlocks::Attributes => d
@@ -1076,7 +1114,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
         }
     }
 
-    fn generate_padding(d: &[&USBConfiguration]) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&Configuration]) -> HashMap<Self, usize> {
         ConfigurationBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -1095,7 +1133,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
 
     fn format_value(
         &self,
-        config: &USBConfiguration,
+        config: &Configuration,
         pad: &HashMap<Self, usize>,
         settings: &PrintSettings,
     ) -> Option<String> {
@@ -1156,7 +1194,7 @@ impl Block<ConfigurationBlocks, USBConfiguration> for ConfigurationBlocks {
     }
 }
 
-impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
+impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
     const INSET: u8 = 2;
 
     fn default_blocks(verbose: bool) -> Vec<Self> {
@@ -1165,8 +1203,8 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 InterfaceBlocks::PortPath,
                 InterfaceBlocks::Icon,
                 InterfaceBlocks::AltSetting,
-                InterfaceBlocks::ClassValue,
-                InterfaceBlocks::ClassCode,
+                InterfaceBlocks::BaseValue,
+                InterfaceBlocks::BaseClass,
                 InterfaceBlocks::SubClass,
                 InterfaceBlocks::UidSubClass,
                 InterfaceBlocks::Protocol,
@@ -1180,7 +1218,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 InterfaceBlocks::PortPath,
                 InterfaceBlocks::Icon,
                 InterfaceBlocks::AltSetting,
-                InterfaceBlocks::ClassCode,
+                InterfaceBlocks::BaseClass,
                 InterfaceBlocks::SubClass,
                 InterfaceBlocks::Protocol,
                 InterfaceBlocks::Name,
@@ -1188,10 +1226,10 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
         }
     }
 
-    fn len(&self, d: &[&USBInterface]) -> usize {
+    fn len(&self, d: &[&Interface]) -> usize {
         match self {
             InterfaceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
-            InterfaceBlocks::ClassCode => d
+            InterfaceBlocks::BaseClass => d
                 .iter()
                 .map(|d| d.class.to_string().len())
                 .max()
@@ -1199,27 +1237,27 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::PortPath => d.iter().map(|d| d.path.len()).max().unwrap_or(0),
             InterfaceBlocks::SysPath => d
                 .iter()
-                .map(|d| d.syspath.as_ref().unwrap_or(&String::new()).len())
+                .flat_map(|d| d.syspath.as_ref().map(|v| v.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::Driver => d
                 .iter()
-                .map(|d| d.driver.as_ref().unwrap_or(&String::new()).len())
+                .flat_map(|d| d.driver.as_ref().map(|v| v.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::UidClass => d
                 .iter()
-                .map(|d| d.class_name().unwrap_or_default().len())
+                .flat_map(|d| d.class_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::UidSubClass => d
                 .iter()
-                .map(|d| d.sub_class_name().unwrap_or_default().len())
+                .flat_map(|d| d.sub_class_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::UidProtocol => d
                 .iter()
-                .map(|d| d.protocol_name().unwrap_or_default().len())
+                .flat_map(|d| d.protocol_name().map(|s| s.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::Class => d
@@ -1231,7 +1269,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
         }
     }
 
-    fn generate_padding(d: &[&USBInterface]) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&Interface]) -> HashMap<Self, usize> {
         InterfaceBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -1245,10 +1283,10 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 ct.path.map_or(s.normal(), |c| s.color(c))
             }
             InterfaceBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
-            InterfaceBlocks::ClassCode
+            InterfaceBlocks::BaseClass
             | InterfaceBlocks::UidClass
             | InterfaceBlocks::Class
-            | InterfaceBlocks::ClassValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
+            | InterfaceBlocks::BaseValue => ct.class_code.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::SubClass | InterfaceBlocks::UidSubClass => {
                 ct.sub_code.map_or(s.normal(), |c| s.color(c))
             }
@@ -1264,7 +1302,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
 
     fn format_value(
         &self,
-        interface: &USBInterface,
+        interface: &Interface,
         pad: &HashMap<Self, usize>,
         settings: &PrintSettings,
     ) -> Option<String> {
@@ -1289,7 +1327,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            InterfaceBlocks::ClassCode => Some(format!(
+            InterfaceBlocks::BaseClass => Some(format!(
                 "{:pad$}",
                 interface.class.to_string(),
                 pad = pad.get(self).unwrap_or(&0)
@@ -1319,7 +1357,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
                 interface.fully_defined_class(),
                 pad = pad.get(self).unwrap_or(&0)
             )),
-            InterfaceBlocks::ClassValue => {
+            InterfaceBlocks::BaseValue => {
                 Some(Self::format_base_u8(interface.class.into(), settings))
             }
         }
@@ -1333,7 +1371,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::PortPath => "PPath",
             InterfaceBlocks::SysPath => "SPath",
             InterfaceBlocks::Driver => "Driver",
-            InterfaceBlocks::ClassCode => "BaseC",
+            InterfaceBlocks::BaseClass => "BaseC",
             InterfaceBlocks::SubClass => "SubC",
             InterfaceBlocks::Protocol => "Pcol",
             InterfaceBlocks::AltSetting => "Alt#",
@@ -1341,7 +1379,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::UidSubClass => "UidSc",
             InterfaceBlocks::UidProtocol => "UidPc",
             InterfaceBlocks::Class => "Class",
-            InterfaceBlocks::ClassValue => "CVal",
+            InterfaceBlocks::BaseValue => "CVal",
             InterfaceBlocks::Icon => ICON_HEADING,
         }
     }
@@ -1362,7 +1400,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
             InterfaceBlocks::SubClass
             | InterfaceBlocks::Protocol
             | InterfaceBlocks::AltSetting
-            | InterfaceBlocks::ClassValue => BlockLength::Fixed(4),
+            | InterfaceBlocks::BaseValue => BlockLength::Fixed(4),
             _ => BlockLength::Variable(self.heading().len()),
         }
     }
@@ -1372,7 +1410,7 @@ impl Block<InterfaceBlocks, USBInterface> for InterfaceBlocks {
     }
 }
 
-impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
+impl Block<EndpointBlocks, Endpoint> for EndpointBlocks {
     const INSET: u8 = 3;
 
     fn default_blocks(verbose: bool) -> Vec<Self> {
@@ -1398,7 +1436,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
         }
     }
 
-    fn len(&self, d: &[&USBEndpoint]) -> usize {
+    fn len(&self, d: &[&Endpoint]) -> usize {
         match self {
             EndpointBlocks::TransferType => d
                 .iter()
@@ -1429,7 +1467,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
         }
     }
 
-    fn generate_padding(d: &[&USBEndpoint]) -> HashMap<Self, usize> {
+    fn generate_padding(d: &[&Endpoint]) -> HashMap<Self, usize> {
         EndpointBlocks::iter()
             .map(|b| (b, cmp::max(b.heading().len(), b.len(d))))
             .collect()
@@ -1449,7 +1487,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
 
     fn format_value(
         &self,
-        end: &USBEndpoint,
+        end: &Endpoint,
         pad: &HashMap<Self, usize>,
         _settings: &PrintSettings,
     ) -> Option<String> {
@@ -1513,7 +1551,7 @@ impl Block<EndpointBlocks, USBEndpoint> for EndpointBlocks {
     }
 }
 
-/// Value to sort [`USBDevice`]
+/// Value to sort [`Device`]
 #[derive(Default, PartialEq, Eq, Debug, ValueEnum, Clone, Serialize, Deserialize)]
 pub enum Sort {
     #[default]
@@ -1526,8 +1564,8 @@ pub enum Sort {
 }
 
 impl Sort {
-    /// Sort the [`USBDevice`]s in place
-    pub fn sort_devices(&self, devices: &mut [USBDevice]) {
+    /// Sort the [`Device`]s in place
+    pub fn sort_devices(&self, devices: &mut [Device]) {
         // add bus number to maintain bus order when sorting
         match self {
             Sort::BranchPosition => {
@@ -1538,8 +1576,8 @@ impl Sort {
         }
     }
 
-    /// Sort the references to [`USBDevice`]s in place
-    pub fn sort_devices_ref(&self, devices: &mut [&USBDevice]) {
+    /// Sort the references to [`Device`]s in place
+    pub fn sort_devices_ref(&self, devices: &mut [&Device]) {
         match self {
             Sort::BranchPosition => {
                 devices.sort_by_key(|d| d.get_branch_position() + d.location_id.bus)
@@ -1550,7 +1588,7 @@ impl Sort {
     }
 
     /// Sort the devices at each branch by calling this recursively after sorting the devices at this level
-    pub fn sort_devices_recursive(&self, devices: &mut Vec<USBDevice>) {
+    pub fn sort_devices_recursive(&self, devices: &mut Vec<Device>) {
         // sort the devices at this level
         self.sort_devices(devices);
         // then sort the devices at each branch
@@ -1562,7 +1600,7 @@ impl Sort {
     }
 
     /// Walk the bus tree and sort the devices at each branch
-    pub fn sort_bus(&self, bus: &mut USBBus) {
+    pub fn sort_bus(&self, bus: &mut Bus) {
         if matches!(self, Sort::NoSort) {
             return;
         }
@@ -1573,7 +1611,7 @@ impl Sort {
     }
 
     /// Sort buses in place, sorting devices on each bus and then by bus number
-    pub fn sort_buses(&self, buses: &mut Vec<USBBus>) {
+    pub fn sort_buses(&self, buses: &mut Vec<Bus>) {
         buses.sort_by_key(|b| b.get_bus_number());
         for bus in buses {
             self.sort_bus(bus);
@@ -1581,7 +1619,7 @@ impl Sort {
     }
 }
 
-/// Value to group [`USBDevice`]
+/// Value to group [`Device`]
 #[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Group {
@@ -1702,7 +1740,7 @@ fn attributes_to_icons(attributes: &Vec<ConfigAttributes>, settings: &PrintSetti
 /// ```
 pub fn truncate_string(s: &mut String, len: usize) {
     // if already less than or equal to len, or len is less than 3, return
-    if s.chars().count() <= len || len <= 3 {
+    if s.width() <= len || len <= 3 {
         return;
     }
     // use char_indices to find last char boundary before len - 3
@@ -1740,7 +1778,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
     let (width, height) = settings
         .terminal_size
         .unwrap_or((Width(DEFAULT_AUTO_WIDTH), Height(0)));
-    log::debug!(
+    log::trace!(
         "Auto scaling running for max length {:?} of which fixed {:?}, to terminal size {:?} {:?}",
         total_len,
         total_fixed,
@@ -1752,7 +1790,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
     if total_len > w {
         // fixed already taking all space, return min
         if w < total_fixed {
-            log::debug!("Cannot scale, fixed already taking all space!");
+            log::trace!("Cannot scale, fixed already taking all space!");
             return Some(MIN_VARIABLE_STRING_LEN);
         }
         // remaining len for variable strings
@@ -1766,7 +1804,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
             .filter(|v| **v <= auto_max_string)
             .map(|v| auto_max_string - v)
             .sum();
-        log::debug!(
+        log::trace!(
             "Auto max string calculated {:?}, remaining {:?}",
             auto_max_string,
             remaining_chars
@@ -1783,18 +1821,17 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
         auto_max_string += remaining_chars;
 
         if auto_max_string < MIN_VARIABLE_STRING_LEN {
-            log::debug!(
+            log::trace!(
                 "Ignoring auto max string {:?}! Clamped to MIN_VARIABLE_STRING_LEN {:?}",
                 auto_max_string,
                 MIN_VARIABLE_STRING_LEN
             );
             Some(MIN_VARIABLE_STRING_LEN)
         } else {
-            log::debug!("Final auto max string {:?}", auto_max_string);
+            log::trace!("Final auto max string {:?}", auto_max_string);
             Some(auto_max_string)
         }
     } else {
-        log::debug!("Auto max string not required");
         None
     }
 }
@@ -1914,11 +1951,11 @@ fn generate_tree_data(
     pass_tree
 }
 
-/// Generates the [`USBDeviceExtra`] blocks based on the [`PrintSettings`] or defaults. Will also retain based on `is_icon` and [`IconWhen`] setting
+/// Generates the [`DeviceExtra`] blocks based on the [`PrintSettings`] or defaults. Will also retain based on `is_icon` and [`IconWhen`] setting
 ///
 /// If [`IconWhen::Auto`] will render icon block values to check if supported by [`Encoding`] and remove if not
 fn generate_extra_blocks(
-    extra: &USBDeviceExtra,
+    extra: &DeviceExtra,
     settings: &PrintSettings,
 ) -> (
     Vec<ConfigurationBlocks>,
@@ -1927,17 +1964,17 @@ fn generate_extra_blocks(
 ) {
     let mut blocks = (
         settings.config_blocks.to_owned().unwrap_or(
-            Block::<ConfigurationBlocks, USBConfiguration>::default_blocks(
+            Block::<ConfigurationBlocks, Configuration>::default_blocks(
                 settings.verbosity >= MAX_VERBOSITY || settings.more,
             ),
         ),
         settings.interface_blocks.to_owned().unwrap_or(
-            Block::<InterfaceBlocks, USBInterface>::default_blocks(
+            Block::<InterfaceBlocks, Interface>::default_blocks(
                 settings.verbosity >= MAX_VERBOSITY || settings.more,
             ),
         ),
         settings.endpoint_blocks.to_owned().unwrap_or(
-            Block::<EndpointBlocks, USBEndpoint>::default_blocks(
+            Block::<EndpointBlocks, Endpoint>::default_blocks(
                 settings.verbosity >= MAX_VERBOSITY || settings.more,
             ),
         ),
@@ -1984,8 +2021,8 @@ fn generate_extra_blocks(
     blocks
 }
 
-/// Print `devices` `USBDevice` references without looking down each device's devices!
-pub fn print_flattened_devices(devices: &[&USBDevice], settings: &PrintSettings) {
+/// Print `devices` [`Device`] references without looking down each device's devices!
+pub fn print_flattened_devices(devices: &[&Device], settings: &PrintSettings) {
     let mut db = settings
         .device_blocks
         .to_owned()
@@ -2073,18 +2110,18 @@ pub fn print_flattened_devices(devices: &[&USBDevice], settings: &PrintSettings)
     }
 }
 
-/// A way of printing a reference flattened `SPUSBDataType` rather than hard flatten
+/// A way of printing a reference flattened [`SystemProfile`] rather than hard flatten
 ///
-/// Prints each `&USBBus` and tuple pair `Vec<&USBDevice>`
-pub fn print_bus_grouped(bus_devices: Vec<(&USBBus, Vec<&USBDevice>)>, settings: &PrintSettings) {
+/// Prints each `&Bus` and tuple pair `Vec<&Device>`
+pub fn print_bus_grouped(bus_devices: Vec<(&Bus, Vec<&Device>)>, settings: &PrintSettings) {
     let bb = settings
         .bus_blocks
         .to_owned()
-        .unwrap_or(Block::<BusBlocks, USBBus>::default_blocks(
+        .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
             settings.verbosity >= MAX_VERBOSITY || settings.more,
         ));
     let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
-        let buses: Vec<&USBBus> = bus_devices.iter().map(|bd| bd.0).collect();
+        let buses: Vec<&Bus> = bus_devices.iter().map(|bd| bd.0).collect();
         BusBlocks::generate_padding(&buses)
     } else {
         HashMap::new()
@@ -2137,15 +2174,15 @@ pub struct TreeData {
     prefix: String,
 }
 
-/// All device [`USBEndpoint`]
+/// All device [`Endpoint`]
 pub fn print_endpoints(
-    endpoints: &[USBEndpoint],
+    endpoints: &[Endpoint],
     blocks: &[EndpointBlocks],
     settings: &PrintSettings,
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        let endpoints: Vec<&USBEndpoint> = endpoints.iter().collect();
+        let endpoints: Vec<&Endpoint> = endpoints.iter().collect();
         EndpointBlocks::generate_padding(&endpoints)
     } else {
         HashMap::new()
@@ -2259,15 +2296,15 @@ pub fn print_endpoints(
     }
 }
 
-/// All device [`USBInterface`]
+/// All device [`Interface`]
 pub fn print_interfaces(
-    interfaces: &[USBInterface],
+    interfaces: &[Interface],
     blocks: (&Vec<InterfaceBlocks>, &Vec<EndpointBlocks>),
     settings: &PrintSettings,
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        let interfaces: Vec<&USBInterface> = interfaces.iter().collect();
+        let interfaces: Vec<&Interface> = interfaces.iter().collect();
         InterfaceBlocks::generate_padding(&interfaces)
     } else {
         HashMap::new()
@@ -2384,9 +2421,9 @@ pub fn print_interfaces(
     }
 }
 
-/// All device [`USBConfiguration`]
+/// All device [`Configuration`]
 pub fn print_configurations(
-    configs: &[USBConfiguration],
+    configs: &[Configuration],
     blocks: (
         &Vec<ConfigurationBlocks>,
         &Vec<InterfaceBlocks>,
@@ -2396,7 +2433,7 @@ pub fn print_configurations(
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        let configs: Vec<&USBConfiguration> = configs.iter().collect();
+        let configs: Vec<&Configuration> = configs.iter().collect();
         ConfigurationBlocks::generate_padding(&configs)
     } else {
         HashMap::new()
@@ -2511,17 +2548,17 @@ pub fn print_configurations(
     }
 }
 
-/// Recursively print `devices`; will call for each `USBDevice` devices if `Some`
+/// Recursively print `devices`; will call for each `Device` devices if `Some`
 ///
 /// Will draw tree if `settings.tree`, otherwise it will be flat
 pub fn print_devices(
-    devices: &[USBDevice],
+    devices: &[Device],
     db: &Vec<DeviceBlocks>,
     settings: &PrintSettings,
     tree: &TreeData,
 ) {
     let mut pad = if !settings.no_padding {
-        let devices: Vec<&USBDevice> = devices.iter().collect();
+        let devices: Vec<&Device> = devices.iter().collect();
         DeviceBlocks::generate_padding(&devices)
     } else {
         HashMap::new()
@@ -2645,15 +2682,14 @@ pub fn print_devices(
     }
 }
 
-/// Print SPUSBDataType
-pub fn print_sp_usb(sp_usb: &SPUSBDataType, settings: &PrintSettings) {
-    let mut bb =
-        settings
-            .bus_blocks
-            .to_owned()
-            .unwrap_or(Block::<BusBlocks, USBBus>::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ));
+/// Print [`SystemProfile`] [`Bus`] and [`Device`] information
+pub fn print_sp_usb(sp_usb: &SystemProfile, settings: &PrintSettings) {
+    let mut bb = settings
+        .bus_blocks
+        .to_owned()
+        .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
+            settings.verbosity >= MAX_VERBOSITY || settings.more,
+        ));
     let mut db = settings.device_blocks.to_owned().unwrap_or(
         if settings.verbosity >= MAX_VERBOSITY || settings.more {
             DeviceBlocks::default_blocks(true)
@@ -2694,7 +2730,7 @@ pub fn print_sp_usb(sp_usb: &SPUSBDataType, settings: &PrintSettings) {
     };
 
     let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
-        BusBlocks::generate_padding(&sp_usb.buses.iter().collect::<Vec<&USBBus>>())
+        BusBlocks::generate_padding(&sp_usb.buses.iter().collect::<Vec<&Bus>>())
     } else {
         HashMap::new()
     };
@@ -2724,7 +2760,7 @@ pub fn print_sp_usb(sp_usb: &SPUSBDataType, settings: &PrintSettings) {
     }
 
     log::trace!(
-        "print SPUSBDataType settings, {:?}, padding {:?}, tree {:?}",
+        "print system profile with settings: {:?}; padding: {:?}; tree {:?}",
         settings,
         pad,
         base_tree
@@ -2783,7 +2819,7 @@ pub fn print_sp_usb(sp_usb: &SPUSBDataType, settings: &PrintSettings) {
 }
 
 /// Mask the `device` serial if it has one using the [`MaskSerial`] method and recursively if `recursive`
-pub fn mask_serial(device: &mut USBDevice, hide: &MaskSerial, recursive: bool) {
+pub fn mask_serial(device: &mut Device, hide: &MaskSerial, recursive: bool) {
     if let Some(serial) = device.serial_num.as_mut() {
         *serial = match hide {
             MaskSerial::Hide => serial.chars().map(|_| '*').collect::<String>(),
@@ -2814,7 +2850,7 @@ pub fn mask_serial(device: &mut USBDevice, hide: &MaskSerial, recursive: bool) {
 }
 
 /// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
-pub fn prepare(sp_usb: &mut SPUSBDataType, filter: Option<USBFilter>, settings: &PrintSettings) {
+pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<Filter>, settings: &PrintSettings) {
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
     // flattening now will also mean hubs will be removed when listing if `hide_hubs` because they will appear empty and sorting will be in bus -> device order rather than tree position
     log::debug!("Running prepare pre-printing");
@@ -2867,7 +2903,7 @@ pub fn prepare(sp_usb: &mut SPUSBDataType, filter: Option<USBFilter>, settings: 
 }
 
 /// Main cyme bin print function
-pub fn print(sp_usb: &system_profiler::SPUSBDataType, settings: &PrintSettings) {
+pub fn print(sp_usb: &SystemProfile, settings: &PrintSettings) {
     log::debug!("Printing with {:?}", settings);
 
     if settings.tree || settings.group_devices == Group::Bus {

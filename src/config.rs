@@ -66,7 +66,7 @@ pub struct Config {
     pub no_icons: bool,
     /// Show block headings
     pub headings: bool,
-    /// Force libusb profiler on macOS rather than using/combining system_profiler output
+    /// Force nusb/libusb profiler on macOS rather than using/combining system_profiler output
     pub force_libusb: bool,
     /// Print non-critical errors (normally due to permissions) during USB profiler to stderr
     pub print_non_critical_profiler_stderr: bool,

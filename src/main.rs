@@ -10,9 +10,8 @@ use cyme::config::Config;
 use cyme::display;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
-use cyme::system_profiler;
-use cyme::usb;
-use cyme::usb::ClassCode;
+use cyme::profiler;
+use cyme::usb::BaseClass;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -48,7 +47,7 @@ struct Args {
 
     /// Filter on USB class code
     #[arg(long)]
-    filter_class: Option<ClassCode>,
+    filter_class: Option<BaseClass>,
 
     /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
@@ -147,7 +146,9 @@ struct Args {
     #[arg(long)]
     from_json: Option<String>,
 
-    /// Force libusb profiler on macOS rather than using/combining system_profiler output
+    /// Force pure libusb profiler on macOS rather than combining system_profiler output
+    ///
+    /// Has no effect on other platforms or when using nusb
     #[arg(short = 'F', long, default_value_t = false)]
     force_libusb: bool,
 
@@ -167,6 +168,12 @@ struct Args {
     /// Generate cli completions and man page
     #[arg(long, hide = true, exclusive = true)]
     gen: bool,
+
+    /// Use the system_profiler command on macOS to get USB data
+    ///
+    /// If not using nusb this is the default for macOS, merging with libusb data for verbose output. nusb uses IOKit directly so does not use system_profiler by default
+    #[arg(long, default_value_t = false)]
+    system_profiler: bool,
 }
 
 /// Print in bold red and exit with error
@@ -305,17 +312,46 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     }
 }
 
-/// Abort with exit code before trying to call libusb feature if not present
-#[cfg(not(feature = "libusb"))]
-fn get_libusb_spusb(_args: &Args) -> Result<system_profiler::SPUSBDataType> {
-    Err(Error::new(
-        ErrorKind::Unsupported,
-        "libusb feature is required to do this, install with `cargo install --features libusb`",
-    ))
+fn get_macos_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
+    // if requested or only have libusb, use system_profiler and merge with libusb
+    if args.system_profiler || !cfg!(feature = "nusb") {
+        if !args.force_libusb
+            && args.device.is_none() // device path requires extra
+                && args.filter_class.is_none() // class filter requires extra
+                && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
+        {
+            profiler::macos::get_spusb()
+                .map_or_else(|e| {
+                    // For non-zero return, report but continue in this case
+                    if e.kind() == ErrorKind::SystemProfiler {
+                        eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({})", e);
+                        get_system_profile(args)
+                    } else {
+                        Err(e)
+                    }
+                }, Ok)
+        } else if !args.force_libusb {
+            if cfg!(feature = "libusb") {
+                log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
+            }
+            profiler::macos::get_spusb_with_extra().map_or_else(|e| {
+                // For non-zero return, report but continue in this case
+                if e.kind() == ErrorKind::SystemProfiler {
+                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({})", e);
+                    get_system_profile(args)
+                } else {
+                    Err(e)
+                }
+            }, Ok)
+        } else {
+            return get_system_profile(args);
+        }
+    } else {
+        get_system_profile(args)
+    }
 }
 
-#[cfg(feature = "libusb")]
-fn get_libusb_spusb(args: &Args, print_stderr: bool) -> Result<system_profiler::SPUSBDataType> {
+fn get_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
     if args.verbose > 0
         || args.tree
         || args.device.is_some()
@@ -325,27 +361,14 @@ fn get_libusb_spusb(args: &Args, print_stderr: bool) -> Result<system_profiler::
         || args.filter_class.is_none()
     // class filter requires extra
     {
-        usb::profiler::get_spusb_with_extra(print_stderr).map_err(|e| {
-            Error::new(
-                ErrorKind::LibUSB,
-                &format!(
-                    "Failed to gather system USB data with extra from libusb, Error({})",
-                    e
-                ),
-            )
-        })
+        profiler::get_spusb_with_extra()
     } else {
-        usb::profiler::get_spusb(print_stderr).map_err(|e| {
-            Error::new(
-                ErrorKind::LibUSB,
-                &format!("Failed to gather system USB data from libusb, Error({})", e),
-            )
-        })
+        profiler::get_spusb()
     }
 }
 
 fn print_lsusb(
-    sp_usb: &system_profiler::SPUSBDataType,
+    sp_usb: &profiler::SystemProfile,
     device: &Option<String>,
     settings: &display::PrintSettings,
 ) -> Result<()> {
@@ -360,8 +383,10 @@ fn print_lsusb(
         lsusb::print_tree(sp_usb, settings)
     } else {
         // can't print verbose if not using libusb
-        if !cfg!(feature = "libusb") && (settings.verbosity > 0 || device.is_some()) {
-            return Err(Error::new(ErrorKind::Unsupported, "libusb feature is required to do this, install with `cargo install --features libusb`"));
+        if !(cfg!(feature = "libusb") || cfg!(feature = "nusb"))
+            && (settings.verbosity > 0 || device.is_some())
+        {
+            return Err(Error::new(ErrorKind::Unsupported, "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`"));
         }
 
         let devices = sp_usb.flattened_devices();
@@ -431,9 +456,9 @@ fn cyme() -> Result<()> {
     cyme::set_log_level(args.debug)?;
 
     #[cfg(feature = "libusb")]
-    usb::profiler::set_log_level(args.debug);
+    profiler::libusb::set_log_level(args.debug);
 
-    let mut config = if let Some(path) = args.config.as_ref() {
+    let config = if let Some(path) = args.config.as_ref() {
         let config = Config::from_file(path)?;
         log::info!("Using user config {:?}", config);
         config
@@ -442,9 +467,9 @@ fn cyme() -> Result<()> {
     };
 
     // add any config ENV override
-    config.print_non_critical_profiler_stderr =
-        std::env::var_os("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR")
-            .map_or(config.print_non_critical_profiler_stderr, |_| true);
+    if config.print_non_critical_profiler_stderr {
+        std::env::set_var("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR", "1");
+    }
 
     merge_config(&config, &mut args);
 
@@ -487,49 +512,20 @@ fn cyme() -> Result<()> {
     };
 
     let mut spusb = if let Some(file_path) = args.from_json {
-        match system_profiler::read_json_dump(file_path.as_str()) {
+        match profiler::read_json_dump(file_path.as_str()) {
             Ok(s) => s,
             Err(e) => {
                 log::warn!(
                     "Failed to read json dump, attempting as flattened with phony bus: Error({})",
                     e
                 );
-                system_profiler::read_flat_json_to_phony_bus(file_path.as_str())?
+                profiler::read_flat_json_to_phony_bus(file_path.as_str())?
             }
         }
-    } else if cfg!(target_os = "macos") 
-        && !args.force_libusb
-        && args.device.is_none() // device path requires extra
-        && args.filter_class.is_none() // class filter requires extra
-        && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
-    {
-        system_profiler::get_spusb()
-            .map_or_else(|e| {
-                // For non-zero return, report but continue in this case
-                if e.kind() == ErrorKind::SystemProfiler {
-                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
-                    get_libusb_spusb(&args, config.print_non_critical_profiler_stderr)
-                // parsing error abort
-                } else {
-                    Err(e)
-                }
-            }, Ok)?
+    } else if cfg!(target_os = "macos") {
+        get_macos_system_profile(&args)?
     } else {
-        // if not forcing libusb, get system_profiler and the merge with libusb
-        if cfg!(target_os = "macos") && !args.force_libusb {
-            log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
-            system_profiler::get_spusb_with_extra().map_or_else(|e| {
-                // For non-zero return, report but continue in this case
-                if e.kind() == ErrorKind::SystemProfiler {
-                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to pure libusb; Error({})", e);
-                    get_libusb_spusb(&args, config.print_non_critical_profiler_stderr)
-                } else {
-                    Err(e)
-                }
-            }, Ok)?
-        } else {
-            get_libusb_spusb(&args, config.print_non_critical_profiler_stderr)?
-        }
+        get_system_profile(&args)?
     };
 
     log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
@@ -542,7 +538,7 @@ fn cyme() -> Result<()> {
         || args.filter_serial.is_some()
         || args.filter_class.is_some()
     {
-        let mut f = system_profiler::USBFilter::new();
+        let mut f = profiler::Filter::new();
 
         if let Some(vidpid) = &args.vidpid {
             let (vid, pid) = parse_vidpid(vidpid.as_str()).map_err(|e| {
@@ -597,7 +593,7 @@ fn cyme() -> Result<()> {
         // * json - for --from-json support
         // * list_root_hubs - user wants to see root hubs in list
         if cfg!(target_os = "linux") {
-            Some(system_profiler::USBFilter {
+            Some(profiler::Filter {
                 no_exclude_root_hub: (args.lsusb || args.json || args.list_root_hubs),
                 ..Default::default()
             })

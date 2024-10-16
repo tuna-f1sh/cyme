@@ -111,6 +111,77 @@ impl From<DescriptorType> for u8 {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct DeviceDescriptor {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub usb_version: Version,
+    pub device_class: u8,
+    pub device_sub_class: u8,
+    pub device_protocol: u8,
+    pub max_packet_size: u8,
+    pub vendor_id: u16,
+    pub product_id: u16,
+    pub device_version: Version,
+    pub manufacturer_string_index: u8,
+    pub product_string_index: u8,
+    pub serial_number_string_index: u8,
+    pub num_configurations: u8,
+}
+
+impl TryFrom<&[u8]> for DeviceDescriptor {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> error::Result<Self> {
+        if value.len() < 18 {
+            return Err(Error::new_descriptor_len(
+                "DeviceDescriptor",
+                18,
+                value.len(),
+            ));
+        }
+
+        Ok(DeviceDescriptor {
+            length: value[0],
+            descriptor_type: value[1],
+            usb_version: Version::from_bcd(u16::from_le_bytes([value[2], value[3]])),
+            device_class: value[4],
+            device_sub_class: value[5],
+            device_protocol: value[6],
+            max_packet_size: value[7],
+            vendor_id: u16::from_le_bytes([value[8], value[9]]),
+            product_id: u16::from_le_bytes([value[10], value[11]]),
+            device_version: Version::from_bcd(u16::from_le_bytes([value[12], value[13]])),
+            manufacturer_string_index: value[14],
+            product_string_index: value[15],
+            serial_number_string_index: value[16],
+            num_configurations: value[17],
+        })
+    }
+}
+
+impl From<DeviceDescriptor> for Vec<u8> {
+    fn from(dd: DeviceDescriptor) -> Self {
+        let mut ret = vec![dd.length, dd.descriptor_type];
+
+        ret.extend(u16::from(dd.usb_version).to_le_bytes());
+        ret.push(dd.device_class);
+        ret.push(dd.device_sub_class);
+        ret.push(dd.device_protocol);
+        ret.push(dd.max_packet_size);
+        ret.extend(dd.vendor_id.to_le_bytes());
+        ret.extend(dd.product_id.to_le_bytes());
+        ret.extend(u16::from(dd.device_version).to_le_bytes());
+        ret.push(dd.manufacturer_string_index);
+        ret.push(dd.product_string_index);
+        ret.push(dd.serial_number_string_index);
+        ret.push(dd.num_configurations);
+
+        ret
+    }
+}
+
 /// USB descriptor encloses type specific descriptor structs
 ///
 /// Not all descriptors are implemented
@@ -241,8 +312,8 @@ impl From<Descriptor> for Vec<u8> {
 }
 
 impl Descriptor {
-    /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`ClassCode`] for class specific descriptors
-    pub fn update_with_class_context<T: Into<ClassCode> + Copy>(
+    /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`BaseClass`] for class specific descriptors
+    pub fn update_with_class_context<T: Into<BaseClass> + Copy>(
         &mut self,
         class_triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
@@ -525,10 +596,10 @@ pub enum ClassDescriptor {
     Video(video::UvcDescriptor, u8),
     /// Device Firmware Upgrade (DFU) descriptor
     Dfu(DfuDescriptor),
-    /// Generic descriptor with Option<ClassCode>
+    /// Generic descriptor with `Option<BaseClass>`
     ///
-    /// Used for most descriptors and allows for TryFrom without knowing the [`ClassCode`]
-    Generic(Option<ClassCodeTriplet<ClassCode>>, GenericDescriptor),
+    /// Used for most descriptors and allows for TryFrom without knowing the [`BaseClass`]
+    Generic(Option<ClassCodeTriplet<BaseClass>>, GenericDescriptor),
 }
 
 impl TryFrom<&[u8]> for ClassDescriptor {
@@ -563,48 +634,48 @@ impl From<ClassDescriptor> for Vec<u8> {
 }
 
 impl ClassDescriptor {
-    /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`ClassCode`] and descriptor if it is not [`GenericDescriptor`]
-    pub fn update_with_class_context<T: Into<ClassCode> + Copy>(
+    /// Uses [`ClassCodeTriplet`] to update the [`ClassDescriptor`] with [`BaseClass`] and descriptor if it is not [`GenericDescriptor`]
+    pub fn update_with_class_context<T: Into<BaseClass> + Copy>(
         &mut self,
         triplet: ClassCodeTriplet<T>,
     ) -> Result<(), Error> {
         if let ClassDescriptor::Generic(_, gd) = self {
             match (triplet.0.into(), triplet.1, triplet.2) {
-                (ClassCode::HID, _, _) => {
+                (BaseClass::Hid, _, _) => {
                     *self = ClassDescriptor::Hid(HidDescriptor::try_from(gd.to_owned())?)
                 }
-                (ClassCode::SmartCard, _, _) => {
+                (BaseClass::SmartCard, _, _) => {
                     *self = ClassDescriptor::Ccid(CcidDescriptor::try_from(gd.to_owned())?)
                 }
-                (ClassCode::Printer, _, _) => {
+                (BaseClass::Printer, _, _) => {
                     *self = ClassDescriptor::Printer(PrinterDescriptor::try_from(gd.to_owned())?)
                 }
-                (ClassCode::CDCCommunications, _, _) | (ClassCode::CDCData, _, _) => {
+                (BaseClass::CdcCommunications, _, _) | (BaseClass::CdcData, _, _) => {
                     *self = ClassDescriptor::Communication(cdc::CommunicationDescriptor::try_from(
                         gd.to_owned(),
                     )?)
                 }
                 // For legacy purposes, MIDI is defined as a SubClass of Audio Class
                 // but we define at as a separate ClassDescriptor
-                (ClassCode::Audio, 3, p) => {
+                (BaseClass::Audio, 3, p) => {
                     *self =
                         ClassDescriptor::Midi(audio::MidiDescriptor::try_from(gd.to_owned())?, p)
                 }
                 // UAC
-                (ClassCode::Audio, s, p) => {
+                (BaseClass::Audio, s, p) => {
                     *self = ClassDescriptor::Audio(
                         // endpoint is included in UacInterfaceDescriptor::try_from
                         audio::UacDescriptor::try_from((gd.to_owned(), s, p))?,
                         audio::UacProtocol::from(p),
                     )
                 }
-                (ClassCode::Video, s, p) => {
+                (BaseClass::Video, s, p) => {
                     *self = ClassDescriptor::Video(
                         video::UvcDescriptor::try_from((gd.to_owned(), s, p))?,
                         p,
                     )
                 }
-                (ClassCode::ApplicationSpecificInterface, 1, _) => {
+                (BaseClass::ApplicationSpecificInterface, 1, _) => {
                     *self = ClassDescriptor::Dfu(DfuDescriptor::try_from(gd.to_owned())?)
                 }
                 ct => *self = ClassDescriptor::Generic(Some(ct), gd.to_owned()),
@@ -744,7 +815,7 @@ impl GenericDescriptor {
         }
     }
 
-    /// Returns the (cloned) data as a Vec<u8>
+    /// Returns the (cloned) data as a `Vec<u8>`
     pub fn to_vec(&self) -> Vec<u8> {
         self.clone().into()
     }
@@ -1227,7 +1298,7 @@ pub struct DeviceQualifierDescriptor {
     pub length: u8,
     pub descriptor_type: u8,
     pub version: Version,
-    pub device_class: ClassCode,
+    pub device_class: BaseClass,
     pub device_subclass: u8,
     pub device_protocol: u8,
     pub max_packet_size: u8,
@@ -1257,7 +1328,7 @@ impl TryFrom<&[u8]> for DeviceQualifierDescriptor {
             length: value[0],
             descriptor_type: value[1],
             version: Version::from_bcd(u16::from_le_bytes([value[2], value[3]])),
-            device_class: ClassCode::from(value[4]),
+            device_class: BaseClass::from(value[4]),
             device_subclass: value[5],
             device_protocol: value[6],
             max_packet_size: value[7],

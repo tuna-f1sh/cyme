@@ -480,7 +480,7 @@ impl TryFrom<GenericDescriptor> for MidiEndpointDescriptor {
     }
 }
 
-/// Base USB Audio Class (UAC) interface descriptor that contains [`UacSubtype`] and [`UacInterfaceDescriptor`]
+/// Base USB Audio Class (UAC) interface descriptor that contains [`UacType`] and [`UacInterfaceDescriptor`]
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct UacDescriptor {
@@ -540,7 +540,7 @@ impl UacDescriptor {
 
 /// USB Audio Class (UAC) interface descriptors
 ///
-/// Ported from https://github.com/gregkh/usbutils/blob/master/desc-defs.c
+/// Ported from <https://github.com/gregkh/usbutils/blob/master/desc-defs.c>
 ///
 /// Possibly much nicer way to define all these for more generic printing; enum types like desc-def.c wrapping the int values so they can be acted on in a more generic way
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -1286,7 +1286,7 @@ impl UacType {
         }
     }
 
-    /// Get the [`UacAcInterface`] from a generic descriptor
+    /// Get the [`UacInterfaceDescriptor`] from a generic descriptor
     pub fn uac_descriptor_from_generic(
         &self,
         gd: GenericDescriptor,
