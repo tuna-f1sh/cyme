@@ -9,8 +9,8 @@ use std::str::FromStr;
 
 use crate::display::Encoding;
 use crate::error::{Error, ErrorKind};
-use crate::system_profiler::{USBBus, USBDevice};
-use crate::usb::{ClassCode, Direction};
+use crate::profiler::{Bus, Device};
+use crate::usb::{BaseClass, Direction};
 
 /// If only standard UTF-8 characters are used, this is the default icon for a device
 // const UTF8_DEFAULT_DEVICE_ICON: &str = "\u{2023}"; // ‣
@@ -34,9 +34,9 @@ pub enum Icon {
     /// Use to mask on msb of product ID
     VidPidMsb((u16, u8)),
     /// Class classifier icon
-    Classifier(ClassCode),
+    Classifier(BaseClass),
     /// Class classifier lookup with SubClass and Protocol
-    ClassifierSubProtocol((ClassCode, u8, u8)),
+    ClassifierSubProtocol((BaseClass, u8, u8)),
     /// Pattern match device name icon
     Name(String),
     /// Icon for unknown vendors
@@ -51,9 +51,9 @@ pub enum Icon {
     TreeCorner,
     /// Blanking icon for inset without edge
     TreeBlank,
-    /// Icon at prepended before printing `USBBus`
+    /// Icon at prepended before printing `Bus`
     TreeBusStart,
-    /// Icon printed at end of tree before printing `USBDevice`
+    /// Icon printed at end of tree before printing `Device`
     TreeDeviceTerminator,
     /// Icon printed at end of tree before printing configuration
     TreeConfigurationTerminator,
@@ -137,12 +137,12 @@ impl FromStr for Icon {
                     None => Err(Error::new(ErrorKind::Parsing, "No value for enum after $")),
                 },
                 "classifier" => match numbers.first() {
-                    Some(i) => Ok(Icon::Classifier(ClassCode::from(*i as u8))),
+                    Some(i) => Ok(Icon::Classifier(BaseClass::from(*i as u8))),
                     None => Err(Error::new(ErrorKind::Parsing, "No value for enum after $")),
                 },
                 "classifier-sub-protocol" => match numbers.get(0..3) {
                     Some(slice) => Ok(Icon::ClassifierSubProtocol((
-                        ClassCode::from(slice[0] as u8),
+                        BaseClass::from(slice[0] as u8),
                         slice[1] as u8,
                         slice[2] as u8,
                     ))),
@@ -194,16 +194,16 @@ impl fmt::Display for Icon {
     }
 }
 
-/// Allows user supplied icons to replace or add to [`DEFAULT_ICONS`] and [`DEFAULT_UTF8_TREE`]
+/// Allows user supplied icons to replace or add to [`static@DEFAULT_ICONS`] and [`static@DEFAULT_UTF8_TREE`]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[serde(default)]
 pub struct IconTheme {
-    /// Will merge with [`DEFAULT_ICONS`] for user supplied
+    /// Will merge with [`static@DEFAULT_ICONS`] for user supplied
     #[serde(serialize_with = "sort_alphabetically")]
     pub user: Option<HashMap<Icon, String>>,
-    /// Will merge with [`DEFAULT_UTF8_TREE`] for user supplied tree drawing
+    /// Will merge with [`static@DEFAULT_UTF8_TREE`] for user supplied tree drawing
     #[serde(serialize_with = "sort_alphabetically")]
     pub tree: Option<HashMap<Icon, String>>,
 }
@@ -220,7 +220,7 @@ impl Default for IconTheme {
 
 lazy_static! {
     /// Default icons to draw tree can be overridden by user icons with IconTheme `tree`
-    static ref DEFAULT_UTF8_TREE: HashMap<Icon, &'static str> = {
+    pub static ref DEFAULT_UTF8_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::TreeEdge, "\u{251c}\u{2500}\u{2500}"), // "├──"
             (Icon::TreeLine, "\u{2502}  "), // "│  "
@@ -238,7 +238,7 @@ lazy_static! {
     };
 
     /// Ascii chars used by lsusb compatible mode or no utf-8
-    static ref DEFAULT_ASCII_TREE: HashMap<Icon, &'static str> = {
+    pub static ref DEFAULT_ASCII_TREE: HashMap<Icon, &'static str> = {
         HashMap::from([
             (Icon::TreeEdge, "|__"), // same as corner
             (Icon::TreeLine, "|  "), // no outside line but inset so starts under parent device
@@ -275,8 +275,8 @@ lazy_static! {
             (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}"), // st-link 
             (Icon::VidPid((0x0483, 0xdf11)), "\u{f019}"), // STM DFU 
             (Icon::VidPid((0x1d50, 0x6017)), "\u{f188}"), // black magic probe DFU 
-            (Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecificInterface, 0x01, 0x01)), "\u{f188}"), // DFU 
-            (Icon::ClassifierSubProtocol((ClassCode::WirelessController, 0x01, 0x01)), "\u{f188}"), // bluetooth DFU 
+            (Icon::ClassifierSubProtocol((BaseClass::ApplicationSpecificInterface, 0x01, 0x01)), "\u{f188}"), // DFU 
+            (Icon::ClassifierSubProtocol((BaseClass::WirelessController, 0x01, 0x01)), "\u{f188}"), // bluetooth DFU 
             (Icon::Vid(0x2341), "\u{f2db}"), // arduino 
             (Icon::Vid(0x239A), "\u{f2db}"), // adafruit 
             (Icon::Vid(0x2e8a), "\u{f315}"), // raspberry pi foundation 
@@ -291,24 +291,24 @@ lazy_static! {
             (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
             (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
             (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f0379}"), // lg monitor 󰍹
-            (Icon::Classifier(ClassCode::Audio), "\u{f001}"), // 
-            (Icon::Classifier(ClassCode::Image), "\u{f03e}"), // 
-            (Icon::Classifier(ClassCode::Video), "\u{f03d}"), // 
-            (Icon::Classifier(ClassCode::Printer), "\u{f02f}"), // 
-            (Icon::Classifier(ClassCode::MassStorage), "\u{f0a0}"), // 
-            (Icon::Classifier(ClassCode::Hub), "\u{f126}"), // 
-            (Icon::Classifier(ClassCode::ContentSecurity), "\u{f084}"), // 
-            (Icon::Classifier(ClassCode::SmartCard), "\u{f084}"), // 
-            (Icon::Classifier(ClassCode::PersonalHealthcare), "\u{f21e}"), // 
-            (Icon::Classifier(ClassCode::AudioVideo), "\u{f0841}"), // 󰡁
-            (Icon::Classifier(ClassCode::Billboard), "\u{f05a}"), // 
-            (Icon::Classifier(ClassCode::I3CDevice), "\u{f493}"), // 
-            (Icon::Classifier(ClassCode::Diagnostic), "\u{f489}"), // 
-            (Icon::Classifier(ClassCode::WirelessController), "\u{f1eb}"), // 
-            (Icon::Classifier(ClassCode::Miscellaneous), "\u{f074}"), // 
-            (Icon::Classifier(ClassCode::CDCCommunications), "\u{e795}"), // serial 
-            (Icon::Classifier(ClassCode::CDCData), "\u{e795}"), // serial 
-            (Icon::Classifier(ClassCode::HID), "\u{f030c}"), // 󰌌
+            (Icon::Classifier(BaseClass::Audio), "\u{f001}"), // 
+            (Icon::Classifier(BaseClass::Image), "\u{f03e}"), // 
+            (Icon::Classifier(BaseClass::Video), "\u{f03d}"), // 
+            (Icon::Classifier(BaseClass::Printer), "\u{f02f}"), // 
+            (Icon::Classifier(BaseClass::MassStorage), "\u{f0a0}"), // 
+            (Icon::Classifier(BaseClass::Hub), "\u{f126}"), // 
+            (Icon::Classifier(BaseClass::ContentSecurity), "\u{f084}"), // 
+            (Icon::Classifier(BaseClass::SmartCard), "\u{f084}"), // 
+            (Icon::Classifier(BaseClass::PersonalHealthcare), "\u{f21e}"), // 
+            (Icon::Classifier(BaseClass::AudioVideo), "\u{f0841}"), // 󰡁
+            (Icon::Classifier(BaseClass::Billboard), "\u{f05a}"), // 
+            (Icon::Classifier(BaseClass::I3cDevice), "\u{f493}"), // 
+            (Icon::Classifier(BaseClass::Diagnostic), "\u{f489}"), // 
+            (Icon::Classifier(BaseClass::WirelessController), "\u{f1eb}"), // 
+            (Icon::Classifier(BaseClass::Miscellaneous), "\u{f074}"), // 
+            (Icon::Classifier(BaseClass::CdcCommunications), "\u{e795}"), // serial 
+            (Icon::Classifier(BaseClass::CdcData), "\u{e795}"), // serial 
+            (Icon::Classifier(BaseClass::Hid), "\u{f030c}"), // 󰌌
             (Icon::UndefinedClassifier, "\u{2636}"), //☶
         ])
     };
@@ -320,7 +320,7 @@ impl IconTheme {
         Default::default()
     }
 
-    /// Get tree building icon checks `Self` for user `tree` and tries to find `icon` there, otherwise uses [`DEFAULT_UTF8_TREE`]
+    /// Get tree building icon checks `Self` for user `tree` and tries to find `icon` there, otherwise uses [`static@DEFAULT_UTF8_TREE`]
     ///
     /// Also checks if user icon is valid for encoding, if not will return default for that encoding
     pub fn get_tree_icon(&self, icon: &Icon, encoding: &Encoding) -> String {
@@ -338,7 +338,7 @@ impl IconTheme {
         }
     }
 
-    /// Drill through [`DEFAULT_ICONS`] first looking for `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> ""
+    /// Drill through [`static@DEFAULT_ICONS`] first looking for `VidPid` -> `VidPidMsb` -> `Vid` -> `UnknownVendor` -> ""
     pub fn get_default_vidpid_icon(vid: u16, pid: u16) -> String {
         // try vid pid first
         DEFAULT_ICONS
@@ -379,7 +379,7 @@ impl IconTheme {
     }
 
     /// Get icon for device from static default lookup
-    pub fn get_default_device_icon(d: &USBDevice) -> String {
+    pub fn get_default_device_icon(d: &Device) -> String {
         if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
             IconTheme::get_default_vidpid_icon(vid, pid)
         } else {
@@ -387,9 +387,9 @@ impl IconTheme {
         }
     }
 
-    /// Get icon for USBDevice `d` by checking `Self` using Name, Vendor ID and Product ID
+    /// Get icon for Device `d` by checking `Self` using Name, Vendor ID and Product ID
     #[cfg(feature = "regex_icon")]
-    pub fn get_device_icon(&self, d: &USBDevice) -> String {
+    pub fn get_device_icon(&self, d: &Device) -> String {
         // try name first since vidpid will return UnknownVendor default icon if not found
         // does mean regex will be built/checked for every device
         match self.get_name_icon(&d.name) {
@@ -404,27 +404,33 @@ impl IconTheme {
         }
     }
 
-    /// Get icon for USBDevice `d` by checking `Self` using Vendor ID and Product ID
+    /// Get icon for Device `d` by checking `Self` using Vendor ID and Product ID
     #[cfg(not(feature = "regex_icon"))]
-    pub fn get_device_icon(&self, d: &USBDevice) -> String {
+    pub fn get_device_icon(&self, d: &Device) -> String {
         if let (Some(vid), Some(pid)) = (d.vendor_id, d.product_id) {
             self.get_vidpid_icon(vid, pid)
         } else {
-            String::new()
+            DEFAULT_ICONS
+                .get(&Icon::UnknownVendor)
+                .unwrap_or(&"")
+                .to_string()
         }
     }
 
-    /// Get icon for USBBus `d` by checking `Self` using PCI Vendor and PCI Device
-    pub fn get_bus_icon(&self, d: &USBBus) -> String {
+    /// Get icon for Bus `d` by checking `Self` using PCI Vendor and PCI Device
+    pub fn get_bus_icon(&self, d: &Bus) -> String {
         if let (Some(vid), Some(pid)) = (d.pci_vendor, d.pci_device) {
             self.get_vidpid_icon(vid, pid)
         } else {
-            String::new()
+            DEFAULT_ICONS
+                .get(&Icon::UnknownVendor)
+                .unwrap_or(&"")
+                .to_string()
         }
     }
 
     /// Drill through `DEFAULT_ICONS` first looking for `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> ""
-    pub fn get_default_classifier_icon(class: &ClassCode, sub: u8, protocol: u8) -> String {
+    pub fn get_default_classifier_icon(class: &BaseClass, sub: u8, protocol: u8) -> String {
         // try vid pid first
         DEFAULT_ICONS
             .get(&Icon::ClassifierSubProtocol((
@@ -441,7 +447,7 @@ impl IconTheme {
     }
 
     /// Drill through `Self` icons first looking for `ClassifierSubProtocol` -> `Classifier` -> `UndefinedClassifier` -> get_default_classifier_icon
-    pub fn get_classifier_icon(&self, class: &ClassCode, sub: u8, protocol: u8) -> String {
+    pub fn get_classifier_icon(&self, class: &BaseClass, sub: u8, protocol: u8) -> String {
         if let Some(user_icons) = self.user.as_ref() {
             user_icons
                 .get(&Icon::ClassifierSubProtocol((
@@ -500,7 +506,7 @@ impl IconTheme {
     }
 }
 
-/// Gets tree icon from [`DEFAULT_UTF8_TREE`] or [`DEFAULT_ASCII_TREE`] (depanding on [`Encoding`]) as `String` with `unwrap` because should panic if missing from there
+/// Gets tree icon from [`static@DEFAULT_UTF8_TREE`] or [`static@DEFAULT_ASCII_TREE`] (depanding on [`Encoding`]) as `String` with `unwrap` because should panic if missing from there
 pub fn get_default_tree_icon(i: &Icon, encoding: &Encoding) -> String {
     match encoding {
         Encoding::Utf8 | Encoding::Glyphs => DEFAULT_UTF8_TREE.get(i).unwrap().to_string(),
@@ -508,7 +514,7 @@ pub fn get_default_tree_icon(i: &Icon, encoding: &Encoding) -> String {
     }
 }
 
-/// Gets tree icon from [`DEFAULT_ASCII_TREE`] as `String` with `unwrap` because should panic if missing from there
+/// Gets tree icon from [`static@DEFAULT_ASCII_TREE`] as `String` with `unwrap` because should panic if missing from there
 pub fn get_ascii_tree_icon(i: &Icon) -> String {
     DEFAULT_ASCII_TREE.get(i).unwrap().to_string()
 }
@@ -526,12 +532,12 @@ pub fn example() -> HashMap<Icon, String> {
         (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}".into()), // black magic probe 
         (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}".into()), // st-link 
         (
-            Icon::ClassifierSubProtocol((ClassCode::ApplicationSpecificInterface, 0x01, 0x01)),
+            Icon::ClassifierSubProtocol((BaseClass::ApplicationSpecificInterface, 0x01, 0x01)),
             "\u{f188}".into(),
         ), // DFU 
         (Icon::Vid(0x2e8a), "\u{f315}".into()),   // raspberry pi foundation 
         (
-            Icon::Classifier(ClassCode::CDCCommunications),
+            Icon::Classifier(BaseClass::CdcCommunications),
             "\u{e795}".into(),
         ), // serial 
         (Icon::UndefinedClassifier, "\u{2636}".into()), //☶
@@ -608,7 +614,7 @@ mod tests {
         assert_eq!(item_ser, r#"["endpoint_in",">"]"#);
 
         let item: (Icon, &'static str) = (
-            Icon::ClassifierSubProtocol((ClassCode::HID, 0x01, 0x0a)),
+            Icon::ClassifierSubProtocol((BaseClass::Hid, 0x01, 0x0a)),
             "K",
         );
         let item_ser = serde_json::to_string(&item).unwrap();
@@ -627,13 +633,13 @@ mod tests {
 
         let str = "classifier#03";
         let icon = Icon::from_str(str);
-        assert_eq!(icon.unwrap(), Icon::Classifier(ClassCode::HID));
+        assert_eq!(icon.unwrap(), Icon::Classifier(BaseClass::Hid));
 
         let str = "classifier-sub-protocol#03:01:0a";
         let icon = Icon::from_str(str);
         assert_eq!(
             icon.unwrap(),
-            Icon::ClassifierSubProtocol((ClassCode::HID, 1, 10))
+            Icon::ClassifierSubProtocol((BaseClass::Hid, 1, 10))
         );
 
         let str = "endpoint_in";
@@ -661,7 +667,7 @@ mod tests {
     #[test]
     #[cfg(feature = "regex_icon")]
     fn icon_match_name() {
-        let mut device = USBDevice {
+        let mut device = Device {
             name: "SD Card Reader".to_string(),
             ..Default::default()
         };

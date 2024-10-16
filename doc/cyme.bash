@@ -19,7 +19,7 @@ _cyme() {
 
     case "${cmd}" in
         cyme)
-            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --help --version"
+            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --system-profiler --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -62,15 +62,15 @@ _cyme() {
                     return 0
                     ;;
                 --blocks)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb class-code sub-class protocol uid-class uid-sub-class uid-protocol class class-value" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
                     return 0
                     ;;
                 -b)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb class-code sub-class protocol uid-class uid-sub-class uid-protocol class class-value" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
                     return 0
                     ;;
                 --bus-blocks)
-                    COMPREPLY=($(compgen -W "bus-number icon name host-controller pci-vendor pci-device pci-revision port-path" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number icon name host-controller host-controller-vendor host-controller-device pci-vendor pci-device pci-revision port-path" -- "${cur}"))
                     return 0
                     ;;
                 --config-blocks)
@@ -78,7 +78,7 @@ _cyme() {
                     return 0
                     ;;
                 --interface-blocks)
-                    COMPREPLY=($(compgen -W "name number port-path class-code sub-class protocol alt-setting driver sys-path num-endpoints icon uid-class uid-sub-class uid-protocol class class-value" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "name number port-path base-class sub-class protocol alt-setting driver sys-path num-endpoints icon uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
                     return 0
                     ;;
                 --endpoint-blocks)

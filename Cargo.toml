@@ -1,11 +1,11 @@
 [package]
 name = "cyme"
 authors = ["John Whittington <john@jbrengineering.co.uk>"]
-description = "List system USB buses and devices; a modern cross-platform lsusb"
+description = "List system USB buses and devices. A modern cross-platform lsusb"
 repository = "https://github.com/tuna-f1sh/cyme"
 readme = "README.md"
 license = "GPL-3.0-or-later"
-version = "1.8.5"
+version = "2.0.0-beta.1"
 edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
 categories = ["command-line-utilities"]
@@ -17,6 +17,7 @@ colored = "2.0.0"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
 rusb = { version = "0.9.4", optional = true }
+nusb = { version = "0.1.10", optional = true }
 log = "0.4.17"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.87"
@@ -33,6 +34,11 @@ strum = "0.26"
 strum_macros = "0.26"
 regex = { version = "1.10.5", optional = true }
 uuid = { version = "1.9.1", features = ["serde"] }
+pci-ids = "0.2.5"
+unicode-width = "0.2.0"
+
+[patch.crates-io]
+nusb = { git = "https://github.com/tuna-f1sh/nusb", branch = "cyme" }
 
 [dev-dependencies]
 diff = "0.1"
@@ -41,33 +47,31 @@ assert-json-diff = "2.0.2"
 [target.x86_64-unknown-linux-gnu.dependencies]
 udevrs = { version = "^0.3.0", optional = true }
 udevlib = { package = "udev", version = "^0.8.0", optional = true }
-rusb = "0.9.4"
 
 [target.arm-unknown-linux-gnueabihf.dependencies]
 udevrs = { version = "^0.3.0", optional = true }
 udevlib = { package = "udev", version = "^0.8.0", optional = true }
-rusb = "0.9.4"
 
 [target.aarch64-unknown-linux-gnu.dependencies]
 udevrs = { version = "^0.3.0", optional = true }
 udevlib = { package = "udev", version = "^0.8.0", optional = true }
-rusb = "0.9.4"
 
 [target.riscv64gc-unknown-linux-gnu.dependencies]
 udevrs = { version = "^0.3.0", optional = true }
 udevlib = { package = "udev", version = "^0.8.0", optional = true }
-rusb = "0.9.4"
 
 [features]
 libusb = ["dep:rusb"]
-udev = ["libusb", "dep:udevrs"]
-udev_hwdb = ["libusb", "udevlib?/hwdb"]
+udev = ["dep:udevrs"]
+udev_hwdb = ["udevlib?/hwdb"]
 # libudev C binding
-udevlib = ["libusb", "dep:udevlib"]
+udevlib = ["dep:udevlib"]
 usb_test = []
 regex_icon = ["dep:regex"]
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
-default = ["libusb", "udev", "regex_icon"]
+native = ["nusb", "udev"] # pure Rust USB and udev bindings
+ffi = ["libusb", "udevlib"] # C bindings for libusb and libudev
+default = ["nusb", "udev", "regex_icon"] # default libusb C binding (same as lsusb) and (Rust) udevrs with regex icon name lookup
 
 [[bin]]
 name = "cyme"
@@ -95,9 +99,7 @@ pre-build = ["apt-get update && apt-get install --assume-yes libusb-1.0-0-dev li
 section = "utility"
 copyright = "2024, John Whittington <john@jbrengineering.co.uk>"
 changelog = "CHANGELOG.md"
-extended-description = """\
-List system USB buses and devices; a lib and modern cross-platform 'lsusb' \
-that attempts to maintain compatibility with, but also add new features."""
+extended-description = """Profiles system USB buses and the devices on those buses, including full device descriptors. Compatable with lsusb arguments and output whilst adding new features."""
 assets = [
   ["target/release/cyme", "usr/bin/", "755"],
   ["README.md", "usr/share/doc/cyme/README", "644"],

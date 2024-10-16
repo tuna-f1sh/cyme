@@ -92,8 +92,8 @@ _A release of patches, PRs and merges :), thanks to support_
 
 ### Fixes
 
-- Fix ClassCode as u8 in lsusb --verbose being enum index not repr(c) base class byte.
-- Fix ClassCode as u8 in icon serializer being enum index not repc(c) base class byte.
+- Fix BaseClass as u8 in lsusb --verbose being enum index not repr(c) base class byte.
+- Fix BaseClass as u8 in icon serializer being enum index not repc(c) base class byte.
 
 ## [1.5.2] - 2023-11-01
 

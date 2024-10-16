@@ -12,11 +12,11 @@ o---/
 [![Crates.io](https://img.shields.io/crates/v/cyme?style=flat-square)](https://crates.io/crates/cyme)
 [![docs.rs](https://img.shields.io/docsrs/cyme?style=flat-square)](https://docs.rs/cyme/latest/cyme/)
 
-List system USB buses and devices; a lib and modern cross-platform `lsusb` that attempts to maintain compatibility with, but also add new features. Includes a macOS `system_profiler SPUSBDataType` parser module and libusb profiler for non-macOS systems/gathering more verbose information.
+List system USB buses and devices. A modern cross-platform `lsusb` that attempts to maintain compatibility with, but also add new features. Profiles system USB buses and the devices on those buses, including full device descriptors.
 
-The project started as a quick replacement for the barely working [lsusb script](https://github.com/jlhonora/lsusb) and a Rust project to keep me up to date! Like most fun projects, it quickly experienced feature creep as I developed it into a cross-platform replacement for `lsusb`.
+As a developer of embedded devices, I use a USB list tool on a frequent basis and developed this to cater to what I believe are the short comings of `lsusb`: verbose dump is mostly _too_ verbose, tree doesn't contain useful data on the whole, it barely works on non-Linux platforms and modern terminals support features that make glancing through the data easier.
 
-As a developer of embedded devices, I use a USB list tool on a frequent basis and developed this to cater to what I believe are the short comings of `lsusb`: verbose dump is too _verbose_, tree doesn't contain useful data on the whole, it barely works on non-Linux platforms and modern terminals support features that make glancing through the data easier.
+The project started as a quick replacement for the barely working [lsusb script](https://github.com/jlhonora/lsusb) and a Rust project to keep me up to date! Like most fun projects, it quickly experienced feature creep as I developed it into a cross-platform replacement for `lsusb`. It started as a macOS `system_profiler` parser, evolved to include a 'libusb' based profiler for reading full device descriptors and now defaults to a pure Rust profiler using [nusb](https://github.com/kevinmehall/nusb).
 
 It's not perfect as it started out as a Rust refresher but I had a lot of fun developing it and hope others will find it useful and can contribute. Reading around the [lsusb source code](https://github.com/gregkh/usbutils/blob/master/lsusb.c), USB-IF and general USB information was also a good knowledge builder.
 
@@ -26,12 +26,13 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Features
 
-* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output using libusb. Output is identical for use with no args (list), almost matching for tree (driver port number not included) and should match for verbose (minor formatting differences).
+* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output - fully parsed device descriptors! Output is identical for use with no args (list), almost matching for tree (driver port number not included) and should match for verbose (perhaps formatting differences).
+* Default build is a native Rust profiler using [nusb](https://docs.rs/nusb/latest/nusb).
 * Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial`, `--filter_class` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
 * Controllable block data like `lsd --blocks` for device, bus, configurations, interfaces and endpoints. Use `--more` to see more by default.
 * Modern terminal features with coloured output, utf-8 characters and icon look-up based device data. Can be turned off and customised. See `--encoding` (glyphs [default], utf8 and ascii), which can keep icons/tree within a certain encoding, `--color` (auto [default], always and never) and `--icon` (auto [default], always and never). Auto `--icon` will only show icons if all icons to be shown are supported by the `--encoding`.
-* Can be used as a library too with `system_profiler` parsing module, `lsusb` module using libusb and `display` module for printing amongst others.
+* Can be used as a library too with system profiler module, USB descriptor modules and `display` module for printing amongst others.
 * `--json` output that honours filters and `--tree`.
 * `--headers` to show meta data only when asked and not take space otherwise.
 * `--mask_serials` to either '\*' or randomise serial string for sharing dumps with sensitive serial numbers.
@@ -46,13 +47,9 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 ## Requirements
 
-* Linux/Windows and pre-compiled targets require [libusb 1.0.0](https://libusb.info): `brew install libusb`, `sudo apt install libusb-1.0-0-dev` or one's package manager of choice.
-
-For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases).
+For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases). Pre-compiled builds use native profiling backends and should require no extra dependencies.
 
 From crates.io with a Rust tool-chain installed: `cargo install cyme --git https://github.com/tuna-f1sh/cyme` (from GitHub as crates.io pinned at the moment). To do it from within a local clone: `cargo install --path .`.
-
-If wishing to use only macOS `system_profiler` and not obtain more verbose information, remove the 'libusb' feature with `cargo install --no-default-features cyme`
 
 ### Package Managers
 
@@ -72,6 +69,12 @@ pacman -S cyme
 
 More package managers to come/package distribution, please feel free to create a PR if you want to help out here.
 
+## Alias `lsusb`
+
+If one wishes to create a macOS version of lsusb or just use this instead, create an alias one's environment with the `--lsusb` compatibility flag:
+
+`alias lsusb='cyme --lsusb'`
+
 ## Linux udev Information
 
 > [!NOTE]
@@ -81,24 +84,41 @@ To obtain device and interface drivers being used on Linux like `lsusb`, one can
 
 To lookup USB IDs from the udev hwdb as well (like `lsusb`) use `--features udev_hwdb`. Without hwdb, `cyme` will use the 'usb-ids' crate, which is the same source as the hwdb binary data but the bundled hwdb may differ due to customisations or last update ('usb-ids' will be most up to date).
 
-## Alias `lsusb`
+## Profilers and Feature Flags
 
-If one wishes to create a macOS version of lsusb or just use this instead, create an alias one's environment with the `--lsusb` compatibility flag:
+### Native
 
-`alias lsusb='cyme --lsusb'`
+Uses native Rust [nusb](https://docs.rs/nusb/latest/nusb) and [udevrs](https://crates.io/crates/udevrs) for profiling devices: sysfs (Linux), IOKit (macOS) and WinUSB.
+
+It is the default profiler as of 2.0.0. Use `--feature=native` ('nusb' and 'udevrs' on Linux) or `--feature=nusb` to manually specify.
+
+### Libusb
+
+Uses 'libusb' for profiling devices. Requires [libusb 1.0.0](https://libusb.info) to be installed: `brew install libusb`, `sudo apt install libusb-1.0-0-dev` or one's package manager of choice.
+
+Was the default feature before 2.0.0 for gathering verbose information. It is the profiler used by `lsusb` but there should be no difference in output between the two, since cyme uses control messages to gather the same information. If one wishes to use 'libusb', use `--no-default-features` and `--feature=libusb` or `--feature=ffi` for udevlib too.
+
+> [!NOTE]
+> 'libusb' does not profile buses on non-Linux systems (since it relies on root\_hubs). On these platforms, `cyme` will generate generic bus information.
+
+### macOS `system_profiler`
+
+Uses the macOS `system_profiler SPUSBDataType` command to profile devices.
+
+Was the default feature before 2.0.0 for macOS systems to provide the base information; 'libusb' was used to open devices for verbose information. It is not used anymore if using the default native profiler but can be forced with `--system-profiler` - the native profiler uses the same IOKit backend but is much faster as it is not deserializing JSON. It also always captures bus numbers where `system_profiler` does not.
+
+> [!TIP]
+> If wishing to use only macOS `system_profiler` and not obtain more verbose information, remove default features with `cargo install --no-default-features cyme`. There is not much to be gained by this considering that the default native profiler uses the same IOKit as a backend, can open devices to read descriptors (verbose mode) and is much faster.
 
 # Usage
 
-Will cover this more as it develops. Use `cyme --help` for basic usage or `man ./doc/cyme.1`. There are also autocompletions in './doc'.
+Use `cyme --help` for basic usage or `man ./doc/cyme.1`. There are also autocompletions in './doc'.
 
 ## Crate
 
-> [!WARNING]
-> The crate is currently pinned to v1.7.0 because of API changes I want to re-work before a major point crate release.
+For usage as a library for profiling system USB devices, the crate is 100% documented so look at [docs.rs](https://docs.rs/cyme/latest/cyme/). The main useful modules for import are [profiler](https://docs.rs/cyme/latest/cyme/profiler/index.html), and [usb](https://docs.rs/cyme/latest/cyme/usb/index.html).
 
-For usage as a library for profiling system USB devices, the crate is 100% documented so look at [docs.rs](https://docs.rs/cyme/latest/cyme/). The main useful modules for import are [system_profiler](https://docs.rs/cyme/latest/cyme/system_profiler/index.html), [lsusb::profiler](https://docs.rs/cyme/latest/cyme/lsusb/profiler/index.html) and [usb](https://docs.rs/cyme/latest/cyme/usb/index.html)
-
-There are also some examples in 'examples/', these can be run with `cargo run --example filter_devices`.
+There are also some examples in 'examples/', these can be run with `cargo run --example filter_devices`. It wasn't really written from the ground-up to be a crate but all the USB descriptors might be useful for high level USB profiling.
 
 ## Config
 
@@ -133,7 +153,7 @@ For no icons at all, use the hidden `--no-icons` or `--icon never` args.
 
 # Known Issues
 
-* `sudo` is required to open and read Linux root\_hub string descriptors. The program works fine without these however, as will use sysfs/hwdb/'usb-ids' like lsusb. Use debugging `-z` to see what devices failed to read. The env CYME_PRINT_NON_CRITICAL_PROFILER_STDERR can be used or 'print-non-critical-profiler-stderr' config key to print these to stderr. `--lsusb --verbose` will print a message to stderr always to match the 'lsusb' behaviour.
+* `sudo` is required to open and read Linux root\_hub string descriptors and potentially all devices if the user does not have [permissions](https://docs.rs/nusb/latest/nusb/#linux). The program works fine without these however, as will use sysfs/hwdb/'usb-ids' like lsusb. Use debugging `-z` to see what devices failed to read. The env CYME_PRINT_NON_CRITICAL_PROFILER_STDERR can be used to print these to stderr. `--lsusb --verbose` will print a message to stderr always to match the 'lsusb' behaviour.
 * Version major BCD Device difference between libusb and macOS `system_profiler`: If the major version is large, libusb seems to read a different value to macOS. I don't think it's a parsing error but open to ideas.
-* libusb cannot read special non-user Apple buses; T2 chip for example. These will still be listed by `system_profiler`. The result is that when merging for verbose data, these will not print verbose information. Use `--force-libusb` to ignore them.
+* Users cannot open special non-user devices on Apple buses (VHCI); T2 chip for example. These will still be listed with 'native' and `system_profiler` but not `--force-libusb`. They will not print verbose information however and log an error if `--verbose` is used/print if `--lsusb`.
 * Tested with macOS 13 ->. I'm not sure when the `-json` flag was added to `system_profiler`; whether it exists on all macOS versions.

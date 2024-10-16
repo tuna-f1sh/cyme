@@ -1,36 +1,46 @@
 //! List system USB buses and devices; a modern `lsusb` that attempts to maintain compatibility with, but also add new features.
-//! Includes a macOS `system_profiler` parser module and `lsusb` for non-macOS systems/gathering more verbose information.
 //!
 //! # Examples
 //!
-//! To get all the USB devices on cross-platform systems using libusb:
+//! Profile USB devices on cross-platform systems:
 //!
-//! ```ignore
-//! use cyme::lsusb::profiler;
-//! let sp_usb = profiler::get_spusb(false).unwrap();
+//! ```no_run
+//! use cyme::profiler;
+//! let sp_usb = profiler::get_spusb().unwrap();
 //! ```
 //!
-//! It's often useful to then flatten this into a list of devices ([`system_profiler::USBDevice`]):
+//! Profile USB devices with all extra descriptor data (requires opening devices) on cross-platform systems:
 //!
-//! ```ignore
+//! ```no_run
+//! use cyme::profiler;
+//! let sp_usb = profiler::get_spusb_with_extra().unwrap();
+//! ```
+//!
+//! It's often useful to then flatten this into a list of devices ([`profiler::Device`]):
+//!
+//! ```no_run
+//! # use cyme::profiler;
+//! # let sp_usb = profiler::get_spusb().unwrap();
 //! // flatten since we don't care tree/buses
-//! let devices = sp_usb.flatten_devices();
+//! let devices = sp_usb.flattened_devices();
 //!
 //! for device in devices {
-//!    format!("{}");
+//!    format!("{}", device);
 //! }
 //! ```
 //!
 //! One can then print with the cyme display module:
 //!
-//! ```ignore
+//! ```no_run
+//! # use cyme::profiler;
+//! # let sp_usb = profiler::get_spusb().unwrap();
+//! # let devices = sp_usb.flattened_devices();
 //! use cyme::display;
 //! // print with default [`display::PrintSettings`]
 //! display::print_flattened_devices(&devices, &display::PrintSettings::default());
 //! ```
 //!
-//! The [`system_profiler::SPUSBDataType`] struct contains system [`system_profiler::USBBus`]s, which contain [`system_profiler::USBDevice`]s as a USB tree.
-//!
+//! The [`profiler::SystemProfile`] struct contains system [`profiler::Bus`]s, which contain [`profiler::Device`]s as a USB tree.
 #![allow(dead_code)]
 #![warn(missing_docs)]
 use simple_logger::SimpleLogger;
@@ -43,7 +53,7 @@ pub mod display;
 pub mod error;
 pub mod icon;
 pub mod lsusb;
-pub mod system_profiler;
+pub mod profiler;
 pub mod types;
 #[cfg(all(target_os = "linux", feature = "udev"))]
 pub mod udev;
@@ -59,17 +69,26 @@ pub fn set_log_level(debug: u8) -> crate::error::Result<()> {
         0 => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Error.to_level_filter())
+            // even errors are off as can be noisy
+            .with_module_level("udevrs", log::LevelFilter::Off)
+            .with_module_level("nusb", log::LevelFilter::Off)
             .env(),
         1 => SimpleLogger::new()
             .with_utc_timestamps()
+            .with_module_level("udevrs", log::Level::Warn.to_level_filter())
+            .with_module_level("nusb", log::Level::Warn.to_level_filter())
             .with_module_level("cyme", log::Level::Info.to_level_filter()),
         2 => SimpleLogger::new()
             .with_utc_timestamps()
+            .with_module_level("udevrs", log::Level::Info.to_level_filter())
+            .with_module_level("nusb", log::Level::Info.to_level_filter())
             .with_module_level("cyme", log::Level::Debug.to_level_filter()),
         3 => SimpleLogger::new()
             .with_utc_timestamps()
+            .with_module_level("udevrs", log::Level::Debug.to_level_filter())
+            .with_module_level("nusb", log::Level::Debug.to_level_filter())
             .with_module_level("cyme", log::Level::Trace.to_level_filter()),
-        // all modules
+        // all modules at Trace level
         _ => SimpleLogger::new()
             .with_utc_timestamps()
             .with_level(log::Level::Trace.to_level_filter()),
