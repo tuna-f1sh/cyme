@@ -992,7 +992,12 @@ impl Block<BusBlocks, Bus> for BusBlocks {
                 BusBlocks::PciRevision,
             ]
         } else {
-            vec![BusBlocks::Name, BusBlocks::HostController]
+            vec![
+                BusBlocks::PortPath,
+                BusBlocks::Name,
+                BusBlocks::HostController,
+                BusBlocks::HostControllerDevice,
+            ]
         }
     }
 
