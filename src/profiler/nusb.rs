@@ -390,13 +390,12 @@ impl NusbProfiler {
                         .unwrap_or_default(),
                     string_index: interface_alt.string_index().unwrap_or(0),
                     number: interface_alt.interface_number(),
-                    path,
                     class: usb::BaseClass::from(interface_alt.class()),
                     sub_class: interface_alt.subclass(),
                     protocol: interface_alt.protocol(),
                     alt_setting: interface_alt.alternate_setting(),
-                    driver: None,
-                    syspath: None,
+                    driver: get_sysfs_readlink(&path, "driver"),
+                    syspath: get_syspath(&path),
                     length: interface_desc[0],
                     endpoints: self.build_endpoints(device, &interface_alt),
                     extra: self
@@ -411,12 +410,15 @@ impl NusbProfiler {
                             interface_extra,
                         )
                         .ok(),
+                    path
                 };
 
                 // flag allows us to try again without udev if it raises an error
                 // but record the error for printing
-                if with_udev {
+                if with_udev && interface.driver.is_none() {
                     interface.driver = get_udev_driver_name(&interface.path)?;
+                }
+                if with_udev && interface.syspath.is_none() {
                     interface.syspath = get_udev_syspath(&interface.path)?;
                 };
 
@@ -520,6 +522,7 @@ impl NusbProfiler {
             }
         }
 
+        let sysfs_name = sp_device.sysfs_name();
         let mut extra = usb::DeviceExtra {
             max_packet_size: device_desc.max_packet_size,
             string_indexes: (
@@ -527,8 +530,8 @@ impl NusbProfiler {
                 device_desc.manufacturer_string_index,
                 device_desc.serial_number_string_index,
             ),
-            driver: None,
-            syspath: get_syspath(&sp_device.sysfs_name()),
+            driver: get_sysfs_readlink(&sysfs_name, "driver"),
+            syspath: get_syspath(&sysfs_name),
             // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids - not device descriptor
             vendor: names::vendor(device_desc.vendor_id)
                 .or(usb_ids::Vendor::from_id(device_desc.vendor_id).map(|v| v.name().to_owned())),
@@ -546,9 +549,10 @@ impl NusbProfiler {
 
         // flag allows us to try again without udev if it raises anything
         // but record the error for printing
-        if with_udev {
-            let sysfs_name = sp_device.sysfs_name();
+        if with_udev && extra.driver.is_none() {
             extra.driver = get_udev_driver_name(&sysfs_name)?;
+        }
+        if with_udev && extra.syspath.is_none() {
             extra.syspath = get_udev_syspath(&sysfs_name)?;
         }
 
@@ -604,7 +608,7 @@ impl NusbProfiler {
                         timeout: std::time::Duration::from_secs(1),
                     };
 
-                    match self.build_spdevice_extra(&usb_device, &mut sp_device, true) {
+                    match self.build_spdevice_extra(&usb_device, &mut sp_device, cfg!(feature = "udev")) {
                         Ok(extra) => {
                             sp_device.extra = Some(extra);
                             None
@@ -637,7 +641,7 @@ impl NusbProfiler {
                     max_packet_size: device_info.max_packet_size_0(),
                     // nusb doesn't have these cached
                     string_indexes: (0, 0, 0),
-                    driver: None,
+                    driver: get_sysfs_readlink(&sp_device.sysfs_name(), "driver"),
                     syspath: get_syspath(&sp_device.sysfs_name()),
                     vendor: names::vendor(device_info.vendor_id())
                         .or(usb_ids::Vendor::from_id(device_info.vendor_id())

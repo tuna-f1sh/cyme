@@ -286,13 +286,13 @@ impl LibUsbProfiler {
                         .unwrap_or_default(),
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
-                    path,
                     class: usb::BaseClass::from(interface_desc.class_code()),
                     sub_class: interface_desc.sub_class_code(),
                     protocol: interface_desc.protocol_code(),
                     alt_setting: interface_desc.setting_number(),
-                    driver: None,
-                    syspath: None,
+                    driver: get_sysfs_readlink(&path, "driver"),
+                    syspath: get_syspath(&path),
+                    path,
                     length: interface_desc.length(),
                     endpoints: self.build_endpoints(handle, &interface_desc),
                     extra: self
@@ -311,10 +311,12 @@ impl LibUsbProfiler {
 
                 // flag allows us to try again without udev if it raises an error
                 // but record the error for printing
-                if with_udev {
+                if with_udev && interface.driver.is_none() {
                     interface.driver = get_udev_driver_name(&interface.path)?;
+                }
+                if with_udev && interface.syspath.is_none() {
                     interface.syspath = get_udev_syspath(&interface.path)?;
-                };
+                }
 
                 ret.push(interface);
             }
@@ -412,6 +414,7 @@ impl LibUsbProfiler {
         sp_device.serial_num = device_desc
             .serial_number_string_index()
             .and_then(|i| handle.get_descriptor_string(i));
+        let sysfs_name = sp_device.sysfs_name();
 
         let mut extra = usb::DeviceExtra {
             max_packet_size: device_desc.max_packet_size(),
@@ -420,8 +423,8 @@ impl LibUsbProfiler {
                 device_desc.manufacturer_string_index().unwrap_or(0),
                 device_desc.serial_number_string_index().unwrap_or(0),
             ),
-            driver: None,
-            syspath: None,
+            driver: get_sysfs_readlink(&sysfs_name, "driver"),
+            syspath: get_syspath(&sysfs_name),
             // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids
             vendor: names::vendor(device_desc.vendor_id())
                 .or(usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())),
@@ -445,9 +448,10 @@ impl LibUsbProfiler {
 
         // flag allows us to try again without udev if it raises an nting
         // but record the error for printing
-        if with_udev {
-            let sysfs_name = sp_device.sysfs_name();
+        if with_udev && extra.driver.is_none() {
             extra.driver = get_udev_driver_name(&sysfs_name)?;
+        }
+        if with_udev && extra.syspath.is_none() {
             extra.syspath = get_udev_syspath(&sysfs_name)?;
         }
 
@@ -583,7 +587,7 @@ impl LibUsbProfiler {
                         &handle,
                         &device_desc,
                         &mut sp_device,
-                        true,
+                        cfg!(feature = "udevlib"),
                     ) {
                         Ok(extra) => {
                             sp_device.extra = Some(extra);
@@ -591,7 +595,7 @@ impl LibUsbProfiler {
                         }
                         Err(e) => {
                             // try again without udev if we have that feature but return message so device still added
-                            if cfg!(feature = "udev") && e.kind() == ErrorKind::Udev {
+                            if cfg!(feature = "udevlib") && e.kind() == ErrorKind::Udev {
                                 sp_device.extra = Some(self.build_spdevice_extra(
                                     device,
                                     &handle,
@@ -614,6 +618,7 @@ impl LibUsbProfiler {
                 }
             } else {
                 log::warn!("Failed to open device {:?} for extra data", device);
+                let sysfs_name = sp_device.sysfs_name();
                 sp_device.profiler_error = Some("Failed to open device for extra data".to_string());
                 sp_device.extra = Some(usb::DeviceExtra {
                     max_packet_size: device_desc.max_packet_size(),
@@ -622,8 +627,8 @@ impl LibUsbProfiler {
                         device_desc.manufacturer_string_index().unwrap_or(0),
                         device_desc.serial_number_string_index().unwrap_or(0),
                     ),
-                    driver: None,
-                    syspath: None,
+                    driver: get_sysfs_readlink(&sysfs_name, "driver"),
+                    syspath: get_syspath(&sysfs_name),
                     vendor: names::vendor(device_desc.vendor_id())
                         .or(usb_ids::Vendor::from_id(device_desc.vendor_id())
                             .map(|v| v.name().to_owned())),
