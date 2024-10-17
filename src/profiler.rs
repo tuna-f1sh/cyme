@@ -33,6 +33,7 @@ pub use types::*;
 
 #[cfg(feature = "libusb")]
 pub mod libusb;
+#[cfg(target_os = "macos")]
 pub mod macos;
 #[cfg(feature = "nusb")]
 pub mod nusb;

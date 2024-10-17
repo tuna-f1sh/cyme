@@ -312,7 +312,9 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     }
 }
 
-fn get_macos_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
+/// macOS can use system_profiler to get USB data and merge with libusb so separate function
+#[cfg(target_os = "macos")]
+fn get_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
     // if requested or only have libusb, use system_profiler and merge with libusb
     if args.system_profiler || !cfg!(feature = "nusb") {
         if !args.force_libusb
@@ -351,6 +353,8 @@ fn get_macos_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
     }
 }
 
+/// Detects and switches between verbose profiler (extra) and normal profiler
+#[cfg(not(target_os = "macos"))]
 fn get_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
     if args.verbose > 0
         || args.tree
@@ -522,8 +526,6 @@ fn cyme() -> Result<()> {
                 profiler::read_flat_json_to_phony_bus(file_path.as_str())?
             }
         }
-    } else if cfg!(target_os = "macos") {
-        get_macos_system_profile(&args)?
     } else {
         get_system_profile(&args)?
     };
