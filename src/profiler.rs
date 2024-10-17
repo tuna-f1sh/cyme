@@ -722,10 +722,22 @@ where
 /// Get a USB device attribute String from sysfs on Linux
 #[allow(unused_variables)]
 fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
+    log::trace!("Getting sysfs string at {}{}", sysfs_name, attr);
     #[cfg(target_os = "linux")]
     return std::fs::read_to_string(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
         .ok()
-        .map(|s| s.trim().to_string());
+        .map(|s| s.to_string());
+    #[cfg(not(target_os = "linux"))]
+    return None;
+}
+
+#[allow(unused_variables)]
+fn get_sysfs_readlink(sysfs_name: &str, attr: &str) -> Option<String> {
+    log::trace!("readlink at {}{}", sysfs_name, attr);
+    #[cfg(target_os = "linux")]
+    return std::fs::read_link(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
+        .ok()
+        .and_then(|s| s.file_name().map(|f| f.to_string_lossy().to_string()));
     #[cfg(not(target_os = "linux"))]
     return None;
 }
