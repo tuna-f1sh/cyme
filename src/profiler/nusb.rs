@@ -112,7 +112,7 @@ impl From<&nusb::BusInfo> for Device {
                     number: 0,
                     tree_positions: vec![],
                 },
-                bcd_device: bcd_device.map(|v| usb::Version::from_bcd(v)),
+                bcd_device: bcd_device.map(usb::Version::from_bcd),
                 bcd_usb: None,
                 class: Some(usb::BaseClass::Hub),
                 sub_class: Some(0),
@@ -274,7 +274,7 @@ impl UsbOperations for UsbDevice {
     #[cfg(target_os = "windows")]
     fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>> {
         let mut data = vec![0; control_request.length];
-        let nusb_control: nusb::transfer::Control = control_request.clone().into();
+        let nusb_control: nusb::transfer::Control = (*control_request).into();
         // TODO this should probably be dependant on the interface being called?
         let interface = self.handle.claim_interface(0)?;
         let n = interface
