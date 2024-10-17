@@ -116,11 +116,11 @@ impl Config {
     pub fn example() -> Config {
         Config {
             icons: icon::example_theme(),
-            blocks: Some(display::DeviceBlocks::default_blocks(false)),
-            bus_blocks: Some(display::BusBlocks::default_blocks(false)),
-            config_blocks: Some(display::ConfigurationBlocks::default_blocks(false)),
-            interface_blocks: Some(display::InterfaceBlocks::default_blocks(false)),
-            endpoint_blocks: Some(display::EndpointBlocks::default_blocks(false)),
+            blocks: Some(display::DeviceBlocks::example_blocks()),
+            bus_blocks: Some(display::BusBlocks::example_blocks()),
+            config_blocks: Some(display::ConfigurationBlocks::example_blocks()),
+            interface_blocks: Some(display::InterfaceBlocks::example_blocks()),
+            endpoint_blocks: Some(display::EndpointBlocks::example_blocks()),
             ..Default::default()
         }
     }

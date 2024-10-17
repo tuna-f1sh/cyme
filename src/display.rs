@@ -463,6 +463,14 @@ pub trait Block<B: Eq + Hash, T> {
     where
         Self: Sized;
 
+    /// Example blocks for generated files
+    fn example_blocks() -> Vec<Self>
+    where
+        Self: Sized,
+    {
+        Self::default_blocks(false)
+    }
+
     /// Returns the length of block value given device data - like block_length but actual device field length rather than fixed/heading
     fn len(&self, d: &[&T]) -> usize;
 
@@ -629,6 +637,20 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 DeviceBlocks::Speed,
             ]
         }
+    }
+
+    fn example_blocks() -> Vec<Self> {
+        vec![
+            DeviceBlocks::BusNumber,
+            DeviceBlocks::DeviceNumber,
+            DeviceBlocks::Icon,
+            DeviceBlocks::VendorId,
+            DeviceBlocks::ProductId,
+            DeviceBlocks::Name,
+            DeviceBlocks::Serial,
+            DeviceBlocks::Driver,
+            DeviceBlocks::Speed,
+        ]
     }
 
     fn len(&self, d: &[&Device]) -> usize {
@@ -1305,7 +1327,6 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 InterfaceBlocks::Protocol,
                 InterfaceBlocks::UidProtocol,
                 InterfaceBlocks::Name,
-                InterfaceBlocks::Driver,
                 InterfaceBlocks::NumEndpoints,
             ]
         } else {
@@ -1319,6 +1340,19 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 InterfaceBlocks::Name,
             ]
         }
+    }
+
+    fn example_blocks() -> Vec<Self> {
+        vec![
+            InterfaceBlocks::PortPath,
+            InterfaceBlocks::Icon,
+            InterfaceBlocks::AltSetting,
+            InterfaceBlocks::BaseClass,
+            InterfaceBlocks::SubClass,
+            InterfaceBlocks::Protocol,
+            InterfaceBlocks::Name,
+            InterfaceBlocks::Driver,
+        ]
     }
 
     fn len(&self, d: &[&Interface]) -> usize {
