@@ -736,7 +736,7 @@ fn get_sysfs_readlink(sysfs_name: &str, attr: &str) -> Option<String> {
     #[cfg(target_os = "linux")]
     return std::fs::read_link(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
         .ok()
-        .map(|s| s.file_name().map(|f| f.to_string_lossy().to_string())).flatten();
+        .and_then(|s| s.file_name().map(|f| f.to_string_lossy().to_string()));
     #[cfg(not(target_os = "linux"))]
     return None;
 }

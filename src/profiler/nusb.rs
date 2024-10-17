@@ -178,18 +178,17 @@ impl From<&nusb::DeviceInfo> for Device {
             .manufacturer_string()
             .map(|s| s.to_string())
             .or_else(|| names::vendor(device_info.vendor_id()))
-            .or_else(|| usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_string()));
+            .or_else(|| {
+                usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_string())
+            });
         let name = device_info
             .product_string()
             .map(|s| s.to_string())
-            .or_else(|| names::product(
-                device_info.vendor_id(),
-                device_info.product_id(),
-            ))
-            .or_else(||
+            .or_else(|| names::product(device_info.vendor_id(), device_info.product_id()))
+            .or_else(|| {
                 usb_ids::Device::from_vid_pid(device_info.vendor_id(), device_info.product_id())
-                    .map(|d| d.name().to_string()),
-            )
+                    .map(|d| d.name().to_string())
+            })
             .unwrap_or_default();
         let serial_num = device_info.serial_number().map(|s| s.to_string());
 
@@ -383,9 +382,11 @@ impl NusbProfiler {
 
                 let interface = usb::Interface {
                     name: get_sysfs_string(&path, "interface")
-                        .or_else(|| interface_alt
-                            .string_index()
-                            .and_then(|i| device.get_descriptor_string(i)))
+                        .or_else(|| {
+                            interface_alt
+                                .string_index()
+                                .and_then(|i| device.get_descriptor_string(i))
+                        })
                         .unwrap_or_default(),
                     string_index: interface_alt.string_index().unwrap_or(0),
                     number: interface_alt.interface_number(),
@@ -394,9 +395,8 @@ impl NusbProfiler {
                     protocol: interface_alt.protocol(),
                     alt_setting: interface_alt.alternate_setting(),
                     driver: get_sysfs_readlink(&path, "driver")
-                               .or_else(|| get_udev_driver_name(&path).ok().flatten()),
-                    syspath: get_syspath(&path)
-                               .or_else(|| get_udev_syspath(&path).ok().flatten()),
+                        .or_else(|| get_udev_driver_name(&path).ok().flatten()),
+                    syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
                     length: interface_desc[0],
                     endpoints: self.build_endpoints(device, &interface_alt),
                     extra: self
@@ -411,7 +411,7 @@ impl NusbProfiler {
                             interface_extra,
                         )
                         .ok(),
-                    path
+                    path,
                 };
 
                 ret.push(interface);
@@ -421,10 +421,7 @@ impl NusbProfiler {
         Ok(ret)
     }
 
-    fn build_configurations(
-        &self,
-        device: &UsbDevice,
-    ) -> Result<Vec<usb::Configuration>> {
+    fn build_configurations(&self, device: &UsbDevice) -> Result<Vec<usb::Configuration>> {
         let mut ret: Vec<usb::Configuration> = Vec::new();
 
         for c in device.handle.configurations() {
@@ -525,11 +522,14 @@ impl NusbProfiler {
             syspath: get_syspath(&sysfs_name)
                 .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
             // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids - not device descriptor
-            vendor: names::vendor(device_desc.vendor_id)
-                .or_else(|| usb_ids::Vendor::from_id(device_desc.vendor_id).map(|v| v.name().to_owned())),
-            product_name: names::product(device_desc.vendor_id, device_desc.product_id).or_else(||
-                usb_ids::Device::from_vid_pid(device_desc.vendor_id, device_desc.product_id)
-                    .map(|v| v.name().to_owned()),
+            vendor: names::vendor(device_desc.vendor_id).or_else(|| {
+                usb_ids::Vendor::from_id(device_desc.vendor_id).map(|v| v.name().to_owned())
+            }),
+            product_name: names::product(device_desc.vendor_id, device_desc.product_id).or_else(
+                || {
+                    usb_ids::Device::from_vid_pid(device_desc.vendor_id, device_desc.product_id)
+                        .map(|v| v.name().to_owned())
+                },
             ),
             configurations: self.build_configurations(device)?,
             status: Self::get_device_status(device).ok(),
@@ -616,15 +616,18 @@ impl NusbProfiler {
                         .or_else(|| get_udev_driver_name(&sysfs_name).ok().flatten()),
                     syspath: get_syspath(&sysfs_name)
                         .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
-                    vendor: names::vendor(device_info.vendor_id())
-                        .or_else(|| usb_ids::Vendor::from_id(device_info.vendor_id())
-                            .map(|v| v.name().to_owned())),
+                    vendor: names::vendor(device_info.vendor_id()).or_else(|| {
+                        usb_ids::Vendor::from_id(device_info.vendor_id())
+                            .map(|v| v.name().to_owned())
+                    }),
                     product_name: names::product(device_info.vendor_id(), device_info.product_id())
-                        .or_else(|| usb_ids::Device::from_vid_pid(
-                            device_info.vendor_id(),
-                            device_info.product_id(),
-                        )
-                        .map(|v| v.name().to_owned())),
+                        .or_else(|| {
+                            usb_ids::Device::from_vid_pid(
+                                device_info.vendor_id(),
+                                device_info.product_id(),
+                            )
+                            .map(|v| v.name().to_owned())
+                        }),
                     configurations: vec![],
                     status: None,
                     debug: None,

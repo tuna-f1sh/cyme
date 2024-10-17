@@ -279,9 +279,11 @@ impl LibUsbProfiler {
 
                 let interface = usb::Interface {
                     name: get_sysfs_string(&path, "interface")
-                        .or_else(|| interface_desc
-                            .description_string_index()
-                            .and_then(|i| handle.get_descriptor_string(i)))
+                        .or_else(|| {
+                            interface_desc
+                                .description_string_index()
+                                .and_then(|i| handle.get_descriptor_string(i))
+                        })
                         .unwrap_or_default(),
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
@@ -290,9 +292,8 @@ impl LibUsbProfiler {
                     protocol: interface_desc.protocol_code(),
                     alt_setting: interface_desc.setting_number(),
                     driver: get_sysfs_readlink(&path, "driver")
-                               .or_else(|| get_udev_driver_name(&path).ok().flatten()),
-                    syspath: get_syspath(&path)
-                               .or_else(|| get_udev_syspath(&path).ok().flatten()),
+                        .or_else(|| get_udev_driver_name(&path).ok().flatten()),
+                    syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
                     path,
                     length: interface_desc.length(),
                     endpoints: self.build_endpoints(handle, &interface_desc),
@@ -418,18 +419,15 @@ impl LibUsbProfiler {
             syspath: get_syspath(&sysfs_name)
                 .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
             // These are idProduct, idVendor in lsusb - from udev_hwdb/usb-ids
-            vendor: names::vendor(device_desc.vendor_id())
-                .or_else(|| usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())),
-            product_name: names::product(device_desc.vendor_id(), device_desc.product_id()).or_else(||
-                usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
-                    .map(|v| v.name().to_owned()),
-            ),
-            configurations: self.build_configurations(
-                device,
-                handle,
-                device_desc,
-                sp_device,
-            )?,
+            vendor: names::vendor(device_desc.vendor_id()).or_else(|| {
+                usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())
+            }),
+            product_name: names::product(device_desc.vendor_id(), device_desc.product_id())
+                .or_else(|| {
+                    usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
+                        .map(|v| v.name().to_owned())
+                }),
+            configurations: self.build_configurations(device, handle, device_desc, sp_device)?,
             status: Self::get_device_status(handle).ok(),
             debug: Self::get_debug_descriptor(handle).ok(),
             binary_object_store: None,
@@ -539,15 +537,12 @@ impl LibUsbProfiler {
         // sysfs cache
         sp_device.name = get_sysfs_string(&sp_device.sysfs_name(), "product")
             // udev-hwdb
-            .or_else(|| names::product(
-                device_desc.vendor_id(),
-                device_desc.product_id(),
-            ))
+            .or_else(|| names::product(device_desc.vendor_id(), device_desc.product_id()))
             // usb-ids
-            .or_else(||
+            .or_else(|| {
                 usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
-                    .map(|device| device.name().to_owned()),
-            )
+                    .map(|device| device.name().to_owned())
+            })
             // empty
             .unwrap_or_default();
 
@@ -556,8 +551,10 @@ impl LibUsbProfiler {
             // udev-hwdb
             .or_else(|| names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
             // usb-ids
-            .or_else(|| usb_ids::Vendor::from_id(device_desc.vendor_id())
-                .map(|vendor| vendor.name().to_owned()));
+            .or_else(|| {
+                usb_ids::Vendor::from_id(device_desc.vendor_id())
+                    .map(|vendor| vendor.name().to_owned())
+            });
 
         sp_device.serial_num = get_sysfs_string(&sp_device.sysfs_name(), "serial");
 
@@ -597,15 +594,18 @@ impl LibUsbProfiler {
                         .or_else(|| get_udev_driver_name(&sysfs_name).ok().flatten()),
                     syspath: get_syspath(&sysfs_name)
                         .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
-                    vendor: names::vendor(device_desc.vendor_id())
-                        .or_else(|| usb_ids::Vendor::from_id(device_desc.vendor_id())
-                            .map(|v| v.name().to_owned())),
+                    vendor: names::vendor(device_desc.vendor_id()).or_else(|| {
+                        usb_ids::Vendor::from_id(device_desc.vendor_id())
+                            .map(|v| v.name().to_owned())
+                    }),
                     product_name: names::product(device_desc.vendor_id(), device_desc.product_id())
-                        .or_else(|| usb_ids::Device::from_vid_pid(
-                            device_desc.vendor_id(),
-                            device_desc.product_id(),
-                        )
-                        .map(|v| v.name().to_owned())),
+                        .or_else(|| {
+                            usb_ids::Device::from_vid_pid(
+                                device_desc.vendor_id(),
+                                device_desc.product_id(),
+                            )
+                            .map(|v| v.name().to_owned())
+                        }),
                     configurations: Vec::new(),
                     status: None,
                     debug: None,

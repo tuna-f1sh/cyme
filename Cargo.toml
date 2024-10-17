@@ -69,9 +69,9 @@ udevlib = ["dep:udevlib"]
 usb_test = []
 regex_icon = ["dep:regex"]
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
-native = ["nusb"] # pure Rust USB and udev bindings
-ffi = ["libusb"] # C bindings for libusb and libudev
-default = ["nusb", "regex_icon"] # default native Rust USB (nusb) with regex icon name lookup
+native = ["nusb", "udev"] # pure Rust USB and udev bindings
+ffi = ["libusb", "udevlib"] # C bindings for libusb and libudev
+default = ["native", "regex_icon"] # default native Rust USB (nusb, udevrs) with regex icon name lookup
 
 [[bin]]
 name = "cyme"
