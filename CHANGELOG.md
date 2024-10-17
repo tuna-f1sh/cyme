@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.0]
+
+Big release after almost two years since the first commit: `cyme` is now native Rust\* by default! Thanks to support from [nusb](https://github.com/kevinmehall/nusb), the system profiler is much improved for all platforms.
+
+See the updated README for target configuration changes.
+
+\*Native crates. The OS interfaces behind the scenes (currently sysfs, IOKit and WinUSB) are in their respective code but this opens the door for Rust OSes, which the previous 'libusb' profiler could not facilitate.
+
+### Added
+
+- Bus information is now profiled on non-Linux platforms using 'nusb' - much nicer output for macOS and Windows.
+- pci.ids vendor and device information for buses where IDs are available.
+
+### Changed
+
+- `cyme` default target now uses native Rust profiling thanks to [nusb](https://github.com/kevinmehall/nusb) ([#26](https://github.com/tuna-f1sh/cyme/pull/26)).
+- Default Driver and Interface display blocks now include driver and sysfs on Linux but not on other platforms ([#41](https://github.com/tuna-f1sh/cyme/issues/41)).
+- macOS `system_profiler` is not used by default with 'nusb' since IOKit is used directly. It can be forced with `--system_profiler`. The macOS mod is now only compiled for macOS targets.
+- 'sysfs' read/readlink is now attempted first for Linux driver information then udev (if feature enabled) ([#45](https://github.com/tuna-f1sh/cyme/pull/45)).
+
 ## [1.8.5] - 2024-10-11
 
 ### Added
