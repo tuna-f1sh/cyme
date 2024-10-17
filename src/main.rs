@@ -314,7 +314,7 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
 
 /// macOS can use system_profiler to get USB data and merge with libusb so separate function
 #[cfg(target_os = "macos")]
-fn get_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
+fn get_system_profile_macos(args: &Args) -> Result<profiler::SystemProfile> {
     // if requested or only have libusb, use system_profiler and merge with libusb
     if args.system_profiler || !cfg!(feature = "nusb") {
         if !args.force_libusb
@@ -354,7 +354,6 @@ fn get_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
 }
 
 /// Detects and switches between verbose profiler (extra) and normal profiler
-#[cfg(not(target_os = "macos"))]
 fn get_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
     if args.verbose > 0
         || args.tree
@@ -527,7 +526,15 @@ fn cyme() -> Result<()> {
             }
         }
     } else {
-        get_system_profile(&args)?
+        #[cfg(target_os = "macos")]
+        {
+            get_system_profile_macos(&args)?
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            get_system_profile(&args)?
+        }
     };
 
     log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
