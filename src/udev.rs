@@ -24,6 +24,7 @@ pub struct UdevInfo {
 pub fn get_udev_info(port_path: &str) -> Result<UdevInfo, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
     let mut device = UdevDevice::new_from_syspath(udev_new(), &path).map_err(|e| {
+        log::error!("Failed to get udev info for device at {}: Error({})", path, e);
         Error::new(
             ErrorKind::Udev,
             &format!(
@@ -51,6 +52,7 @@ pub fn get_udev_info(port_path: &str) -> Result<UdevInfo, Error> {
 pub fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
     let mut device = UdevDevice::new_from_syspath(udev_new(), &path).map_err(|e| {
+        log::error!("Failed to get udev info for device at {}: Error({})", path, e);
         Error::new(
             ErrorKind::Udev,
             &format!(
@@ -73,6 +75,7 @@ pub fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
 pub fn get_udev_syspath(port_path: &str) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
     let device = UdevDevice::new_from_syspath(udev_new(), &path).map_err(|e| {
+        log::error!("Failed to get udev info for device at {}: Error({})", path, e);
         Error::new(
             ErrorKind::Udev,
             &format!(
@@ -91,7 +94,7 @@ pub fn get_udev_syspath(port_path: &str) -> Result<Option<String>, Error> {
 /// These attributes are generally readable by all users.
 ///
 /// NOTE: In general you should read from sysfs directly as it does not
-///       depend on the udev feature. See `get_sysfs_string()` in lsusb.rs
+///       depend on the udev feature. See `get_sysfs_string()` in profiler.rs
 ///
 /// ```no_run
 /// use cyme::udev::get_udev_attribute;
@@ -105,6 +108,7 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display + Into<S
 ) -> Result<Option<String>, Error> {
     let path: String = format!("/sys/bus/usb/devices/{}", port_path);
     let mut device = UdevDevice::new_from_syspath(udev_new(), &path).map_err(|e| {
+        log::error!("Failed to get udev attribute {} for device at {}: Error({})", attribute, path, e);
         Error::new(
             ErrorKind::Udev,
             &format!(
@@ -142,6 +146,7 @@ pub mod hwdb {
     /// ```
     pub fn get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
         let mut hwdb = UdevHwdb::new(udev_new()).map_err(|e| {
+            log::error!("Failed to get hwdb: Error({})", e);
             Error::new(
                 ErrorKind::Udev,
                 &format!("Failed to get hwdb: Error({})", e),
