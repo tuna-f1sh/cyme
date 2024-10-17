@@ -8,16 +8,9 @@ use std::process::Command;
 ///
 /// Ok result not contain [`usb::DeviceExtra`] because system_profiler does not provide this. Use `get_spusb_with_extra` to combine with libusb output for [`Device`]s with `extra`
 pub fn get_spusb() -> Result<SystemProfile> {
-    let output = if cfg!(target_os = "macos") {
-        Command::new("system_profiler")
-            .args(["-timeout", "5", "-json", "SPUSBDataType"])
-            .output()?
-    } else {
-        return Err(Error::new(
-            ErrorKind::Unsupported,
-            "system_profiler is only supported on macOS",
-        ));
-    };
+    let output = Command::new("system_profiler")
+        .args(["-timeout", "5", "-json", "SPUSBDataType"])
+        .output()?;
 
     if output.status.success() {
         serde_json::from_str(String::from_utf8(output.stdout)?.as_str())
