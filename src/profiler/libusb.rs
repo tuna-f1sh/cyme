@@ -278,13 +278,11 @@ impl LibUsbProfiler {
                 );
 
                 let interface = usb::Interface {
-                    name: get_sysfs_string(&path, "interface")
-                        .or_else(|| {
-                            interface_desc
-                                .description_string_index()
-                                .and_then(|i| handle.get_descriptor_string(i))
-                        })
-                        .unwrap_or_default(),
+                    name: get_sysfs_string(&path, "interface").or_else(|| {
+                        interface_desc
+                            .description_string_index()
+                            .and_then(|i| handle.get_descriptor_string(i))
+                    }),
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
                     class: usb::BaseClass::from(interface_desc.class_code()),

@@ -381,13 +381,11 @@ impl NusbProfiler {
                     .collect::<Vec<u8>>();
 
                 let interface = usb::Interface {
-                    name: get_sysfs_string(&path, "interface")
-                        .or_else(|| {
-                            interface_alt
-                                .string_index()
-                                .and_then(|i| device.get_descriptor_string(i))
-                        })
-                        .unwrap_or_default(),
+                    name: get_sysfs_string(&path, "interface").or_else(|| {
+                        interface_alt
+                            .string_index()
+                            .and_then(|i| device.get_descriptor_string(i))
+                    }),
                     string_index: interface_alt.string_index().unwrap_or(0),
                     number: interface_alt.interface_number(),
                     class: usb::BaseClass::from(interface_alt.class()),

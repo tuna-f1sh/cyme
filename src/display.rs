@@ -1357,7 +1357,11 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
 
     fn len(&self, d: &[&Interface]) -> usize {
         match self {
-            InterfaceBlocks::Name => d.iter().map(|d| d.name.len()).max().unwrap_or(0),
+            InterfaceBlocks::Name => d
+                .iter()
+                .flat_map(|d| d.name.as_ref().map(|s| s.width()))
+                .max()
+                .unwrap_or(0),
             InterfaceBlocks::BaseClass => d
                 .iter()
                 .map(|d| d.class.to_string().len())
@@ -1437,11 +1441,10 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
     ) -> Option<String> {
         match self {
             InterfaceBlocks::Number => Some(format!("{:2}", interface.number)),
-            InterfaceBlocks::Name => Some(format!(
-                "{:pad$}",
-                interface.name,
-                pad = pad.get(self).unwrap_or(&0)
-            )),
+            InterfaceBlocks::Name => Some(match interface.name.as_ref() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
             InterfaceBlocks::NumEndpoints => Some(format!("{:2}", interface.endpoints.len())),
             InterfaceBlocks::PortPath => Some(format!(
                 "{:pad$}",

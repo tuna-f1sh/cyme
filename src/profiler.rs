@@ -726,7 +726,7 @@ fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
     #[cfg(target_os = "linux")]
     return std::fs::read_to_string(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
         .ok()
-        .map(|s| s.to_string());
+        .map(|s| s.trim().to_string());
     #[cfg(not(target_os = "linux"))]
     return None;
 }

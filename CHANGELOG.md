@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.0.0]
+## [2.0.0] - 2024-10-18
 
 Big release after almost two years since the first commit: `cyme` is now native Rust\* by default! Thanks to support from [nusb](https://github.com/kevinmehall/nusb), the system profiler is much improved for all platforms.
 

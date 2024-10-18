@@ -1000,7 +1000,7 @@ impl Endpoint {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Interface {
     /// Name from descriptor
-    pub name: String,
+    pub name: Option<String>,
     /// Index of name string in descriptor - only useful for lsusb verbose print
     #[serde(default)]
     pub string_index: u8,

@@ -649,7 +649,7 @@ fn dump_interface(interface: &Interface, indent: usize) {
     dump_value_string(
         interface.string_index,
         "iInterface",
-        &interface.name,
+        interface.name.as_ref().unwrap_or(&String::new()),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
