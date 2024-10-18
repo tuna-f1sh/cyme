@@ -13,18 +13,17 @@ pub struct UdevInfo {
 }
 
 fn get_device(port_path: &str) -> Result<UdevDevice, Error> {
-    let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    UdevDevice::new_from_syspath(udev_new(), &path).map_err(|e| {
+    UdevDevice::new_from_subsystem_sysname(udev_new(), "usb", &port_path).map_err(|e| {
         log::error!(
             "Failed to get udev info for device at {}: Error({})",
-            path,
+            port_path,
             e
         );
         Error::new(
             ErrorKind::Udev,
             &format!(
                 "Failed to get udev info for device at {}: Error({})",
-                path, e
+                port_path, e
             ),
         )
     })
