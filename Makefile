@@ -11,7 +11,7 @@ DOCS = doc/_$(PROJECT_NAME) doc/$(PROJECT_NAME).1 doc/$(PROJECT_NAME).bash doc/c
 release: $(RELEASE_BIN)
 
 install:
-	$(shell ./install.sh)
+	./install.sh
 
 generated: $(DOCS)
 
