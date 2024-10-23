@@ -14,21 +14,22 @@ pub struct UdevInfo {
 }
 
 fn get_device(port_path: &str) -> Result<udevlib::Device, Error> {
-    let path: String = format!("/sys/bus/usb/devices/{}", port_path);
-    udevlib::Device::from_syspath(Path::new(&path)).map_err(|e| {
-        log::error!(
-            "Failed to get udev info for device at {}: Error({})",
-            path,
-            e
-        );
-        Error::new(
-            ErrorKind::Udev,
-            &format!(
+    udevlib::Device::from_subsystem_sysname(String::from("usb"), port_path.to_string()).map_err(
+        |e| {
+            log::error!(
                 "Failed to get udev info for device at {}: Error({})",
-                path, e
-            ),
-        )
-    })
+                port_path,
+                e
+            );
+            Error::new(
+                ErrorKind::Udev,
+                &format!(
+                    "Failed to get udev info for device at {}: Error({})",
+                    port_path, e
+                ),
+            )
+        },
+    )
 }
 
 /// Lookup the driver and syspath for a device given the `port_path`. Returns [`UdevInfo`] containing both.
@@ -41,7 +42,7 @@ fn get_device(port_path: &str) -> Result<udevlib::Device, Error> {
 /// assert_eq!(udevi.syspath.unwrap().contains("usb1/1-0:1.0"), true);
 /// ```
 pub fn get_udev_info(port_path: &str) -> Result<UdevInfo, Error> {
-    let mut device = get_device(port_path)?;
+    let device = get_device(port_path)?;
 
     Ok({
         UdevInfo {
@@ -61,7 +62,7 @@ pub fn get_udev_info(port_path: &str) -> Result<UdevInfo, Error> {
 /// assert_eq!(driver, Some("hub".into()));
 /// ```
 pub fn get_udev_driver_name(port_path: &str) -> Result<Option<String>, Error> {
-    let mut device = get_device(port_path)?;
+    let device = get_device(port_path)?;
 
     Ok(device
         .driver()
