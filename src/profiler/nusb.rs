@@ -196,7 +196,7 @@ impl From<&nusb::DeviceInfo> for Device {
             // macOS bus_id is a hex string
             u8::from_str_radix(device_info.bus_id(), 16)
                 .expect("Failed to parse bus_id: macOS bus_id should be a hex string and not None")
-        } else if cfg!(target_os = "linux") {
+        } else if cfg!(target_os = "linux") || cfg!(target_os = "android") {
             // Linux bus_id is a string decimal
             device_info.bus_id().parse::<u8>().expect(
                 "Failed to parse bus_id: Linux bus_id should be a decimal string and not None",
@@ -240,7 +240,7 @@ impl UsbOperations for UsbDevice {
             .ok()
     }
 
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(not(target_os = "windows"))]
     fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>> {
         let mut data = vec![0; control_request.length];
         let nusb_control: nusb::transfer::Control = (*control_request).into();
@@ -680,7 +680,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
         Ok(devices)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
         let mut root_hubs = HashMap::new();
         for bus in nusb::list_buses()? {
@@ -719,7 +719,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
         Ok(root_hubs)
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
     fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
         let mut root_hubs = HashMap::new();
         for bus in nusb::list_buses()? {
@@ -762,7 +762,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
             }
 
             // add root hub to devices like lsusb on Linux since they are displayed like devices
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "android"))]
             {
                 bus.devices = Some(vec![nusb_bus.root_hub().into()]);
             }

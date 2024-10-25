@@ -723,22 +723,22 @@ where
 #[allow(unused_variables)]
 fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
     log::trace!("Getting sysfs string at {}{}", sysfs_name, attr);
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     return std::fs::read_to_string(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
         .ok()
         .map(|s| s.trim().to_string());
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
     return None;
 }
 
 #[allow(unused_variables)]
 fn get_sysfs_readlink(sysfs_name: &str, attr: &str) -> Option<String> {
     log::trace!("readlink at {}{}", sysfs_name, attr);
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     return std::fs::read_link(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
         .ok()
         .and_then(|s| s.file_name().map(|f| f.to_string_lossy().to_string()));
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
     return None;
 }
 
@@ -763,9 +763,9 @@ fn get_udev_syspath(port_path: &str) -> Result<Option<String>> {
 /// Get the USB device syspath based on the default location "/sys/bus/usb/devices" on Linux
 #[allow(unused_variables)]
 fn get_syspath(port_path: &str) -> Option<String> {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     return Some(format!("{}{}", SYSFS_USB_PREFIX, port_path));
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
     return None;
 }
 

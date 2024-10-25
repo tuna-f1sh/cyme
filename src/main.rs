@@ -380,9 +380,6 @@ fn print_lsusb(
         if !cfg!(target_os = "linux") {
             log::warn!("Most of the data in a lsusb style tree is applicable to Linux only!");
         }
-        if !cfg!(feature = "udev") {
-            log::warn!("Without udev, lsusb style tree content will not match lsusb: driver and syspath will be missing");
-        }
         lsusb::print_tree(sp_usb, settings)
     } else {
         // can't print verbose if not using libusb
