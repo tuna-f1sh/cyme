@@ -271,9 +271,12 @@ dependencies = [
  "clap_complete",
  "clap_mangen",
  "colored",
+ "core-foundation",
+ "core-foundation-sys",
  "diff",
  "dirs",
  "heck 0.4.1",
+ "io-kit-sys",
  "itertools",
  "lazy_static",
  "log",
@@ -696,7 +699,7 @@ dependencies = [
 [[package]]
 name = "nusb"
 version = "0.1.10"
-source = "git+https://github.com/tuna-f1sh/nusb?branch=cyme#04163b67293fede0c4908421e610b0ee12008b74"
+source = "git+https://github.com/kevinmehall/nusb?branch=main#b3097f552ab731fea0ecddd1598c91be75eef828"
 dependencies = [
  "atomic-waker",
  "core-foundation",

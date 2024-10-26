@@ -70,6 +70,8 @@ pub enum ErrorKind {
     Udev,
     /// Invalid arg for method or cli
     InvalidArg,
+    /// Error calling IOKit
+    IoKit,
     /// Error From other crate without enum variant
     Other(&'static str),
     /// Invalid device descriptor

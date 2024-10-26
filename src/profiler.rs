@@ -1107,14 +1107,14 @@ mod platform {
 #[cfg(target_os = "macos")]
 mod platform {
     use super::*;
-    use ::nusb::HostControllerInfo;
+    use macos::HostControllerInfo;
 
-    impl From<&HostControllerInfo> for PciInfo {
-        fn from(pci_info: &HostControllerInfo) -> Self {
+    impl From<HostControllerInfo> for PciInfo {
+        fn from(pci_info: HostControllerInfo) -> Self {
             PciInfo {
-                vendor_id: pci_info.vendor_id(),
-                product_id: pci_info.device_id(),
-                revision: pci_info.revision_id(),
+                vendor_id: pci_info.vendor_id,
+                product_id: pci_info.device_id,
+                revision: pci_info.revision_id,
             }
         }
     }
@@ -1126,7 +1126,9 @@ mod platform {
 
     #[cfg(feature = "nusb")]
     pub(crate) fn pci_info_from_bus(bus_info: &::nusb::BusInfo) -> Option<PciInfo> {
-        bus_info.host_controller_info().map(Into::into)
+        bus_info
+            .name()
+            .and_then(|name| macos::get_controller(name).ok().map(|c| c.into()))
     }
 
     #[cfg(feature = "nusb")]
