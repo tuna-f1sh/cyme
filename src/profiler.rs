@@ -83,6 +83,7 @@ pub(crate) struct ControlRequest {
     pub value: u16,
     pub index: u16,
     pub length: usize,
+    pub claim_interface: bool,
 }
 
 /// Device USB operations required by the [`Profiler`]
@@ -106,6 +107,8 @@ where
             value: (u8::from(usb::DescriptorType::Report) as u16) << 8,
             index,
             length: length as usize,
+            // only claim interface on linux
+            claim_interface: cfg!(target_os = "linux") || cfg!(target_os = "android"),
         };
         device.get_control_msg(&control_request)
     }
@@ -130,6 +133,7 @@ where
             index: 0,
             recipient: Recipient::Device,
             length: 9,
+            claim_interface: false,
         };
         let data = device.get_control_msg(&control)?;
         let mut hub = usb::HubDescriptor::try_from(data.as_slice())?;
@@ -144,6 +148,7 @@ where
                 value: 0x23 << 8,
                 recipient: Recipient::Other,
                 length: if is_ext_status { 8 } else { 4 },
+                claim_interface: false,
             };
             match device.get_control_msg(&control) {
                 Ok(mut data) => {
@@ -179,6 +184,7 @@ where
             index: 0,
             recipient: Recipient::Device,
             length: 2,
+            claim_interface: false,
         };
         let data = device.get_control_msg(&control)?;
         Ok(u16::from_le_bytes([data[0], data[1]]))
@@ -193,6 +199,7 @@ where
             index: 0,
             recipient: Recipient::Device,
             length: 2,
+            claim_interface: false,
         };
         let data = device.get_control_msg(&control)?;
         usb::DebugDescriptor::try_from(data.as_slice())
@@ -209,14 +216,19 @@ where
             index: 0,
             recipient: Recipient::Device,
             length: 5,
+            claim_interface: false,
         };
         let data = device.get_control_msg(&control)?;
         let total_length = u16::from_le_bytes([data[2], data[3]]);
-        log::trace!("Attempt read BOS descriptor total length: {}", total_length);
+        log::debug!(
+            "{:?} Attempt read BOS descriptor total length: {}",
+            device,
+            total_length
+        );
         // now get full descriptor
         control.length = total_length as usize;
         let data = device.get_control_msg(&control)?;
-        log::trace!("BOS descriptor data: {:?}", data);
+        log::debug!("{:?} BOS descriptor data: {:?}", device, data);
         let mut bos =
             usb::descriptors::bos::BinaryObjectStoreDescriptor::try_from(data.as_slice())?;
 
@@ -225,7 +237,7 @@ where
             match c {
                 usb::descriptors::bos::BosCapability::WebUsbPlatform(w) => {
                     w.url = Self::get_webusb_url(device, w.vendor_code, w.landing_page_index).ok();
-                    log::trace!("WebUSB URL: {:?}", w.url);
+                    log::trace!("{:?} WebUSB URL: {:?}", device, w.url);
                 }
                 usb::descriptors::bos::BosCapability::Billboard(ref mut b) => {
                     b.additional_info_url =
@@ -251,9 +263,10 @@ where
             index: 0,
             recipient: Recipient::Device,
             length: 10,
+            claim_interface: false,
         };
         let data = device.get_control_msg(&control)?;
-        log::trace!("Device Qualifier descriptor data: {:?}", data);
+        log::debug!("{:?} Qualifier descriptor data: {:?}", device, data);
         usb::DeviceQualifierDescriptor::try_from(data.as_slice())
     }
 
@@ -268,6 +281,7 @@ where
             index: (REQUEST_WEBUSB_URL as u16) << 8,
             recipient: Recipient::Device,
             length: 3,
+            claim_interface: false,
         };
         let data = device.get_control_msg(&control)?;
         log::trace!("WebUSB URL descriptor data: {:?}", data);
@@ -317,7 +331,11 @@ where
         let mut dt = match usb::Descriptor::try_from(extra_bytes) {
             Ok(d) => d,
             Err(e) => {
-                log::debug!("Failed to convert extra descriptor bytes: {}", e);
+                log::debug!(
+                    "{:?} Failed to convert extra descriptor bytes: {}",
+                    device,
+                    e
+                );
                 return Err(e);
             }
         };
@@ -326,7 +344,8 @@ where
         if let Some(interface_desc) = class_code {
             if let Err(e) = dt.update_with_class_context(interface_desc) {
                 log::debug!(
-                    "Failed to update extra descriptor with class context: {}",
+                    "{:?} Failed to update extra descriptor with class context: {}",
+                    device,
                     e
                 );
             }
@@ -511,7 +530,7 @@ where
                 None,
                 &raw.drain(..dt_len).collect::<Vec<u8>>(),
             )?;
-            log::trace!("Config descriptor extra: {:?}", dt);
+            log::debug!("{:?} Config descriptor extra: {:?}", device, dt);
             ret.push(dt);
             taken += dt_len;
         }
@@ -539,7 +558,11 @@ where
                 *b &= !(0x01 << 5);
                 // if not Device or Interface, force it to Interface (like lsusb) but warn
                 if !(*b == 0x01 || *b == 0x04) {
-                    log::warn!("Misplaced descriptor type in interfaces: {:02x}", *b);
+                    log::warn!(
+                        "{:?} Misplaced descriptor type in interfaces: {:02x}",
+                        device,
+                        *b
+                    );
                     *b = 0x04;
                 }
             }
@@ -551,7 +574,7 @@ where
                 &raw.drain(..dt_len).collect::<Vec<u8>>(),
             )?;
 
-            log::trace!("Interface descriptor extra: {:?}", dt);
+            log::debug!("{:?} Interface descriptor extra: {:?}", device, dt);
             ret.push(dt);
             taken += dt_len;
         }
@@ -588,7 +611,7 @@ where
                 &raw.drain(..dt_len).collect::<Vec<u8>>(),
             )?;
 
-            log::trace!("Endpoint descriptor extra: {:?}", dt);
+            log::debug!("{:?} Endpoint descriptor extra: {:?}", device, dt);
             ret.push(dt);
             taken += dt_len;
         }
@@ -648,7 +671,6 @@ where
                 .into_iter()
                 .sorted_by_key(|x| x.0.len() - x.0.ends_with("-0") as usize)
             {
-                log::debug!("Adding devices to parent {}", parent_path);
                 // if root devices, add them to bus
                 if parent_path.ends_with("-0") {
                     // if parent_path == "-" {
@@ -661,7 +683,6 @@ where
                     } else {
                         new_bus.devices = Some(children.collect());
                     }
-                    log::trace!("Updated bus devices {:?}", new_bus.devices);
                     // else find and add parent - this should work because we are sorted to accend the tree so parents should be created before their children
                 } else {
                     let parent_node = new_bus
@@ -676,7 +697,6 @@ where
                     } else {
                         parent_node.devices = Some(children.collect());
                     }
-                    log::trace!("Updated parent devices {:?}", parent_node.devices);
                 }
             }
 

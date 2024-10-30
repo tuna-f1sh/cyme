@@ -322,18 +322,18 @@ pub fn print(devices: &Vec<&Device>, verbose: bool) {
         }
     } else {
         for device in devices {
+            println!(); // new lines separate in verbose lsusb
+            println!("{}", device.to_lsusb_string());
+            // print error regarding open if non-critical during probe like lsusb --verbose
+            if device.profiler_error.is_some() {
+                eprintln!("Couldn't open device, some information will be missing");
+            }
             match device.extra.as_ref() {
                 None => log::warn!(
                     "Device {} does not contain extra data required for verbose print",
                     device
                 ),
                 Some(device_extra) => {
-                    println!(); // new lines separate in verbose lsusb
-                    println!("{}", device.to_lsusb_string());
-                    // print error regarding open if non-critical during probe like lsusb --verbose
-                    if device.profiler_error.is_some() {
-                        eprintln!("Couldn't open device, some information will be missing");
-                    }
                     dump_device(device);
 
                     let mut otg = None;

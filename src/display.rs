@@ -3036,7 +3036,7 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<Filter>, settings: &Pr
 
 /// Main cyme bin print function
 pub fn print(sp_usb: &SystemProfile, settings: &PrintSettings) {
-    log::debug!("Printing with {:?}", settings);
+    log::trace!("Printing with {:?}", settings);
 
     if settings.tree || settings.group_devices == Group::Bus {
         if settings.json {

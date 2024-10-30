@@ -608,19 +608,6 @@ fn cyme() -> Result<()> {
         }
     };
 
-    //let sort_devices = match args.sort_devices {
-    //    Some(v) => v,
-    //    None => {
-    //        if args.tree || args.group_devices != display::Group::NoGroup {
-    //            // default for tree is port number so sorted at branch level
-    //            display::Sort::BranchPosition
-    //        } else {
-    //            // device number so appear in increasing order when flat list
-    //            display::Sort::DeviceNumber
-    //        }
-    //    }
-    //};
-
     let group_devices = if args.group_devices == display::Group::Bus && args.tree {
         eprintln!("--group-devices with --tree is ignored; will print as tree");
         display::Group::NoGroup
