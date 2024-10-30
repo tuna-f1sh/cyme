@@ -99,7 +99,6 @@ where
     Self: std::fmt::Debug,
 {
     /// Get the USB HID Report Descriptor with a Control request
-    /// (requires claim of interface)
     fn get_report_descriptor(device: &T, index: u16, length: u16) -> Result<Vec<u8>> {
         let control_request = ControlRequest {
             control_type: ControlType::Standard,
@@ -108,7 +107,8 @@ where
             value: (u8::from(usb::DescriptorType::Report) as u16) << 8,
             index,
             length: length as usize,
-            claim_interface: true,
+            // only claim interface on linux
+            claim_interface: cfg!(target_os = "linux") || cfg!(target_os = "android"),
         };
         device.get_control_msg(&control_request)
     }

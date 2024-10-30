@@ -247,6 +247,8 @@ impl UsbOperations for UsbDevice {
         let nusb_control: nusb::transfer::Control = (*control_request).into();
         let n = if control_request.claim_interface {
             self.handle
+                // requires detech_and_claim_interface on Linux if mod is loaded
+                // not nice though just for profiling - maybe add a flag to claim or not?
                 .claim_interface(control_request.index as u8)?
                 .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
                 .map_err(|e| Error {
@@ -777,7 +779,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
             // add root hub to devices like lsusb on Linux since they are displayed like devices
             #[cfg(any(target_os = "linux", target_os = "android"))]
             {
-                let sp_device = self.build_spdevice(&nusb_bus.root_hub(), true)?;
+                let sp_device = self.build_spdevice(nusb_bus.root_hub(), true)?;
                 bus.devices = Some(vec![sp_device]);
             }
 
