@@ -15,14 +15,14 @@ _cyme() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID: ' \
-'--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID: ' \
-'-s+[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW: ' \
-'--show=[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW: ' \
-'-D+[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE: ' \
-'--device=[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE: ' \
-'--filter-name=[Filter on string contained in name]:FILTER_NAME: ' \
-'--filter-serial=[Filter on string contained in serial]:FILTER_SERIAL: ' \
+'-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID:_default' \
+'--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID:_default' \
+'-s+[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW:_default' \
+'--show=[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW:_default' \
+'-D+[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE:_default' \
+'--device=[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE:_default' \
+'--filter-name=[Filter on string contained in name]:FILTER_NAME:_default' \
+'--filter-serial=[Filter on string contained in serial]:FILTER_SERIAL:_default' \
 '--filter-class=[Filter on USB class code]:FILTER_CLASS:((use-interface-descriptor\:"Device class is unspecified, interface descriptors are used to determine needed drivers"
 audio\:"Speaker, microphone, sound card, MIDI"
 cdc-communications\:"The modern serial interface; appears as a UART/RS232 port on most systems"
@@ -159,9 +159,9 @@ ascii\:"Use only ASCII characters for the output; 0x00 - 0x7F (127 chars)"))' \
 '--icon=[When to print icon blocks]:ICON:((auto\:"Show icon blocks if the \[\`Encoding\`\] supports icons matched in the \[\`icon\:\:IconTheme\`\]"
 always\:"Always print icon blocks if included in configured blocks"
 never\:"Never print icon blocks"))' \
-'--from-json=[Read from json output rather than profiling system]:FROM_JSON: ' \
-'-c+[Path to user config file to use for custom icons, colours and default settings]:CONFIG: ' \
-'--config=[Path to user config file to use for custom icons, colours and default settings]:CONFIG: ' \
+'--from-json=[Read from json output rather than profiling system]:FROM_JSON:_default' \
+'-c+[Path to user config file to use for custom icons, colours and default settings]:CONFIG:_default' \
+'--config=[Path to user config file to use for custom icons, colours and default settings]:CONFIG:_default' \
 '--mask-serials=[Mask serial numbers with '\''*'\'' or random chars]:MASK_SERIALS:((hide\:"Hide with '\''*'\'' char"
 scramble\:"Mask by randomising existing chars"
 replace\:"Mask by replacing length with random chars"))' \
