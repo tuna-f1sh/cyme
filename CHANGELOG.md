@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0] - 2024-10-30
+
+### Fixed
+
+- Linux root\_hub missing from it's own devices; lsusb mode listing with libusb feature.
+- nusb feature not profiling root\_hub devices and so not gathering BOS, hub descriptors and status etc.
+- Attempt to claim HID interfaces on Linux to avoid dmesg warning. Note that if a kernel module is loaded for a device, it may still be claimed by that module and so not available to cyme. cyme could detach the kernel module but this is not done for usability reasons. The behaviour is the same as lsusb. ([#52](https://github.com/tuna-f1sh/cyme/pull/52)).
+
+### Changed
+
+- Logging should be more useful in debug mode.
+
 ## [2.0.0] - 2024-10-18
 
 Big release after almost two years since the first commit: `cyme` is now native Rust\* by default! Thanks to support from [nusb](https://github.com/kevinmehall/nusb), the system profiler is much improved for all platforms.
