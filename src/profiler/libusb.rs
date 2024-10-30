@@ -185,6 +185,10 @@ impl<T: libusb::UsbContext> UsbOperations for UsbDevice<T> {
     /// Get control message from device, ensuring message of [`ControlRequest`] length is read
     fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>> {
         let mut buf = vec![0; control_request.length];
+        if control_request.claim_interface {
+            self.handle.claim_interface(control_request.index as u8)?;
+        }
+
         let n = self
             .handle
             .read_control(
@@ -656,7 +660,9 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
             .iter()
             .filter(|d| d.port_number() == 0)
         {
-            if let Ok(sp_device) = self.build_spdevice(&device, true) {
+            if let Ok(mut sp_device) = self.build_spdevice(&device, true) {
+                // put self in as first device; root_hubs included in list on Linux
+                sp_device.devices = Some(vec![sp_device.clone()]);
                 ret.insert(sp_device.location_id.bus, sp_device);
             }
         }
@@ -672,13 +678,7 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
     fn get_buses(&mut self) -> Result<HashMap<u8, Bus>> {
         <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::get_root_hubs(self).map(|hubs| {
             hubs.into_iter()
-                .filter_map(|(k, d)| match Bus::try_from(d) {
-                    Ok(b) => Some((k, b)),
-                    Err(e) => {
-                        eprintln!("Failed to convert root hub to bus: {}", e);
-                        None
-                    }
-                })
+                .filter_map(|(k, d)| Some((k, Bus::try_from(d).ok()?)))
                 .collect()
         })
     }

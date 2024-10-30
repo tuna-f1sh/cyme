@@ -84,6 +84,7 @@ impl From<&nusb::BusInfo> for Device {
     fn from(bus: &nusb::BusInfo) -> Self {
         #[cfg(any(target_os = "linux", target_os = "android"))]
         {
+            // should use profiler for extra data not this into
             bus.root_hub().into()
         }
 
@@ -244,17 +245,26 @@ impl UsbOperations for UsbDevice {
     fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>> {
         let mut data = vec![0; control_request.length];
         let nusb_control: nusb::transfer::Control = (*control_request).into();
-        let n = self
-            .handle
-            .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
-            .map_err(|e| Error {
-                kind: ErrorKind::Nusb,
-                message: format!("Failed to get control message: {}", e),
-            })?;
+        let n = if control_request.claim_interface {
+            self.handle
+                .claim_interface(control_request.index as u8)?
+                .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+                .map_err(|e| Error {
+                    kind: ErrorKind::Nusb,
+                    message: format!("Failed to get control message: {}", e),
+                })?
+        } else {
+            self.handle
+                .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+                .map_err(|e| Error {
+                    kind: ErrorKind::Nusb,
+                    message: format!("Failed to get control message: {}", e),
+                })?
+        };
 
         if n < control_request.length {
             log::debug!(
-                "Failed to get full control message for {:?}, only read {} of {} bytes",
+                "{:?} Failed to get full control message: read {} of {} bytes",
                 self,
                 n,
                 control_request.length
@@ -262,7 +272,7 @@ impl UsbOperations for UsbDevice {
             return Err(Error {
                 kind: ErrorKind::Nusb,
                 message: format!(
-                    "Failed to get full control message for {:?}, only read {} of {} bytes",
+                    "{:?} Failed to get full control message: read {} of {} bytes",
                     self, n, control_request.length
                 ),
             });
@@ -271,12 +281,12 @@ impl UsbOperations for UsbDevice {
         Ok(data)
     }
 
+    // separate function for Windows as it *ALWAYS* needs to claim the interface
     #[cfg(target_os = "windows")]
     fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>> {
         let mut data = vec![0; control_request.length];
         let nusb_control: nusb::transfer::Control = (*control_request).into();
-        // TODO this should probably be dependant on the interface being called?
-        let interface = self.handle.claim_interface(0)?;
+        let interface = self.handle.claim_interface(control_request.index as u8)?;
         let n = interface
             .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
             .map_err(|e| Error {
@@ -286,7 +296,7 @@ impl UsbOperations for UsbDevice {
 
         if n < control_request.length {
             log::debug!(
-                "Failed to get full control message for {:?}, only read {} of {} bytes",
+                "{:?} Failed to get full control message: read {} of {} bytes",
                 self,
                 n,
                 control_request.length
@@ -294,7 +304,7 @@ impl UsbOperations for UsbDevice {
             return Err(Error {
                 kind: ErrorKind::Nusb,
                 message: format!(
-                    "Failed to get full control message for {:?}, only read {} of {} bytes",
+                    "{:?} Failed to get full control message: read {} of {} bytes",
                     self, n, control_request.length
                 ),
             });
@@ -568,6 +578,35 @@ impl NusbProfiler {
     ) -> Result<Device> {
         let mut sp_device: Device = device_info.into();
 
+        let generic_extra = |sysfs_name: &str| {
+            usb::DeviceExtra {
+                max_packet_size: device_info.max_packet_size_0(),
+                // nusb doesn't have these cached
+                string_indexes: (0, 0, 0),
+                driver: get_sysfs_readlink(sysfs_name, "driver")
+                    .or_else(|| get_udev_driver_name(sysfs_name).ok().flatten()),
+                syspath: get_syspath(sysfs_name)
+                    .or_else(|| get_udev_syspath(sysfs_name).ok().flatten()),
+                vendor: names::vendor(device_info.vendor_id()).or_else(|| {
+                    usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_owned())
+                }),
+                product_name: names::product(device_info.vendor_id(), device_info.product_id())
+                    .or_else(|| {
+                        usb_ids::Device::from_vid_pid(
+                            device_info.vendor_id(),
+                            device_info.product_id(),
+                        )
+                        .map(|v| v.name().to_owned())
+                    }),
+                configurations: vec![],
+                status: None,
+                debug: None,
+                binary_object_store: None,
+                qualifier: None,
+                hub: None,
+            }
+        };
+
         if with_extra {
             if let Ok(device) = device_info.open() {
                 // get the first language - probably US English
@@ -593,46 +632,20 @@ impl NusbProfiler {
                         Ok(extra) => {
                             sp_device.extra = Some(extra);
                             None
-                        },
+                        }
                         Err(e) => {
+                            sp_device.extra = Some(generic_extra(&sp_device.sysfs_name()));
                             Some(format!("Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e))
                         }
                     }
                 };
             } else {
                 log::warn!("Failed to open device for extra data: {:04x}:{:04x}. Ensure user has USB access permissions: https://docs.rs/nusb/latest/nusb", device_info.vendor_id(), device_info.product_id());
-                let sysfs_name = sp_device.sysfs_name();
                 sp_device.profiler_error = Some(
                     "Failed to open device, extra data incomplete and possibly inaccurate"
                         .to_string(),
                 );
-                sp_device.extra = Some(usb::DeviceExtra {
-                    max_packet_size: device_info.max_packet_size_0(),
-                    // nusb doesn't have these cached
-                    string_indexes: (0, 0, 0),
-                    driver: get_sysfs_readlink(&sysfs_name, "driver")
-                        .or_else(|| get_udev_driver_name(&sysfs_name).ok().flatten()),
-                    syspath: get_syspath(&sysfs_name)
-                        .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
-                    vendor: names::vendor(device_info.vendor_id()).or_else(|| {
-                        usb_ids::Vendor::from_id(device_info.vendor_id())
-                            .map(|v| v.name().to_owned())
-                    }),
-                    product_name: names::product(device_info.vendor_id(), device_info.product_id())
-                        .or_else(|| {
-                            usb_ids::Device::from_vid_pid(
-                                device_info.vendor_id(),
-                                device_info.product_id(),
-                            )
-                            .map(|v| v.name().to_owned())
-                        }),
-                    configurations: vec![],
-                    status: None,
-                    debug: None,
-                    binary_object_store: None,
-                    qualifier: None,
-                    hub: None,
-                });
+                sp_device.extra = Some(generic_extra(&sp_device.sysfs_name()));
             }
         }
 
@@ -764,7 +777,8 @@ impl Profiler<UsbDevice> for NusbProfiler {
             // add root hub to devices like lsusb on Linux since they are displayed like devices
             #[cfg(any(target_os = "linux", target_os = "android"))]
             {
-                bus.devices = Some(vec![nusb_bus.root_hub().into()]);
+                let sp_device = self.build_spdevice(&nusb_bus.root_hub(), true)?;
+                bus.devices = Some(vec![sp_device]);
             }
 
             buses.insert(
