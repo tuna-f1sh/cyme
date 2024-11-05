@@ -742,7 +742,7 @@ where
 /// Get a USB device attribute String from sysfs on Linux
 #[allow(unused_variables)]
 fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
-    log::trace!("Getting sysfs string at {}{}", sysfs_name, attr);
+    log::trace!("Getting sysfs string at {}/{}", sysfs_name, attr);
     #[cfg(any(target_os = "linux", target_os = "android"))]
     return std::fs::read_to_string(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
         .ok()
@@ -753,11 +753,21 @@ fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
 
 #[allow(unused_variables)]
 fn get_sysfs_readlink(sysfs_name: &str, attr: &str) -> Option<String> {
-    log::trace!("readlink at {}{}", sysfs_name, attr);
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    return std::fs::read_link(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
-        .ok()
-        .and_then(|s| s.file_name().map(|f| f.to_string_lossy().to_string()));
+    {
+        // switch based on root_hub - if it is a root hub, we need to go up a directory to get the pci driver
+        // https://github.com/gregkh/usbutils/blob/cda6883cade6ec67671d0c7de61e70eb992509a9/lsusb-t.c#L434
+        let path = if sysfs_name.starts_with("usb") && attr == "driver" {
+            format!("{}{}/../{}", SYSFS_USB_PREFIX, sysfs_name, attr)
+        } else {
+            format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr)
+        };
+
+        log::trace!("readlink at {}", path);
+        std::fs::read_link(path)
+            .ok()
+            .and_then(|s| s.file_name().map(|f| f.to_string_lossy().to_string()))
+    }
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     return None;
 }
