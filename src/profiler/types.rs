@@ -374,7 +374,7 @@ impl Bus {
 
             Vec::from([(
                 format!(
-                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver={}, {}",
+                    "Bus {:03}.Port 001: Dev 001, Class=root_hub, Driver={}, {}",
                     self.get_bus_number().unwrap_or(0xff),
                     driver,
                     speed
@@ -396,7 +396,7 @@ impl Bus {
             log::warn!("Failed to get root_device in bus");
             Vec::from([(
                 format!(
-                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=[none],",
+                    "Bus {:03}.Port 001: Dev 001, Class=root_hub, Driver=[none],",
                     self.get_bus_number().unwrap_or(0xff),
                 ),
                 format!(
@@ -1156,7 +1156,7 @@ impl Device {
                 for interface in &config.interfaces {
                     format_strs.push((
                         format!(
-                            "Port {:}: Dev {:}, If {}, Class={}, Driver={}, {}",
+                            "Port {:03}: Dev {:03}, If {}, Class={}, Driver={}, {}",
                             self.get_branch_position(),
                             self.location_id.number,
                             interface.number,
@@ -1184,7 +1184,7 @@ impl Device {
             log::warn!("Rendering {} lsusb tree without extra data because it is missing. No configurations or interfaces will be shown", self);
             format_strs.push((
                 format!(
-                    "Port {:}: Dev {:}, If {}, Class={}, Driver={}, {}",
+                    "Port {:03}: Dev {:03}, If {}, Class={}, Driver={}, {}",
                     self.get_branch_position(),
                     self.location_id.number,
                     0,
