@@ -1,57 +1,57 @@
-/:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=hub, 480M
+/:  Bus 001.Port 001: Dev 001, Class=root_hub, Driver=hub, 480M
     ID 1d6b:0002 Linux Foundation 2.0 root hub
     /sys/bus/usb/devices/usb1  /dev/bus/usb/001/001
-    |__ Port 2: Dev 2, If 0, Class=Human Interface Device, Driver=usbhid, 480M
+    |__ Port 002: Dev 002, If 0, Class=Human Interface Device, Driver=usbhid, 480M
         ID 203a:fffc PARALLELS [unknown]
         /sys/bus/usb/devices/1-2  /dev/bus/usb/001/002
-    |__ Port 2: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 480M
+    |__ Port 002: Dev 002, If 1, Class=Human Interface Device, Driver=usbhid, 480M
         ID 203a:fffc PARALLELS [unknown]
         /sys/bus/usb/devices/1-2  /dev/bus/usb/001/002
-    |__ Port 6: Dev 3, If 0, Class=Printer, Driver=usblp, 480M
+    |__ Port 006: Dev 003, If 0, Class=Printer, Driver=usblp, 480M
         ID 203a:fffa PARALLELS [unknown]
         /sys/bus/usb/devices/1-6  /dev/bus/usb/001/003
-/:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=hub, 12M
+/:  Bus 002.Port 001: Dev 001, Class=root_hub, Driver=hub, 12M
     ID 1d6b:0001 Linux Foundation 1.1 root hub
     /sys/bus/usb/devices/usb2  /dev/bus/usb/002/001
-    |__ Port 2: Dev 22, If 0, Class=Hub, Driver=hub, 12M
+    |__ Port 002: Dev 022, If 0, Class=Hub, Driver=hub, 12M
         ID 203a:fffe PARALLELS [unknown]
         /sys/bus/usb/devices/2-2  /dev/bus/usb/002/022
-        |__ Port 1: Dev 23, If 0, Class=Communications, Driver=cdc_acm, 12M
+        |__ Port 001: Dev 023, If 0, Class=Communications, Driver=cdc_acm, 12M
             ID 1366:1050 SEGGER [unknown]
             /sys/bus/usb/devices/2-2.1  /dev/bus/usb/002/023
-        |__ Port 1: Dev 23, If 1, Class=CDC Data, Driver=cdc_acm, 12M
+        |__ Port 001: Dev 023, If 1, Class=CDC Data, Driver=cdc_acm, 12M
             ID 1366:1050 SEGGER [unknown]
             /sys/bus/usb/devices/2-2.1  /dev/bus/usb/002/023
-        |__ Port 1: Dev 23, If 2, Class=Communications, Driver=cdc_acm, 12M
+        |__ Port 001: Dev 023, If 2, Class=Communications, Driver=cdc_acm, 12M
             ID 1366:1050 SEGGER [unknown]
             /sys/bus/usb/devices/2-2.1  /dev/bus/usb/002/023
-        |__ Port 1: Dev 23, If 3, Class=CDC Data, Driver=cdc_acm, 12M
+        |__ Port 001: Dev 023, If 3, Class=CDC Data, Driver=cdc_acm, 12M
             ID 1366:1050 SEGGER [unknown]
             /sys/bus/usb/devices/2-2.1  /dev/bus/usb/002/023
-        |__ Port 1: Dev 23, If 4, Class=Vendor Specific Class, Driver=[none], 12M
+        |__ Port 001: Dev 023, If 4, Class=Vendor Specific Class, Driver=[none], 12M
             ID 1366:1050 SEGGER [unknown]
             /sys/bus/usb/devices/2-2.1  /dev/bus/usb/002/023
-        |__ Port 8: Dev 24, If 0, Class=Communications, Driver=cdc_acm, 12M
+        |__ Port 008: Dev 024, If 0, Class=Communications, Driver=cdc_acm, 12M
             ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
             /sys/bus/usb/devices/2-2.8  /dev/bus/usb/002/024
-        |__ Port 8: Dev 24, If 1, Class=CDC Data, Driver=cdc_acm, 12M
+        |__ Port 008: Dev 024, If 1, Class=CDC Data, Driver=cdc_acm, 12M
             ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
             /sys/bus/usb/devices/2-2.8  /dev/bus/usb/002/024
-        |__ Port 8: Dev 24, If 2, Class=Communications, Driver=cdc_acm, 12M
+        |__ Port 008: Dev 024, If 2, Class=Communications, Driver=cdc_acm, 12M
             ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
             /sys/bus/usb/devices/2-2.8  /dev/bus/usb/002/024
-        |__ Port 8: Dev 24, If 3, Class=CDC Data, Driver=cdc_acm, 12M
+        |__ Port 008: Dev 024, If 3, Class=CDC Data, Driver=cdc_acm, 12M
             ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
             /sys/bus/usb/devices/2-2.8  /dev/bus/usb/002/024
-        |__ Port 8: Dev 24, If 4, Class=Application Specific Interface, Driver=[none], 12M
+        |__ Port 008: Dev 024, If 4, Class=Application Specific Interface, Driver=[none], 12M
             ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
             /sys/bus/usb/devices/2-2.8  /dev/bus/usb/002/024
-        |__ Port 8: Dev 24, If 5, Class=Vendor Specific Class, Driver=[none], 12M
+        |__ Port 008: Dev 024, If 5, Class=Vendor Specific Class, Driver=[none], 12M
             ID 1d50:6018 OpenMoko, Inc. Black Magic Debug Probe (Application)
             /sys/bus/usb/devices/2-2.8  /dev/bus/usb/002/024
-/:  Bus 03.Port 1: Dev 1, Class=root_hub, Driver=hub, 480M
+/:  Bus 003.Port 001: Dev 001, Class=root_hub, Driver=hub, 480M
     ID 1d6b:0002 Linux Foundation 2.0 root hub
     /sys/bus/usb/devices/usb3  /dev/bus/usb/003/001
-/:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=hub, 10000M
+/:  Bus 004.Port 001: Dev 001, Class=root_hub, Driver=hub, 10000M
     ID 1d6b:0003 Linux Foundation 3.0 root hub
     /sys/bus/usb/devices/usb4  /dev/bus/usb/004/001

@@ -26,7 +26,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 # Features
 
-* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output - fully parsed device descriptors! Output is identical for use with no args (list), almost matching for tree (driver port number not included) and should match for verbose (perhaps formatting differences).
+* Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output - fully parsed device descriptors! Output is identical for use with no args (list), tree (excluding drivers on non-Linux) and should match for verbose (perhaps formatting differences).
 * Default build is a native Rust profiler using [nusb](https://docs.rs/nusb/latest/nusb).
 * Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial`, `--filter_class` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.

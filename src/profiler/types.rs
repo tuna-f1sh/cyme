@@ -357,26 +357,34 @@ impl Bus {
             };
 
             // no fallback for lsusb tree mode
-            let (driver, vendor, product) = match &root_device.extra {
+            let (driver, vendor, product, ports) = match &root_device.extra {
                 Some(v) => (
                     v.driver.to_owned().unwrap_or(String::from("[none]")),
                     v.vendor.to_owned().unwrap_or(String::from("[unknown]")),
                     v.product_name
                         .to_owned()
                         .unwrap_or(String::from("[unknown]")),
+                    v.hub.to_owned().map(|h| h.num_ports),
                 ),
                 None => (
                     String::from("[none]"),
                     String::from("[unknown]"),
                     String::from("[unknown]"),
+                    None,
                 ),
+            };
+
+            let driver_string = if let Some(ports) = ports {
+                format!("{}/{}p", driver, ports)
+            } else {
+                driver
             };
 
             Vec::from([(
                 format!(
-                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver={}, {}",
+                    "Bus {:03}.Port 001: Dev 001, Class=root_hub, Driver={}, {}",
                     self.get_bus_number().unwrap_or(0xff),
-                    driver,
+                    driver_string,
                     speed
                 ),
                 format!(
@@ -396,7 +404,7 @@ impl Bus {
             log::warn!("Failed to get root_device in bus");
             Vec::from([(
                 format!(
-                    "Bus {:02}.Port 1: Dev 1, Class=root_hub, Driver=[none],",
+                    "Bus {:03}.Port 001: Dev 001, Class=root_hub, Driver=[none],",
                     self.get_bus_number().unwrap_or(0xff),
                 ),
                 format!(
@@ -1152,16 +1160,27 @@ impl Device {
         };
 
         if let Some(extra) = self.extra.as_ref() {
+            let ports = extra.hub.as_ref().map(|hub| hub.num_ports);
             for config in &extra.configurations {
                 for interface in &config.interfaces {
+                    let interface_driver = interface
+                        .driver
+                        .as_ref()
+                        .map_or(String::from("[none]"), |d| d.to_string());
+                    // if there are ports (device is hub), add them to the driver string
+                    let driver_string = if let Some(p) = ports {
+                        format!("{}/{}p", interface_driver, p)
+                    } else {
+                        interface_driver
+                    };
                     format_strs.push((
                         format!(
-                            "Port {:}: Dev {:}, If {}, Class={}, Driver={}, {}",
+                            "Port {:03}: Dev {:03}, If {}, Class={}, Driver={}, {}",
                             self.get_branch_position(),
                             self.location_id.number,
                             interface.number,
                             interface.class.to_lsusb_string(),
-                            interface.driver.as_ref().unwrap_or(&String::from("[none]")),
+                            driver_string,
                             speed
                         ),
                         format!(
@@ -1184,7 +1203,7 @@ impl Device {
             log::warn!("Rendering {} lsusb tree without extra data because it is missing. No configurations or interfaces will be shown", self);
             format_strs.push((
                 format!(
-                    "Port {:}: Dev {:}, If {}, Class={}, Driver={}, {}",
+                    "Port {:03}: Dev {:03}, If {}, Class={}, Driver={}, {}",
                     self.get_branch_position(),
                     self.location_id.number,
                     0,
