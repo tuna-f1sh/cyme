@@ -154,6 +154,4 @@ For no icons at all, use the hidden `--no-icons` or `--icon never` args.
 # Known Issues
 
 * `sudo` is required to open and read Linux root\_hub string descriptors and potentially all devices if the user does not have [permissions](https://docs.rs/nusb/latest/nusb/#linux). The program works fine without these however, as will use sysfs/hwdb/'usb-ids' like lsusb. Use debugging `-z` to see what devices failed to read. The env CYME_PRINT_NON_CRITICAL_PROFILER_STDERR can be used to print these to stderr. `--lsusb --verbose` will print a message to stderr always to match the 'lsusb' behaviour.
-* Version major BCD Device difference between libusb and macOS `system_profiler`: If the major version is large, libusb seems to read a different value to macOS. I don't think it's a parsing error but open to ideas.
 * Users cannot open special non-user devices on Apple buses (VHCI); T2 chip for example. These will still be listed with 'native' and `system_profiler` but not `--force-libusb`. They will not print verbose information however and log an error if `--verbose` is used/print if `--lsusb`.
-* Tested with macOS 13 ->. I'm not sure when the `-json` flag was added to `system_profiler`; whether it exists on all macOS versions.
