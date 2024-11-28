@@ -78,13 +78,16 @@ fn dump_bitmap_controls<T: Into<u32>>(
                 }
             }
             audio::ControlType::BmControl2 => {
-                println!(
-                    "{:indent$}{} Control ({})",
-                    "",
-                    control,
-                    audio::ControlSetting::from(((controls >> (index * 2)) & 0x3) as u8),
-                    indent = indent
-                )
+                let c = ((controls >> (index * 2)) & 0x3) as u8;
+                if c != 0 {
+                    println!(
+                        "{:indent$}{} Control ({})",
+                        "",
+                        control,
+                        audio::ControlSetting::from(c),
+                        indent = indent
+                    )
+                }
             }
         }
     }
