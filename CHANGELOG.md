@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- lsusb verbose would print all audio BmControl2 bits and show ILLEGAL VALUE for 0 bits.
+
 ## [2.1.0] - 2024-10-30
 
 ### Fixed
