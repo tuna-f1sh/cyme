@@ -1676,7 +1676,7 @@ where
     D: serde::de::Deserializer<'de>,
 {
     struct VersionVisitor;
-    impl<'de> serde::de::Visitor<'de> for VersionVisitor {
+    impl serde::de::Visitor<'_> for VersionVisitor {
         type Value = Version;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

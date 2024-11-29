@@ -12,9 +12,6 @@ use crate::error::{Error, ErrorKind};
 use crate::profiler::{Bus, Device};
 use crate::usb::{BaseClass, Direction};
 
-/// If only standard UTF-8 characters are used, this is the default icon for a device
-// const UTF8_DEFAULT_DEVICE_ICON: &str = "\u{2023}"; // ‣
-
 /// Serialize alphabetically for HashMaps so they don't change each generation
 fn sort_alphabetically<T: Serialize, S: serde::Serializer>(
     value: &T,
