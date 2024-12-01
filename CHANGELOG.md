@@ -1,10 +1,17 @@
 # Changelog
 
-## Unreleased
+## [2.1.1] - 2024-12-01
+
+Minor updates to match `lsusb` updates. Fixing bugs playing with USB gadgets!
 
 ### Fixed
 
+- Linux root_hubs now read_link pci driver like lsusb for driver field.
 - lsusb verbose would print all audio BmControl2 bits and show ILLEGAL VALUE for 0 bits.
+
+### Changed
+
+- lsusb tree number padding is now 3 digits for bus and device numbers to match lsusb.
 
 ## [2.1.0] - 2024-10-30
 
