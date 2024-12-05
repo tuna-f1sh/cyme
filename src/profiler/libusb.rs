@@ -183,7 +183,7 @@ impl<T: libusb::UsbContext> UsbOperations for UsbDevice<T> {
     }
 
     /// Get control message from device, ensuring message of [`ControlRequest`] length is read
-    fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>> {
+    fn get_control_msg(&self, control_request: ControlRequest) -> Result<Vec<u8>> {
         let mut buf = vec![0; control_request.length];
         if control_request.claim_interface {
             self.handle.claim_interface(control_request.index as u8)?;
