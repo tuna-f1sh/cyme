@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- control read endpoint stall will be re-attempted after clearing halt ([#54](https://github.com/tuna-f1sh/cyme/pull/54)).
+
+### Changed
+
+- macOS: claim interface when reading Debug Descriptors.
+
 ## [2.1.1] - 2024-12-01
 
 Minor updates to match `lsusb` updates. Fixing bugs playing with USB gadgets!

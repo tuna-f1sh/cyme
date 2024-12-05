@@ -66,6 +66,8 @@ pub enum ErrorKind {
     LibUSB,
     /// nusb error
     Nusb,
+    /// Stall in control request transfer
+    TransferStall,
     /// Error calling udev
     Udev,
     /// Invalid arg for method or cli

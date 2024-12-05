@@ -89,7 +89,7 @@ pub(crate) struct ControlRequest {
 /// Device USB operations required by the [`Profiler`]
 pub(crate) trait UsbOperations {
     fn get_descriptor_string(&self, string_index: u8) -> Option<String>;
-    fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>>;
+    fn get_control_msg(&self, control_request: ControlRequest) -> Result<Vec<u8>>;
 }
 
 /// OS level USB Profiler trait for profiling USB devices
@@ -110,7 +110,7 @@ where
             // only claim interface on linux
             claim_interface: cfg!(target_os = "linux") || cfg!(target_os = "android"),
         };
-        device.get_control_msg(&control_request)
+        device.get_control_msg(control_request)
     }
 
     /// Get the USB Hub Descriptor with a Control request, include hub port statuses
@@ -135,7 +135,7 @@ where
             length: 9,
             claim_interface: false,
         };
-        let data = device.get_control_msg(&control)?;
+        let data = device.get_control_msg(control)?;
         let mut hub = usb::HubDescriptor::try_from(data.as_slice())?;
 
         // get port statuses
@@ -150,7 +150,7 @@ where
                 length: if is_ext_status { 8 } else { 4 },
                 claim_interface: false,
             };
-            match device.get_control_msg(&control) {
+            match device.get_control_msg(control) {
                 Ok(mut data) => {
                     if data.len() < 8 {
                         let remaining = 8 - data.len();
@@ -186,7 +186,7 @@ where
             length: 2,
             claim_interface: false,
         };
-        let data = device.get_control_msg(&control)?;
+        let data = device.get_control_msg(control)?;
         Ok(u16::from_le_bytes([data[0], data[1]]))
     }
 
@@ -199,9 +199,10 @@ where
             index: 0,
             recipient: Recipient::Device,
             length: 2,
-            claim_interface: false,
+            // macOS seems to require claim to prevent timeout
+            claim_interface: cfg!(target_os = "macos"),
         };
-        let data = device.get_control_msg(&control)?;
+        let data = device.get_control_msg(control)?;
         usb::DebugDescriptor::try_from(data.as_slice())
     }
 
@@ -218,7 +219,7 @@ where
             length: 5,
             claim_interface: false,
         };
-        let data = device.get_control_msg(&control)?;
+        let data = device.get_control_msg(control)?;
         let total_length = u16::from_le_bytes([data[2], data[3]]);
         log::debug!(
             "{:?} Attempt read BOS descriptor total length: {}",
@@ -227,7 +228,7 @@ where
         );
         // now get full descriptor
         control.length = total_length as usize;
-        let data = device.get_control_msg(&control)?;
+        let data = device.get_control_msg(control)?;
         log::debug!("{:?} BOS descriptor data: {:?}", device, data);
         let mut bos =
             usb::descriptors::bos::BinaryObjectStoreDescriptor::try_from(data.as_slice())?;
@@ -259,13 +260,13 @@ where
         let control = ControlRequest {
             control_type: ControlType::Standard,
             request: REQUEST_GET_DESCRIPTOR,
-            value: 0x06 << 8,
+            value: (u8::from(usb::DescriptorType::DeviceQualifier) as u16) << 8,
             index: 0,
             recipient: Recipient::Device,
             length: 10,
             claim_interface: false,
         };
-        let data = device.get_control_msg(&control)?;
+        let data = device.get_control_msg(control)?;
         log::debug!("{:?} Qualifier descriptor data: {:?}", device, data);
         usb::DeviceQualifierDescriptor::try_from(data.as_slice())
     }
@@ -283,7 +284,7 @@ where
             length: 3,
             claim_interface: false,
         };
-        let data = device.get_control_msg(&control)?;
+        let data = device.get_control_msg(control)?;
         log::trace!("WebUSB URL descriptor data: {:?}", data);
         let len = data[0] as usize;
 

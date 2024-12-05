@@ -230,6 +230,79 @@ impl From<&nusb::DeviceInfo> for Device {
     }
 }
 
+impl UsbDevice {
+    fn control_in(
+        &self,
+        control_request: &ControlRequest,
+        data: &mut Vec<u8>,
+        clear_halt: bool,
+    ) -> Result<usize> {
+        let nusb_control: nusb::transfer::Control = (*control_request).into();
+        // Windows *ALWAYS* needs to claim the interface and self.handle.control_in_blocking isn't defined
+        #[cfg(target_os = "windows")]
+        let ret = {
+            // requires detech_and_claim_interface on Linux if mod is loaded
+            // not nice though just for profiling - maybe add a flag to claim or not?
+            let interface = self.handle.claim_interface(control_request.index as u8)?;
+            if clear_halt {
+                interface.clear_halt(0)?;
+            }
+            interface.control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+        };
+
+        #[cfg(not(target_os = "windows"))]
+        let ret = {
+            if control_request.claim_interface | clear_halt {
+                // requires detech_and_claim_interface on Linux if mod is loaded
+                // not nice though just for profiling - maybe add a flag to claim or not?
+                let interface = self.handle.claim_interface(control_request.index as u8)?;
+                if clear_halt {
+                    interface.clear_halt(0)?;
+                }
+                interface.control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+            } else {
+                self.handle
+                    .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+            }
+        };
+
+        ret.map_err(|e| match e {
+            nusb::transfer::TransferError::Stall => Error {
+                kind: ErrorKind::TransferStall,
+                message: "Endpoint in a STALL condition".to_string(),
+            },
+            _ => Error {
+                kind: ErrorKind::Nusb,
+                message: format!("Failed to get control message: {}", e),
+            },
+        })
+    }
+
+    /// Retry control request if it fails due to STALL - following a claim interface and clear halt
+    fn control_in_retry(
+        &self,
+        control_request: &ControlRequest,
+        data: &mut Vec<u8>,
+    ) -> Result<usize> {
+        match self.control_in(control_request, data, false) {
+            Ok(n) => Ok(n),
+            Err(Error {
+                kind: ErrorKind::TransferStall,
+                ..
+            }) => self
+                .control_in(control_request, data, true)
+                .map_err(|e| Error {
+                    kind: ErrorKind::Nusb,
+                    message: format!("Failed to get control message: {}", e),
+                }),
+            Err(e) => Err(Error {
+                kind: ErrorKind::Nusb,
+                message: format!("Failed to get control message: {}", e),
+            }),
+        }
+    }
+}
+
 impl UsbOperations for UsbDevice {
     fn get_descriptor_string(&self, string_index: u8) -> Option<String> {
         if string_index == 0 {
@@ -241,60 +314,9 @@ impl UsbOperations for UsbDevice {
             .ok()
     }
 
-    #[cfg(not(target_os = "windows"))]
-    fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>> {
+    fn get_control_msg(&self, control_request: ControlRequest) -> Result<Vec<u8>> {
         let mut data = vec![0; control_request.length];
-        let nusb_control: nusb::transfer::Control = (*control_request).into();
-        let n = if control_request.claim_interface {
-            self.handle
-                // requires detech_and_claim_interface on Linux if mod is loaded
-                // not nice though just for profiling - maybe add a flag to claim or not?
-                .claim_interface(control_request.index as u8)?
-                .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
-                .map_err(|e| Error {
-                    kind: ErrorKind::Nusb,
-                    message: format!("Failed to get control message: {}", e),
-                })?
-        } else {
-            self.handle
-                .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
-                .map_err(|e| Error {
-                    kind: ErrorKind::Nusb,
-                    message: format!("Failed to get control message: {}", e),
-                })?
-        };
-
-        if n < control_request.length {
-            log::debug!(
-                "{:?} Failed to get full control message: read {} of {} bytes",
-                self,
-                n,
-                control_request.length
-            );
-            return Err(Error {
-                kind: ErrorKind::Nusb,
-                message: format!(
-                    "{:?} Failed to get full control message: read {} of {} bytes",
-                    self, n, control_request.length
-                ),
-            });
-        }
-
-        Ok(data)
-    }
-
-    // separate function for Windows as it *ALWAYS* needs to claim the interface
-    #[cfg(target_os = "windows")]
-    fn get_control_msg(&self, control_request: &ControlRequest) -> Result<Vec<u8>> {
-        let mut data = vec![0; control_request.length];
-        let nusb_control: nusb::transfer::Control = (*control_request).into();
-        let interface = self.handle.claim_interface(control_request.index as u8)?;
-        let n = interface
-            .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
-            .map_err(|e| Error {
-                kind: ErrorKind::Nusb,
-                message: format!("Failed to get control message: {}", e),
-            })?;
+        let n = self.control_in_retry(&control_request, &mut data)?;
 
         if n < control_request.length {
             log::debug!(
