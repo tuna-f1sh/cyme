@@ -238,7 +238,9 @@ impl UsbDevice {
         clear_halt: bool,
     ) -> Result<usize> {
         let nusb_control: nusb::transfer::Control = (*control_request).into();
-        if control_request.claim_interface | clear_halt {
+        // Windows *ALWAYS* needs to claim the interface and self.handle.control_in_blocking isn't defined
+        #[cfg(target_os = "windows")]
+        let ret = {
             // requires detech_and_claim_interface on Linux if mod is loaded
             // not nice though just for profiling - maybe add a flag to claim or not?
             let interface = self.handle.claim_interface(control_request.index as u8)?;
@@ -246,11 +248,25 @@ impl UsbDevice {
                 interface.clear_halt(0)?;
             }
             interface.control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
-        } else {
-            self.handle
-                .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
-        }
-        .map_err(|e| match e {
+        };
+
+        #[cfg(not(target_os = "windows"))]
+        let ret = {
+            if control_request.claim_interface | clear_halt {
+                // requires detech_and_claim_interface on Linux if mod is loaded
+                // not nice though just for profiling - maybe add a flag to claim or not?
+                let interface = self.handle.claim_interface(control_request.index as u8)?;
+                if clear_halt {
+                    interface.clear_halt(0)?;
+                }
+                interface.control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+            } else {
+                self.handle
+                    .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+            }
+        };
+
+        ret.map_err(|e| match e {
             nusb::transfer::TransferError::Stall => Error {
                 kind: ErrorKind::TransferStall,
                 message: "Endpoint in a STALL condition".to_string(),
@@ -300,12 +316,6 @@ impl UsbOperations for UsbDevice {
 
     fn get_control_msg(&self, control_request: ControlRequest) -> Result<Vec<u8>> {
         let mut data = vec![0; control_request.length];
-        // Windows *ALWAYS* needs to claim the interface
-        #[cfg(target_os = "windows")]
-        {
-            let mut control = control_request.clone();
-            control.claim_interface = true;
-        }
         let n = self.control_in_retry(&control_request, &mut data)?;
 
         if n < control_request.length {
