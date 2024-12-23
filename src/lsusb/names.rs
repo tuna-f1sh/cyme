@@ -15,7 +15,7 @@ use usb_ids::{self, FromId};
 /// ```
 pub fn vendor(vid: u16) -> Option<String> {
     hwdb_get(&format!("usb:v{:04X}*", vid), "ID_VENDOR_FROM_DATABASE")
-        .unwrap_or(usb_ids::Vendor::from_id(vid).map(|v| v.name().to_owned()))
+        .unwrap_or_else(|_| usb_ids::Vendor::from_id(vid).map(|v| v.name().to_owned()))
 }
 
 /// Get name of product from [`usb_ids::Device`] or `hwdb_get` if feature is enabled
@@ -29,7 +29,7 @@ pub fn product(vid: u16, pid: u16) -> Option<String> {
         &format!("usb:v{:04X}p{:04X}*", vid, pid),
         "ID_MODEL_FROM_DATABASE",
     )
-    .unwrap_or(usb_ids::Device::from_vid_pid(vid, pid).map(|v| v.name().to_owned()))
+    .unwrap_or_else(|_| usb_ids::Device::from_vid_pid(vid, pid).map(|v| v.name().to_owned()))
 }
 
 /// Get name of class from [`usb_ids::Class`] or `hwdb_get` if feature is enabled
@@ -43,7 +43,7 @@ pub fn class(id: u8) -> Option<String> {
         &format!("usb:v*p*d*dc{:02X}*", id),
         "ID_USB_CLASS_FROM_DATABASE",
     )
-    .unwrap_or(usb_ids::Class::from_id(id).map(|v| v.name().to_owned()))
+    .unwrap_or_else(|_| usb_ids::Class::from_id(id).map(|v| v.name().to_owned()))
 }
 
 /// Get name of sub class from [`usb_ids::SubClass`] or `hwdb_get` if feature is enabled
@@ -57,7 +57,7 @@ pub fn subclass(cid: u8, scid: u8) -> Option<String> {
         &format!("usb:v*p*d*dc{:02X}dsc{:02X}*", cid, scid),
         "ID_USB_SUBCLASS_FROM_DATABASE",
     )
-    .unwrap_or(usb_ids::SubClass::from_cid_scid(cid, scid).map(|v| v.name().to_owned()))
+    .unwrap_or_else(|_| usb_ids::SubClass::from_cid_scid(cid, scid).map(|v| v.name().to_owned()))
 }
 
 /// Get name of protocol from [`usb_ids::Protocol`] or `hwdb_get` if feature is enabled
@@ -71,7 +71,9 @@ pub fn protocol(cid: u8, scid: u8, pid: u8) -> Option<String> {
         &format!("usb:v*p*d*dc{:02X}dsc{:02X}dp{:02X}*", cid, scid, pid),
         "ID_USB_PROTOCOL_FROM_DATABASE",
     )
-    .unwrap_or(usb_ids::Protocol::from_cid_scid_pid(cid, scid, pid).map(|v| v.name().to_owned()))
+    .unwrap_or_else(|_| {
+        usb_ids::Protocol::from_cid_scid_pid(cid, scid, pid).map(|v| v.name().to_owned())
+    })
 }
 
 /// Get HID descriptor type name from [`usb_ids::Hid`]

@@ -1086,22 +1086,16 @@ impl Device {
     pub fn get_vendor_product_with_fallback(&self) -> (String, String) {
         match &self.extra {
             Some(v) => (
-                v.vendor.to_owned().unwrap_or(
-                    self.manufacturer
-                        .as_ref()
-                        .unwrap_or(&String::new())
-                        .to_owned(),
-                ),
+                v.vendor
+                    .to_owned()
+                    .unwrap_or(self.manufacturer.to_owned().unwrap_or_default()),
                 v.product_name
                     .to_owned()
-                    .unwrap_or(self.name.trim().to_string()),
+                    .unwrap_or(self.name.trim().to_owned()),
             ),
             None => (
-                self.manufacturer
-                    .as_ref()
-                    .unwrap_or(&String::new())
-                    .to_owned(),
-                self.name.trim().to_string(),
+                self.manufacturer.to_owned().unwrap_or_default(),
+                self.name.trim().to_owned(),
             ),
         }
     }
