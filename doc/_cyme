@@ -48,7 +48,7 @@ wireless-controller\:"Wireless controllers\: Bluetooth adaptors, Microsoft RNDIS
 miscellaneous\:"This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website"
 application-specific-interface\:"This base class is defined for devices that conform to several class specifications found on the USB-IF website"
 vendor-specific-class\:"This base class is defined for vendors to use as they please"))' \
-'*-b+[Specify the blocks which will be displayed for each device and in what order]:BLOCKS:((bus-number\:"Number of bus device is attached"
+'*-b+[Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times to specify multiple blocks]:BLOCKS:((bus-number\:"Number of bus device is attached"
 device-number\:"Bus issued device number"
 branch-position\:"Position of device in parent branch"
 port-path\:"Linux style port path"
@@ -77,7 +77,7 @@ uid-sub-class\:"Sub-class name from USB IDs repository"
 uid-protocol\:"Protocol name from USB IDs repository"
 class\:"Fully defined USB Class Code enum based on BaseClass/SubClass/Protocol triplet"
 base-value\:"Base class as number value rather than enum"))' \
-'*--blocks=[Specify the blocks which will be displayed for each device and in what order]:BLOCKS:((bus-number\:"Number of bus device is attached"
+'*--blocks=[Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times to specify multiple blocks]:BLOCKS:((bus-number\:"Number of bus device is attached"
 device-number\:"Bus issued device number"
 branch-position\:"Position of device in parent branch"
 port-path\:"Linux style port path"
@@ -106,7 +106,7 @@ uid-sub-class\:"Sub-class name from USB IDs repository"
 uid-protocol\:"Protocol name from USB IDs repository"
 class\:"Fully defined USB Class Code enum based on BaseClass/SubClass/Protocol triplet"
 base-value\:"Base class as number value rather than enum"))' \
-'*--bus-blocks=[Specify the blocks which will be displayed for each bus and in what order]:BUS_BLOCKS:((bus-number\:"System bus number identifier"
+'*--bus-blocks=[Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times to specify multiple blocks]:BUS_BLOCKS:((bus-number\:"System bus number identifier"
 icon\:"Icon based on VID/PID"
 name\:"System internal bus name based on Root Hub device name"
 host-controller\:"System internal bus provider name"
@@ -116,13 +116,13 @@ pci-vendor\:"PCI vendor ID (VID)"
 pci-device\:"PCI device ID (PID)"
 pci-revision\:"PCI Revsision ID"
 port-path\:"syspath style port path to bus, applicable to Linux only"))' \
-'*--config-blocks=[Specify the blocks which will be displayed for each configuration and in what order]:CONFIG_BLOCKS:((name\:"Name from string descriptor"
+'*--config-blocks=[Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times to specify multiple blocks]:CONFIG_BLOCKS:((name\:"Name from string descriptor"
 number\:"Number of config, bConfigurationValue; value to set to enable to configuration"
 num-interfaces\:"Interfaces available for this configuruation"
 attributes\:"Attributes of configuration, bmAttributes"
 icon-attributes\:"Icon representation of bmAttributes"
 max-power\:"Maximum current consumption in mA"))' \
-'*--interface-blocks=[Specify the blocks which will be displayed for each interface and in what order]:INTERFACE_BLOCKS:((name\:"Name from string descriptor"
+'*--interface-blocks=[Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times to specify multiple blocks]:INTERFACE_BLOCKS:((name\:"Name from string descriptor"
 number\:"Interface number"
 port-path\:"Interface port path, applicable to Linux"
 base-class\:"Base class enum of interface provided by USB IF"
@@ -138,7 +138,7 @@ uid-sub-class\:"Sub-class name from USB IDs repository"
 uid-protocol\:"Protocol name from USB IDs repository"
 class\:"Fully defined USB Class Code based on BaseClass/SubClass/Protocol triplet"
 base-value\:"Base class as number value rather than enum"))' \
-'*--endpoint-blocks=[Specify the blocks which will be displayed for each endpoint and in what order]:ENDPOINT_BLOCKS:((number\:"Endpoint number on interface"
+'*--endpoint-blocks=[Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times to specify multiple blocks]:ENDPOINT_BLOCKS:((number\:"Endpoint number on interface"
 direction\:"Direction of data into endpoint"
 transfer-type\:"Type of data transfer endpoint accepts"
 sync-type\:"Synchronisation type (Iso mode)"
@@ -169,8 +169,8 @@ replace\:"Mask by replacing length with random chars"))' \
 '--lsusb[Attempt to maintain compatibility with lsusb output]' \
 '-t[Dump USB device hierarchy as a tree]' \
 '--tree[Dump USB device hierarchy as a tree]' \
-'*-v[Verbosity level\: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks]' \
-'*--verbose[Verbosity level\: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks]' \
+'*-v[Verbosity level (repeat provides count)\: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and more blocks]' \
+'*--verbose[Verbosity level (repeat provides count)\: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and more blocks]' \
 '-m[Print more blocks by default at each verbosity]' \
 '--more[Print more blocks by default at each verbosity]' \
 '--sort-buses[Sort devices by bus number. If using any sort-devices other than no-sort, this happens automatically]' \
