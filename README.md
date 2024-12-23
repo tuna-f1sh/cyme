@@ -28,14 +28,14 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 * Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output - fully parsed device descriptors! Output is identical for use with no args (list), tree (excluding drivers on non-Linux) and should match for verbose (perhaps formatting differences).
 * Default build is a native Rust profiler using [nusb](https://docs.rs/nusb/latest/nusb).
-* Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter_name`, `--filter_serial`, `--filter_class` and option to hide empty `--hide-buses`/`--hide-hubs`.
+* Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter-name`, `--filter-serial`, `--filter-class` and option to hide empty `--hide-buses`/`--hide-hubs`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
-* Controllable block data like `lsd --blocks` for device, bus, configurations, interfaces and endpoints. Use `--more` to see more by default.
+* Controllable display `--blocks` for device, bus `--bus-blocks`, configurations `--config-blocks`, interfaces `--interface-blocks` and endpoints `--endpoint-blocks`. Use `--more` to see more by default.
 * Modern terminal features with coloured output, utf-8 characters and icon look-up based device data. Can be turned off and customised. See `--encoding` (glyphs [default], utf8 and ascii), which can keep icons/tree within a certain encoding, `--color` (auto [default], always and never) and `--icon` (auto [default], always and never). Auto `--icon` will only show icons if all icons to be shown are supported by the `--encoding`.
 * Can be used as a library too with system profiler module, USB descriptor modules and `display` module for printing amongst others.
 * `--json` output that honours filters and `--tree`.
 * `--headers` to show meta data only when asked and not take space otherwise.
-* `--mask_serials` to either '\*' or randomise serial string for sharing dumps with sensitive serial numbers.
+* `--mask-serials` to either '\*' or randomise serial string for sharing dumps with sensitive serial numbers.
 * Auto-scaling to terminal width. Variable length strings such as descriptors will be truncated with a '...' to indicate this. Can be disabled with config option 'no-auto-width' and a fixed max defined with 'max-variable-string-len'.
 * Targets for Linux, macOS and Windows.
 
@@ -113,6 +113,60 @@ Was the default feature before 2.0.0 for macOS systems to provide the base infor
 # Usage
 
 Use `cyme --help` for basic usage or `man ./doc/cyme.1`. There are also autocompletions in './doc'.
+
+## Examples
+
+### Tree
+
+```bash
+# List all USB devices and buses in a tree format with default display blocks
+cyme --tree
+# As above but with configurations too
+cyme --tree --verbose
+# And with interfaces and endpoints - each verbose level goes futher down the USB descriptor tree. Using short arg here.
+cyme --tree -vvv
+# List all USB devices and buses in a tree format with more display blocks, all verbose levels and headings to show what is being displayed
+cyme --tree --more --headings
+# Export the tree to a JSON file - --json works with all options
+cyme --tree --verbose --json > tree.json
+# Then import the JSON file to view the system USB tree as it was when exported. All cyme args can be used with this static import as if it was profiled data.
+cyme --from-json tree.json
+```
+
+### lsusb
+
+```bash
+# List all USB devices and buses like 'lsusb'
+cyme --lsusb
+# lsusb verbose device dump including all descriptor informaion
+cyme --lsusb --verbose
+# lsusb tree mode (can add verbose levels [-v])
+cyme --lsusb --tree
+```
+
+### Blocks
+
+See `cyme --help` for blocks available. One can also omit the value to the arg to show options. Specifying multiple blocks requires multiple args.
+
+```bash
+# List USB devices with more display blocks
+cyme --more
+# List USB devices with chosen blocks: name, vid, pid, serial, speed (can use short -b)
+cyme --blocks name --blocks vendor-id --blocks product-id --blocks serial -b speed
+# Customise other blocks - it's probably easier to use Config at this point
+cyme --blocks name --bus-blocks name --config-blocks name --interface-blocks class --endpoint-blocks number
+```
+
+### Filtering
+
+```bash
+# Filter for only Apple devices (vid:pid is base16)
+cyme -d 0x05ac
+# Specifically an Apple Headset, masking the serial number with '*'
+cyme -d 05ac:8103 --mask-serials hide
+# Filter for only devices with a certain name and class (filters can be combined)
+cyme --filter-name "Black Magic" --filter-class cdc-data
+```
 
 ## Crate
 

@@ -49,27 +49,27 @@ struct Args {
     #[arg(long)]
     filter_class: Option<BaseClass>,
 
-    /// Verbosity level: 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and all blocks
+    /// Verbosity level (repeat provides count): 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and more blocks
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
     verbose: u8,
 
-    /// Specify the blocks which will be displayed for each device and in what order
+    /// Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times to specify multiple blocks.
     #[arg(short, long, value_enum)]
     blocks: Option<Vec<display::DeviceBlocks>>,
 
-    /// Specify the blocks which will be displayed for each bus and in what order
+    /// Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times to specify multiple blocks.
     #[arg(long, value_enum)]
     bus_blocks: Option<Vec<display::BusBlocks>>,
 
-    /// Specify the blocks which will be displayed for each configuration and in what order
+    /// Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times to specify multiple blocks.
     #[arg(long, value_enum)]
     config_blocks: Option<Vec<display::ConfigurationBlocks>>,
 
-    /// Specify the blocks which will be displayed for each interface and in what order
+    /// Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times to specify multiple blocks.
     #[arg(long, value_enum)]
     interface_blocks: Option<Vec<display::InterfaceBlocks>>,
 
-    /// Specify the blocks which will be displayed for each endpoint and in what order
+    /// Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times to specify multiple blocks.
     #[arg(long, value_enum)]
     endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
 
