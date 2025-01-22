@@ -19,7 +19,7 @@ fn main() -> Result<(), String> {
     filter.retain_buses(&mut sp_usb.buses);
     sp_usb
         .buses
-        .retain(|b| b.devices.as_ref().map_or(false, |d| d.is_empty()));
+        .retain(|b| b.devices.as_ref().is_some_and(|d| d.is_empty()));
 
     // if one does not care about the tree, flatten the devices and do manually
     // let hid_devices = sp_usb.flatten_devices().iter().filter(|d| d.class == Some(BaseClass::HID));

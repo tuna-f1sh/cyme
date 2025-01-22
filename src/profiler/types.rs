@@ -984,7 +984,7 @@ impl Device {
     /// ```
     pub fn is_hub(&self) -> bool {
         self.name.to_lowercase().contains("hub")
-            || self.class.as_ref().map_or(false, |c| *c == BaseClass::Hub)
+            || self.class.as_ref().is_some_and(|c| *c == BaseClass::Hub)
     }
 
     /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
@@ -1485,10 +1485,10 @@ impl Filter {
                 device
                     .serial_num
                     .as_ref()
-                    .map_or(false, |s| s.contains(n.as_str()))
+                    .is_some_and(|s| s.contains(n.as_str()))
             }))
             && (self.class.as_ref().map_or(true, |fc| {
-                device.class.as_ref().map_or(false, |c| c == fc) || device.has_interface_class(fc)
+                device.class.as_ref() == Some(fc) || device.has_interface_class(fc)
             }))
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
             && (!device.is_root_hub() || self.no_exclude_root_hub)

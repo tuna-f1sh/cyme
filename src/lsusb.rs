@@ -376,7 +376,7 @@ pub fn print(devices: &Vec<&Device>, verbose: bool) {
                         dump_device_status(
                             status,
                             otg.is_some(),
-                            device.bcd_usb.map_or(false, |v| v.major() >= 3),
+                            device.bcd_usb.is_some_and(|v| v.major() >= 3),
                             0,
                         );
                     }

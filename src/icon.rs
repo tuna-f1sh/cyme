@@ -472,7 +472,7 @@ impl IconTheme {
             .iter()
             .find(|(k, _)| {
                 if let Icon::Name(s) = k {
-                    regex::Regex::new(s).map_or(false, |r| r.is_match(name))
+                    regex::Regex::new(s).is_ok_and(|r| r.is_match(name))
                 } else {
                     false
                 }
@@ -490,7 +490,7 @@ impl IconTheme {
                 .iter()
                 .find(|(k, _)| {
                     if let Icon::Name(s) = k {
-                        regex::Regex::new(s).map_or(false, |r| r.is_match(name))
+                        regex::Regex::new(s).is_ok_and(|r| r.is_match(name))
                     } else {
                         false
                     }
