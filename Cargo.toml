@@ -15,7 +15,6 @@ exclude = [".github"]
 clap = { version = "4.0.22", features = ["derive", "wrap_help"] }
 colored = "2.0.0"
 itertools = "0.10.5"
-lazy_static = "1.4.0"
 rusb = { version = "0.9.4", optional = true }
 nusb = { version = "0.1.10", optional = true }
 log = "0.4.17"

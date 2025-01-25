@@ -278,7 +278,6 @@ dependencies = [
  "heck 0.4.1",
  "io-kit-sys",
  "itertools",
- "lazy_static",
  "log",
  "nusb",
  "pci-ids",

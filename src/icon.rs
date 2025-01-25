@@ -6,6 +6,7 @@ use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use crate::display::Encoding;
 use crate::error::{Error, ErrorKind};
@@ -215,101 +216,106 @@ impl Default for IconTheme {
     }
 }
 
-lazy_static! {
-    /// Default icons to draw tree can be overridden by user icons with IconTheme `tree`
-    pub static ref DEFAULT_UTF8_TREE: HashMap<Icon, &'static str> = {
-        HashMap::from([
-            (Icon::TreeEdge, "\u{251c}\u{2500}\u{2500}"), // "├──"
-            (Icon::TreeLine, "\u{2502}  "), // "│  "
-            (Icon::TreeCorner, "\u{2514}\u{2500}\u{2500}"), // "└──"
-            (Icon::TreeBlank, "   "), // should be same char width as above
-            (Icon::TreeBusStart, "\u{25CF}"), // "●"
-            (Icon::TreeDeviceTerminator, "\u{25CB}"), // "○"
-            (Icon::TreeConfigurationTerminator, "\u{2022}"), // "•"
-            (Icon::TreeInterfaceTerminator, "\u{25E6}"), // "◦"
-            (Icon::Endpoint(Direction::In), "\u{2192}"), // →
-            (Icon::Endpoint(Direction::Out), "\u{2190}"), // ←
-            // (Icon::Endpoint(Direction::In), ">".into()), // →
-            // (Icon::Endpoint(Direction::Out), "<".into()), // ←
-        ])
-    };
+/// Default icons to draw tree can be overridden by user icons with IconTheme `tree`
+pub static DEFAULT_UTF8_TREE: LazyLock<HashMap<Icon, &'static str>> = LazyLock::new(|| {
+    HashMap::from([
+        (Icon::TreeEdge, "\u{251c}\u{2500}\u{2500}"),    // "├──"
+        (Icon::TreeLine, "\u{2502}  "),                  // "│  "
+        (Icon::TreeCorner, "\u{2514}\u{2500}\u{2500}"),  // "└──"
+        (Icon::TreeBlank, "   "),                        // should be same char width as above
+        (Icon::TreeBusStart, "\u{25CF}"),                // "●"
+        (Icon::TreeDeviceTerminator, "\u{25CB}"),        // "○"
+        (Icon::TreeConfigurationTerminator, "\u{2022}"), // "•"
+        (Icon::TreeInterfaceTerminator, "\u{25E6}"),     // "◦"
+        (Icon::Endpoint(Direction::In), "\u{2192}"),     // →
+        (Icon::Endpoint(Direction::Out), "\u{2190}"),    // ←
+    ])
+});
 
-    /// Ascii chars used by lsusb compatible mode or no utf-8
-    pub static ref DEFAULT_ASCII_TREE: HashMap<Icon, &'static str> = {
-        HashMap::from([
-            (Icon::TreeEdge, "|__"), // same as corner
-            (Icon::TreeLine, "|  "), // no outside line but inset so starts under parent device
-            (Icon::TreeCorner, "|__"),
-            (Icon::TreeBlank, "   "), // inset like line
-            (Icon::TreeBusStart, "/: "),
-            (Icon::TreeDeviceTerminator, "O"), // null
-            (Icon::TreeConfigurationTerminator, "o"), // null
-            (Icon::TreeInterfaceTerminator, "."), // null
-            (Icon::Endpoint(Direction::In), ">"), //
-            (Icon::Endpoint(Direction::Out), "<"), //
-        ])
-    };
+/// Ascii chars used by lsusb compatible mode or no utf-8
+pub static DEFAULT_ASCII_TREE: LazyLock<HashMap<Icon, &'static str>> = LazyLock::new(|| {
+    HashMap::from([
+        (Icon::TreeEdge, "|__"), // same as corner
+        (Icon::TreeLine, "|  "), // no outside line but inset so starts under parent device
+        (Icon::TreeCorner, "|__"),
+        (Icon::TreeBlank, "   "), // inset like line
+        (Icon::TreeBusStart, "/: "),
+        (Icon::TreeDeviceTerminator, "O"),        // null
+        (Icon::TreeConfigurationTerminator, "o"), // null
+        (Icon::TreeInterfaceTerminator, "."),     // null
+        (Icon::Endpoint(Direction::In), ">"),     //
+        (Icon::Endpoint(Direction::Out), "<"),    //
+    ])
+});
 
-    /// Default icon lookup can be overridden by user icons with IconTheme `icons`
-    ///
-    /// Should probably keep fairly short but I've added things I use like debuggers, mcus as examples
-    pub static ref DEFAULT_ICONS: HashMap<Icon, &'static str> = {
-        HashMap::from([
-            (Icon::UnknownVendor, "\u{f287}"), // usb plug default 
-            (Icon::Vid(0x05ac), "\u{f179}"), // apple 
-            (Icon::Vid(0x045e), "\u{f0372}"), // microsoft 󰍲
-            (Icon::Vid(0x18d1), "\u{f1a0}"), // google 
-            (Icon::Vid(0x1D6B), "\u{f17c}"), // linux foundation 
-            (Icon::Vid(0x1d50), "\u{e771}"), // open source VID 
-            (Icon::VidPid((0x1915, 0x520c)), "\u{f00a3}"), // specialized 󰂣
-            (Icon::VidPid((0x1915, 0x520d)), "\u{f00a3}"), // specialized 󰂣
-            (Icon::VidPid((0x0483, 0x572B)), "\u{f00a3}"), // specialized 󰂣
-            (Icon::Vid(0x046d), "\u{f037d}"), // logitech 󰍽
-            (Icon::Vid(0x091e), "\u{e2a6}"), // garmin 
-            (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}"), // black magic probe 
-            (Icon::Vid(0x1366), "\u{f188}"), // segger 
-            (Icon::Vid(0xf1a0), "\u{f188}"), // arm 
-            (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}"), // st-link 
-            (Icon::VidPid((0x0483, 0xdf11)), "\u{f019}"), // STM DFU 
-            (Icon::VidPid((0x1d50, 0x6017)), "\u{f188}"), // black magic probe DFU 
-            (Icon::ClassifierSubProtocol((BaseClass::ApplicationSpecificInterface, 0x01, 0x01)), "\u{f188}"), // DFU 
-            (Icon::ClassifierSubProtocol((BaseClass::WirelessController, 0x01, 0x01)), "\u{f188}"), // bluetooth DFU 
-            (Icon::Vid(0x2341), "\u{f2db}"), // arduino 
-            (Icon::Vid(0x239A), "\u{f2db}"), // adafruit 
-            (Icon::Vid(0x2e8a), "\u{f315}"), // raspberry pi foundation 
-            (Icon::Vid(0x0483), "\u{f2db}"), // stm 
-            (Icon::Vid(0x1915), "\u{f2db}"), // nordic 
-            (Icon::Vid(0x1fc9), "\u{f2db}"), // nxp 
-            (Icon::Vid(0x1050), "\u{f084}"), // yubikey 
-            (Icon::Vid(0x0781), "\u{f129e}"), // sandisk 󱊞
-            #[cfg(feature = "regex_icon")]
-            (Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()), "\u{ef61}"), // sd card reader 
-            (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"), // android dev 
-            (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"), // android 
-            (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
-            (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f0379}"), // lg monitor 󰍹
-            (Icon::Classifier(BaseClass::Audio), "\u{f001}"), // 
-            (Icon::Classifier(BaseClass::Image), "\u{f03e}"), // 
-            (Icon::Classifier(BaseClass::Video), "\u{f03d}"), // 
-            (Icon::Classifier(BaseClass::Printer), "\u{f02f}"), // 
-            (Icon::Classifier(BaseClass::MassStorage), "\u{f0a0}"), // 
-            (Icon::Classifier(BaseClass::Hub), "\u{f126}"), // 
-            (Icon::Classifier(BaseClass::ContentSecurity), "\u{f084}"), // 
-            (Icon::Classifier(BaseClass::SmartCard), "\u{f084}"), // 
-            (Icon::Classifier(BaseClass::PersonalHealthcare), "\u{f21e}"), // 
-            (Icon::Classifier(BaseClass::AudioVideo), "\u{f0841}"), // 󰡁
-            (Icon::Classifier(BaseClass::Billboard), "\u{f05a}"), // 
-            (Icon::Classifier(BaseClass::I3cDevice), "\u{f493}"), // 
-            (Icon::Classifier(BaseClass::Diagnostic), "\u{f489}"), // 
-            (Icon::Classifier(BaseClass::WirelessController), "\u{f1eb}"), // 
-            (Icon::Classifier(BaseClass::Miscellaneous), "\u{f074}"), // 
-            (Icon::Classifier(BaseClass::CdcCommunications), "\u{e795}"), // serial 
-            (Icon::Classifier(BaseClass::CdcData), "\u{e795}"), // serial 
-            (Icon::Classifier(BaseClass::Hid), "\u{f030c}"), // 󰌌
-            (Icon::UndefinedClassifier, "\u{2636}"), //☶
-        ])
-    };
-}
+/// Default icon lookup can be overridden by user icons with IconTheme `icons`
+///
+/// Should probably keep fairly short but I've added things I use like debuggers, mcus as examples
+pub static DEFAULT_ICONS: LazyLock<HashMap<Icon, &'static str>> = LazyLock::new(|| {
+    HashMap::from([
+        (Icon::UnknownVendor, "\u{f287}"),             // usb plug default 
+        (Icon::Vid(0x05ac), "\u{f179}"),               // apple 
+        (Icon::Vid(0x045e), "\u{f0372}"),              // microsoft 󰍲
+        (Icon::Vid(0x18d1), "\u{f1a0}"),               // google 
+        (Icon::Vid(0x1D6B), "\u{f17c}"),               // linux foundation 
+        (Icon::Vid(0x1d50), "\u{e771}"),               // open source VID 
+        (Icon::VidPid((0x1915, 0x520c)), "\u{f00a3}"), // specialized 󰂣
+        (Icon::VidPid((0x1915, 0x520d)), "\u{f00a3}"), // specialized 󰂣
+        (Icon::VidPid((0x0483, 0x572B)), "\u{f00a3}"), // specialized 󰂣
+        (Icon::Vid(0x046d), "\u{f037d}"),              // logitech 󰍽
+        (Icon::Vid(0x091e), "\u{e2a6}"),               // garmin 
+        (Icon::VidPid((0x1d50, 0x6018)), "\u{f188}"),  // black magic probe 
+        (Icon::Vid(0x1366), "\u{f188}"),               // segger 
+        (Icon::Vid(0xf1a0), "\u{f188}"),               // arm 
+        (Icon::VidPidMsb((0x0483, 0x37)), "\u{f188}"), // st-link 
+        (Icon::VidPid((0x0483, 0xdf11)), "\u{f019}"),  // STM DFU 
+        (Icon::VidPid((0x1d50, 0x6017)), "\u{f188}"),  // black magic probe DFU 
+        (
+            Icon::ClassifierSubProtocol((BaseClass::ApplicationSpecificInterface, 0x01, 0x01)),
+            "\u{f188}",
+        ), // DFU 
+        (
+            Icon::ClassifierSubProtocol((BaseClass::WirelessController, 0x01, 0x01)),
+            "\u{f188}",
+        ), // bluetooth DFU 
+        (Icon::Vid(0x2341), "\u{f2db}"),               // arduino 
+        (Icon::Vid(0x239A), "\u{f2db}"),               // adafruit 
+        (Icon::Vid(0x2e8a), "\u{f315}"),               // raspberry pi foundation 
+        (Icon::Vid(0x0483), "\u{f2db}"),               // stm 
+        (Icon::Vid(0x1915), "\u{f2db}"),               // nordic 
+        (Icon::Vid(0x1fc9), "\u{f2db}"),               // nxp 
+        (Icon::Vid(0x1050), "\u{f084}"),               // yubikey 
+        (Icon::Vid(0x0781), "\u{f129e}"),              // sandisk 󱊞
+        #[cfg(feature = "regex_icon")]
+        (
+            Icon::Name(r".*^[sS][dD]\s[cC]ard\s[rR]eader.*".to_string()),
+            "\u{ef61}",
+        ), // sd card reader 
+        (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"),  // android dev 
+        (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"),  // android 
+        (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
+        (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f0379}"), // lg monitor 󰍹
+        (Icon::Classifier(BaseClass::Audio), "\u{f001}"), // 
+        (Icon::Classifier(BaseClass::Image), "\u{f03e}"), // 
+        (Icon::Classifier(BaseClass::Video), "\u{f03d}"), // 
+        (Icon::Classifier(BaseClass::Printer), "\u{f02f}"), // 
+        (Icon::Classifier(BaseClass::MassStorage), "\u{f0a0}"), // 
+        (Icon::Classifier(BaseClass::Hub), "\u{f126}"), // 
+        (Icon::Classifier(BaseClass::ContentSecurity), "\u{f084}"), // 
+        (Icon::Classifier(BaseClass::SmartCard), "\u{f084}"), // 
+        (Icon::Classifier(BaseClass::PersonalHealthcare), "\u{f21e}"), // 
+        (Icon::Classifier(BaseClass::AudioVideo), "\u{f0841}"), // 󰡁
+        (Icon::Classifier(BaseClass::Billboard), "\u{f05a}"), // 
+        (Icon::Classifier(BaseClass::I3cDevice), "\u{f493}"), // 
+        (Icon::Classifier(BaseClass::Diagnostic), "\u{f489}"), // 
+        (Icon::Classifier(BaseClass::WirelessController), "\u{f1eb}"), // 
+        (Icon::Classifier(BaseClass::Miscellaneous), "\u{f074}"), // 
+        (Icon::Classifier(BaseClass::CdcCommunications), "\u{e795}"), // serial 
+        (Icon::Classifier(BaseClass::CdcData), "\u{e795}"), // serial 
+        (Icon::Classifier(BaseClass::Hid), "\u{f030c}"), // 󰌌
+        (Icon::UndefinedClassifier, "\u{2636}"),       //☶
+    ])
+});
 
 impl IconTheme {
     /// New theme with defaults

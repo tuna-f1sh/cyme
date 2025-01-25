@@ -45,8 +45,6 @@
 #![warn(missing_docs)]
 use simple_logger::SimpleLogger;
 
-#[macro_use]
-extern crate lazy_static;
 pub mod colour;
 pub mod config;
 pub mod display;
