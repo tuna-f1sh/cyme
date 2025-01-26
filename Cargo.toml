@@ -12,29 +12,29 @@ categories = ["command-line-utilities"]
 exclude = [".github"]
 
 [dependencies]
-clap = { version = "4.0.22", features = ["derive", "wrap_help"] }
-colored = "2.0.0"
-itertools = "0.10.5"
-rusb = { version = "0.9.4", optional = true }
-nusb = { version = "0.1.10", optional = true }
-log = "0.4.17"
-serde = { version = "1.0", features = ["derive"] }
+clap = { version = "4.0.22", features = ["derive", "wrap_help"] } # CLI argument parsing
+clap_complete = { version = "4.0.6", optional = true } # CLI completions
+clap_mangen = { version = "0.2.5", optional = true } # for generating man - could manually do this
+colored = "2.0.0" # terminal colouring helper
+itertools = "0.10.5" # iterator methods used for building device tree
+rusb = { version = "0.9.4", optional = true } # libusb bindings
+nusb = { version = "0.1.10", optional = true } # pure Rust USB library
+serde = { version = "1.0", features = ["derive"] } # --json serialisation and --from-json deserialisation
 serde_json = "1.0.87"
 serde_with = "2.0.1"
+log = "0.4.17"
 simple_logger = "4.0.0"
-usb-ids = { version = "1" }
-heck = "0.4.0"
-clap_complete = { version = "4.0.6", optional = true }
-clap_mangen = { version = "0.2.5", optional = true }
-dirs = "4.0.0"
-rand = "0.8.5"
-terminal_size = "0.2.5"
-strum = "0.26"
-strum_macros = "0.26"
-regex = { version = "1.10.5", optional = true }
-uuid = { version = "1.9.1", features = ["serde"] }
-pci-ids = "0.2.5"
-unicode-width = "0.2.0"
+usb-ids = { version = "1" } # USB ID database
+heck = "0.4.0" # common case conversions - could be internal but simple crate with no dependencies
+dirs = "6.0.0" # cross-platform XDG_CONFIG_HOME - could be internal since only this path
+rand = "0.8.5" # random number generator for masking serials
+terminal_size = "0.2.5" # terminal size for automatic column width during display
+strum = "0.26" # enum to string conversion
+strum_macros = "0.26" # enum to string conversion
+regex = { version = "1.10.5", optional = true } # icon name lookup with regex
+uuid = { version = "1.9.1", features = ["serde"] } # descriptor UUID field support as type
+pci-ids = "0.2.5" # PCI ID database
+unicode-width = "0.2.0" # ensure USB device table is printed with equal width columns - zero dependencies
 
 [patch.crates-io]
 nusb = { git = "https://github.com/kevinmehall/nusb", branch = "main" }
@@ -53,13 +53,12 @@ core-foundation-sys = "0.8.4"
 io-kit-sys = "0.4.0"
 
 [features]
-libusb = ["dep:rusb"]
-udev = ["dep:udevrs"]
-udev_hwdb = ["udevlib?/hwdb"]
-# libudev C binding
-udevlib = ["dep:udevlib"]
-usb_test = []
-regex_icon = ["dep:regex"]
+libusb = ["dep:rusb"] # libusb bindings rather than nusb Rust
+udev = ["dep:udevrs"] # udev device info lookup
+udev_hwdb = ["udevlib?/hwdb"] # udev hardware database lookup rather than usb-ids
+udevlib = ["dep:udevlib"] # udev libc bindings rather than Rust
+usb_test = [] # testing with phyiscal USB devices
+regex_icon = ["dep:regex"] # icon name lookup with regex
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
 native = ["nusb", "udev"] # pure Rust USB and udev bindings
 ffi = ["libusb", "udevlib"] # C bindings for libusb and libudev
