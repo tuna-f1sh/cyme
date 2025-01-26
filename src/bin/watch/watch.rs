@@ -1,3 +1,10 @@
+//! Watch for USB devices being connected and disconnected.
+//!
+//! TODO ideas:
+//!
+//! - Use cyme::display
+//! - Make this into a full TUI with expanding device details
+use colored::*;
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent},
@@ -17,6 +24,7 @@ use std::time::SystemTime;
 
 pub fn watch_usb_devices() -> Result<()> {
     // last connected time none means connected
+    // TODO struct so we can expand
     let mut devices: HashMap<DeviceId, (DeviceInfo, Option<SystemTime>)> =
         nusb::list_devices()?.map(|d| (d.id(), (d, None))).collect();
 
@@ -38,7 +46,11 @@ pub fn watch_usb_devices() -> Result<()> {
             while let Some(event) = watch_stream.next().await {
                 match event {
                     HotplugEvent::Connected(device) => {
-                        devices.insert(device.id(), (device, None));
+                        // TODO can just insert once display with sort used
+                        // or modify last seen?
+                        if !devices.contains_key(&device.id()) {
+                            devices.insert(device.id(), (device, None));
+                        }
                     }
                     HotplugEvent::Disconnected(id) => {
                         if let Some((_, dt)) = devices.get_mut(&id) {
@@ -50,8 +62,6 @@ pub fn watch_usb_devices() -> Result<()> {
             }
         });
     });
-
-    writeln!(stdout, "Press 'q' to quit").unwrap();
 
     // Thread to listen for keyboard events
     thread::spawn(move || loop {
@@ -87,22 +97,31 @@ fn draw_devices(devices: &HashMap<DeviceId, (DeviceInfo, Option<SystemTime>)>) -
     )
     .map_err(|e| Error::new(ErrorKind::Other("crossterm"), &e.to_string()))?;
 
+    // TODO use cyme::display
     for (_id, (device, last_seen)) in devices {
         if let Some(last_seen_time) = last_seen {
             execute!(stdout, SetForegroundColor(Color::Grey)).unwrap();
             writeln!(
                 stdout,
-                "{} - Disconnected (last seen: {:?})",
-                device.product_string().unwrap_or("Unknown device"),
-                last_seen_time
+                "{}",
+                format!(
+                    "{} - Disconnected (last seen: {:?})",
+                    device.product_string().unwrap_or("Unknown device"),
+                    last_seen_time
+                )
+                .red()
             )
             .unwrap();
         } else {
             execute!(stdout, SetForegroundColor(Color::White)).unwrap();
             writeln!(
                 stdout,
-                "{} - Connected",
-                device.product_string().unwrap_or("Unknown device")
+                "{}",
+                format!(
+                    "{} - Connected",
+                    device.product_string().unwrap_or("Unknown device")
+                )
+                .green()
             )
             .unwrap();
         }
