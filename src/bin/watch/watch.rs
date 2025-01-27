@@ -4,7 +4,6 @@
 //!
 //! - Use cyme::display
 //! - Make this into a full TUI with expanding device details
-use colored::*;
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent},
@@ -12,20 +11,20 @@ use crossterm::{
 };
 use nusb::{hotplug::HotplugEvent, DeviceId, DeviceInfo};
 use std::collections::HashMap;
-use std::io::{stdout, Write};
+use std::io::stdout;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crossterm::{style::Color, style::SetForegroundColor};
+use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
+use cyme::profiler::{Device, WatchEvent};
 use futures_lite::stream::StreamExt;
-use std::time::SystemTime;
 
 pub fn watch_usb_devices() -> Result<()> {
     // last connected time none means connected
     // TODO struct so we can expand
-    let mut devices: HashMap<DeviceId, (DeviceInfo, Option<SystemTime>)> =
+    let mut devices: HashMap<DeviceId, (DeviceInfo, Option<WatchEvent>)> =
         nusb::list_devices()?.map(|d| (d.id(), (d, None))).collect();
 
     let stop_flag = Arc::new(Mutex::new(false));
@@ -46,15 +45,14 @@ pub fn watch_usb_devices() -> Result<()> {
             while let Some(event) = watch_stream.next().await {
                 match event {
                     HotplugEvent::Connected(device) => {
-                        // TODO can just insert once display with sort used
-                        // or modify last seen?
-                        if !devices.contains_key(&device.id()) {
-                            devices.insert(device.id(), (device, None));
-                        }
+                        devices.insert(
+                            device.id(),
+                            (device, Some(WatchEvent::Connected(chrono::Local::now()))),
+                        );
                     }
                     HotplugEvent::Disconnected(id) => {
                         if let Some((_, dt)) = devices.get_mut(&id) {
-                            *dt = Some(SystemTime::now());
+                            *dt = Some(WatchEvent::Disconnected(chrono::Local::now()));
                         }
                     }
                 }
@@ -88,7 +86,7 @@ pub fn watch_usb_devices() -> Result<()> {
     Ok(())
 }
 
-fn draw_devices(devices: &HashMap<DeviceId, (DeviceInfo, Option<SystemTime>)>) -> Result<()> {
+fn draw_devices(devices: &HashMap<DeviceId, (DeviceInfo, Option<WatchEvent>)>) -> Result<()> {
     let mut stdout = stdout();
     execute!(
         stdout,
@@ -97,35 +95,27 @@ fn draw_devices(devices: &HashMap<DeviceId, (DeviceInfo, Option<SystemTime>)>) -
     )
     .map_err(|e| Error::new(ErrorKind::Other("crossterm"), &e.to_string()))?;
 
+    let cyme_devices: Vec<cyme::profiler::Device> = devices
+        .iter()
+        .map(|(id, (device, last_seen))| {
+            let mut device: cyme::profiler::Device = device.into();
+            device.id = Some(*id);
+            device.last_event = *last_seen;
+            device
+        })
+        .collect();
+
+    let mut print_settings = PrintSettings::default();
+    print_settings.colours = Some(cyme::colour::ColourTheme::default());
+    let mut device_blocks = DeviceBlocks::default_blocks(false);
+    device_blocks.push(DeviceBlocks::LastEvent);
+    print_settings.device_blocks = Some(device_blocks);
+
     // TODO use cyme::display
-    for (_id, (device, last_seen)) in devices {
-        if let Some(last_seen_time) = last_seen {
-            execute!(stdout, SetForegroundColor(Color::Grey)).unwrap();
-            writeln!(
-                stdout,
-                "{}",
-                format!(
-                    "{} - Disconnected (last seen: {:?})",
-                    device.product_string().unwrap_or("Unknown device"),
-                    last_seen_time
-                )
-                .red()
-            )
-            .unwrap();
-        } else {
-            execute!(stdout, SetForegroundColor(Color::White)).unwrap();
-            writeln!(
-                stdout,
-                "{}",
-                format!(
-                    "{} - Connected",
-                    device.product_string().unwrap_or("Unknown device")
-                )
-                .green()
-            )
-            .unwrap();
-        }
-    }
+    cyme::display::print_flattened_devices(
+        &cyme_devices.iter().collect::<Vec<&Device>>(),
+        &print_settings,
+    );
 
     Ok(())
 }

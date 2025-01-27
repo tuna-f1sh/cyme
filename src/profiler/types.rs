@@ -732,6 +732,21 @@ impl FromStr for DeviceSpeed {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum WatchEvent {
+    Connected(chrono::DateTime<chrono::Local>),
+    Disconnected(chrono::DateTime<chrono::Local>),
+}
+
+impl fmt::Display for WatchEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            WatchEvent::Connected(t) => write!(f, "o {}", t),
+            WatchEvent::Disconnected(t) => write!(f, "x {}", t),
+        }
+    }
+}
+
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
 ///
 /// Designed to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb. Fields should probably be non-pub with getters/setters but treat them as read-only.
@@ -794,6 +809,14 @@ pub struct Device {
     /// Internal to store any non-critical errors captured whilst profiling, unable to open for example
     #[serde(skip)]
     pub profiler_error: Option<String>,
+    /// Unique ID assigned by system
+    #[serde(skip)]
+    #[cfg(feature = "nusb")]
+    pub id: Option<::nusb::DeviceId>,
+    /// Last watch event
+    #[serde(skip)]
+    #[cfg(feature = "watch")]
+    pub last_event: Option<WatchEvent>,
 }
 
 /// Deprecated alias for [`Device`]

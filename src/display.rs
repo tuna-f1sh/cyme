@@ -287,6 +287,8 @@ pub enum DeviceBlocks {
     /// Base class as number value rather than enum
     #[serde(alias = "class-value")] // was called ClassCode in previous versions
     BaseValue,
+    /// Last time device was seen
+    LastEvent,
 }
 
 /// Info that can be printed about a [`Bus`]
@@ -733,6 +735,8 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .map(|d| d.fully_defined_class().map_or(0, |c| c.to_string().len()))
                 .max()
                 .unwrap_or(0),
+            // TODO string for last seen
+            //DeviceBlocks::LastSeen => d
             _ => self.block_length().len(),
         }
     }
@@ -889,14 +893,19 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 Some(v) => Self::format_base_u8((*v).into(), settings),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
+            DeviceBlocks::LastEvent => Some(match d.last_event.as_ref() {
+                Some(v) => v.to_string(),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
         }
     }
 
     fn colour(&self, s: &str, ct: &colour::ColourTheme) -> ColoredString {
         match self {
-            DeviceBlocks::BcdUsb | DeviceBlocks::BcdDevice | DeviceBlocks::DeviceNumber => {
-                ct.number.map_or(s.normal(), |c| s.color(c))
-            }
+            DeviceBlocks::BcdUsb
+            | DeviceBlocks::BcdDevice
+            | DeviceBlocks::DeviceNumber
+            | DeviceBlocks::LastEvent => ct.number.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::BusNumber
             | DeviceBlocks::BranchPosition
             | DeviceBlocks::TreePositions => ct.location.map_or(s.normal(), |c| s.color(c)),
@@ -964,6 +973,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::Class => "Class",
             DeviceBlocks::BaseValue => "CVal",
             DeviceBlocks::Icon => ICON_HEADING,
+            DeviceBlocks::LastEvent => "Event",
         }
     }
 
