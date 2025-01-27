@@ -9,6 +9,7 @@
 ### Changed
 
 - macOS: claim interface when reading Debug Descriptors.
+* nusb: use cached device descriptor rather than reading manually with control message ([nusb #102](https://github.com/kevinmehall/nusb/pull/102)).
 
 ## [2.1.1] - 2024-12-01
 

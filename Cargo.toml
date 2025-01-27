@@ -18,7 +18,7 @@ clap_mangen = { version = "0.2.5", optional = true } # for generating man - coul
 colored = "2.0.0" # terminal colouring helper
 itertools = "0.10.5" # iterator methods used for building device tree
 rusb = { version = "0.9.4", optional = true } # libusb bindings
-nusb = { version = "0.1.10", optional = true } # pure Rust USB library
+nusb = { git = "https://github.com/kevinmehall/nusb", branch = "main", optional = true } # pure Rust USB library
 serde = { version = "1.0", features = ["derive"] } # --json serialisation and --from-json deserialisation
 serde_json = "1.0.87"
 serde_with = "2.0.1"
@@ -35,9 +35,6 @@ regex = { version = "1.10.5", optional = true } # icon name lookup with regex
 uuid = { version = "1.9.1", features = ["serde"] } # descriptor UUID field support as type
 pci-ids = "0.2.5" # PCI ID database
 unicode-width = "0.2.0" # ensure USB device table is printed with equal width columns - zero dependencies
-
-[patch.crates-io]
-nusb = { git = "https://github.com/kevinmehall/nusb", branch = "main" }
 
 [dev-dependencies]
 diff = "0.1"

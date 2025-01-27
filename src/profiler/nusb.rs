@@ -509,12 +509,9 @@ impl NusbProfiler {
         device: &UsbDevice,
         sp_device: &mut Device,
     ) -> Result<usb::DeviceExtra> {
-        // get the Device Descriptor since not all data is cached
-        let device_desc_raw = device
-            .handle
-            .get_descriptor(0x01, 0x00, 0x00, device.timeout)?;
+        // nusb has this cached in handle.device_descriptor - convert to our type
         let device_desc: usb::DeviceDescriptor =
-            usb::DeviceDescriptor::try_from(device_desc_raw.as_slice())?;
+            usb::DeviceDescriptor::try_from(device.handle.device_descriptor().as_bytes())?;
         sp_device.bcd_usb = Some(device_desc.usb_version);
 
         // try to get strings from device descriptors
