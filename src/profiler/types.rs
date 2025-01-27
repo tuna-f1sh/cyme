@@ -66,20 +66,69 @@ impl SystemProfile {
             .find(|b| b.usb_bus_number == Some(number))
     }
 
-    /// Search for reference to [`Device`] at `port_path` in all buses
+    /// Search for reference to [`Device`] at `port_path` on correct bus number if present else all buses
     pub fn get_node(&self, port_path: &str) -> Option<&Device> {
-        for bus in self.buses.iter() {
+        let bus_no = port_path
+            .split("-")
+            .next()
+            .and_then(|v| v.parse::<u8>().ok())?;
+
+        // the logic of getting bus is required because bus_no is Optional; there may be valid port part on a bus with no number
+        if let Some(bus) = self.get_bus(bus_no) {
             if let Some(node) = bus.get_node(port_path) {
+                return Some(node);
+            }
+        } else {
+            for bus in self.buses.iter() {
+                if let Some(node) = bus.get_node(port_path) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Search for mutable reference to [`Device`] at `port_path` on correct bus number if present else all buses
+    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
+        let bus_no = port_path
+            .split("-")
+            .next()
+            .and_then(|v| v.parse::<u8>().ok())?;
+
+        if self.buses.iter().any(|b| b.usb_bus_number == Some(bus_no)) {
+            if let Some(bus) = self.get_bus_mut(bus_no) {
+                if let Some(node) = bus.get_node_mut(port_path) {
+                    return Some(node);
+                }
+            }
+        } else {
+            for bus in self.buses.iter_mut() {
+                if let Some(node) = bus.get_node_mut(port_path) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and return reference
+    pub fn get_id(&self, id: &::nusb::DeviceId) -> Option<&Device> {
+        for bus in self.buses.iter() {
+            if let Some(node) = bus.get_id(id) {
                 return Some(node);
             }
         }
         None
     }
 
-    /// Search for mutable reference to [`Device`] at `port_path` in all buses
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and returns a mutable reference if found
+    pub fn get_id_mut(&mut self, id: &::nusb::DeviceId) -> Option<&mut Device> {
         for bus in self.buses.iter_mut() {
-            if let Some(node) = bus.get_node_mut(port_path) {
+            if let Some(node) = bus.get_id_mut(id) {
                 return Some(node);
             }
         }
@@ -323,6 +372,34 @@ impl Bus {
             for dev in devices {
                 if let Some(node) = dev.get_node_mut(port_path) {
                     log::debug!("Found {}", node);
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and return reference
+    pub fn get_id(&self, id: &::nusb::DeviceId) -> Option<&Device> {
+        if let Some(devices) = self.devices.as_ref() {
+            for dev in devices {
+                if let Some(node) = dev.get_id(id) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and returns a mutable reference if found
+    pub fn get_id_mut(&mut self, id: &::nusb::DeviceId) -> Option<&mut Device> {
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                if let Some(node) = dev.get_id_mut(id) {
                     return Some(node);
                 }
             }
@@ -732,17 +809,25 @@ impl FromStr for DeviceSpeed {
     }
 }
 
+/// Events used by the watch feature
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum WatchEvent {
+    /// Device profiled at time
+    Profiled(chrono::DateTime<chrono::Local>),
+    /// Device connected at time
     Connected(chrono::DateTime<chrono::Local>),
+    /// Device disconnected at time
     Disconnected(chrono::DateTime<chrono::Local>),
 }
 
 impl fmt::Display for WatchEvent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            WatchEvent::Connected(t) => write!(f, "o {}", t),
-            WatchEvent::Disconnected(t) => write!(f, "x {}", t),
+            WatchEvent::Profiled(t) => write!(f, "\u{f0624} {}", t.format("%y-%m-%d %H:%M:%S")),
+            WatchEvent::Connected(t) => write!(f, "\u{f11f0} {}", t.format("%y-%m-%d %H:%M:%S")),
+            WatchEvent::Disconnected(t) => {
+                write!(f, "\u{f00d} {}", t.format("%y-%m-%d %H:%M:%S"))
+            }
         }
     }
 }
@@ -823,6 +908,13 @@ pub struct Device {
 #[deprecated(since = "2.0.0", note = "Use Device instead")]
 pub type USBDevice = Device;
 
+#[cfg(feature = "nusb")]
+impl PartialEq for Device {
+    fn eq(&self, other: &Self) -> bool {
+        (self.id == other.id) && self.id.is_some()
+    }
+}
+
 impl Device {
     /// Does the device have child devices; `devices` is Some and > 0
     pub fn has_devices(&self) -> bool {
@@ -874,8 +966,6 @@ impl Device {
     }
 
     /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning reference
-    ///
-    /// Will panic if `port_path` is not a child device or if it sits shallower than self
     pub fn get_node(&self, port_path: &str) -> Option<&Device> {
         // special case for root_hub, it ends with :1.0
         if port_path.ends_with(":1.0") {
@@ -899,10 +989,7 @@ impl Device {
 
         // should not be looking for nodes below us unless root
         match current_depth.cmp(&node_depth) {
-            Ordering::Greater => panic!(
-                "Trying to find node at {}/{} shallower than current position {}!",
-                &port_path, node_depth, current_depth
-            ),
+            Ordering::Greater => return None,
             Ordering::Equal => {
                 if self.port_path() == port_path {
                     return Some(self);
@@ -954,10 +1041,7 @@ impl Device {
 
         // should not be looking for nodes below us
         match current_depth.cmp(&node_depth) {
-            Ordering::Greater => panic!(
-                "Trying to find node at {}/{} shallower than current position {}!",
-                &port_path, node_depth, current_depth
-            ),
+            Ordering::Greater => return None,
             Ordering::Equal => {
                 if self.port_path() == port_path {
                     return Some(self);
@@ -1320,6 +1404,40 @@ impl Device {
         ret.insert(0, self);
 
         ret
+    }
+
+    /// Recursively searches for a device with a specific [`::nusb::DeviceId`] and returns a reference
+    #[cfg(feature = "nusb")]
+    pub fn get_id(&self, id: &::nusb::DeviceId) -> Option<&Self> {
+        if self.id == Some(*id) {
+            return Some(self);
+        }
+        if let Some(devices) = self.devices.as_ref() {
+            for dev in devices {
+                if let Some(node) = dev.get_id(id) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Recursively searches for a device with a specific [`::nusb::DeviceId`] and returns a mutable reference
+    #[cfg(feature = "nusb")]
+    pub fn get_id_mut(&mut self, id: &::nusb::DeviceId) -> Option<&mut Self> {
+        if self.id == Some(*id) {
+            return Some(self);
+        }
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                if let Some(node) = dev.get_id_mut(id) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
     }
 }
 

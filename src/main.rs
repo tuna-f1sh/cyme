@@ -1,5 +1,5 @@
 //! Where the magic happens for `cyme` binary!
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use colored::*;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -12,6 +12,9 @@ use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::profiler;
 use cyme::usb::BaseClass;
+
+#[cfg(feature = "watch")]
+mod watch;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -174,6 +177,18 @@ struct Args {
     /// If not using nusb this is the default for macOS, merging with libusb data for verbose output. nusb uses IOKit directly so does not use system_profiler by default
     #[arg(long, default_value_t = false)]
     system_profiler: bool,
+
+    /// Watch sub-command
+    #[cfg(feature = "watch")]
+    #[command(subcommand)]
+    command: Option<SubCommand>,
+}
+
+#[cfg(feature = "watch")]
+#[derive(Subcommand, Debug, Serialize, Deserialize)]
+enum SubCommand {
+    /// Watch for USB devices being connected and disconnected
+    Watch,
 }
 
 /// Print in bold red and exit with error
@@ -534,8 +549,6 @@ fn cyme() -> Result<()> {
         }
     };
 
-    log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
-
     let filter = if args.hide_hubs
         || args.vidpid.is_some()
         || args.show.is_some()
@@ -642,7 +655,15 @@ fn cyme() -> Result<()> {
         icon_when: args.icon,
     };
 
+    log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
+
     display::prepare(&mut spusb, filter, &settings);
+
+    #[cfg(feature = "watch")]
+    if matches!(args.command, Some(SubCommand::Watch)) {
+        watch::watch_usb_devices(spusb, settings)?;
+        return Ok(());
+    }
 
     if args.lsusb {
         print_lsusb(&spusb, &args.device, &settings)?;

@@ -16,7 +16,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::colour;
 use crate::icon;
-use crate::profiler::{Bus, Device, Filter, SystemProfile};
+use crate::profiler::{Bus, Device, Filter, SystemProfile, WatchEvent};
 use crate::usb::DeviceExtra;
 use crate::usb::{ConfigAttributes, Configuration, Direction, Endpoint, Interface};
 
@@ -894,8 +894,10 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
             DeviceBlocks::LastEvent => Some(match d.last_event.as_ref() {
+                None | Some(WatchEvent::Profiled(_)) => {
+                    format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))
+                }
                 Some(v) => v.to_string(),
-                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
         }
     }
@@ -1694,7 +1696,7 @@ impl Block<EndpointBlocks, Endpoint> for EndpointBlocks {
 }
 
 /// Value to sort [`Device`]
-#[derive(Default, PartialEq, Eq, Debug, ValueEnum, Clone, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Eq, Debug, ValueEnum, Clone, Copy, Serialize, Deserialize)]
 pub enum Sort {
     #[default]
     /// Sort by bus device number

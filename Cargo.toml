@@ -10,7 +10,6 @@ edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
 categories = ["command-line-utilities"]
 exclude = [".github"]
-default-run = "cyme"
 
 [dependencies]
 clap = { version = "4.0.22", features = ["derive", "wrap_help"] } # CLI argument parsing
@@ -69,10 +68,6 @@ default = ["native", "regex_icon", "watch"] # default native Rust USB (nusb, ude
 [[bin]]
 name = "cyme"
 path = "src/main.rs"
-
-[[bin]]
-name = "cyme-watch"
-path = "src/bin/watch/main.rs"
 
 [profile.release]
 lto = true
