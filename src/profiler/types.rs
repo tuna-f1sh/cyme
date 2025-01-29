@@ -823,10 +823,10 @@ pub enum WatchEvent {
 impl fmt::Display for WatchEvent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            WatchEvent::Profiled(t) => write!(f, "\u{f0624} {}", t.format("%y-%m-%d %H:%M:%S")),
-            WatchEvent::Connected(t) => write!(f, "\u{f11f0} {}", t.format("%y-%m-%d %H:%M:%S")),
+            WatchEvent::Profiled(t) => write!(f, "Profiled: {}", t.format("%y-%m-%d %H:%M:%S")),
+            WatchEvent::Connected(t) => write!(f, "Connected: {}", t.format("%y-%m-%d %H:%M:%S")),
             WatchEvent::Disconnected(t) => {
-                write!(f, "\u{f00d} {}", t.format("%y-%m-%d %H:%M:%S"))
+                write!(f, "Disconnected: {}", t.format("%y-%m-%d %H:%M:%S"))
             }
         }
     }
@@ -898,9 +898,8 @@ pub struct Device {
     #[serde(skip)]
     #[cfg(feature = "nusb")]
     pub id: Option<::nusb::DeviceId>,
-    /// Last watch event
+    /// Last watch event TODO should be only for watch feature?
     #[serde(skip)]
-    #[cfg(feature = "watch")]
     pub last_event: Option<WatchEvent>,
 }
 
@@ -1438,6 +1437,13 @@ impl Device {
         }
 
         None
+    }
+
+    /// Has the device disconnected based last event being disconnected
+    ///
+    /// Logic rather than is_connected since Profiled event is not certain still present
+    pub fn is_disconnected(&self) -> bool {
+        matches!(self.last_event, Some(WatchEvent::Disconnected(_)))
     }
 }
 

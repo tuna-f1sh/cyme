@@ -226,6 +226,7 @@ impl From<&nusb::DeviceInfo> for Device {
             name,
             manufacturer,
             serial_num,
+            last_event: Some(WatchEvent::Profiled(chrono::Local::now())),
             ..Default::default()
         }
     }

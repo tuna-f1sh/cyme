@@ -653,15 +653,16 @@ fn cyme() -> Result<()> {
         auto_width: !config.no_auto_width,
         terminal_size: terminal_size(),
         icon_when: args.icon,
+        ..Default::default()
     };
 
     log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
 
-    display::prepare(&mut spusb, filter, &settings);
+    display::prepare(&mut spusb, &filter, &settings);
 
     #[cfg(feature = "watch")]
     if matches!(args.command, Some(SubCommand::Watch)) {
-        watch::watch_usb_devices(spusb, settings)?;
+        watch::watch_usb_devices(spusb, filter, settings)?;
         return Ok(());
     }
 

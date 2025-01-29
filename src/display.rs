@@ -289,6 +289,8 @@ pub enum DeviceBlocks {
     BaseValue,
     /// Last time device was seen
     LastEvent,
+    /// Event icon
+    EventIcon,
 }
 
 /// Info that can be printed about a [`Bus`]
@@ -735,8 +737,11 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .map(|d| d.fully_defined_class().map_or(0, |c| c.to_string().len()))
                 .max()
                 .unwrap_or(0),
-            // TODO string for last seen
-            //DeviceBlocks::LastSeen => d
+            DeviceBlocks::LastEvent => d
+                .iter()
+                .flat_map(|d| d.last_event.as_ref().map(|e| e.to_string().len()))
+                .max()
+                .unwrap_or(0),
             _ => self.block_length().len(),
         }
     }
@@ -899,6 +904,10 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 }
                 Some(v) => v.to_string(),
             }),
+            DeviceBlocks::EventIcon => match d.last_event.as_ref() {
+                None => None,
+                Some(e) => settings.icons.as_ref().map(|i| i.get_event_icon(e)),
+            },
         }
     }
 
@@ -911,7 +920,9 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::BusNumber
             | DeviceBlocks::BranchPosition
             | DeviceBlocks::TreePositions => ct.location.map_or(s.normal(), |c| s.color(c)),
-            DeviceBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::Icon | DeviceBlocks::EventIcon => {
+                ct.icon.map_or(s.normal(), |c| s.color(c))
+            }
             DeviceBlocks::PortPath | DeviceBlocks::SysPath => {
                 ct.path.map_or(s.normal(), |c| s.color(c))
             }
@@ -975,6 +986,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::Class => "Class",
             DeviceBlocks::BaseValue => "CVal",
             DeviceBlocks::Icon => ICON_HEADING,
+            DeviceBlocks::EventIcon => "E",
             DeviceBlocks::LastEvent => "Event",
         }
     }
@@ -989,7 +1001,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
 
     fn block_length(&self) -> BlockLength {
         match self {
-            DeviceBlocks::Icon => BlockLength::Fixed(1),
+            DeviceBlocks::Icon | DeviceBlocks::EventIcon => BlockLength::Fixed(1),
             DeviceBlocks::BusNumber | DeviceBlocks::DeviceNumber | DeviceBlocks::BranchPosition => {
                 BlockLength::Fixed(3)
             }
@@ -1838,6 +1850,8 @@ pub struct PrintSettings {
     pub terminal_size: Option<(Width, Height)>,
     /// When to print icon blocks
     pub icon_when: IconWhen,
+    /// Printing in watch mode
+    pub watch_mode: bool,
 }
 
 /// Converts a HashSet of [`ConfigAttributes`] a String of nerd icons
@@ -2783,10 +2797,13 @@ pub fn print_devices(
         }
 
         // print the device
-        println!(
-            "{}",
-            render_value(device, db, &pad, settings, max_variable_string_len).join(" ")
-        );
+        let mut device_string =
+            render_value(device, db, &pad, settings, max_variable_string_len).join(" ");
+        #[cfg(feature = "watch")]
+        if settings.watch_mode && device.is_disconnected() {
+            device_string = device_string.dimmed().white().to_string();
+        }
+        println!("{}", device_string);
 
         // print the configurations
         if let Some(extra) = device.extra.as_ref() {
@@ -2994,7 +3011,7 @@ pub fn mask_serial(device: &mut Device, hide: &MaskSerial, recursive: bool) {
 }
 
 /// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
-pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<Filter>, settings: &PrintSettings) {
+pub fn prepare(sp_usb: &mut SystemProfile, filter: &Option<Filter>, settings: &PrintSettings) {
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
     // flattening now will also mean hubs will be removed when listing if `hide_hubs` because they will appear empty and sorting will be in bus -> device order rather than tree position
     log::debug!("Running prepare pre-printing");

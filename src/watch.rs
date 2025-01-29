@@ -18,18 +18,23 @@ use std::time::Duration;
 
 use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
-use cyme::profiler::{Device, SystemProfile, WatchEvent};
+use cyme::profiler::{Device, Filter, SystemProfile, WatchEvent};
 use futures_lite::stream::StreamExt;
 
 pub fn watch_usb_devices(
     mut spusb: SystemProfile,
+    filter: Option<Filter>,
     mut print_settings: PrintSettings,
 ) -> Result<()> {
-    print_settings.device_blocks = Some(DeviceBlocks::default_blocks(print_settings.verbosity > 0));
-    print_settings
-        .device_blocks
-        .as_mut()
-        .map(|b| b.push(DeviceBlocks::LastEvent));
+    print_settings.watch_mode = true;
+    if print_settings.device_blocks.is_none() {
+        print_settings.device_blocks =
+            Some(DeviceBlocks::default_blocks(print_settings.verbosity > 0));
+    }
+    print_settings.device_blocks.as_mut().map(|b| {
+        b.insert(0, DeviceBlocks::EventIcon);
+        b.push(DeviceBlocks::LastEvent);
+    });
 
     let stop_flag = Arc::new(Mutex::new(false));
     let stop_flag_clone = Arc::clone(&stop_flag);
@@ -38,6 +43,8 @@ pub fn watch_usb_devices(
     execute!(stdout, terminal::Clear(terminal::ClearType::All))
         .map_err(|e| Error::new(ErrorKind::Other("crossterm"), &e.to_string()))?;
     let watch = nusb::watch_devices().map_err(|e| Error::new(ErrorKind::Nusb, &e.to_string()))?;
+    // TODO this requires a rethink of writer since raw needs \n\r
+    //terminal::enable_raw_mode()?;
 
     // first draw
     draw_devices(&spusb, &print_settings)?;
@@ -57,9 +64,10 @@ pub fn watch_usb_devices(
                         if let Some(existing) = spusb.get_node_mut(&cyme_device.port_path()) {
                             let devices = std::mem::take(&mut existing.devices);
                             cyme_device.devices = devices;
+                            // TODO actually profile extra since descriptors might be new
+                            cyme_device.extra = existing.extra.clone();
                             *existing = cyme_device;
                         // else we have to stick into tree at correct place
-                        // TODO re-sort?
                         } else if cyme_device.is_trunk_device() {
                             let bus = spusb.get_bus_mut(cyme_device.location_id.bus).unwrap();
                             if let Some(bd) = bus.devices.as_mut() {
@@ -84,6 +92,10 @@ pub fn watch_usb_devices(
                         }
                     }
                 }
+
+                // HACK this is prabably over kill, does sort and filter of whole tree every time - filter could be done once and on insert instead
+                cyme::display::prepare(&mut spusb, &filter, &print_settings);
+
                 draw_devices(&spusb, &print_settings).unwrap();
             }
         });
@@ -94,8 +106,7 @@ pub fn watch_usb_devices(
         if event::poll(Duration::from_millis(100)).unwrap() {
             if let Event::Key(KeyEvent { code, .. }) = event::read().unwrap() {
                 if matches!(code, KeyCode::Char('q')) || matches!(code, KeyCode::Esc) {
-                    let mut stop = stop_flag_clone.lock().unwrap();
-                    *stop = true;
+                    *stop_flag_clone.lock().unwrap() = true;
                     break;
                 }
             }
@@ -104,12 +115,14 @@ pub fn watch_usb_devices(
 
     // Main loop to check for stop flag
     loop {
-        let stop = stop_flag.lock().unwrap();
-        if *stop {
+        if *stop_flag.lock().unwrap() {
+            log::info!("Exiting watch mode");
             break;
         }
         thread::sleep(Duration::from_millis(100));
     }
+
+    //terminal::disable_raw_mode()?;
 
     Ok(())
 }
