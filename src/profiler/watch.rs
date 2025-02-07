@@ -12,31 +12,66 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
+/// Builder for [`SystemProfileStream`]
+#[derive(Default)]
+pub struct SystemProfileStreamBuilder {
+    spusb: Option<SystemProfile>,
+    verbose: bool,
+}
+
+impl SystemProfileStreamBuilder {
+    /// Create a new [`SystemProfileStreamBuilder`]
+    pub fn new() -> Self {
+        Self {
+            spusb: None,
+            verbose: true,
+        }
+    }
+
+    /// Set the verbosity of the stream
+    ///
+    /// When set to true, the stream will include full device descriptors for verbose printing
+    pub fn is_verbose(mut self, verbose: bool) -> Self {
+        self.verbose = verbose;
+        self
+    }
+
+    /// Set the initial [`SystemProfile`] for the stream
+    pub fn with_spusb(mut self, spusb: SystemProfile) -> Self {
+        self.spusb = Some(spusb);
+        self
+    }
+
+    /// Build the [`SystemProfileStream`]
+    pub fn build(self) -> Result<SystemProfileStream, Error> {
+        let spusb = if let Some(spusb) = self.spusb {
+            Arc::new(Mutex::new(spusb))
+        } else if self.verbose {
+            Arc::new(Mutex::new(super::get_spusb_with_extra()?))
+        } else {
+            Arc::new(Mutex::new(super::get_spusb()?))
+        };
+        let mut new = SystemProfileStream::new(spusb)?;
+        new.verbose = self.verbose;
+        Ok(new)
+    }
+}
+
 /// A stream that yields an updated [`SystemProfile`] when a USB device is connected or disconnected
 pub struct SystemProfileStream {
     spusb: Arc<Mutex<SystemProfile>>,
     watch_stream: Pin<Box<dyn Stream<Item = HotplugEvent> + Send>>,
+    verbose: bool,
 }
 
 impl SystemProfileStream {
-    /// Create a new [`SystemProfileStream`]
-    ///
-    /// Will create a new [`SystemProfile`] and watch for USB devices
-    pub fn new() -> Result<Self, Error> {
-        let spusb = Arc::new(Mutex::new(super::get_spusb_with_extra()?));
-        let watch_stream = Box::pin(watch_devices()?);
-        Ok(Self {
-            spusb,
-            watch_stream,
-        })
-    }
-
     /// Create a new [`SystemProfileStream`] with a initial [`SystemProfile`]
-    pub fn new_with_spusb(spusb: Arc<Mutex<SystemProfile>>) -> Result<Self, Error> {
+    pub fn new(spusb: Arc<Mutex<SystemProfile>>) -> Result<Self, Error> {
         let watch_stream = Box::pin(watch_devices()?);
         Ok(Self {
             spusb,
             watch_stream,
+            verbose: true,
         })
     }
 
@@ -50,6 +85,7 @@ impl Stream for SystemProfileStream {
     type Item = Arc<Mutex<SystemProfile>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let extra = self.verbose;
         let this = self.get_mut();
         let mut profiler = NusbProfiler::new();
 
@@ -60,7 +96,7 @@ impl Stream for SystemProfileStream {
                 match event {
                     HotplugEvent::Connected(device) => {
                         let mut cyme_device: Device =
-                            profiler.build_spdevice(&device, true).unwrap();
+                            profiler.build_spdevice(&device, extra).unwrap();
                         cyme_device.last_event = Some(WatchEvent::Connected(Local::now()));
 
                         // is it existing? TODO this is a mess, need to take existing, put devices into new and replace since might have new descriptors

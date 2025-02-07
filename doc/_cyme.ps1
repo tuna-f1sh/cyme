@@ -74,6 +74,24 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('watch', 'watch', [CompletionResultType]::ParameterValue, 'Watch for USB devices being connected and disconnected')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'cyme;watch' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'cyme;help' {
+            [CompletionResult]::new('watch', 'watch', [CompletionResultType]::ParameterValue, 'Watch for USB devices being connected and disconnected')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'cyme;help;watch' {
+            break
+        }
+        'cyme;help;help' {
             break
         }
     })

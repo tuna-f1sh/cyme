@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
-use cyme::profiler::{watch::SystemProfileStream, Filter, SystemProfile};
+use cyme::profiler::{watch::SystemProfileStreamBuilder, Filter, SystemProfile};
 use futures_lite::stream::StreamExt;
 
 pub fn watch_usb_devices(
@@ -41,7 +41,10 @@ pub fn watch_usb_devices(
     // first draw
     draw_devices(&spusb, &print_settings)?;
 
-    let profile_stream = SystemProfileStream::new_with_spusb(Arc::new(Mutex::new(spusb)))
+    let profile_stream = SystemProfileStreamBuilder::new()
+        .with_spusb(spusb)
+        .is_verbose(print_settings.verbosity > 0)
+        .build()
         .map_err(|e| Error::new(ErrorKind::Nusb, &e.to_string()))?;
 
     thread::spawn(move || {
