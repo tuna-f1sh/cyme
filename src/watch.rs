@@ -41,19 +41,24 @@ pub fn watch_usb_devices(
     // first draw
     draw_devices(&spusb, &print_settings)?;
 
-    let profile_stream = SystemProfileStreamBuilder::new()
+    let mut profile_stream = SystemProfileStreamBuilder::new()
         .with_spusb(spusb)
-        .is_verbose(print_settings.verbosity > 0)
+        .is_verbose(true) // because print_settings can change verbosity, always capture full device data
         .build()
         .map_err(|e| Error::new(ErrorKind::Nusb, &e.to_string()))?;
 
+    let print_settings = Arc::new(Mutex::new(print_settings));
+    let filter = Mutex::new(filter);
+
+    let print_settings_clone = Arc::clone(&print_settings);
+
     thread::spawn(move || {
         futures_lite::future::block_on(async {
-            futures_lite::pin!(profile_stream);
             while let Some(spusb) = profile_stream.next().await {
                 let mut spusb = spusb.lock().unwrap();
                 // HACK this is prabably over kill, does sort and filter of whole tree every time - filter could be done once and on insert instead
-                cyme::display::prepare(&mut spusb, &filter, &print_settings);
+                let print_settings = print_settings_clone.lock().unwrap();
+                cyme::display::prepare(&mut spusb, &filter.lock().unwrap(), &print_settings);
                 draw_devices(&spusb, &print_settings).unwrap();
             }
         });
@@ -63,9 +68,17 @@ pub fn watch_usb_devices(
     thread::spawn(move || loop {
         if event::poll(Duration::from_millis(100)).unwrap() {
             if let Event::Key(KeyEvent { code, .. }) = event::read().unwrap() {
-                if matches!(code, KeyCode::Char('q')) || matches!(code, KeyCode::Esc) {
-                    *stop_flag_clone.lock().unwrap() = true;
-                    break;
+                match code {
+                    KeyCode::Char('q') | KeyCode::Esc => {
+                        *stop_flag_clone.lock().unwrap() = true;
+                        break;
+                    }
+                    KeyCode::Char('v') => {
+                        let mut print_settings = print_settings.lock().unwrap();
+                        print_settings.verbosity = (print_settings.verbosity + 1) % 5;
+                        // TODO issue redraw request to profile_stream thread somehow
+                    }
+                    _ => {}
                 }
             }
         }
