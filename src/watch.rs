@@ -1,16 +1,9 @@
 //! Watch for USB devices being connected and disconnected.
-//!
-//! TODO ideas:
-//!
-//! - Use cyme::display
-//! - Make this into a full TUI with expanding device details
-//! - Adjustable PrintSettings with keybindings
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent},
     execute, terminal,
 };
-use nusb::hotplug::HotplugEvent;
 use std::io::stdout;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -18,11 +11,11 @@ use std::time::Duration;
 
 use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
-use cyme::profiler::{Device, Filter, SystemProfile, WatchEvent};
+use cyme::profiler::{watch::SystemProfileStream, Filter, SystemProfile};
 use futures_lite::stream::StreamExt;
 
 pub fn watch_usb_devices(
-    mut spusb: SystemProfile,
+    spusb: SystemProfile,
     filter: Option<Filter>,
     mut print_settings: PrintSettings,
 ) -> Result<()> {
@@ -31,10 +24,10 @@ pub fn watch_usb_devices(
         print_settings.device_blocks =
             Some(DeviceBlocks::default_blocks(print_settings.verbosity > 0));
     }
-    print_settings.device_blocks.as_mut().map(|b| {
+    if let Some(b) = print_settings.device_blocks.as_mut() {
         b.insert(0, DeviceBlocks::EventIcon);
         b.push(DeviceBlocks::LastEvent);
-    });
+    }
 
     let stop_flag = Arc::new(Mutex::new(false));
     let stop_flag_clone = Arc::clone(&stop_flag);
@@ -42,60 +35,22 @@ pub fn watch_usb_devices(
     let mut stdout = stdout();
     execute!(stdout, terminal::Clear(terminal::ClearType::All))
         .map_err(|e| Error::new(ErrorKind::Other("crossterm"), &e.to_string()))?;
-    let watch = nusb::watch_devices().map_err(|e| Error::new(ErrorKind::Nusb, &e.to_string()))?;
     // TODO this requires a rethink of writer since raw needs \n\r
     //terminal::enable_raw_mode()?;
 
     // first draw
     draw_devices(&spusb, &print_settings)?;
 
+    let profile_stream = SystemProfileStream::new_with_spusb(Arc::new(Mutex::new(spusb)))
+        .map_err(|e| Error::new(ErrorKind::Nusb, &e.to_string()))?;
+
     thread::spawn(move || {
         futures_lite::future::block_on(async {
-            let mut watch_stream = watch;
-
-            while let Some(event) = watch_stream.next().await {
-                match event {
-                    HotplugEvent::Connected(device) => {
-                        // TODO profile device with extra using nusb profiler
-                        // requires to be part of crate
-                        let mut cyme_device: Device = Device::from(&device);
-                        cyme_device.last_event = Some(WatchEvent::Connected(chrono::Local::now()));
-                        // is it existing? TODO this is a mess, need to take existing, put devices into new and replace since might have new descriptors
-                        if let Some(existing) = spusb.get_node_mut(&cyme_device.port_path()) {
-                            let devices = std::mem::take(&mut existing.devices);
-                            cyme_device.devices = devices;
-                            // TODO actually profile extra since descriptors might be new
-                            cyme_device.extra = existing.extra.clone();
-                            *existing = cyme_device;
-                        // else we have to stick into tree at correct place
-                        } else if cyme_device.is_trunk_device() {
-                            let bus = spusb.get_bus_mut(cyme_device.location_id.bus).unwrap();
-                            if let Some(bd) = bus.devices.as_mut() {
-                                bd.push(cyme_device);
-                            } else {
-                                bus.devices = Some(vec![cyme_device]);
-                            }
-                        } else if let Ok(parent_path) = cyme_device.parent_path() {
-                            if let Some(parent) = spusb.get_node_mut(&parent_path) {
-                                if let Some(bd) = parent.devices.as_mut() {
-                                    bd.push(cyme_device);
-                                } else {
-                                    parent.devices = Some(vec![cyme_device]);
-                                }
-                            }
-                        }
-                    }
-                    HotplugEvent::Disconnected(id) => {
-                        if let Some(device) = spusb.get_id_mut(&id) {
-                            device.last_event =
-                                Some(WatchEvent::Disconnected(chrono::Local::now()));
-                        }
-                    }
-                }
-
+            futures_lite::pin!(profile_stream);
+            while let Some(spusb) = profile_stream.next().await {
+                let mut spusb = spusb.lock().unwrap();
                 // HACK this is prabably over kill, does sort and filter of whole tree every time - filter could be done once and on insert instead
                 cyme::display::prepare(&mut spusb, &filter, &print_settings);
-
                 draw_devices(&spusb, &print_settings).unwrap();
             }
         });

@@ -37,6 +37,8 @@ pub mod libusb;
 pub mod macos;
 #[cfg(feature = "nusb")]
 pub mod nusb;
+#[cfg(all(feature = "nusb", feature = "watch"))]
+pub mod watch;
 
 /// Transfer direction
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

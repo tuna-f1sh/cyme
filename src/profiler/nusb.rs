@@ -594,7 +594,7 @@ impl NusbProfiler {
         Ok(extra)
     }
 
-    fn build_spdevice(
+    pub(crate) fn build_spdevice(
         &mut self,
         device_info: &nusb::DeviceInfo,
         with_extra: bool,

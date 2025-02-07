@@ -62,7 +62,7 @@ regex_icon = ["dep:regex"] # icon name lookup with regex
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
 native = ["nusb", "udev"] # pure Rust USB and udev bindings
 ffi = ["libusb", "udevlib"] # C bindings for libusb and libudev
-watch = ["crossterm", "futures-lite", "chrono"] # watch mode
+watch = ["crossterm", "futures-lite", "chrono", "nusb"] # watch mode
 default = ["native", "regex_icon", "watch"] # default native Rust USB (nusb, udevrs) with regex icon name lookup
 
 [[bin]]
