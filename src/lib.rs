@@ -37,7 +37,7 @@
 //! # let devices = sp_usb.flattened_devices();
 //! use cyme::display;
 //! // print with default [`display::PrintSettings`]
-//! display::print_flattened_devices(&devices, &display::PrintSettings::default());
+//! display::DisplayWriter::default().print_flattened_devices(&devices, &display::PrintSettings::default());
 //! ```
 //!
 //! The [`profiler::SystemProfile`] struct contains system [`profiler::Bus`]s, which contain [`profiler::Device`]s as a USB tree.

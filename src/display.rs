@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::io::{self, Write};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use terminal_size::{Height, Width};
@@ -2179,146 +2180,6 @@ fn generate_extra_blocks(
     blocks
 }
 
-/// Print `devices` [`Device`] references without looking down each device's devices!
-pub fn print_flattened_devices(devices: &[&Device], settings: &PrintSettings) {
-    let mut db = settings
-        .device_blocks
-        .to_owned()
-        .unwrap_or(DeviceBlocks::default_blocks(
-            settings.verbosity >= MAX_VERBOSITY || settings.more,
-        ));
-
-    // remove icon blocks if not supported
-    match settings.icon_when {
-        IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {
-            db.retain(|b| !b.is_icon());
-        }
-        IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
-        IconWhen::Always => {
-            if settings.icons.is_none() {
-                log::warn!(
-                    "{:?} blocks requested but no icons provided",
-                    settings.icon_when
-                );
-            }
-        }
-        _ => settings.icon_when.retain_ref(devices, &mut db, settings),
-    }
-
-    let mut pad = if !settings.no_padding {
-        DeviceBlocks::generate_padding(devices)
-    } else {
-        HashMap::new()
-    };
-    pad.retain(|k, _| db.contains(k));
-    log::trace!("Flattened devices padding {:?}", pad);
-
-    let max_variable_string_len: Option<usize> = if settings.auto_width {
-        let mut variable_lens = pad.clone();
-        variable_lens.retain(|k, _| k.value_is_variable_length());
-        auto_max_string_len(&db, 0, &variable_lens.into_values().collect(), settings)
-            .or(settings.max_variable_string_len)
-    } else {
-        settings.max_variable_string_len
-    };
-
-    // if there is a max variable length, adjust padding to this if current > it
-    if let Some(ml) = max_variable_string_len.as_ref() {
-        for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
-                *v = cmp::min(*v, *ml);
-            }
-        }
-    }
-
-    if settings.headings {
-        let heading = render_heading(&db, &pad, max_variable_string_len).join(" ");
-        println!("{}", heading.bold().underline());
-    }
-
-    for (i, device) in devices.iter().enumerate() {
-        println!(
-            "{}",
-            render_value(*device, &db, &pad, settings, max_variable_string_len).join(" ")
-        );
-        // print the configurations
-        if let Some(extra) = device.extra.as_ref() {
-            if settings.verbosity >= 1 {
-                let blocks = generate_extra_blocks(extra, settings);
-
-                // pass branch length as number of configurations for this device plus devices still to print
-                print_configurations(
-                    &extra.configurations,
-                    (&blocks.0, &blocks.1, &blocks.2),
-                    settings,
-                    &generate_tree_data(
-                        &Default::default(),
-                        extra.configurations.len() + device.devices.as_ref().map_or(0, |d| d.len()),
-                        i,
-                        settings,
-                    ),
-                );
-            }
-        } else if settings.verbosity >= 1 {
-            log::warn!(
-                "Unable to print verbose information for {} because libusb extra data is missing",
-                device
-            )
-        }
-    }
-}
-
-/// A way of printing a reference flattened [`SystemProfile`] rather than hard flatten
-///
-/// Prints each `&Bus` and tuple pair `Vec<&Device>`
-pub fn print_bus_grouped(bus_devices: Vec<(&Bus, Vec<&Device>)>, settings: &PrintSettings) {
-    let bb = settings
-        .bus_blocks
-        .to_owned()
-        .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
-            settings.verbosity >= MAX_VERBOSITY || settings.more,
-        ));
-    let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
-        let buses: Vec<&Bus> = bus_devices.iter().map(|bd| bd.0).collect();
-        BusBlocks::generate_padding(&buses)
-    } else {
-        HashMap::new()
-    };
-    pad.retain(|k, _| bb.contains(k));
-
-    let max_variable_string_len: Option<usize> = if settings.auto_width {
-        let mut variable_lens = pad.clone();
-        variable_lens.retain(|k, _| k.value_is_variable_length());
-        auto_max_string_len(&bb, 0, &variable_lens.into_values().collect(), settings)
-            .or(settings.max_variable_string_len)
-    } else {
-        settings.max_variable_string_len
-    };
-
-    // if there is a max variable length, adjust padding to this if current > it
-    if let Some(ml) = max_variable_string_len.as_ref() {
-        for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
-                *v = cmp::min(*v, *ml);
-            }
-        }
-    }
-
-    for (bus, devices) in bus_devices {
-        if settings.headings {
-            let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
-            println!("{}", heading.bold().underline());
-        }
-        println!(
-            "{}",
-            render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" ")
-        );
-        print_flattened_devices(&devices, settings);
-        // new line for each group
-        println!();
-    }
-}
-
 /// Passed to print functions to support tree building
 #[derive(Debug, Default, Clone)]
 pub struct TreeData {
@@ -2332,650 +2193,907 @@ pub struct TreeData {
     prefix: String,
 }
 
-/// All device [`Endpoint`]
-pub fn print_endpoints(
-    endpoints: &[Endpoint],
-    blocks: &[EndpointBlocks],
-    settings: &PrintSettings,
-    tree: &TreeData,
-) {
-    let mut pad = if !settings.no_padding {
-        let endpoints: Vec<&Endpoint> = endpoints.iter().collect();
-        EndpointBlocks::generate_padding(&endpoints)
-    } else {
-        HashMap::new()
-    };
-    pad.retain(|k, _| blocks.contains(k));
+/// DisplayWriter allows control of output to terminal or other Writer
+///
+/// Mainly for watch mode to allow control of output
+pub struct DisplayWriter<W: Write> {
+    raw_mode: bool,
+    inner: W,
+}
 
-    let max_variable_string_len: Option<usize> = if settings.auto_width {
-        let mut variable_lens = pad.clone();
-        let offset = if settings.tree {
-            tree.depth * 3 + 1
-        } else {
-            (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
-        };
-        variable_lens.retain(|k, _| k.value_is_variable_length());
-        auto_max_string_len(
-            blocks,
-            offset,
-            &variable_lens.into_values().collect(),
-            settings,
-        )
-        .or(settings.max_variable_string_len)
-    } else {
-        settings.max_variable_string_len
-    };
+impl<W: Write> Write for DisplayWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.inner.write(buf)
+    }
 
-    log::trace!("Print endpoints padding {:?}, tree {:?}", pad, tree);
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
 
-    // if there is a max variable length, adjust padding to this if current > it and is variable
-    if let Some(ml) = max_variable_string_len.as_ref() {
-        for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
-                *v = cmp::min(*v, *ml);
-            }
+impl Default for DisplayWriter<io::Stdout> {
+    fn default() -> Self {
+        Self::new(io::stdout())
+    }
+}
+
+impl<W: Write> DisplayWriter<W> {
+    /// Create a new DisplayWriter with the inner writer
+    pub fn new(inner: W) -> Self {
+        Self {
+            raw_mode: false,
+            inner,
         }
     }
 
-    for (i, endpoint) in endpoints.iter().enumerate() {
-        // get current prefix based on if last in tree and whether we are within the tree
-        if settings.tree {
-            let mut prefix = if tree.depth > 0 {
-                let edge_icon = if i + 1 != tree.branch_length {
-                    icon::Icon::TreeEdge
-                } else {
-                    icon::Icon::TreeCorner
-                };
-                let edge = settings.icons.as_ref().map_or(
-                    icon::get_default_tree_icon(&edge_icon, &settings.encoding),
-                    |i| i.get_tree_icon(&edge_icon, &settings.encoding),
-                );
-                format!("{}{}", tree.prefix, edge)
-            // zero depth
-            } else {
-                tree.prefix.to_string()
-            };
+    /// Set the raw mode for the writer
+    ///
+    /// Raw mode will print `\r\n` instead of `\n` for newlines
+    pub fn set_raw_mode(&mut self, raw_mode: bool) {
+        self.raw_mode = raw_mode;
+    }
 
-            let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_default_tree_icon(
-                    &icon::Icon::Endpoint(endpoint.address.direction),
-                    &settings.encoding,
-                ),
-                |i| {
-                    i.get_tree_icon(
+    /// Print text to the writer
+    pub fn print<S: AsRef<str>>(&mut self, text: S) -> io::Result<()> {
+        write!(self.inner, "{}", text.as_ref())?;
+        self.inner.flush()?;
+        Ok(())
+    }
+
+    /// Print text to the writer with a newline
+    pub fn println<S: AsRef<str>>(&mut self, text: S) -> io::Result<()> {
+        if self.raw_mode {
+            write!(self.inner, "{}\r\n", text.as_ref())?;
+        } else {
+            writeln!(self.inner, "{}", text.as_ref())?;
+        }
+        self.inner.flush()?;
+        Ok(())
+    }
+
+    /// Get the inner writer
+    pub fn into_inner(self) -> W {
+        self.inner
+    }
+
+    /// All device [`Endpoint`]
+    pub fn print_endpoints(
+        &mut self,
+        endpoints: &[Endpoint],
+        blocks: &[EndpointBlocks],
+        settings: &PrintSettings,
+        tree: &TreeData,
+    ) {
+        let mut pad = if !settings.no_padding {
+            let endpoints: Vec<&Endpoint> = endpoints.iter().collect();
+            EndpointBlocks::generate_padding(&endpoints)
+        } else {
+            HashMap::new()
+        };
+        pad.retain(|k, _| blocks.contains(k));
+
+        let max_variable_string_len: Option<usize> = if settings.auto_width {
+            let mut variable_lens = pad.clone();
+            let offset = if settings.tree {
+                tree.depth * 3 + 1
+            } else {
+                (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
+            };
+            variable_lens.retain(|k, _| k.value_is_variable_length());
+            auto_max_string_len(
+                blocks,
+                offset,
+                &variable_lens.into_values().collect(),
+                settings,
+            )
+            .or(settings.max_variable_string_len)
+        } else {
+            settings.max_variable_string_len
+        };
+
+        log::trace!("Print endpoints padding {:?}, tree {:?}", pad, tree);
+
+        // if there is a max variable length, adjust padding to this if current > it and is variable
+        if let Some(ml) = max_variable_string_len.as_ref() {
+            for (k, v) in pad.iter_mut() {
+                if k.value_is_variable_length() {
+                    *v = cmp::min(*v, *ml);
+                }
+            }
+        }
+
+        for (i, endpoint) in endpoints.iter().enumerate() {
+            // get current prefix based on if last in tree and whether we are within the tree
+            if settings.tree {
+                let mut prefix = if tree.depth > 0 {
+                    let edge_icon = if i + 1 != tree.branch_length {
+                        icon::Icon::TreeEdge
+                    } else {
+                        icon::Icon::TreeCorner
+                    };
+                    let edge = settings.icons.as_ref().map_or(
+                        icon::get_default_tree_icon(&edge_icon, &settings.encoding),
+                        |i| i.get_tree_icon(&edge_icon, &settings.encoding),
+                    );
+                    format!("{}{}", tree.prefix, edge)
+                // zero depth
+                } else {
+                    tree.prefix.to_string()
+                };
+
+                let mut terminator = settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(
                         &icon::Icon::Endpoint(endpoint.address.direction),
                         &settings.encoding,
-                    )
-                },
-            );
-
-            // colour tree
-            if let Some(ct) = settings.colours.as_ref() {
-                prefix = ct
-                    .tree
-                    .map_or(prefix.normal(), |c| prefix.color(c))
-                    .to_string();
-                terminator = if endpoint.address.direction == Direction::In {
-                    ct.tree_endpoint_in
-                        .map_or(terminator.normal(), |c| terminator.color(c))
-                        .to_string()
-                } else {
-                    ct.tree_endpoint_out
-                        .map_or(terminator.normal(), |c| terminator.color(c))
-                        .to_string()
-                };
-            }
-
-            // maybe should just do once at start of bus
-            if settings.headings && i == 0 {
-                let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
-                println!("{}  {}", prefix, heading.bold().underline());
-            }
-
-            // render and print tree if doing it
-            print!("{}{} ", prefix, terminator);
-            println!(
-                "{}",
-                render_value(endpoint, blocks, &pad, settings, max_variable_string_len).join(" ")
-            );
-        } else {
-            if settings.headings && i == 0 {
-                let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
-                println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 6);
-            }
-
-            println!(
-                "{:spaces$}{}",
-                "",
-                render_value(endpoint, blocks, &pad, settings, max_variable_string_len).join(" "),
-                spaces = (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
-            );
-        }
-    }
-}
-
-/// All device [`Interface`]
-pub fn print_interfaces(
-    interfaces: &[Interface],
-    blocks: (&Vec<InterfaceBlocks>, &Vec<EndpointBlocks>),
-    settings: &PrintSettings,
-    tree: &TreeData,
-) {
-    let mut pad = if !settings.no_padding {
-        let interfaces: Vec<&Interface> = interfaces.iter().collect();
-        InterfaceBlocks::generate_padding(&interfaces)
-    } else {
-        HashMap::new()
-    };
-    pad.retain(|k, _| blocks.0.contains(k));
-
-    let max_variable_string_len: Option<usize> = if settings.auto_width {
-        let mut variable_lens = pad.clone();
-        let offset = if settings.tree {
-            tree.depth * 3 + 1
-        } else {
-            (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
-        };
-        variable_lens.retain(|k, _| k.value_is_variable_length());
-        auto_max_string_len(
-            blocks.0,
-            offset,
-            &variable_lens.into_values().collect(),
-            settings,
-        )
-        .or(settings.max_variable_string_len)
-    } else {
-        settings.max_variable_string_len
-    };
-
-    // if there is a max variable length, adjust padding to this if current > it
-    if let Some(ml) = max_variable_string_len.as_ref() {
-        for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
-                *v = cmp::min(*v, *ml);
-            }
-        }
-    }
-
-    log::trace!("Print interfaces padding {:?}, tree {:?}", pad, tree);
-
-    for (i, interface) in interfaces.iter().enumerate() {
-        // get current prefix based on if last in tree and whether we are within the tree
-        if settings.tree {
-            let mut prefix = if tree.depth > 0 {
-                let edge_icon = if i + 1 != tree.branch_length {
-                    icon::Icon::TreeEdge
-                } else {
-                    icon::Icon::TreeCorner
-                };
-                let edge = settings.icons.as_ref().map_or(
-                    icon::get_default_tree_icon(&edge_icon, &settings.encoding),
-                    |i| i.get_tree_icon(&edge_icon, &settings.encoding),
-                );
-                format!("{}{}", tree.prefix, edge)
-            // zero depth
-            } else {
-                tree.prefix.to_string()
-            };
-
-            let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_default_tree_icon(
-                    &icon::Icon::TreeInterfaceTerminator,
-                    &settings.encoding,
-                ),
-                |i| i.get_tree_icon(&icon::Icon::TreeInterfaceTerminator, &settings.encoding),
-            );
-
-            // colour tree
-            if let Some(ct) = settings.colours.as_ref() {
-                prefix = ct
-                    .tree
-                    .map_or(prefix.normal(), |c| prefix.color(c))
-                    .to_string();
-                terminator = ct
-                    .tree_interface_terminator
-                    .map_or(terminator.normal(), |c| terminator.color(c))
-                    .to_string();
-            }
-
-            // maybe should just do once at start of bus
-            if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
-                println!("{}  {}", prefix, heading.bold().underline());
-            }
-
-            // render and print tree if doing it
-            print!("{}{} ", prefix, terminator);
-
-            println!(
-                "{}",
-                render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
-                    .join(" ")
-            );
-        } else {
-            if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
-                println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 4);
-            }
-
-            println!(
-                "{:spaces$}{}",
-                "",
-                render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
-                    .join(" "),
-                spaces = (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
-            );
-        }
-
-        // print the endpoints
-        if settings.verbosity >= 3 {
-            print_endpoints(
-                &interface.endpoints,
-                blocks.1,
-                settings,
-                &generate_tree_data(tree, interface.endpoints.len(), i, settings),
-            );
-        }
-    }
-}
-
-/// All device [`Configuration`]
-pub fn print_configurations(
-    configs: &[Configuration],
-    blocks: (
-        &Vec<ConfigurationBlocks>,
-        &Vec<InterfaceBlocks>,
-        &Vec<EndpointBlocks>,
-    ),
-    settings: &PrintSettings,
-    tree: &TreeData,
-) {
-    let mut pad = if !settings.no_padding {
-        let configs: Vec<&Configuration> = configs.iter().collect();
-        ConfigurationBlocks::generate_padding(&configs)
-    } else {
-        HashMap::new()
-    };
-    pad.retain(|k, _| blocks.0.contains(k));
-
-    let max_variable_string_len: Option<usize> = if settings.auto_width {
-        let mut variable_lens = pad.clone();
-        let offset = if settings.tree {
-            tree.depth * 3 + 1
-        } else {
-            (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
-        };
-        variable_lens.retain(|k, _| k.value_is_variable_length());
-        auto_max_string_len(
-            blocks.0,
-            offset,
-            &variable_lens.into_values().collect(),
-            settings,
-        )
-        .or(settings.max_variable_string_len)
-    } else {
-        settings.max_variable_string_len
-    };
-
-    // if there is a max variable length, adjust padding to this if current > it
-    if let Some(ml) = max_variable_string_len.as_ref() {
-        for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
-                *v = cmp::min(*v, *ml);
-            }
-        }
-    }
-
-    log::trace!("Print configs padding {:?}, tree {:?}", pad, tree);
-
-    for (i, config) in configs.iter().enumerate() {
-        // get current prefix based on if last in tree and whether we are within the tree
-        if settings.tree {
-            let mut prefix = if tree.depth > 0 {
-                let edge_icon = if i + 1 != tree.branch_length {
-                    icon::Icon::TreeEdge
-                } else {
-                    icon::Icon::TreeCorner
-                };
-                let edge = settings.icons.as_ref().map_or(
-                    icon::get_default_tree_icon(&edge_icon, &settings.encoding),
-                    |i| i.get_tree_icon(&edge_icon, &settings.encoding),
-                );
-                format!("{}{}", tree.prefix, edge)
-            // zero depth
-            } else {
-                tree.prefix.to_string()
-            };
-
-            let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_default_tree_icon(
-                    &icon::Icon::TreeConfigurationTerminator,
-                    &settings.encoding,
-                ),
-                |i| i.get_tree_icon(&icon::Icon::TreeConfigurationTerminator, &settings.encoding),
-            );
-
-            // colour tree
-            if let Some(ct) = settings.colours.as_ref() {
-                prefix = ct
-                    .tree
-                    .map_or(prefix.normal(), |c| prefix.color(c))
-                    .to_string();
-                terminator = ct
-                    .tree_configuration_terminator
-                    .map_or(terminator.normal(), |c| terminator.color(c))
-                    .to_string();
-            }
-
-            // maybe should just do once at start of bus
-            if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
-                println!("{}  {}", prefix, heading.bold().underline());
-            }
-
-            // render and print tree if doing it
-            print!("{}{} ", prefix, terminator);
-
-            println!(
-                "{}",
-                render_value(config, blocks.0, &pad, settings, max_variable_string_len).join(" ")
-            );
-        } else {
-            if settings.headings && i == 0 {
-                let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
-                println!("{:spaces$}{}", "", heading.bold().underline(), spaces = 2);
-            }
-
-            println!(
-                "{:spaces$}{}",
-                "",
-                render_value(config, blocks.0, &pad, settings, max_variable_string_len).join(" "),
-                spaces = (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
-            );
-        }
-
-        // print the interfaces
-        if settings.verbosity >= 2 {
-            print_interfaces(
-                &config.interfaces,
-                ((blocks.1), (blocks.2)),
-                settings,
-                &generate_tree_data(tree, config.interfaces.len(), i, settings),
-            );
-        }
-    }
-}
-
-/// Recursively print `devices`; will call for each `Device` devices if `Some`
-///
-/// Will draw tree if `settings.tree`, otherwise it will be flat
-pub fn print_devices(
-    devices: &[Device],
-    db: &Vec<DeviceBlocks>,
-    settings: &PrintSettings,
-    tree: &TreeData,
-) {
-    let mut pad = if !settings.no_padding {
-        let devices: Vec<&Device> = devices.iter().collect();
-        DeviceBlocks::generate_padding(&devices)
-    } else {
-        HashMap::new()
-    };
-    pad.retain(|k, _| db.contains(k));
-
-    let max_variable_string_len: Option<usize> = if settings.auto_width {
-        let mut variable_lens = pad.clone();
-        let offset = if settings.tree { tree.depth * 3 + 1 } else { 0 };
-        variable_lens.retain(|k, _| k.value_is_variable_length());
-        auto_max_string_len(db, offset, &variable_lens.into_values().collect(), settings)
-            .or(settings.max_variable_string_len)
-    } else {
-        settings.max_variable_string_len
-    };
-
-    // if there is a max variable length, adjust padding to this if current > it
-    if let Some(ml) = max_variable_string_len.as_ref() {
-        for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
-                *v = cmp::min(*v, *ml);
-            }
-        }
-    }
-
-    log::trace!("Print devices padding {:?}, tree {:?}", pad, tree);
-
-    //// sort so that can be ascending along branch
-    //let sorted = settings.sort_devices.sort_devices(devices);
-
-    for (i, device) in devices.iter().enumerate() {
-        // get current prefix based on if last in tree and whether we are within the tree
-        if settings.tree {
-            let mut prefix = if tree.depth > 0 {
-                let edge_icon = if i + 1 != tree.branch_length {
-                    icon::Icon::TreeEdge
-                } else {
-                    icon::Icon::TreeCorner
-                };
-                let edge = settings.icons.as_ref().map_or(
-                    icon::get_default_tree_icon(&edge_icon, &settings.encoding),
-                    |i| i.get_tree_icon(&edge_icon, &settings.encoding),
-                );
-                format!("{}{}", tree.prefix, edge)
-            // zero depth
-            } else {
-                tree.prefix.to_string()
-            };
-
-            let mut terminator = settings.icons.as_ref().map_or(
-                icon::get_default_tree_icon(&icon::Icon::TreeDeviceTerminator, &settings.encoding),
-                |i| i.get_tree_icon(&icon::Icon::TreeDeviceTerminator, &settings.encoding),
-            );
-
-            // colour tree
-            if let Some(ct) = settings.colours.as_ref() {
-                prefix = ct
-                    .tree
-                    .map_or(prefix.normal(), |c| prefix.color(c))
-                    .to_string();
-                terminator = ct
-                    .tree_bus_terminator
-                    .map_or(terminator.normal(), |c| terminator.color(c))
-                    .to_string();
-            }
-
-            // maybe should just do once at start of bus
-            if settings.headings && i == 0 {
-                let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
-                println!("{}  {}", prefix, heading.bold().underline());
-            }
-
-            // render and print tree if doing it
-            print!("{}{} ", prefix, terminator);
-        } else if settings.headings && i == 0 {
-            let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
-            println!("{}", heading.bold().underline());
-        }
-
-        // print the device
-        let mut device_string =
-            render_value(device, db, &pad, settings, max_variable_string_len).join(" ");
-        #[cfg(feature = "watch")]
-        if settings.watch_mode && device.is_disconnected() {
-            device_string = device_string.dimmed().white().to_string();
-        }
-        println!("{}", device_string);
-
-        // print the configurations
-        if let Some(extra) = device.extra.as_ref() {
-            if settings.verbosity >= 1 {
-                // generate extra blocks if not passed and drop icons if not supported by encoding
-                let blocks = generate_extra_blocks(extra, settings);
-
-                // pass branch length as number of configurations for this device plus devices still to print
-                print_configurations(
-                    &extra.configurations,
-                    (&blocks.0, &blocks.1, &blocks.2),
-                    settings,
-                    &generate_tree_data(
-                        tree,
-                        extra.configurations.len() + device.devices.as_ref().map_or(0, |d| d.len()),
-                        i,
-                        settings,
                     ),
+                    |i| {
+                        i.get_tree_icon(
+                            &icon::Icon::Endpoint(endpoint.address.direction),
+                            &settings.encoding,
+                        )
+                    },
                 );
-            }
-        } else if settings.verbosity >= 1 {
-            log::warn!(
-                "Unable to print verbose information for {} because libusb extra data is missing",
-                device
-            )
-        }
 
-        if let Some(d) = device.devices.as_ref() {
-            // and then walk down devices printing them too
-            print_devices(
-                d,
-                db,
-                settings,
-                &generate_tree_data(tree, d.len(), i, settings),
-            );
+                // colour tree
+                if let Some(ct) = settings.colours.as_ref() {
+                    prefix = ct
+                        .tree
+                        .map_or(prefix.normal(), |c| prefix.color(c))
+                        .to_string();
+                    terminator = if endpoint.address.direction == Direction::In {
+                        ct.tree_endpoint_in
+                            .map_or(terminator.normal(), |c| terminator.color(c))
+                            .to_string()
+                    } else {
+                        ct.tree_endpoint_out
+                            .map_or(terminator.normal(), |c| terminator.color(c))
+                            .to_string()
+                    };
+                }
+
+                // maybe should just do once at start of bus
+                if settings.headings && i == 0 {
+                    let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
+                    self.println(format!("{}  {}", prefix, heading.bold().underline()))
+                        .unwrap();
+                }
+
+                // render and print tree if doing it
+                self.print(format!("{}{} ", prefix, terminator)).unwrap();
+                self.println(
+                    render_value(endpoint, blocks, &pad, settings, max_variable_string_len)
+                        .join(" "),
+                )
+                .unwrap();
+            } else {
+                if settings.headings && i == 0 {
+                    let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
+                    self.println(format!(
+                        "{:spaces$}{}",
+                        "",
+                        heading.bold().underline(),
+                        spaces = 6
+                    ))
+                    .unwrap();
+                }
+
+                self.println(format!(
+                    "{:spaces$}{}",
+                    "",
+                    render_value(endpoint, blocks, &pad, settings, max_variable_string_len)
+                        .join(" "),
+                    spaces = (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
+                ))
+                .unwrap();
+            }
         }
     }
-}
 
-/// Print [`SystemProfile`] [`Bus`] and [`Device`] information
-pub fn print_sp_usb(sp_usb: &SystemProfile, settings: &PrintSettings) {
-    let mut bb = settings
-        .bus_blocks
-        .to_owned()
-        .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
-            settings.verbosity >= MAX_VERBOSITY || settings.more,
-        ));
-    let mut db = settings.device_blocks.to_owned().unwrap_or(
-        if settings.verbosity >= MAX_VERBOSITY || settings.more {
-            DeviceBlocks::default_blocks(true)
-        } else if settings.tree {
-            DeviceBlocks::default_device_tree_blocks()
+    /// All device [`Interface`]
+    pub fn print_interfaces(
+        &mut self,
+        interfaces: &[Interface],
+        blocks: (&Vec<InterfaceBlocks>, &Vec<EndpointBlocks>),
+        settings: &PrintSettings,
+        tree: &TreeData,
+    ) {
+        let mut pad = if !settings.no_padding {
+            let interfaces: Vec<&Interface> = interfaces.iter().collect();
+            InterfaceBlocks::generate_padding(&interfaces)
         } else {
-            DeviceBlocks::default_blocks(false)
-        },
-    );
+            HashMap::new()
+        };
+        pad.retain(|k, _| blocks.0.contains(k));
 
-    // remove icon blocks if not supported by encoding
-    match settings.icon_when {
-        IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {
-            bb.retain(|b| !b.is_icon());
-            db.retain(|b| !b.is_icon());
+        let max_variable_string_len: Option<usize> = if settings.auto_width {
+            let mut variable_lens = pad.clone();
+            let offset = if settings.tree {
+                tree.depth * 3 + 1
+            } else {
+                (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
+            };
+            variable_lens.retain(|k, _| k.value_is_variable_length());
+            auto_max_string_len(
+                blocks.0,
+                offset,
+                &variable_lens.into_values().collect(),
+                settings,
+            )
+            .or(settings.max_variable_string_len)
+        } else {
+            settings.max_variable_string_len
+        };
+
+        // if there is a max variable length, adjust padding to this if current > it
+        if let Some(ml) = max_variable_string_len.as_ref() {
+            for (k, v) in pad.iter_mut() {
+                if k.value_is_variable_length() {
+                    *v = cmp::min(*v, *ml);
+                }
+            }
         }
-        IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
-        IconWhen::Always => {
-            if settings.icons.is_none() {
-                log::warn!(
-                    "{:?} blocks requested but no icons provided",
-                    settings.icon_when
+
+        log::trace!("Print interfaces padding {:?}, tree {:?}", pad, tree);
+
+        for (i, interface) in interfaces.iter().enumerate() {
+            // get current prefix based on if last in tree and whether we are within the tree
+            if settings.tree {
+                let mut prefix = if tree.depth > 0 {
+                    let edge_icon = if i + 1 != tree.branch_length {
+                        icon::Icon::TreeEdge
+                    } else {
+                        icon::Icon::TreeCorner
+                    };
+                    let edge = settings.icons.as_ref().map_or(
+                        icon::get_default_tree_icon(&edge_icon, &settings.encoding),
+                        |i| i.get_tree_icon(&edge_icon, &settings.encoding),
+                    );
+                    format!("{}{}", tree.prefix, edge)
+                // zero depth
+                } else {
+                    tree.prefix.to_string()
+                };
+
+                let mut terminator = settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(
+                        &icon::Icon::TreeInterfaceTerminator,
+                        &settings.encoding,
+                    ),
+                    |i| i.get_tree_icon(&icon::Icon::TreeInterfaceTerminator, &settings.encoding),
+                );
+
+                // colour tree
+                if let Some(ct) = settings.colours.as_ref() {
+                    prefix = ct
+                        .tree
+                        .map_or(prefix.normal(), |c| prefix.color(c))
+                        .to_string();
+                    terminator = ct
+                        .tree_interface_terminator
+                        .map_or(terminator.normal(), |c| terminator.color(c))
+                        .to_string();
+                }
+
+                // maybe should just do once at start of bus
+                if settings.headings && i == 0 {
+                    let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                    self.println(format!("{}  {}", prefix, heading.bold().underline()))
+                        .unwrap();
+                }
+
+                // render and print tree if doing it
+                self.print(format!("{}{} ", prefix, terminator)).unwrap();
+
+                self.println(
+                    render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
+                        .join(" "),
+                )
+                .unwrap();
+            } else {
+                if settings.headings && i == 0 {
+                    let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                    self.println(format!(
+                        "{:spaces$}{}",
+                        "",
+                        heading.bold().underline(),
+                        spaces = 4
+                    ))
+                    .unwrap();
+                }
+
+                self.println(format!(
+                    "{:spaces$}{}",
+                    "",
+                    render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
+                        .join(" "),
+                    spaces = (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
+                ))
+                .unwrap();
+            }
+
+            // print the endpoints
+            if settings.verbosity >= 3 {
+                self.print_endpoints(
+                    &interface.endpoints,
+                    blocks.1,
+                    settings,
+                    &generate_tree_data(tree, interface.endpoints.len(), i, settings),
                 );
             }
         }
-        _ => {
-            settings.icon_when.retain(&sp_usb.buses, &mut bb, settings);
-            sp_usb.buses.iter().for_each(|bo| {
-                bo.devices
-                    .iter()
-                    .for_each(|b| settings.icon_when.retain(b, &mut db, settings));
-            });
+    }
+
+    /// All device [`Configuration`]
+    pub fn print_configurations(
+        &mut self,
+        configs: &[Configuration],
+        blocks: (
+            &Vec<ConfigurationBlocks>,
+            &Vec<InterfaceBlocks>,
+            &Vec<EndpointBlocks>,
+        ),
+        settings: &PrintSettings,
+        tree: &TreeData,
+    ) {
+        let mut pad = if !settings.no_padding {
+            let configs: Vec<&Configuration> = configs.iter().collect();
+            ConfigurationBlocks::generate_padding(&configs)
+        } else {
+            HashMap::new()
+        };
+        pad.retain(|k, _| blocks.0.contains(k));
+
+        let max_variable_string_len: Option<usize> = if settings.auto_width {
+            let mut variable_lens = pad.clone();
+            let offset = if settings.tree {
+                tree.depth * 3 + 1
+            } else {
+                (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
+            };
+            variable_lens.retain(|k, _| k.value_is_variable_length());
+            auto_max_string_len(
+                blocks.0,
+                offset,
+                &variable_lens.into_values().collect(),
+                settings,
+            )
+            .or(settings.max_variable_string_len)
+        } else {
+            settings.max_variable_string_len
+        };
+
+        // if there is a max variable length, adjust padding to this if current > it
+        if let Some(ml) = max_variable_string_len.as_ref() {
+            for (k, v) in pad.iter_mut() {
+                if k.value_is_variable_length() {
+                    *v = cmp::min(*v, *ml);
+                }
+            }
+        }
+
+        log::trace!("Print configs padding {:?}, tree {:?}", pad, tree);
+
+        for (i, config) in configs.iter().enumerate() {
+            // get current prefix based on if last in tree and whether we are within the tree
+            if settings.tree {
+                let mut prefix = if tree.depth > 0 {
+                    let edge_icon = if i + 1 != tree.branch_length {
+                        icon::Icon::TreeEdge
+                    } else {
+                        icon::Icon::TreeCorner
+                    };
+                    let edge = settings.icons.as_ref().map_or(
+                        icon::get_default_tree_icon(&edge_icon, &settings.encoding),
+                        |i| i.get_tree_icon(&edge_icon, &settings.encoding),
+                    );
+                    format!("{}{}", tree.prefix, edge)
+                // zero depth
+                } else {
+                    tree.prefix.to_string()
+                };
+
+                let mut terminator = settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(
+                        &icon::Icon::TreeConfigurationTerminator,
+                        &settings.encoding,
+                    ),
+                    |i| {
+                        i.get_tree_icon(
+                            &icon::Icon::TreeConfigurationTerminator,
+                            &settings.encoding,
+                        )
+                    },
+                );
+
+                // colour tree
+                if let Some(ct) = settings.colours.as_ref() {
+                    prefix = ct
+                        .tree
+                        .map_or(prefix.normal(), |c| prefix.color(c))
+                        .to_string();
+                    terminator = ct
+                        .tree_configuration_terminator
+                        .map_or(terminator.normal(), |c| terminator.color(c))
+                        .to_string();
+                }
+
+                // maybe should just do once at start of bus
+                if settings.headings && i == 0 {
+                    let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                    self.println(format!("{}  {}", prefix, heading.bold().underline()))
+                        .unwrap();
+                }
+
+                // render and print tree if doing it
+                self.print(format!("{}{} ", prefix, terminator)).unwrap();
+
+                self.println(
+                    render_value(config, blocks.0, &pad, settings, max_variable_string_len)
+                        .join(" "),
+                )
+                .unwrap();
+            } else {
+                if settings.headings && i == 0 {
+                    let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
+                    self.println(format!(
+                        "{:spaces$}{}",
+                        "",
+                        heading.bold().underline(),
+                        spaces = 2
+                    ))
+                    .unwrap();
+                }
+
+                self.println(format!(
+                    "{:spaces$}{}",
+                    "",
+                    render_value(config, blocks.0, &pad, settings, max_variable_string_len)
+                        .join(" "),
+                    spaces = (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
+                ))
+                .unwrap();
+            }
+
+            // print the interfaces
+            if settings.verbosity >= 2 {
+                self.print_interfaces(
+                    &config.interfaces,
+                    ((blocks.1), (blocks.2)),
+                    settings,
+                    &generate_tree_data(tree, config.interfaces.len(), i, settings),
+                );
+            }
         }
     }
 
-    let base_tree = TreeData {
-        ..Default::default()
-    };
+    /// Recursively print `devices`; will call for each `Device` devices if `Some`
+    ///
+    /// Will draw tree if `settings.tree`, otherwise it will be flat
+    pub fn print_devices(
+        &mut self,
+        devices: &[Device],
+        db: &Vec<DeviceBlocks>,
+        settings: &PrintSettings,
+        tree: &TreeData,
+    ) {
+        let mut pad = if !settings.no_padding {
+            let devices: Vec<&Device> = devices.iter().collect();
+            DeviceBlocks::generate_padding(&devices)
+        } else {
+            HashMap::new()
+        };
+        pad.retain(|k, _| db.contains(k));
 
-    let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
-        BusBlocks::generate_padding(&sp_usb.buses.iter().collect::<Vec<&Bus>>())
-    } else {
-        HashMap::new()
-    };
-    pad.retain(|k, _| bb.contains(k));
+        let max_variable_string_len: Option<usize> = if settings.auto_width {
+            let mut variable_lens = pad.clone();
+            let offset = if settings.tree { tree.depth * 3 + 1 } else { 0 };
+            variable_lens.retain(|k, _| k.value_is_variable_length());
+            auto_max_string_len(db, offset, &variable_lens.into_values().collect(), settings)
+                .or(settings.max_variable_string_len)
+        } else {
+            settings.max_variable_string_len
+        };
 
-    let max_variable_string_len: Option<usize> = if settings.auto_width {
-        let mut variable_lens = pad.clone();
-        variable_lens.retain(|k, _| k.value_is_variable_length());
-        auto_max_string_len(
-            &bb,
-            base_tree.depth * 3,
-            &variable_lens.into_values().collect(),
-            settings,
-        )
-        .or(settings.max_variable_string_len)
-    } else {
-        settings.max_variable_string_len
-    };
+        // if there is a max variable length, adjust padding to this if current > it
+        if let Some(ml) = max_variable_string_len.as_ref() {
+            for (k, v) in pad.iter_mut() {
+                if k.value_is_variable_length() {
+                    *v = cmp::min(*v, *ml);
+                }
+            }
+        }
 
-    // if there is a max variable length, adjust padding to this if current > it
-    if let Some(ml) = max_variable_string_len.as_ref() {
-        for (k, v) in pad.iter_mut() {
-            if k.value_is_variable_length() {
-                *v = cmp::min(*v, *ml);
+        log::trace!("Print devices padding {:?}, tree {:?}", pad, tree);
+
+        //// sort so that can be ascending along branch
+        //let sorted = settings.sort_devices.sort_devices(devices);
+
+        for (i, device) in devices.iter().enumerate() {
+            // get current prefix based on if last in tree and whether we are within the tree
+            if settings.tree {
+                let mut prefix = if tree.depth > 0 {
+                    let edge_icon = if i + 1 != tree.branch_length {
+                        icon::Icon::TreeEdge
+                    } else {
+                        icon::Icon::TreeCorner
+                    };
+                    let edge = settings.icons.as_ref().map_or(
+                        icon::get_default_tree_icon(&edge_icon, &settings.encoding),
+                        |i| i.get_tree_icon(&edge_icon, &settings.encoding),
+                    );
+                    format!("{}{}", tree.prefix, edge)
+                // zero depth
+                } else {
+                    tree.prefix.to_string()
+                };
+
+                let mut terminator = settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(
+                        &icon::Icon::TreeDeviceTerminator,
+                        &settings.encoding,
+                    ),
+                    |i| i.get_tree_icon(&icon::Icon::TreeDeviceTerminator, &settings.encoding),
+                );
+
+                // colour tree
+                if let Some(ct) = settings.colours.as_ref() {
+                    prefix = ct
+                        .tree
+                        .map_or(prefix.normal(), |c| prefix.color(c))
+                        .to_string();
+                    terminator = ct
+                        .tree_bus_terminator
+                        .map_or(terminator.normal(), |c| terminator.color(c))
+                        .to_string();
+                }
+
+                // maybe should just do once at start of bus
+                if settings.headings && i == 0 {
+                    let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
+                    self.println(format!("{}  {}", prefix, heading.bold().underline()))
+                        .unwrap();
+                }
+
+                // render and print tree if doing it
+                self.print(format!("{}{} ", prefix, terminator)).unwrap();
+            } else if settings.headings && i == 0 {
+                let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
+                self.println(format!("{}", heading.bold().underline()))
+                    .unwrap();
+            }
+
+            // print the device
+            let mut device_string =
+                render_value(device, db, &pad, settings, max_variable_string_len).join(" ");
+            #[cfg(feature = "watch")]
+            if settings.watch_mode && device.is_disconnected() {
+                device_string = device_string.dimmed().white().to_string();
+            }
+            self.println(&device_string).unwrap();
+
+            // print the configurations
+            if let Some(extra) = device.extra.as_ref() {
+                if settings.verbosity >= 1 {
+                    // generate extra blocks if not passed and drop icons if not supported by encoding
+                    let blocks = generate_extra_blocks(extra, settings);
+
+                    // pass branch length as number of configurations for this device plus devices still to print
+                    self.print_configurations(
+                        &extra.configurations,
+                        (&blocks.0, &blocks.1, &blocks.2),
+                        settings,
+                        &generate_tree_data(
+                            tree,
+                            extra.configurations.len()
+                                + device.devices.as_ref().map_or(0, |d| d.len()),
+                            i,
+                            settings,
+                        ),
+                    );
+                }
+            } else if settings.verbosity >= 1 {
+                log::warn!(
+                    "Unable to print verbose information for {} because libusb extra data is missing",
+                    device
+                )
+            }
+
+            if let Some(d) = device.devices.as_ref() {
+                // and then walk down devices printing them too
+                self.print_devices(
+                    d,
+                    db,
+                    settings,
+                    &generate_tree_data(tree, d.len(), i, settings),
+                );
             }
         }
     }
 
-    log::trace!(
-        "print system profile with settings: {:?}; padding: {:?}; tree {:?}",
-        settings,
-        pad,
-        base_tree
-    );
-
-    for (i, bus) in sp_usb.buses.iter().enumerate() {
-        if settings.tree {
-            let mut prefix = base_tree.prefix.to_owned();
-            let mut start = settings.icons.as_ref().map_or(
-                icon::get_default_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding),
-                |i| i.get_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding),
-            );
-
-            // colour tree
-            if let Some(ct) = settings.colours.as_ref() {
-                prefix = ct
-                    .tree
-                    .map_or(prefix.normal(), |c| prefix.color(c))
-                    .to_string();
-                start = ct
-                    .tree_bus_start
-                    .map_or(start.normal(), |c| start.color(c))
-                    .to_string();
-            }
-
-            if settings.headings {
-                let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
-                // 2 spaces for bus start icon and space to info
-                println!("{:>spaces$}{}", "", heading.bold().underline(), spaces = 2);
-            }
-
-            print!("{}{} ", prefix, start);
-        } else if settings.headings {
-            let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
-            // 2 spaces for bus start icon and space to info
-            println!("{}", heading.bold().underline());
-        }
-        println!(
-            "{}",
-            render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" ")
+    /// Print [`SystemProfile`] [`Bus`] and [`Device`] information
+    pub fn print_sp_usb(&mut self, sp_usb: &SystemProfile, settings: &PrintSettings) {
+        let mut bb =
+            settings
+                .bus_blocks
+                .to_owned()
+                .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
+                    settings.verbosity >= MAX_VERBOSITY || settings.more,
+                ));
+        let mut db = settings.device_blocks.to_owned().unwrap_or(
+            if settings.verbosity >= MAX_VERBOSITY || settings.more {
+                DeviceBlocks::default_blocks(true)
+            } else if settings.tree {
+                DeviceBlocks::default_device_tree_blocks()
+            } else {
+                DeviceBlocks::default_blocks(false)
+            },
         );
 
-        if let Some(d) = bus.devices.as_ref() {
-            // and then walk down devices printing them too
-            print_devices(
-                d,
-                &db,
-                settings,
-                &generate_tree_data(&base_tree, d.len(), i, settings),
-            );
+        // remove icon blocks if not supported by encoding
+        match settings.icon_when {
+            IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {
+                bb.retain(|b| !b.is_icon());
+                db.retain(|b| !b.is_icon());
+            }
+            IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
+            IconWhen::Always => {
+                if settings.icons.is_none() {
+                    log::warn!(
+                        "{:?} blocks requested but no icons provided",
+                        settings.icon_when
+                    );
+                }
+            }
+            _ => {
+                settings.icon_when.retain(&sp_usb.buses, &mut bb, settings);
+                sp_usb.buses.iter().for_each(|bo| {
+                    bo.devices
+                        .iter()
+                        .for_each(|b| settings.icon_when.retain(b, &mut db, settings));
+                });
+            }
         }
 
-        // separate bus groups with line
-        println!();
+        let base_tree = TreeData {
+            ..Default::default()
+        };
+
+        let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
+            BusBlocks::generate_padding(&sp_usb.buses.iter().collect::<Vec<&Bus>>())
+        } else {
+            HashMap::new()
+        };
+        pad.retain(|k, _| bb.contains(k));
+
+        let max_variable_string_len: Option<usize> = if settings.auto_width {
+            let mut variable_lens = pad.clone();
+            variable_lens.retain(|k, _| k.value_is_variable_length());
+            auto_max_string_len(
+                &bb,
+                base_tree.depth * 3,
+                &variable_lens.into_values().collect(),
+                settings,
+            )
+            .or(settings.max_variable_string_len)
+        } else {
+            settings.max_variable_string_len
+        };
+
+        // if there is a max variable length, adjust padding to this if current > it
+        if let Some(ml) = max_variable_string_len.as_ref() {
+            for (k, v) in pad.iter_mut() {
+                if k.value_is_variable_length() {
+                    *v = cmp::min(*v, *ml);
+                }
+            }
+        }
+
+        log::trace!(
+            "print system profile with settings: {:?}; padding: {:?}; tree {:?}",
+            settings,
+            pad,
+            base_tree
+        );
+
+        for (i, bus) in sp_usb.buses.iter().enumerate() {
+            if settings.tree {
+                let mut prefix = base_tree.prefix.to_owned();
+                let mut start = settings.icons.as_ref().map_or(
+                    icon::get_default_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding),
+                    |i| i.get_tree_icon(&icon::Icon::TreeBusStart, &settings.encoding),
+                );
+
+                // colour tree
+                if let Some(ct) = settings.colours.as_ref() {
+                    prefix = ct
+                        .tree
+                        .map_or(prefix.normal(), |c| prefix.color(c))
+                        .to_string();
+                    start = ct
+                        .tree_bus_start
+                        .map_or(start.normal(), |c| start.color(c))
+                        .to_string();
+                }
+
+                if settings.headings {
+                    let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
+                    // 2 spaces for bus start icon and space to info
+                    self.println(format!(
+                        "{:>spaces$}{}",
+                        "",
+                        heading.bold().underline(),
+                        spaces = 2
+                    ))
+                    .unwrap();
+                }
+
+                self.print(format!("{}{} ", prefix, start)).unwrap()
+            } else if settings.headings {
+                let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
+                // 2 spaces for bus start icon and space to info
+                self.println(format!("{}", heading.bold().underline()))
+                    .unwrap();
+            }
+            self.println(render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" "))
+                .unwrap();
+
+            if let Some(d) = bus.devices.as_ref() {
+                // and then walk down devices printing them too
+                self.print_devices(
+                    d,
+                    &db,
+                    settings,
+                    &generate_tree_data(&base_tree, d.len(), i, settings),
+                );
+            }
+
+            // separate bus groups with line
+            self.println("").unwrap();
+        }
+    }
+
+    /// Print `devices` [`Device`] references without looking down each device's devices!
+    pub fn print_flattened_devices(&mut self, devices: &[&Device], settings: &PrintSettings) {
+        let mut db = settings
+            .device_blocks
+            .to_owned()
+            .unwrap_or(DeviceBlocks::default_blocks(
+                settings.verbosity >= MAX_VERBOSITY || settings.more,
+            ));
+
+        // remove icon blocks if not supported
+        match settings.icon_when {
+            IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {
+                db.retain(|b| !b.is_icon());
+            }
+            IconWhen::Auto if settings.encoding == Encoding::Glyphs => (),
+            IconWhen::Always => {
+                if settings.icons.is_none() {
+                    log::warn!(
+                        "{:?} blocks requested but no icons provided",
+                        settings.icon_when
+                    );
+                }
+            }
+            _ => settings.icon_when.retain_ref(devices, &mut db, settings),
+        }
+
+        let mut pad = if !settings.no_padding {
+            DeviceBlocks::generate_padding(devices)
+        } else {
+            HashMap::new()
+        };
+        pad.retain(|k, _| db.contains(k));
+        log::trace!("Flattened devices padding {:?}", pad);
+
+        let max_variable_string_len: Option<usize> = if settings.auto_width {
+            let mut variable_lens = pad.clone();
+            variable_lens.retain(|k, _| k.value_is_variable_length());
+            auto_max_string_len(&db, 0, &variable_lens.into_values().collect(), settings)
+                .or(settings.max_variable_string_len)
+        } else {
+            settings.max_variable_string_len
+        };
+
+        // if there is a max variable length, adjust padding to this if current > it
+        if let Some(ml) = max_variable_string_len.as_ref() {
+            for (k, v) in pad.iter_mut() {
+                if k.value_is_variable_length() {
+                    *v = cmp::min(*v, *ml);
+                }
+            }
+        }
+
+        if settings.headings {
+            let heading = render_heading(&db, &pad, max_variable_string_len).join(" ");
+            println!("{}", heading.bold().underline());
+        }
+
+        for (i, device) in devices.iter().enumerate() {
+            println!(
+                "{}",
+                render_value(*device, &db, &pad, settings, max_variable_string_len).join(" ")
+            );
+            // print the configurations
+            if let Some(extra) = device.extra.as_ref() {
+                if settings.verbosity >= 1 {
+                    let blocks = generate_extra_blocks(extra, settings);
+
+                    // pass branch length as number of configurations for this device plus devices still to print
+                    self.print_configurations(
+                        &extra.configurations,
+                        (&blocks.0, &blocks.1, &blocks.2),
+                        settings,
+                        &generate_tree_data(
+                            &Default::default(),
+                            extra.configurations.len()
+                                + device.devices.as_ref().map_or(0, |d| d.len()),
+                            i,
+                            settings,
+                        ),
+                    );
+                }
+            } else if settings.verbosity >= 1 {
+                log::warn!(
+                    "Unable to print verbose information for {} because libusb extra data is missing",
+                    device
+                )
+            }
+        }
+    }
+
+    /// A way of printing a reference flattened [`SystemProfile`] rather than hard flatten
+    ///
+    /// Prints each `&Bus` and tuple pair `Vec<&Device>`
+    pub fn print_bus_grouped(
+        &mut self,
+        bus_devices: Vec<(&Bus, Vec<&Device>)>,
+        settings: &PrintSettings,
+    ) {
+        let bb = settings
+            .bus_blocks
+            .to_owned()
+            .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
+                settings.verbosity >= MAX_VERBOSITY || settings.more,
+            ));
+        let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
+            let buses: Vec<&Bus> = bus_devices.iter().map(|bd| bd.0).collect();
+            BusBlocks::generate_padding(&buses)
+        } else {
+            HashMap::new()
+        };
+        pad.retain(|k, _| bb.contains(k));
+
+        let max_variable_string_len: Option<usize> = if settings.auto_width {
+            let mut variable_lens = pad.clone();
+            variable_lens.retain(|k, _| k.value_is_variable_length());
+            auto_max_string_len(&bb, 0, &variable_lens.into_values().collect(), settings)
+                .or(settings.max_variable_string_len)
+        } else {
+            settings.max_variable_string_len
+        };
+
+        // if there is a max variable length, adjust padding to this if current > it
+        if let Some(ml) = max_variable_string_len.as_ref() {
+            for (k, v) in pad.iter_mut() {
+                if k.value_is_variable_length() {
+                    *v = cmp::min(*v, *ml);
+                }
+            }
+        }
+
+        for (bus, devices) in bus_devices {
+            if settings.headings {
+                let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
+                self.println(format!("{}", heading.bold().underline()))
+                    .unwrap();
+            }
+            self.println(render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" "))
+                .unwrap();
+            self.print_flattened_devices(&devices, settings);
+            // new line for each group
+            self.println("").unwrap();
+        }
     }
 }
 
@@ -3066,12 +3184,13 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: &Option<Filter>, settings: &P
 /// Main cyme bin print function
 pub fn print(sp_usb: &SystemProfile, settings: &PrintSettings) {
     log::trace!("Printing with {:?}", settings);
+    let mut dw = DisplayWriter::default();
 
     if settings.tree || settings.group_devices == Group::Bus {
         if settings.json {
             println!("{}", serde_json::to_string_pretty(&sp_usb).unwrap());
         } else {
-            print_sp_usb(sp_usb, settings);
+            dw.print_sp_usb(sp_usb, settings);
         }
     } else {
         {
@@ -3081,7 +3200,7 @@ pub fn print(sp_usb: &SystemProfile, settings: &PrintSettings) {
             if settings.json {
                 println!("{}", serde_json::to_string_pretty(&devs).unwrap());
             } else {
-                print_flattened_devices(&devs, settings);
+                dw.print_flattened_devices(&devs, settings);
             }
         }
     }

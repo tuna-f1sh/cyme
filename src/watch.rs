@@ -35,8 +35,8 @@ pub fn watch_usb_devices(
     let mut stdout = stdout();
     execute!(stdout, terminal::Clear(terminal::ClearType::All))
         .map_err(|e| Error::new(ErrorKind::Other("crossterm"), &e.to_string()))?;
-    // TODO this requires a rethink of writer since raw needs \n\r
-    //terminal::enable_raw_mode()?;
+
+    terminal::enable_raw_mode()?;
 
     // first draw
     draw_devices(&spusb, &print_settings)?;
@@ -93,7 +93,7 @@ pub fn watch_usb_devices(
         thread::sleep(Duration::from_millis(100));
     }
 
-    //terminal::disable_raw_mode()?;
+    terminal::disable_raw_mode()?;
 
     Ok(())
 }
@@ -108,7 +108,9 @@ fn draw_devices(spusb: &SystemProfile, print_settings: &PrintSettings) -> Result
     .map_err(|e| Error::new(ErrorKind::Other("crossterm"), &e.to_string()))?;
 
     // TODO change color based on event in print? or post print?
-    cyme::display::print_sp_usb(spusb, print_settings);
+    let mut dw = DisplayWriter::new(&mut stdout);
+    dw.set_raw_mode(true);
+    dw.print_sp_usb(spusb, print_settings);
 
     Ok(())
 }
