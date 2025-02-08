@@ -535,6 +535,14 @@ pub trait Block<B: Eq + Hash, T> {
 }
 
 impl DeviceBlocks {
+    /// Default `DeviceBlocks` for watch mode printing
+    pub fn default_watch_blocks(verbose: bool) -> Vec<Self> {
+        let mut blocks = Self::default_blocks(verbose);
+        blocks.push(DeviceBlocks::EventIcon);
+        blocks.push(DeviceBlocks::LastEvent);
+        blocks
+    }
+
     /// Default `DeviceBlocks` for tree printing are different to list, get them here
     pub fn default_device_tree_blocks() -> Vec<Self> {
         #[cfg(target_os = "linux")]

@@ -823,12 +823,28 @@ pub enum WatchEvent {
 impl fmt::Display for WatchEvent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            WatchEvent::Profiled(t) => write!(f, "Profiled: {}", t.format("%y-%m-%d %H:%M:%S")),
-            WatchEvent::Connected(t) => write!(f, "Connected: {}", t.format("%y-%m-%d %H:%M:%S")),
+            WatchEvent::Profiled(t) => write!(f, "P: {}", t.format("%y-%m-%d %H:%M:%S")),
+            WatchEvent::Connected(t) => write!(f, "C: {}", t.format("%y-%m-%d %H:%M:%S")),
             WatchEvent::Disconnected(t) => {
-                write!(f, "Disconnected: {}", t.format("%y-%m-%d %H:%M:%S"))
+                write!(f, "D: {}", t.format("%y-%m-%d %H:%M:%S"))
             }
         }
+    }
+}
+
+impl WatchEvent {
+    /// Get the time of the event
+    pub fn time(&self) -> chrono::DateTime<chrono::Local> {
+        match self {
+            WatchEvent::Profiled(t) => *t,
+            WatchEvent::Connected(t) => *t,
+            WatchEvent::Disconnected(t) => *t,
+        }
+    }
+
+    /// Format the event time using the provided format string
+    pub fn format(&self, fmt: &str) -> String {
+        self.time().format(fmt).to_string()
     }
 }
 
