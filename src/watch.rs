@@ -75,9 +75,28 @@ pub fn watch_usb_devices(
                     }
                     KeyCode::Char('v') => {
                         let mut print_settings = print_settings.lock().unwrap();
-                        print_settings.verbosity = (print_settings.verbosity + 1) % 5;
-                        // TODO issue redraw request to profile_stream thread somehow
+                        print_settings.verbosity = (print_settings.verbosity + 1) % 4;
                     }
+                    KeyCode::Char('t') => {
+                        let mut print_settings = print_settings.lock().unwrap();
+                        print_settings.tree = !print_settings.tree;
+                    }
+                    KeyCode::Char('h') => {
+                        let mut print_settings = print_settings.lock().unwrap();
+                        print_settings.headings = !print_settings.headings;
+                    }
+                    KeyCode::Char('m') => {
+                        let mut print_settings = print_settings.lock().unwrap();
+                        print_settings.more = !print_settings.more;
+                    }
+                    KeyCode::Char('d') => {
+                        let mut print_settings = print_settings.lock().unwrap();
+                        print_settings.decimal = !print_settings.decimal;
+                    }
+                    // TODO:
+                    // filter pop-up enter filter
+                    // sort pop-up enter sort
+                    // TODO issue redraw request to profile_stream thread somehow
                     _ => {}
                 }
             }
