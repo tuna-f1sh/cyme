@@ -23,7 +23,7 @@ serde = { version = "1.0", features = ["derive"] } # --json serialisation and --
 serde_json = "1.0.87"
 serde_with = "2.0.1"
 log = "0.4.17"
-simple_logger = "4.0.0"
+simple_logger = { version = "4.0.0", features = ["stderr"] }
 usb-ids = { version = "1" } # USB ID database
 heck = "0.4.0" # common case conversions - could be internal but simple crate with no dependencies
 dirs = "6.0.0" # cross-platform XDG_CONFIG_HOME - could be internal since only this path

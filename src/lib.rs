@@ -44,6 +44,7 @@
 #![allow(dead_code)]
 #![warn(missing_docs)]
 use simple_logger::SimpleLogger;
+use std::collections::HashSet;
 
 pub mod colour;
 pub mod config;
@@ -61,43 +62,70 @@ pub mod udev;
 pub mod usb;
 
 /// Set cyme module and binary log level
+/// TODO move from mod with bin feature for simple_logger, dependant can configure log in their own way
 pub fn set_log_level(debug: u8) -> crate::error::Result<()> {
-    match debug {
-        // just use env if not passed
-        0 => SimpleLogger::new()
-            .with_utc_timestamps()
-            .with_level(log::Level::Error.to_level_filter())
-            // even errors are off as can be noisy
-            .with_module_level("udevrs", log::LevelFilter::Off)
-            .with_module_level("nusb", log::LevelFilter::Off)
-            .env(),
-        1 => SimpleLogger::new()
-            .with_utc_timestamps()
-            .with_module_level("udevrs", log::Level::Warn.to_level_filter())
-            .with_module_level("nusb", log::Level::Warn.to_level_filter())
-            .with_module_level("cyme", log::Level::Info.to_level_filter()),
-        2 => SimpleLogger::new()
-            .with_utc_timestamps()
-            .with_module_level("udevrs", log::Level::Info.to_level_filter())
-            .with_module_level("nusb", log::Level::Info.to_level_filter())
-            .with_module_level("cyme", log::Level::Debug.to_level_filter()),
-        3 => SimpleLogger::new()
-            .with_utc_timestamps()
-            .with_module_level("udevrs", log::Level::Debug.to_level_filter())
-            .with_module_level("nusb", log::Level::Debug.to_level_filter())
-            .with_module_level("cyme", log::Level::Trace.to_level_filter()),
-        // all modules at Trace level
-        _ => SimpleLogger::new()
-            .with_utc_timestamps()
-            .with_level(log::Level::Trace.to_level_filter()),
+    let mut builder = SimpleLogger::new();
+    let mut env_levels: HashSet<(String, log::LevelFilter)> = HashSet::new();
+
+    let global_level = match debug {
+        0 => {
+            env_levels.insert(("udevrs".to_string(), log::LevelFilter::Off));
+            env_levels.insert(("nusb".to_string(), log::LevelFilter::Off));
+            log::LevelFilter::Error
+        }
+        1 => {
+            env_levels.insert(("udevrs".to_string(), log::LevelFilter::Warn));
+            env_levels.insert(("nusb".to_string(), log::LevelFilter::Warn));
+            env_levels.insert(("cyme".to_string(), log::LevelFilter::Info));
+            log::LevelFilter::Error
+        }
+        2 => {
+            env_levels.insert(("udevrs".to_string(), log::LevelFilter::Info));
+            env_levels.insert(("nusb".to_string(), log::LevelFilter::Info));
+            env_levels.insert(("cyme".to_string(), log::LevelFilter::Debug));
+            log::LevelFilter::Error
+        }
+        3 => {
+            env_levels.insert(("udevrs".to_string(), log::LevelFilter::Debug));
+            env_levels.insert(("nusb".to_string(), log::LevelFilter::Debug));
+            env_levels.insert(("cyme".to_string(), log::LevelFilter::Trace));
+            log::LevelFilter::Error
+        }
+        _ => log::LevelFilter::Trace,
+    };
+
+    if let Ok(rust_log) = std::env::var("RUST_LOG") {
+        rust_log
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(|s| {
+                let mut split = s.split('=');
+                let k = split.next().unwrap();
+                let v = split.next().and_then(|s| s.parse().ok());
+                (k.to_string(), v)
+            })
+            .filter(|(_, v)| v.is_some())
+            .map(|(k, v)| (k, v.unwrap()))
+            .for_each(|(k, v)| {
+                env_levels.replace((k, v));
+            });
     }
-    .init()
-    .map_err(|e| {
-        crate::error::Error::new(
-            crate::error::ErrorKind::Other("simple_logger"),
-            &format!("Failed to set log level: {}", e),
-        )
-    })?;
+
+    for (k, v) in env_levels {
+        builder = builder.with_module_level(&k, v);
+    }
+
+    builder
+        .with_utc_timestamps()
+        .with_level(global_level)
+        .env()
+        .init()
+        .map_err(|e| {
+            crate::error::Error::new(
+                crate::error::ErrorKind::Other("logger"),
+                &format!("Failed to set log level: {}", e),
+            )
+        })?;
 
     Ok(())
 }
