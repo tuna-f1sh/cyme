@@ -243,9 +243,12 @@ impl UsbDevice {
         let ret = {
             // requires detech_and_claim_interface on Linux if mod is loaded
             // not nice though just for profiling - maybe add a flag to claim or not?
-            let interface = self.handle.claim_interface(control_request.index as u8)?;
+            let interface = self
+                .handle
+                .claim_interface(control_request.index as u8)
+                .wait()?;
             if clear_halt {
-                interface.clear_halt(0)?;
+                interface.clear_halt(0).wait()?;
             }
             interface.control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
         };
@@ -720,7 +723,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
         let mut root_hubs = HashMap::new();
-        for bus in nusb::list_buses()? {
+        for bus in nusb::list_buses().wait()? {
             let device = bus.root_hub();
             // get with extra data only on Linux as others _really_ don't exist
             match self.build_spdevice(device, true) {
