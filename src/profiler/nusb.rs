@@ -3,7 +3,7 @@ use super::*;
 use crate::error::{Error, ErrorKind};
 use crate::lsusb::names;
 use crate::types::NumericalUnit;
-use ::nusb;
+use ::nusb::{self, MaybeFuture};
 use usb_ids::{self, FromId};
 
 #[derive(Debug)]
@@ -255,9 +255,12 @@ impl UsbDevice {
             if control_request.claim_interface | clear_halt {
                 // requires detech_and_claim_interface on Linux if mod is loaded
                 // not nice though just for profiling - maybe add a flag to claim or not?
-                let interface = self.handle.claim_interface(control_request.index as u8)?;
+                let interface = self
+                    .handle
+                    .claim_interface(control_request.index as u8)
+                    .wait()?;
                 if clear_halt {
-                    interface.clear_halt(0)?;
+                    interface.clear_halt(0).wait()?;
                 }
                 interface.control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
             } else {
@@ -629,7 +632,7 @@ impl NusbProfiler {
         };
 
         if with_extra {
-            if let Ok(device) = device_info.open() {
+            if let Ok(device) = device_info.open().wait() {
                 // get the first language - probably US English
                 let languages: Vec<u16> = device
                     .get_string_descriptor_supported_languages(std::time::Duration::from_secs(1))
@@ -677,7 +680,7 @@ impl NusbProfiler {
 impl Profiler<UsbDevice> for NusbProfiler {
     fn get_devices(&mut self, with_extra: bool) -> Result<Vec<Device>> {
         let mut devices = Vec::new();
-        for device in nusb::list_devices()? {
+        for device in nusb::list_devices().wait()? {
             match self.build_spdevice(&device, with_extra) {
                 #[allow(unused_mut)]
                 Ok(mut sp_device) => {
@@ -756,7 +759,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
         let mut root_hubs = HashMap::new();
-        for bus in nusb::list_buses()? {
+        for bus in nusb::list_buses().wait()? {
             #[allow(unused_mut)]
             let mut device: Device = Device::from(&bus);
 
@@ -779,7 +782,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
 
     fn get_buses(&mut self) -> Result<HashMap<u8, Bus>> {
         let mut buses = HashMap::new();
-        for nusb_bus in nusb::list_buses()? {
+        for nusb_bus in nusb::list_buses().wait()? {
             #[allow(unused_mut)]
             let mut bus: Bus = Bus::from(&nusb_bus);
 
