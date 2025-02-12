@@ -79,6 +79,17 @@ impl SystemProfileStream {
     pub fn get_profile(&self) -> Arc<Mutex<SystemProfile>> {
         Arc::clone(&self.spusb)
     }
+
+    /// Re-profile the system USB devices
+    ///
+    /// Last events will be lost
+    pub fn reprofile(&self) -> Arc<Mutex<SystemProfile>> {
+        if self.verbose {
+            Arc::new(Mutex::new(super::get_spusb_with_extra().unwrap()))
+        } else {
+            Arc::new(Mutex::new(super::get_spusb().unwrap()))
+        }
+    }
 }
 
 impl Stream for SystemProfileStream {
@@ -98,29 +109,7 @@ impl Stream for SystemProfileStream {
                         let mut cyme_device: Device =
                             profiler.build_spdevice(&device, extra).unwrap();
                         cyme_device.last_event = Some(WatchEvent::Connected(Local::now()));
-
-                        // is it existing? TODO this is a mess, need to take existing, put devices into new and replace since might have new descriptors
-                        if let Some(existing) = spusb.get_node_mut(&cyme_device.port_path()) {
-                            let devices = std::mem::take(&mut existing.devices);
-                            cyme_device.devices = devices;
-                            *existing = cyme_device;
-                        // else we have to stick into tree at correct place
-                        } else if cyme_device.is_trunk_device() {
-                            let bus = spusb.get_bus_mut(cyme_device.location_id.bus).unwrap();
-                            if let Some(bd) = bus.devices.as_mut() {
-                                bd.push(cyme_device);
-                            } else {
-                                bus.devices = Some(vec![cyme_device]);
-                            }
-                        } else if let Ok(parent_path) = cyme_device.parent_path() {
-                            if let Some(parent) = spusb.get_node_mut(&parent_path) {
-                                if let Some(bd) = parent.devices.as_mut() {
-                                    bd.push(cyme_device);
-                                } else {
-                                    parent.devices = Some(vec![cyme_device]);
-                                }
-                            }
-                        }
+                        spusb.insert(cyme_device);
                     }
                     HotplugEvent::Disconnected(id) => {
                         if let Some(device) = spusb.get_id_mut(&id) {

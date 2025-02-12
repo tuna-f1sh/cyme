@@ -1,28 +1,57 @@
 //! Watch for USB devices being connected and disconnected.
+use clap::ValueEnum;
 use colored::*;
 use crossterm::{
     cursor,
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind},
+    event::{
+        self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
+    },
     execute,
     style::{Print, ResetColor},
     terminal,
 };
+use futures_lite::stream::StreamExt;
 use std::io::stdout;
 use std::io::Write;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
+use super::parse_vidpid;
 use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::profiler::{watch::SystemProfileStreamBuilder, Filter, SystemProfile};
-use futures_lite::stream::StreamExt;
 
+#[derive(Debug, Clone)]
 enum WatchEvent {
     DrawDevices,
     ScrollUp(usize),
+    ScrollUpPage,
     ScrollDown(usize),
+    ScrollDownPage,
+    EditFilter(FilterField),
+    PushFilter(char),
+    PopFilter,
     Draw,
+    Enter,
     Stop,
+}
+
+#[derive(Debug, Clone)]
+enum InputMode {
+    Normal,
+    EditingFilter {
+        field: FilterField,
+        buffer: String,
+        original: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone)]
+enum FilterField {
+    Name,
+    Serial,
+    VidPid,
+    Class,
 }
 
 #[derive(Debug)]
@@ -30,10 +59,31 @@ struct Display {
     buffer: Vec<u8>,
     spusb: Arc<Mutex<SystemProfile>>,
     print_settings: Arc<Mutex<PrintSettings>>,
-    filter: Arc<Mutex<Option<Filter>>>,
+    filter: Filter,
+    input_mode: Arc<Mutex<InputMode>>,
     selected_device: Option<usize>,
+    available_rows: usize,
     max_offset: usize,
     scroll_offset: usize,
+}
+
+fn set_filter(field: &FilterField, value: Option<String>, filter: &mut Filter) {
+    match field {
+        FilterField::Name => filter.name = value,
+        FilterField::Serial => filter.serial = value,
+        FilterField::VidPid => {
+            if let Ok((vid, pid)) = parse_vidpid(&value.unwrap_or_default()) {
+                filter.vid = vid;
+                filter.pid = pid;
+            } else {
+                filter.vid = None;
+                filter.pid = None;
+            }
+        }
+        FilterField::Class => {
+            filter.class = value.and_then(|s| cyme::usb::BaseClass::from_str(&s, true).ok())
+        }
+    }
 }
 
 pub fn watch_usb_devices(
@@ -69,7 +119,7 @@ pub fn watch_usb_devices(
 
     let (tx, rx) = mpsc::channel::<WatchEvent>();
     let print_settings = Arc::new(Mutex::new(print_settings));
-    let filter = Arc::new(Mutex::new(filter));
+    let input_mode = Arc::new(Mutex::new(InputMode::Normal));
     // first draw
     tx.send(WatchEvent::DrawDevices).unwrap();
 
@@ -79,7 +129,9 @@ pub fn watch_usb_devices(
         // main thread needs to draw with SystemProfile outside of the stream
         spusb: profile_stream.get_profile(),
         print_settings: print_settings.clone(),
-        filter: filter.clone(),
+        filter: filter.unwrap_or_default(),
+        input_mode: input_mode.clone(),
+        available_rows: 0,
         max_offset: 0,
         scroll_offset: 0,
         selected_device: Some(1),
@@ -109,56 +161,14 @@ pub fn watch_usb_devices(
                     tx.send(WatchEvent::ScrollDown(1)).unwrap();
                 }
             }
-            Event::Key(KeyEvent {
-                code, modifiers, ..
-            }) => {
-                match (code, modifiers) {
-                    (KeyCode::Char('q'), _)
-                    | (KeyCode::Esc, _)
-                    | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                        tx.send(WatchEvent::Stop).unwrap();
-                        break;
-                    }
-                    (KeyCode::Char('v'), _) => {
-                        let mut print_settings = print_settings.lock().unwrap();
-                        print_settings.verbosity = (print_settings.verbosity + 1) % 4;
-                        tx.send(WatchEvent::DrawDevices).unwrap();
-                    }
-                    (KeyCode::Char('t'), _) => {
-                        let mut print_settings = print_settings.lock().unwrap();
-                        print_settings.tree = !print_settings.tree;
-                        tx.send(WatchEvent::DrawDevices).unwrap();
-                    }
-                    (KeyCode::Char('h'), _) => {
-                        let mut print_settings = print_settings.lock().unwrap();
-                        print_settings.headings = !print_settings.headings;
-                        tx.send(WatchEvent::DrawDevices).unwrap();
-                    }
-                    (KeyCode::Char('m'), _) => {
-                        let mut print_settings = print_settings.lock().unwrap();
-                        print_settings.more = !print_settings.more;
-                        tx.send(WatchEvent::DrawDevices).unwrap();
-                    }
-                    (KeyCode::Char('d'), _) => {
-                        let mut print_settings = print_settings.lock().unwrap();
-                        print_settings.decimal = !print_settings.decimal;
-                        tx.send(WatchEvent::DrawDevices).unwrap();
-                    }
-                    (KeyCode::Char('j'), _) | (KeyCode::PageDown, _) => {
-                        tx.send(WatchEvent::ScrollDown(1)).unwrap();
-                        tx.send(WatchEvent::Draw).unwrap();
-                    }
-                    (KeyCode::Char('k'), _) | (KeyCode::PageUp, _) => {
-                        tx.send(WatchEvent::ScrollUp(1)).unwrap();
-                        tx.send(WatchEvent::Draw).unwrap();
-                    }
-                    // TODO:
-                    // filter pop-up enter filter - / like vim?
-                    // sort pop-up enter sort
-                    _ => (),
-                };
+            Event::Key(key_event) => {
+                input_mode.lock().unwrap().process_key_event(
+                    key_event,
+                    tx.clone(),
+                    print_settings.clone(),
+                );
             }
-            _ => {}
+            _ => (),
         }
     });
 
@@ -169,10 +179,65 @@ pub fn watch_usb_devices(
             Ok(WatchEvent::ScrollUp(n)) => {
                 display.scroll_offset = display.scroll_offset.saturating_sub(n);
             }
+            Ok(WatchEvent::ScrollUpPage) => {
+                display.scroll_offset =
+                    display.scroll_offset.saturating_sub(display.available_rows);
+            }
             Ok(WatchEvent::ScrollDown(n)) => {
                 display.scroll_offset = display
                     .max_offset
                     .min(display.scroll_offset.saturating_add(n));
+            }
+            Ok(WatchEvent::ScrollDownPage) => {
+                display.scroll_offset = display
+                    .max_offset
+                    .min(display.scroll_offset.saturating_add(display.available_rows));
+            }
+            Ok(WatchEvent::EditFilter(field)) => {
+                let mut input_mode = display.input_mode.lock().unwrap();
+                let original = match field {
+                    FilterField::Name => display.filter.name.clone(),
+                    FilterField::Serial => display.filter.serial.clone(),
+                    FilterField::VidPid => match (display.filter.vid, display.filter.pid) {
+                        (Some(vid), Some(pid)) => Some(format!("{:04x}:{:04x}", vid, pid)),
+                        (Some(vid), None) => Some(format!("{:04x}", vid)),
+                        _ => None,
+                    },
+                    FilterField::Class => display.filter.class.map(|c| c.to_string()),
+                };
+                *input_mode = InputMode::EditingFilter {
+                    field,
+                    buffer: original.clone().unwrap_or_default(),
+                    original,
+                };
+            }
+            Ok(WatchEvent::PushFilter(c)) => {
+                let mut input_mode = display.input_mode.lock().unwrap();
+                if let InputMode::EditingFilter { field, buffer, .. } = &mut *input_mode {
+                    buffer.push(c);
+                    set_filter(field, Some(buffer.to_string()), &mut display.filter);
+                }
+            }
+            Ok(WatchEvent::PopFilter) => {
+                let mut input_mode = display.input_mode.lock().unwrap();
+                if let InputMode::EditingFilter { field, buffer, .. } = &mut *input_mode {
+                    if buffer.pop().is_none() {
+                        set_filter(field, None, &mut display.filter);
+                    } else {
+                        set_filter(field, Some(buffer.to_string()), &mut display.filter);
+                    }
+                    // HACK reload because filter does retain so will drop on edit
+                    let mut spusb = display.spusb.lock().unwrap();
+                    *spusb = cyme::profiler::get_spusb_with_extra().unwrap();
+                }
+            }
+            Ok(WatchEvent::Enter) => {
+                let input_mode = display.input_mode.lock().unwrap().clone();
+                if let InputMode::EditingFilter { .. } = input_mode {
+                    *display.input_mode.lock().unwrap() = InputMode::Normal;
+                    display.prepare_devices();
+                    display.draw_devices()?;
+                }
             }
             Ok(WatchEvent::DrawDevices) => {
                 display.prepare_devices();
@@ -182,7 +247,24 @@ pub fn watch_usb_devices(
                 display.draw()?;
             }
             Ok(WatchEvent::Stop) => {
-                break;
+                let input_mode = display.input_mode.lock().unwrap().clone();
+                match input_mode {
+                    InputMode::Normal => {
+                        break;
+                    }
+                    InputMode::EditingFilter {
+                        field, original, ..
+                    } => {
+                        set_filter(&field, original, &mut display.filter);
+                        *display.input_mode.lock().unwrap() = InputMode::Normal;
+                        // HACK reload because filter does retain so will drop on edit
+                        let mut spusb = display.spusb.lock().unwrap();
+                        *spusb = cyme::profiler::get_spusb_with_extra().unwrap();
+                        drop(spusb);
+                        display.prepare_devices();
+                    }
+                }
+                display.draw_devices()?;
             }
             Err(_) => {
                 break;
@@ -203,12 +285,135 @@ pub fn watch_usb_devices(
     Ok(())
 }
 
+impl InputMode {
+    fn process_normal_mode(
+        event: KeyEvent,
+        tx: mpsc::Sender<WatchEvent>,
+        print_settings: Arc<Mutex<PrintSettings>>,
+    ) {
+        let KeyEvent {
+            code, modifiers, ..
+        } = event;
+        match (code, modifiers) {
+            (KeyCode::Char('q'), _) => {
+                tx.send(WatchEvent::Stop).unwrap();
+            }
+            (KeyCode::Char('v'), _) => {
+                let mut print_settings = print_settings.lock().unwrap();
+                print_settings.verbosity = (print_settings.verbosity + 1) % 4;
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('t'), _) => {
+                let mut print_settings = print_settings.lock().unwrap();
+                print_settings.tree = !print_settings.tree;
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('h'), _) => {
+                let mut print_settings = print_settings.lock().unwrap();
+                print_settings.headings = !print_settings.headings;
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('m'), _) => {
+                let mut print_settings = print_settings.lock().unwrap();
+                print_settings.more = !print_settings.more;
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('d'), _) => {
+                let mut print_settings = print_settings.lock().unwrap();
+                print_settings.decimal = !print_settings.decimal;
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('j'), KeyModifiers::NONE) => {
+                tx.send(WatchEvent::ScrollDown(1)).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
+            (KeyCode::Char('k'), KeyModifiers::NONE) => {
+                tx.send(WatchEvent::ScrollUp(1)).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
+            (KeyCode::Char('j'), KeyModifiers::CONTROL) | (KeyCode::PageDown, _) => {
+                tx.send(WatchEvent::ScrollDownPage).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
+            (KeyCode::Char('k'), KeyModifiers::CONTROL) | (KeyCode::PageUp, _) => {
+                tx.send(WatchEvent::ScrollUpPage).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
+            (KeyCode::Char('/'), _) => {
+                tx.send(WatchEvent::EditFilter(FilterField::Name)).unwrap();
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('#'), _) => {
+                tx.send(WatchEvent::EditFilter(FilterField::VidPid))
+                    .unwrap();
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('c'), _) => {
+                tx.send(WatchEvent::EditFilter(FilterField::Class)).unwrap();
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('s'), _) => {
+                tx.send(WatchEvent::EditFilter(FilterField::Serial))
+                    .unwrap();
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            // TODO:
+            // filter pop-up enter filter - / like vim?
+            // sort pop-up enter sort
+            _ => (),
+        };
+    }
+
+    fn process_key_event(
+        &self,
+        event: KeyEvent,
+        tx: mpsc::Sender<WatchEvent>,
+        print_settings: Arc<Mutex<PrintSettings>>,
+    ) {
+        let KeyEvent {
+            code,
+            modifiers,
+            kind,
+            ..
+        } = event;
+        if !matches!(kind, KeyEventKind::Press) {
+            return;
+        }
+        match (code, modifiers) {
+            // global keys
+            (KeyCode::Esc, _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
+                // will stop current context or exit the program
+                tx.send(WatchEvent::Stop).unwrap();
+            }
+            (KeyCode::Enter, _) => {
+                tx.send(WatchEvent::Enter).unwrap();
+            }
+            // others based on mode
+            _ => match self {
+                InputMode::Normal => {
+                    Self::process_normal_mode(event, tx, print_settings);
+                }
+                InputMode::EditingFilter { .. } => match (code, modifiers) {
+                    (KeyCode::Char(c), _) => {
+                        tx.send(WatchEvent::PushFilter(c)).unwrap();
+                        tx.send(WatchEvent::DrawDevices).unwrap();
+                    }
+                    (KeyCode::Backspace, _) => {
+                        tx.send(WatchEvent::PopFilter).unwrap();
+                        tx.send(WatchEvent::DrawDevices).unwrap();
+                    }
+                    _ => {}
+                },
+            },
+        }
+    }
+}
+
 impl Display {
     fn prepare_devices(&mut self) {
         let print_settings = self.print_settings.lock().unwrap();
-        let filter = self.filter.lock().unwrap();
         let mut spusb = self.spusb.lock().unwrap();
-        cyme::display::prepare(&mut spusb, &filter, &print_settings);
+        cyme::display::prepare(&mut spusb, Some(&self.filter), &print_settings);
     }
 
     fn draw_devices(&mut self) -> Result<()> {
@@ -233,33 +438,57 @@ impl Display {
         let (term_width, term_height) = terminal::size().unwrap_or((80, 24));
 
         // construct footer message showing *toggle outcome* (what will happen on key press)
-        let print_settings = self.print_settings.lock().unwrap();
-        let verbosity = if print_settings.verbosity == 3 {
-            String::from("0")
-        } else {
-            (print_settings.verbosity + 1).to_string()
-        };
-        let footer = format!(
-            " [q] Quit  [v] Verbosity (→ {})  [t] Tree (→ {})  [h] Headings (→ {})  [m] More (→ {})  [d] Decimal (→ {}) ",
-            verbosity,
-            if print_settings.tree { "Off" } else { "On" },
-            if print_settings.headings { "Off" } else { "On" },
-            if print_settings.more { "Off" } else { "On" },
-            if print_settings.decimal { "Off" } else { "On" }
-        ).bold();
+        match self.input_mode.lock().unwrap().clone() {
+            InputMode::Normal => {
+                let print_settings = self.print_settings.lock().unwrap();
+                let verbosity = if print_settings.verbosity == 3 {
+                    String::from("0")
+                } else {
+                    (print_settings.verbosity + 1).to_string()
+                };
+                let footer = format!(
+                    " [q] Quit  [v] Verbosity (→ {})  [t] Tree (→ {})  [h] Headings (→ {})  [m] More (→ {})  [d] Decimal (→ {}) ",
+                    verbosity,
+                    if print_settings.tree { "Off" } else { "On" },
+                    if print_settings.headings { "Off" } else { "On" },
+                    if print_settings.more { "Off" } else { "On" },
+                    if print_settings.decimal { "Off" } else { "On" }
+                ).bold();
 
-        // move cursor to last row
-        execute!(
-            writer,
-            cursor::MoveTo(0, term_height - 1),
-            terminal::Clear(terminal::ClearType::CurrentLine),
-            Print(
-                format!("{:<width$}", footer, width = term_width as usize)
-                    .black()
-                    .on_green()
-            ),
-            ResetColor
-        )?;
+                // move cursor to last row
+                execute!(
+                    writer,
+                    cursor::MoveTo(0, term_height - 1),
+                    terminal::Clear(terminal::ClearType::CurrentLine),
+                    Print(
+                        format!("{:<width$}", footer, width = term_width as usize)
+                            .black()
+                            .on_green()
+                    ),
+                    ResetColor
+                )?;
+            }
+            InputMode::EditingFilter { field, buffer, .. } => {
+                let mut footer = match field {
+                    FilterField::Name => "Filter by Name: ".to_string(),
+                    FilterField::Serial => "Filter by Serial: ".to_string(),
+                    FilterField::VidPid => "Filter by VID:PID: ".to_string(),
+                    FilterField::Class => "Filter by Class: ".to_string(),
+                };
+                footer.push_str(&buffer);
+                execute!(
+                    writer,
+                    cursor::MoveTo(0, term_height - 1),
+                    terminal::Clear(terminal::ClearType::CurrentLine),
+                    Print(
+                        format!("{:<width$}", footer, width = term_width as usize)
+                            .black()
+                            .on_yellow()
+                    ),
+                    ResetColor
+                )?;
+            }
+        }
 
         Ok(())
     }
@@ -268,7 +497,7 @@ impl Display {
         let mut stdout = stdout();
         let (_, term_height) = terminal::size().unwrap_or((80, 24));
         let footer_height = 1;
-        let available_rows = term_height.saturating_sub(footer_height);
+        self.available_rows = term_height.saturating_sub(footer_height) as usize;
 
         execute!(
             stdout,
@@ -281,7 +510,7 @@ impl Display {
         let output = String::from_utf8_lossy(&self.buffer);
         let lines: Vec<String> = output.lines().map(|line| line.to_string()).collect();
 
-        self.max_offset = lines.len().saturating_sub(available_rows as usize);
+        self.max_offset = lines.len().saturating_sub(self.available_rows);
         // clamp ensures if output contracts fully scrolled, one doesn't have to *overscroll* back
         self.scroll_offset = self.scroll_offset.min(self.max_offset);
 
@@ -289,7 +518,7 @@ impl Display {
         for line in lines
             .iter()
             .skip(self.scroll_offset)
-            .take(available_rows as usize)
+            .take(self.available_rows)
         {
             write!(stdout, "{}\n\r", line)?;
         }

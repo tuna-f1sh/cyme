@@ -3137,7 +3137,7 @@ pub fn mask_serial(device: &mut Device, hide: &MaskSerial, recursive: bool) {
 }
 
 /// Main cyme bin prepare for printing function - changes mutable `sp_usb` with requested `filter` and sort in `settings`
-pub fn prepare(sp_usb: &mut SystemProfile, filter: &Option<Filter>, settings: &PrintSettings) {
+pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<&Filter>, settings: &PrintSettings) {
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
     // flattening now will also mean hubs will be removed when listing if `hide_hubs` because they will appear empty and sorting will be in bus -> device order rather than tree position
     log::debug!("Running prepare pre-printing");

@@ -235,8 +235,8 @@ fn merge_config(c: &Config, a: &mut Args) {
 
 /// Parse the vidpid filter lsusb format: vid:Option<pid>
 fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>)> {
-    if s.contains(':') {
-        let vid_split: Vec<&str> = s.split(':').collect();
+    let vid_split: Vec<&str> = s.split(':').collect();
+    if vid_split.len() >= 2 {
         let vid: Option<u16> =
             vid_split
                 .first()
@@ -248,7 +248,7 @@ fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>)> {
                 })?;
         let pid: Option<u16> =
             vid_split
-                .last()
+                .get(1)
                 .filter(|v| !v.is_empty())
                 .map_or(Ok(None), |v| {
                     u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
@@ -658,7 +658,7 @@ fn cyme() -> Result<()> {
 
     log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
 
-    display::prepare(&mut spusb, &filter, &settings);
+    display::prepare(&mut spusb, filter.as_ref(), &settings);
 
     #[cfg(feature = "watch")]
     if matches!(args.command, Some(SubCommand::Watch)) {

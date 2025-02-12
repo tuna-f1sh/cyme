@@ -134,6 +134,54 @@ impl SystemProfile {
         }
         None
     }
+
+    /// Replace a [`Device`] in the correct [`Bus`] and parent device based on its location_id
+    ///
+    /// If the device was existing, it will be replaced with the old device and returned as `Ok`, else `Err` if the device was not found.
+    pub fn replace(&mut self, mut new: Device) -> Result<Device> {
+        if let Some(existing) = self.get_node_mut(&new.port_path()) {
+            let devices = std::mem::take(&mut existing.devices);
+            new.devices = devices;
+            let ret = std::mem::replace(existing, new);
+            Ok(ret)
+        } else {
+            Err(Error::new(
+                ErrorKind::NotFound,
+                "Device not found to replace",
+            ))
+        }
+    }
+
+    /// Insert a [`Device`] into the correct [`Bus`] and parent device based on its location_id
+    ///
+    /// If the device was existing, it will be replaced with the new device and returned as `Some` (without child devices), else `None`. `None` will also be returned if the device parent is not found.
+    pub fn insert(&mut self, mut new: Device) -> Option<Device> {
+        // check existing device and replace if found
+        if let Some(existing) = self.get_node_mut(&new.port_path()) {
+            let devices = std::mem::take(&mut existing.devices);
+            new.devices = devices;
+            let ret = std::mem::replace(existing, new);
+            return Some(ret);
+        // else we have to stick into tree at correct place
+        } else if new.is_trunk_device() {
+            let bus = self.get_bus_mut(new.location_id.bus).unwrap();
+            if let Some(bd) = bus.devices.as_mut() {
+                bd.push(new);
+            } else {
+                bus.devices = Some(vec![new]);
+            }
+        } else if let Ok(parent_path) = new.parent_path() {
+            if let Some(parent) = self.get_node_mut(&parent_path) {
+                if let Some(bd) = parent.devices.as_mut() {
+                    bd.push(new);
+                } else {
+                    parent.devices = Some(vec![new]);
+                }
+            }
+        }
+
+        None
+    }
 }
 
 impl fmt::Display for SystemProfile {
@@ -1523,6 +1571,15 @@ impl fmt::Display for Device {
                 write!(f, "{}", self.to_lsusb_string())
             }
         }
+    }
+}
+
+impl IntoIterator for Device {
+    type Item = Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.into_flattened().into_iter()
     }
 }
 
