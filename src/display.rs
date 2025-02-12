@@ -3,8 +3,8 @@
 //! TODO: There is some repeat code that could probably be made into functions/generics
 use clap::ValueEnum;
 use colored::*;
+use fastrand;
 use itertools::Itertools;
-use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng};
 use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::HashMap;
@@ -3115,14 +3115,13 @@ pub fn mask_serial(device: &mut Device, hide: &MaskSerial, recursive: bool) {
                 .map(|_| {
                     serial
                         .chars()
-                        .choose(&mut rand::thread_rng())
+                        .nth(fastrand::usize(0..serial.len()))
                         .unwrap_or('*')
                 })
                 .collect::<String>(),
-            MaskSerial::Replace => rand::thread_rng()
-                .sample_iter(Alphanumeric)
-                .take(serial.chars().count())
-                .map(char::from)
+            MaskSerial::Replace => serial
+                .chars()
+                .map(|_| fastrand::alphanumeric())
                 .collect::<String>()
                 .to_uppercase(),
         };
