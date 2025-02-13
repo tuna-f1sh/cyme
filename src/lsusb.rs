@@ -454,10 +454,12 @@ fn dump_device(device: &Device) {
     dump_value_string(
         format!("0x{:04x}", device.vendor_id.unwrap_or(0)),
         "idVendor",
-        device_extra
-            .vendor
-            .as_ref()
-            .unwrap_or(&String::from("[unknown]")),
+        device_extra.vendor.as_ref().unwrap_or(
+            device
+                .manufacturer
+                .as_ref()
+                .unwrap_or(&String::from("[unknown]")),
+        ),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -465,10 +467,7 @@ fn dump_device(device: &Device) {
     dump_value_string(
         format!("0x{:04x}", device.product_id.unwrap_or(0)),
         "idProduct",
-        device_extra
-            .product_name
-            .as_ref()
-            .unwrap_or(&String::from("[unknown]")),
+        device_extra.product_name.as_ref().unwrap_or(&device.name),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -484,7 +483,7 @@ fn dump_device(device: &Device) {
     );
 
     dump_value_string(
-        device_extra.string_indexes.0,
+        device_extra.string_indexes.1,
         "iManufacturer",
         device
             .manufacturer
@@ -495,7 +494,7 @@ fn dump_device(device: &Device) {
     );
 
     dump_value_string(
-        device_extra.string_indexes.1,
+        device_extra.string_indexes.0,
         "iProduct",
         &device.name,
         2,
