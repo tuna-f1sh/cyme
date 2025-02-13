@@ -184,6 +184,15 @@ impl SystemProfile {
     }
 }
 
+impl<'a> IntoIterator for &'a SystemProfile {
+    type Item = &'a Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.flattened_devices().into_iter()
+    }
+}
+
 impl fmt::Display for SystemProfile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for v in &self.buses {
@@ -296,6 +305,15 @@ impl TryFrom<Device> for Bus {
             usb_bus_number: Some(device.location_id.bus),
             devices: device.devices,
         })
+    }
+}
+
+impl<'a> IntoIterator for &'a Bus {
+    type Item = &'a Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.flattened_devices().into_iter()
     }
 }
 
@@ -1453,6 +1471,17 @@ impl Device {
         ret
     }
 
+    /// Recursively gets all devices in a [`Device`] and flattens them into a Vec of mutable references, **excluding** self
+    pub fn flatten_mut(&mut self) -> Vec<&mut Device> {
+        if let Some(d) = self.devices.as_mut() {
+            d.iter_mut()
+                .flat_map(|d| d.flatten_mut())
+                .collect::<Vec<&mut Device>>()
+        } else {
+            Vec::new()
+        }
+    }
+
     /// Recursively gets all devices in a [`Device`] and flattens them into a Vec, including self
     ///
     /// Similar to `flatten` but flattens in place rather than returning references so is destructive
@@ -1574,12 +1603,28 @@ impl fmt::Display for Device {
     }
 }
 
-impl IntoIterator for Device {
-    type Item = Device;
+impl<'a> IntoIterator for &'a Device {
+    type Item = &'a Device;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
-        self.into_flattened().into_iter()
+        if let Some(d) = self.devices.as_ref() {
+            d.iter()
+                .flat_map(|d| d.flatten())
+                .collect::<Vec<&Device>>()
+                .into_iter()
+        } else {
+            Vec::new().into_iter()
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Device {
+    type Item = &'a mut Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.flatten_mut().into_iter()
     }
 }
 
