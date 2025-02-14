@@ -2,7 +2,7 @@
 //!
 //! See the watch cli for a usage example.
 use super::nusb::NusbProfiler;
-use super::{Device, SystemProfile, WatchEvent};
+use super::{Device, DeviceEvent, SystemProfile};
 use crate::error::Error;
 use ::nusb::hotplug::HotplugEvent;
 use ::nusb::watch_devices;
@@ -108,12 +108,14 @@ impl Stream for SystemProfileStream {
                     HotplugEvent::Connected(device) => {
                         let mut cyme_device: Device =
                             profiler.build_spdevice(&device, extra).unwrap();
-                        cyme_device.last_event = Some(WatchEvent::Connected(Local::now()));
+                        cyme_device.internal.last_event =
+                            Some(DeviceEvent::Connected(Local::now()));
                         spusb.insert(cyme_device);
                     }
                     HotplugEvent::Disconnected(id) => {
                         if let Some(device) = spusb.get_id_mut(&id) {
-                            device.last_event = Some(WatchEvent::Disconnected(Local::now()));
+                            device.internal.last_event =
+                                Some(DeviceEvent::Disconnected(Local::now()));
                         }
                     }
                 }

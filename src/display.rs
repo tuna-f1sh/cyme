@@ -17,7 +17,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::colour;
 use crate::icon;
-use crate::profiler::{Bus, Device, Filter, SystemProfile, WatchEvent};
+use crate::profiler::{Bus, Device, DeviceEvent, Filter, SystemProfile};
 use crate::usb::DeviceExtra;
 use crate::usb::{ConfigAttributes, Configuration, Direction, Endpoint, Interface};
 
@@ -748,7 +748,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .unwrap_or(0),
             DeviceBlocks::LastEvent => d
                 .iter()
-                .flat_map(|d| d.last_event.as_ref().map(|e| e.to_string().len()))
+                .flat_map(|d| d.internal.last_event.as_ref().map(|e| e.to_string().len()))
                 .max()
                 .unwrap_or(0),
             _ => self.block_length().len(),
@@ -907,13 +907,13 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 Some(v) => Self::format_base_u8((*v).into(), settings),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            DeviceBlocks::LastEvent => Some(match d.last_event.as_ref() {
-                None | Some(WatchEvent::Profiled(_)) => {
+            DeviceBlocks::LastEvent => Some(match d.internal.last_event.as_ref() {
+                None | Some(DeviceEvent::Profiled(_)) => {
                     format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))
                 }
                 Some(v) => v.to_string(),
             }),
-            DeviceBlocks::EventIcon => match d.last_event.as_ref() {
+            DeviceBlocks::EventIcon => match d.internal.last_event.as_ref() {
                 None => None,
                 Some(e) => settings.icons.as_ref().map(|i| i.get_event_icon(e)),
             },
@@ -1799,13 +1799,23 @@ pub enum Group {
 #[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum MaskSerial {
-    #[default]
     /// Hide with '*' char
+    #[default]
     Hide,
     /// Mask by randomising existing chars
     Scramble,
     /// Mask by replacing length with random chars
     Replace,
+}
+
+/// Mode being used for printing
+#[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrintMode {
+    /// Normal printing to static output
+    #[default]
+    Normal,
+    /// Dynamic printing such as watch mode
+    Dynamic,
 }
 
 /// Passed to printing functions allows default args
@@ -1858,7 +1868,7 @@ pub struct PrintSettings {
     /// When to print icon blocks
     pub icon_when: IconWhen,
     /// Printing in watch mode
-    pub watch_mode: bool,
+    pub print_mode: PrintMode,
 }
 
 /// Converts a HashSet of [`ConfigAttributes`] a String of nerd icons
@@ -2712,7 +2722,7 @@ impl<W: Write> DisplayWriter<W> {
         log::trace!("Print devices padding {:?}, tree {:?}", pad, tree);
 
         for (i, device) in devices.iter().enumerate() {
-            if settings.watch_mode && device.internal.hidden {
+            if device.internal.hidden {
                 continue;
             }
 
@@ -2772,8 +2782,7 @@ impl<W: Write> DisplayWriter<W> {
             // print the device
             let mut device_string =
                 render_value(device, db, &pad, settings, max_variable_string_len).join(" ");
-            #[cfg(feature = "watch")]
-            if settings.watch_mode && device.is_disconnected() {
+            if device.is_disconnected() {
                 device_string = device_string.dimmed().white().to_string();
             }
             self.println(&device_string).unwrap();
@@ -2904,7 +2913,7 @@ impl<W: Write> DisplayWriter<W> {
 
         let len = sp_usb.buses.len();
         for (i, bus) in sp_usb.buses.iter().enumerate() {
-            if settings.watch_mode && bus.internal.hidden {
+            if bus.internal.hidden {
                 continue;
             }
 
@@ -3157,7 +3166,7 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<&Filter>, settings: &P
     // do the filter if present; will keep parents of matched devices even if they do not match
     log::debug!("Filtering with {:?}", filter);
     if let Some(filter) = filter {
-        if settings.watch_mode {
+        if matches!(settings.print_mode, PrintMode::Dynamic) {
             filter.hide_buses(&mut sp_usb.buses);
         } else {
             filter.retain_buses(&mut sp_usb.buses);

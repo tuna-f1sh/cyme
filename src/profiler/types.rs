@@ -257,8 +257,9 @@ pub struct Bus {
     /// On Linux, the root hub is also included in this list
     #[serde(rename(deserialize = "_items"), alias = "devices")]
     pub devices: Option<Vec<Device>>,
+    /// Internal data for tracking events and other data
     #[serde(skip)]
-    pub(crate) internal: InternalData,
+    pub internal: InternalData,
 }
 
 /// Deprecated alias for [`Bus`]
@@ -880,7 +881,7 @@ impl FromStr for DeviceSpeed {
 
 /// Events used by the watch feature
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum WatchEvent {
+pub enum DeviceEvent {
     /// Device profiled at time
     Profiled(chrono::DateTime<chrono::Local>),
     /// Device connected at time
@@ -889,25 +890,25 @@ pub enum WatchEvent {
     Disconnected(chrono::DateTime<chrono::Local>),
 }
 
-impl fmt::Display for WatchEvent {
+impl fmt::Display for DeviceEvent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            WatchEvent::Profiled(t) => write!(f, "P: {}", t.format("%y-%m-%d %H:%M:%S")),
-            WatchEvent::Connected(t) => write!(f, "C: {}", t.format("%y-%m-%d %H:%M:%S")),
-            WatchEvent::Disconnected(t) => {
+            DeviceEvent::Profiled(t) => write!(f, "P: {}", t.format("%y-%m-%d %H:%M:%S")),
+            DeviceEvent::Connected(t) => write!(f, "C: {}", t.format("%y-%m-%d %H:%M:%S")),
+            DeviceEvent::Disconnected(t) => {
                 write!(f, "D: {}", t.format("%y-%m-%d %H:%M:%S"))
             }
         }
     }
 }
 
-impl WatchEvent {
+impl DeviceEvent {
     /// Get the time of the event
     pub fn time(&self) -> chrono::DateTime<chrono::Local> {
         match self {
-            WatchEvent::Profiled(t) => *t,
-            WatchEvent::Connected(t) => *t,
-            WatchEvent::Disconnected(t) => *t,
+            DeviceEvent::Profiled(t) => *t,
+            DeviceEvent::Connected(t) => *t,
+            DeviceEvent::Disconnected(t) => *t,
         }
     }
 
@@ -918,9 +919,12 @@ impl WatchEvent {
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub(crate) struct InternalData {
+/// Internal data used by cyme for display
+pub struct InternalData {
     pub(crate) expanded: bool,
     pub(crate) hidden: bool,
+    pub(crate) selected: bool,
+    pub(crate) last_event: Option<DeviceEvent>,
 }
 
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
@@ -989,12 +993,9 @@ pub struct Device {
     #[serde(skip)]
     #[cfg(feature = "nusb")]
     pub id: Option<::nusb::DeviceId>,
-    /// Last watch event TODO should be only for watch feature?
+    /// Internal data for cyme
     #[serde(skip)]
-    pub last_event: Option<WatchEvent>,
-    #[serde(skip)]
-    #[cfg(feature = "watch")]
-    pub(crate) internal: InternalData,
+    pub internal: InternalData,
 }
 
 /// Deprecated alias for [`Device`]
@@ -1548,7 +1549,7 @@ impl Device {
     ///
     /// Logic rather than is_connected since Profiled event is not certain still present
     pub fn is_disconnected(&self) -> bool {
-        matches!(self.last_event, Some(WatchEvent::Disconnected(_)))
+        matches!(self.internal.last_event, Some(DeviceEvent::Disconnected(_)))
     }
 }
 
