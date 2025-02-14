@@ -28,6 +28,8 @@ enum WatchEvent {
     ScrollUpPage,
     ScrollDown(usize),
     ScrollDownPage,
+    MoveUp(usize),
+    MoveDown(usize),
     EditFilter(FilterField),
     PushFilter(char),
     PopFilter,
@@ -61,7 +63,7 @@ struct Display {
     print_settings: Arc<Mutex<PrintSettings>>,
     filter: Filter,
     input_mode: Arc<Mutex<InputMode>>,
-    selected_device: Option<usize>,
+    selected_line: Option<usize>,
     available_rows: usize,
     max_offset: usize,
     scroll_offset: usize,
@@ -134,7 +136,7 @@ pub fn watch_usb_devices(
         available_rows: 0,
         max_offset: 0,
         scroll_offset: 0,
-        selected_device: Some(1),
+        selected_line: None,
     };
 
     // Thread to listen for USB profiling events
@@ -193,6 +195,12 @@ pub fn watch_usb_devices(
                     .max_offset
                     .min(display.scroll_offset.saturating_add(display.available_rows));
             }
+            Ok(WatchEvent::MoveUp(n)) => {
+                display.selected_line = display.selected_line.map(|l| l.saturating_sub(n));
+            }
+            Ok(WatchEvent::MoveDown(n)) => {
+                display.selected_line = display.selected_line.map(|l| display.max_offset.max(l.saturating_add(n)));
+            }
             Ok(WatchEvent::EditFilter(field)) => {
                 let mut input_mode = display.input_mode.lock().unwrap();
                 let original = match field {
@@ -226,9 +234,6 @@ pub fn watch_usb_devices(
                     } else {
                         set_filter(field, Some(buffer.to_string()), &mut display.filter);
                     }
-                    // HACK reload because filter does retain so will drop on edit
-                    let mut spusb = display.spusb.lock().unwrap();
-                    *spusb = cyme::profiler::get_spusb_with_extra().unwrap();
                 }
             }
             Ok(WatchEvent::Enter) => {
@@ -257,10 +262,6 @@ pub fn watch_usb_devices(
                     } => {
                         set_filter(&field, original, &mut display.filter);
                         *display.input_mode.lock().unwrap() = InputMode::Normal;
-                        // HACK reload because filter does retain so will drop on edit
-                        let mut spusb = display.spusb.lock().unwrap();
-                        *spusb = cyme::profiler::get_spusb_with_extra().unwrap();
-                        drop(spusb);
                         display.prepare_devices();
                     }
                 }
@@ -393,14 +394,25 @@ impl InputMode {
                 InputMode::Normal => {
                     Self::process_normal_mode(event, tx, print_settings);
                 }
-                InputMode::EditingFilter { .. } => match (code, modifiers) {
+                InputMode::EditingFilter { field, .. } => match (code, modifiers) {
+                    // only re-draw devices for string filter changes - others only once fully entered
                     (KeyCode::Char(c), _) => {
                         tx.send(WatchEvent::PushFilter(c)).unwrap();
-                        tx.send(WatchEvent::DrawDevices).unwrap();
+                        match field {
+                            FilterField::Serial | FilterField::Name => {
+                                tx.send(WatchEvent::DrawDevices).unwrap()
+                            }
+                            _ => tx.send(WatchEvent::Draw).unwrap(),
+                        }
                     }
                     (KeyCode::Backspace, _) => {
                         tx.send(WatchEvent::PopFilter).unwrap();
-                        tx.send(WatchEvent::DrawDevices).unwrap();
+                        match field {
+                            FilterField::Serial | FilterField::Name => {
+                                tx.send(WatchEvent::DrawDevices).unwrap()
+                            }
+                            _ => tx.send(WatchEvent::Draw).unwrap(),
+                        }
                     }
                     _ => {}
                 },
@@ -524,7 +536,7 @@ impl Display {
         }
 
         // TODO selected device
-        if let Some(_selected_device) = self.selected_device {}
+        if let Some(_selected_device) = self.selected_line {}
 
         // status bar with key bindings
         self.draw_footer(&mut stdout)?;

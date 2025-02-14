@@ -257,6 +257,8 @@ pub struct Bus {
     /// On Linux, the root hub is also included in this list
     #[serde(rename(deserialize = "_items"), alias = "devices")]
     pub devices: Option<Vec<Device>>,
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Bus`]
@@ -304,6 +306,7 @@ impl TryFrom<Device> for Bus {
             pci_revision: pci_revision.filter(|v| *v != 0xffff && *v != 0),
             usb_bus_number: Some(device.location_id.bus),
             devices: device.devices,
+            ..Default::default()
         })
     }
 }
@@ -914,6 +917,12 @@ impl WatchEvent {
     }
 }
 
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub(crate) struct InternalData {
+    pub(crate) expanded: bool,
+    pub(crate) hidden: bool,
+}
+
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
 ///
 /// Designed to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb. Fields should probably be non-pub with getters/setters but treat them as read-only.
@@ -983,6 +992,9 @@ pub struct Device {
     /// Last watch event TODO should be only for watch feature?
     #[serde(skip)]
     pub last_event: Option<WatchEvent>,
+    #[serde(skip)]
+    #[cfg(feature = "watch")]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Device`]
@@ -1647,10 +1659,14 @@ pub struct Filter {
     pub serial: Option<String>,
     /// retain only device of BaseClass class
     pub class: Option<BaseClass>,
+    /// Exclude empty buses in the tree
+    pub exclude_empty_bus: bool,
     /// Exclude empty hubs in the tree
     pub exclude_empty_hub: bool,
     /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`Bus`]'s in the tree
     pub no_exclude_root_hub: bool,
+    /// Case sensitive matching for strings. False will be unless capital letter in query
+    pub case_sensitive: bool,
 }
 
 /// Deprecated alias for [`Filter`]
@@ -1736,22 +1752,32 @@ impl Filter {
         Default::default()
     }
 
+    fn string_match(&self, pattern: &Option<String>, query: Option<&String>) -> bool {
+        if let (Some(p), Some(q)) = (pattern, query) {
+            let case_sensitive = if !self.case_sensitive {
+                p.chars().any(|c| c.is_uppercase())
+            } else {
+                self.case_sensitive
+            };
+
+            if !case_sensitive {
+                q.to_lowercase().contains(p.to_lowercase().as_str())
+            } else {
+                q.contains(p.as_str())
+            }
+        } else {
+            true
+        }
+    }
+
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &Device) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
             && (device.product_id == self.pid || self.pid.is_none())
-            && (self
-                .name
-                .as_ref()
-                .map_or(true, |n| device.name.contains(n.as_str())))
-            && (self.serial.as_ref().map_or(true, |n| {
-                device
-                    .serial_num
-                    .as_ref()
-                    .is_some_and(|s| s.contains(n.as_str()))
-            }))
+            && (self.string_match(&self.name, Some(&device.name)))
+            && (self.string_match(&self.serial, device.serial_num.as_ref()))
             && (self.class.as_ref().map_or(true, |fc| {
                 device.class.as_ref() == Some(fc) || device.has_interface_class(fc)
             }))
@@ -1759,26 +1785,10 @@ impl Filter {
             && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
-    /// Recursively retain only `Bus` in `buses` with `Device` matching filter
-    pub fn retain_buses(&self, buses: &mut Vec<Bus>) {
-        buses.retain(|b| {
-            b.usb_bus_number == self.bus || self.bus.is_none() || b.usb_bus_number.is_none()
-        });
-
-        for bus in buses {
-            bus.devices.iter_mut().for_each(|d| self.retain_devices(d));
-        }
-    }
-
-    /// Recursively retain only `Device` in `devices` matching filter
-    ///
-    /// Note that non-matching parents will still be retained if they have a matching `Device` within their branches
-    pub fn retain_devices(&self, devices: &mut Vec<Device>) {
-        devices.retain(|d| self.exists_in_tree(d));
-
-        for d in devices {
-            d.devices.iter_mut().for_each(|d| self.retain_devices(d));
-        }
+    /// Checks whether `bus` passes through filter
+    pub fn is_bus_match(&self, bus: &Bus) -> bool {
+        (bus.usb_bus_number == self.bus || self.bus.is_none() || bus.usb_bus_number.is_none())
+            && !(self.exclude_empty_bus && bus.is_empty())
     }
 
     /// Recursively looks down tree for any `device` matching filter
@@ -1793,6 +1803,56 @@ impl Filter {
         match &device.devices {
             Some(devs) => devs.iter().any(|d| self.exists_in_tree(d)),
             None => false,
+        }
+    }
+
+    /// Recursively retain only `Bus` in `buses` with `Device` matching filter
+    pub fn retain_buses(&self, buses: &mut Vec<Bus>) {
+        // filter any empty or number matches
+        buses.retain(|b| self.is_bus_match(b));
+
+        for bus in buses.iter_mut() {
+            bus.devices.iter_mut().for_each(|d| self.retain_devices(d));
+        }
+
+        // check bus match again in case empty after device filter
+        buses.retain(|b| self.is_bus_match(b));
+    }
+
+    /// Recursively hide `Bus` in `buses` with `Device` matching filter
+    pub fn hide_buses(&self, buses: &mut [Bus]) {
+        buses
+            .iter_mut()
+            .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
+
+        for bus in buses.iter_mut() {
+            bus.devices.iter_mut().for_each(|d| self.hide_devices(d));
+        }
+
+        buses
+            .iter_mut()
+            .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
+    }
+
+    /// Recursively retain only `Device` in `devices` matching filter
+    ///
+    /// Note that non-matching parents will still be retained if they have a matching `Device` within their branches
+    pub fn retain_devices(&self, devices: &mut Vec<Device>) {
+        devices.retain(|d| self.exists_in_tree(d));
+
+        for d in devices {
+            d.devices.iter_mut().for_each(|d| self.retain_devices(d));
+        }
+    }
+
+    /// Recursively retain only `Device` in `devices` matching filter
+    pub fn hide_devices(&self, devices: &mut [Device]) {
+        devices
+            .iter_mut()
+            .for_each(|d| d.internal.hidden = !self.exists_in_tree(d));
+
+        for d in devices {
+            d.devices.iter_mut().for_each(|d| self.hide_devices(d));
         }
     }
 
@@ -1855,6 +1915,7 @@ pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SystemProfile> {
         pci_revision: None,
         usb_bus_number: None,
         devices: Some(devices),
+        ..Default::default()
     };
 
     Ok(SystemProfile { buses: vec![bus] })

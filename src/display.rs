@@ -1817,8 +1817,6 @@ pub struct PrintSettings {
     pub decimal: bool,
     /// No tree printing
     pub tree: bool,
-    /// Hide empty buses
-    pub hide_buses: bool,
     /// Sort devices
     pub sort_devices: Sort,
     /// Sort buses by bus number
@@ -2713,10 +2711,11 @@ impl<W: Write> DisplayWriter<W> {
 
         log::trace!("Print devices padding {:?}, tree {:?}", pad, tree);
 
-        //// sort so that can be ascending along branch
-        //let sorted = settings.sort_devices.sort_devices(devices);
-
         for (i, device) in devices.iter().enumerate() {
+            if settings.watch_mode && device.internal.hidden {
+                continue;
+            }
+
             // get current prefix based on if last in tree and whether we are within the tree
             if settings.tree {
                 let mut prefix = if tree.depth > 0 {
@@ -2904,6 +2903,10 @@ impl<W: Write> DisplayWriter<W> {
         );
 
         for (i, bus) in sp_usb.buses.iter().enumerate() {
+            if settings.watch_mode && bus.internal.hidden {
+                continue;
+            }
+
             if settings.tree {
                 let mut prefix = base_tree.prefix.to_owned();
                 let mut start = settings.icons.as_ref().map_or(
@@ -3147,19 +3150,11 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<&Filter>, settings: &P
 
     // do the filter if present; will keep parents of matched devices even if they do not match
     log::debug!("Filtering with {:?}", filter);
-    filter
-        .iter()
-        .for_each(|f| f.retain_buses(&mut sp_usb.buses));
-
-    // hide any empty buses and hubs now we've filtered
-    if settings.hide_buses {
-        log::debug!("Hiding empty buses");
-        sp_usb.buses.retain(|b| b.is_empty());
-        // may still be empty hubs if the hub had an empty hub!
-        if let Some(f) = filter.as_ref() {
-            if f.exclude_empty_hub {
-                sp_usb.buses.retain(|b| !b.has_empty_hubs());
-            }
+    if let Some(filter) = filter {
+        if settings.watch_mode {
+            filter.hide_buses(&mut sp_usb.buses);
+        } else {
+            filter.retain_buses(&mut sp_usb.buses);
         }
     }
 

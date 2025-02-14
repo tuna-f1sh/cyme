@@ -550,6 +550,7 @@ fn cyme() -> Result<()> {
     };
 
     let filter = if args.hide_hubs
+        || args.hide_buses
         || args.vidpid.is_some()
         || args.show.is_some()
         || args.device.is_some()
@@ -599,6 +600,7 @@ fn cyme() -> Result<()> {
         f.serial = args.filter_serial;
         f.class = args.filter_class;
         f.exclude_empty_hub = args.hide_hubs;
+        f.exclude_empty_bus = args.hide_buses;
         // exclude root hubs unless:
         // * lsusb compat (shows root_hubs)
         // * json - for --from-json support
@@ -632,7 +634,6 @@ fn cyme() -> Result<()> {
         no_padding: args.no_padding,
         decimal: args.decimal,
         tree: args.tree,
-        hide_buses: args.hide_buses,
         sort_devices: args.sort_devices,
         sort_buses: args.sort_buses,
         group_devices,
