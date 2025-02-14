@@ -2,14 +2,25 @@
 
 ## [Unreleased]
 
+Mostly housekeeping and minor fixes. Did a dependency audit and updated some crates.
+
 ### Fixed
 
 - control read endpoint stall will be re-attempted after clearing halt ([#54](https://github.com/tuna-f1sh/cyme/pull/54)).
+- udev-hwdb: native supports hwdb lookup again ([#59](https://github.com/tuna-f1sh/cyme/pull/59)).
+- lsusb: fallback to desccriptor strings in verbose dump for idProduct and idVendor ([#55](https://github.com/tuna-f1sh/cyme/issues/55)).
 
 ### Changed
 
 - macOS: claim interface when reading Debug Descriptors.
-* nusb: use cached device descriptor rather than reading manually with control message ([nusb #102](https://github.com/kevinmehall/nusb/pull/102)).
+- nusb: use cached device descriptor rather than reading manually with control message ([nusb #102](https://github.com/kevinmehall/nusb/pull/102)).
+- log now outputs to stderr so can be redirected.
+- lazy_static dropped for LazyLock.
+- rand replaced with fast_rand.
+
+### Added
+
+- Example usage in README.
 
 ## [2.1.1] - 2024-12-01
 
