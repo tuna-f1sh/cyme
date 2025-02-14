@@ -2902,6 +2902,7 @@ impl<W: Write> DisplayWriter<W> {
             base_tree
         );
 
+        let len = sp_usb.buses.len();
         for (i, bus) in sp_usb.buses.iter().enumerate() {
             if settings.watch_mode && bus.internal.hidden {
                 continue;
@@ -2959,7 +2960,9 @@ impl<W: Write> DisplayWriter<W> {
             }
 
             // separate bus groups with line
-            self.println("").unwrap();
+            if i + 1 != len {
+                self.println("").unwrap();
+            }
         }
     }
 
@@ -3093,7 +3096,8 @@ impl<W: Write> DisplayWriter<W> {
             }
         }
 
-        for (bus, devices) in bus_devices {
+        let len = bus_devices.len();
+        for (i, (bus, devices)) in bus_devices.into_iter().enumerate() {
             if settings.headings {
                 let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
                 self.println(format!("{}", heading.bold().underline()))
@@ -3103,7 +3107,9 @@ impl<W: Write> DisplayWriter<W> {
                 .unwrap();
             self.print_flattened_devices(&devices, settings);
             // new line for each group
-            self.println("").unwrap();
+            if i + 1 != len {
+                self.println("").unwrap();
+            }
         }
     }
 }
