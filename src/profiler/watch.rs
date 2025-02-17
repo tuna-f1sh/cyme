@@ -108,14 +108,12 @@ impl Stream for SystemProfileStream {
                     HotplugEvent::Connected(device) => {
                         let mut cyme_device: Device =
                             profiler.build_spdevice(&device, extra).unwrap();
-                        cyme_device.internal.last_event =
-                            Some(DeviceEvent::Connected(Local::now()));
+                        cyme_device.last_event = Some(DeviceEvent::Connected(Local::now()));
                         spusb.insert(cyme_device);
                     }
                     HotplugEvent::Disconnected(id) => {
                         if let Some(device) = spusb.get_id_mut(&id) {
-                            device.internal.last_event =
-                                Some(DeviceEvent::Disconnected(Local::now()));
+                            device.last_event = Some(DeviceEvent::Disconnected(Local::now()));
                         }
                     }
                 }

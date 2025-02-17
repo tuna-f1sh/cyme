@@ -142,6 +142,7 @@ impl SystemProfile {
         if let Some(existing) = self.get_node_mut(&new.port_path()) {
             let devices = std::mem::take(&mut existing.devices);
             new.devices = devices;
+            new.internal = existing.internal.clone();
             let ret = std::mem::replace(existing, new);
             Ok(ret)
         } else {
@@ -160,6 +161,7 @@ impl SystemProfile {
         if let Some(existing) = self.get_node_mut(&new.port_path()) {
             let devices = std::mem::take(&mut existing.devices);
             new.devices = devices;
+            new.internal = existing.internal.clone();
             let ret = std::mem::replace(existing, new);
             return Some(ret);
         // else we have to stick into tree at correct place
@@ -924,7 +926,6 @@ pub struct InternalData {
     pub(crate) expanded: bool,
     pub(crate) hidden: bool,
     pub(crate) selected: bool,
-    pub(crate) last_event: Option<DeviceEvent>,
 }
 
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
@@ -993,6 +994,9 @@ pub struct Device {
     #[serde(skip)]
     #[cfg(feature = "nusb")]
     pub id: Option<::nusb::DeviceId>,
+    /// Last event that occurred on device
+    #[serde(skip)]
+    pub last_event: Option<DeviceEvent>,
     /// Internal data for cyme
     #[serde(skip)]
     pub internal: InternalData,
@@ -1549,7 +1553,7 @@ impl Device {
     ///
     /// Logic rather than is_connected since Profiled event is not certain still present
     pub fn is_disconnected(&self) -> bool {
-        matches!(self.internal.last_event, Some(DeviceEvent::Disconnected(_)))
+        matches!(self.last_event, Some(DeviceEvent::Disconnected(_)))
     }
 }
 

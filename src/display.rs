@@ -10,14 +10,13 @@ use std::cmp;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::io::{self, Write};
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
-use terminal_size::{Height, Width};
+use strum::{IntoEnumIterator, VariantArray};
+use strum_macros::{Display, EnumIter, VariantArray};
 use unicode_width::UnicodeWidthStr;
 
 use crate::colour;
 use crate::icon;
-use crate::profiler::{Bus, Device, DeviceEvent, Filter, SystemProfile};
+use crate::profiler::{Bus, Device, Filter, SystemProfile};
 use crate::usb::DeviceExtra;
 use crate::usb::{ConfigAttributes, Configuration, Direction, Endpoint, Interface};
 
@@ -66,7 +65,7 @@ impl std::fmt::Display for IconWhen {
 }
 
 impl IconWhen {
-    fn retain_ref<B: Eq + Hash, T>(
+    fn retain_ref<B: BlockEnum, T>(
         &self,
         devices: &[&T],
         blocks: &mut Vec<impl Block<B, T>>,
@@ -97,7 +96,7 @@ impl IconWhen {
         }
     }
 
-    fn retain<B: Eq + Hash, T>(
+    fn retain<B: BlockEnum, T>(
         &self,
         devices: &[T],
         blocks: &mut Vec<impl Block<B, T>>,
@@ -215,7 +214,9 @@ impl Encoding {
 #[derive(
     Debug,
     EnumIter,
+    VariantArray,
     ValueEnum,
+    Display,
     Copy,
     Eq,
     PartialEq,
@@ -300,7 +301,9 @@ pub enum DeviceBlocks {
     Debug,
     Copy,
     EnumIter,
+    VariantArray,
     ValueEnum,
+    Display,
     Eq,
     PartialEq,
     Ord,
@@ -336,7 +339,20 @@ pub enum BusBlocks {
 
 /// Info that can be printed about a [`Configuration`]
 #[non_exhaustive]
-#[derive(Debug, Copy, EnumIter, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    EnumIter,
+    VariantArray,
+    ValueEnum,
+    Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
+    Serialize,
+    Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum ConfigurationBlocks {
     /// Name from string descriptor
@@ -355,7 +371,20 @@ pub enum ConfigurationBlocks {
 
 /// Info that can be printed about a [`Interface`]
 #[non_exhaustive]
-#[derive(Debug, Copy, EnumIter, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    EnumIter,
+    VariantArray,
+    ValueEnum,
+    Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
+    Serialize,
+    Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum InterfaceBlocks {
     /// Name from string descriptor
@@ -396,7 +425,20 @@ pub enum InterfaceBlocks {
 
 /// Info that can be printed about a [`Endpoint`]
 #[non_exhaustive]
-#[derive(Debug, Copy, EnumIter, ValueEnum, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    EnumIter,
+    VariantArray,
+    ValueEnum,
+    Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
+    Serialize,
+    Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum EndpointBlocks {
     /// Endpoint number on interface
@@ -458,8 +500,16 @@ impl BlockLength {
     }
 }
 
+/// Helper trait to allow for generic block handling
+pub trait BlockEnum: Eq + Hash + VariantArray {}
+impl BlockEnum for DeviceBlocks {}
+impl BlockEnum for BusBlocks {}
+impl BlockEnum for ConfigurationBlocks {}
+impl BlockEnum for InterfaceBlocks {}
+impl BlockEnum for EndpointBlocks {}
+
 /// Intended to be `impl` by a xxxBlocks `enum`
-pub trait Block<B: Eq + Hash, T> {
+pub trait Block<B: BlockEnum, T> {
     /// The inset when printing non-tree as a list
     const INSET: u8 = 0;
 
@@ -532,12 +582,24 @@ pub trait Block<B: Eq + Hash, T> {
     fn is_icon(&self) -> bool {
         false
     }
+
+    /// Get static array of all blocks for this type
+    fn all_blocks() -> &'static [B]
+    where
+        Self: Sized,
+    {
+        B::VARIANTS
+    }
 }
 
 impl DeviceBlocks {
     /// Default `DeviceBlocks` for watch mode printing
-    pub fn default_watch_blocks(verbose: bool) -> Vec<Self> {
-        let mut blocks = Self::default_blocks(verbose);
+    pub fn default_watch_blocks(verbose: bool, tree: bool) -> Vec<Self> {
+        let mut blocks = if tree {
+            Self::default_device_tree_blocks()
+        } else {
+            Self::default_blocks(verbose)
+        };
         blocks.push(DeviceBlocks::EventIcon);
         blocks.push(DeviceBlocks::LastEvent);
         blocks
@@ -549,6 +611,7 @@ impl DeviceBlocks {
         {
             vec![
                 DeviceBlocks::Icon,
+                DeviceBlocks::BranchPosition,
                 DeviceBlocks::DeviceNumber,
                 DeviceBlocks::VendorId,
                 DeviceBlocks::ProductId,
@@ -562,6 +625,7 @@ impl DeviceBlocks {
         {
             vec![
                 DeviceBlocks::Icon,
+                DeviceBlocks::BranchPosition,
                 DeviceBlocks::DeviceNumber,
                 DeviceBlocks::VendorId,
                 DeviceBlocks::ProductId,
@@ -748,7 +812,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .unwrap_or(0),
             DeviceBlocks::LastEvent => d
                 .iter()
-                .flat_map(|d| d.internal.last_event.as_ref().map(|e| e.to_string().len()))
+                .flat_map(|d| d.last_event.as_ref().map(|e| e.to_string().len()))
                 .max()
                 .unwrap_or(0),
             _ => self.block_length().len(),
@@ -907,13 +971,13 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 Some(v) => Self::format_base_u8((*v).into(), settings),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            DeviceBlocks::LastEvent => Some(match d.internal.last_event.as_ref() {
-                None | Some(DeviceEvent::Profiled(_)) => {
+            DeviceBlocks::LastEvent => Some(match d.last_event.as_ref() {
+                None => {
                     format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))
                 }
                 Some(v) => v.to_string(),
             }),
-            DeviceBlocks::EventIcon => match d.internal.last_event.as_ref() {
+            DeviceBlocks::EventIcon => match d.last_event.as_ref() {
                 None => None,
                 Some(e) => settings.icons.as_ref().map(|i| i.get_event_icon(e)),
             },
@@ -1864,7 +1928,7 @@ pub struct PrintSettings {
     /// Enable auto generation of max_variable_string_len based on terminal width
     pub auto_width: bool,
     /// Terminal width and height data
-    pub terminal_size: Option<(Width, Height)>,
+    pub terminal_size: Option<(u16, u16)>,
     /// When to print icon blocks
     pub icon_when: IconWhen,
     /// Printing in watch mode
@@ -1931,7 +1995,7 @@ pub fn truncate_string(s: &mut String, len: usize) {
 /// Calculates based on the [`PrintSettings`] terminal_size width, the total length of the [`BlockLength::Fixed`] fields and thus the remaining space to divide between [`BlockLength::Variable`] fields as the maximum string size
 ///
 /// Total length is based the prior calculated `variable_lens` - the values represent the maximum length of variable fields to print
-pub fn auto_max_string_len<B: Eq + Hash, T>(
+pub fn auto_max_string_len<B: BlockEnum, T>(
     blocks: &[impl Block<B, T>],
     offset: usize,
     #[allow(clippy::ptr_arg)] variable_lens: &Vec<usize>,
@@ -1950,9 +2014,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
         + offset;
     let total_variable: usize = variable_lens.iter().sum();
     let total_len: usize = total_fixed + total_variable + (blocks.len() * 2);
-    let (width, height) = settings
-        .terminal_size
-        .unwrap_or((Width(DEFAULT_AUTO_WIDTH), Height(0)));
+    let (width, height) = settings.terminal_size.unwrap_or((DEFAULT_AUTO_WIDTH, 0));
     log::trace!(
         "Auto scaling running for max length {:?} of which fixed {:?}, to terminal size {:?} {:?}",
         total_len,
@@ -1960,7 +2022,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
         width,
         height
     );
-    let w = width.0 as usize;
+    let w = width as usize;
 
     if total_len > w {
         // fixed already taking all space, return min
@@ -2012,7 +2074,7 @@ pub fn auto_max_string_len<B: Eq + Hash, T>(
 }
 
 /// Returns true if the [`Block`] has a valid icon for the [`PrintSettings`] [`Encoding`]
-pub fn has_valid_icons<B: Eq + Hash, T>(
+pub fn has_valid_icons<B: BlockEnum, T>(
     d: &T,
     blocks: &[impl Block<B, T>],
     settings: &PrintSettings,
@@ -2041,7 +2103,7 @@ pub fn has_valid_icons<B: Eq + Hash, T>(
 }
 
 /// Formats each [`Block`] value shown from a device `d`
-pub fn render_value<B: Eq + Hash, T>(
+pub fn render_value<B: BlockEnum, T>(
     d: &T,
     blocks: &[impl Block<B, T>],
     pad: &HashMap<B, usize>,
@@ -2068,7 +2130,7 @@ pub fn render_value<B: Eq + Hash, T>(
 }
 
 /// Renders the headings for each [`Block`] being shown
-pub fn render_heading<B: Eq + Hash, T>(
+pub fn render_heading<B: BlockEnum, T>(
     blocks: &[impl Block<B, T>],
     pad: &HashMap<B, usize>,
     max_string_length: Option<usize>,
@@ -2693,7 +2755,7 @@ impl<W: Write> DisplayWriter<W> {
         tree: &TreeData,
     ) {
         let mut pad = if !settings.no_padding {
-            let devices: Vec<&Device> = devices.iter().collect();
+            let devices: Vec<&Device> = devices.iter().filter(|d| !d.internal.hidden).collect();
             DeviceBlocks::generate_padding(&devices)
         } else {
             HashMap::new()
@@ -2721,11 +2783,7 @@ impl<W: Write> DisplayWriter<W> {
 
         log::trace!("Print devices padding {:?}, tree {:?}", pad, tree);
 
-        for (i, device) in devices.iter().enumerate() {
-            if device.internal.hidden {
-                continue;
-            }
-
+        for (i, device) in devices.iter().filter(|d| !d.internal.hidden).enumerate() {
             // get current prefix based on if last in tree and whether we are within the tree
             if settings.tree {
                 let mut prefix = if tree.depth > 0 {
@@ -2792,19 +2850,17 @@ impl<W: Write> DisplayWriter<W> {
                 if settings.verbosity >= 1 {
                     // generate extra blocks if not passed and drop icons if not supported by encoding
                     let blocks = generate_extra_blocks(extra, settings);
+                    let num = device
+                        .devices
+                        .as_ref()
+                        .map_or(0, |d| d.iter().filter(|d| !d.internal.hidden).count());
 
                     // pass branch length as number of configurations for this device plus devices still to print
                     self.print_configurations(
                         &extra.configurations,
                         (&blocks.0, &blocks.1, &blocks.2),
                         settings,
-                        &generate_tree_data(
-                            tree,
-                            extra.configurations.len()
-                                + device.devices.as_ref().map_or(0, |d| d.len()),
-                            i,
-                            settings,
-                        ),
+                        &generate_tree_data(tree, extra.configurations.len() + num, i, settings),
                     );
                 }
             } else if settings.verbosity >= 1 {
@@ -2912,11 +2968,12 @@ impl<W: Write> DisplayWriter<W> {
         );
 
         let len = sp_usb.buses.len();
-        for (i, bus) in sp_usb.buses.iter().enumerate() {
-            if bus.internal.hidden {
-                continue;
-            }
-
+        for (i, bus) in sp_usb
+            .buses
+            .iter()
+            .filter(|b| !b.internal.hidden)
+            .enumerate()
+        {
             if settings.tree {
                 let mut prefix = base_tree.prefix.to_owned();
                 let mut start = settings.icons.as_ref().map_or(
@@ -2959,12 +3016,13 @@ impl<W: Write> DisplayWriter<W> {
                 .unwrap();
 
             if let Some(d) = bus.devices.as_ref() {
+                let num = d.iter().filter(|d| !d.internal.hidden).count();
                 // and then walk down devices printing them too
                 self.print_devices(
                     d,
                     &db,
                     settings,
-                    &generate_tree_data(&base_tree, d.len(), i, settings),
+                    &generate_tree_data(&base_tree, num, i, settings),
                 );
             }
 
@@ -3158,7 +3216,7 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<&Filter>, settings: &P
     // if not printing tree, hard flatten now before filtering as filter will retain non-matching parents with matching devices in tree
     // flattening now will also mean hubs will be removed when listing if `hide_hubs` because they will appear empty and sorting will be in bus -> device order rather than tree position
     log::debug!("Running prepare pre-printing");
-    if !settings.tree {
+    if !settings.tree && !matches!(settings.print_mode, PrintMode::Dynamic) {
         log::debug!("Flattening SPUSBDataType");
         sp_usb.into_flattened();
     }

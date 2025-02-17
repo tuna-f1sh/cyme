@@ -652,7 +652,7 @@ fn cyme() -> Result<()> {
         colours,
         max_variable_string_len: config.max_variable_string_len,
         auto_width: !config.no_auto_width,
-        terminal_size: terminal_size(),
+        terminal_size: terminal_size().map(|(w, h)| (w.0, h.0)),
         icon_when: args.icon,
         ..Default::default()
     };
