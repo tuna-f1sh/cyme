@@ -882,6 +882,7 @@ impl FromStr for DeviceSpeed {
 }
 
 /// Events used by the watch feature
+#[cfg(feature = "watch")]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum DeviceEvent {
     /// Device profiled at time
@@ -892,6 +893,7 @@ pub enum DeviceEvent {
     Disconnected(chrono::DateTime<chrono::Local>),
 }
 
+#[cfg(feature = "watch")]
 impl fmt::Display for DeviceEvent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -904,6 +906,14 @@ impl fmt::Display for DeviceEvent {
     }
 }
 
+#[cfg(feature = "watch")]
+impl Default for DeviceEvent {
+    fn default() -> Self {
+        DeviceEvent::Profiled(chrono::Local::now())
+    }
+}
+
+#[cfg(feature = "watch")]
 impl DeviceEvent {
     /// Get the time of the event
     pub fn time(&self) -> chrono::DateTime<chrono::Local> {
@@ -996,7 +1006,8 @@ pub struct Device {
     pub id: Option<::nusb::DeviceId>,
     /// Last event that occurred on device
     #[serde(skip)]
-    pub last_event: Option<DeviceEvent>,
+    #[cfg(feature = "watch")]
+    pub last_event: DeviceEvent,
     /// Internal data for cyme
     #[serde(skip)]
     pub internal: InternalData,
@@ -1553,7 +1564,14 @@ impl Device {
     ///
     /// Logic rather than is_connected since Profiled event is not certain still present
     pub fn is_disconnected(&self) -> bool {
-        matches!(self.last_event, Some(DeviceEvent::Disconnected(_)))
+        #[cfg(feature = "watch")]
+        {
+        matches!(self.last_event, DeviceEvent::Disconnected(_))
+        }
+        #[cfg(not(feature = "watch"))]
+        {
+        false
+        }
     }
 }
 

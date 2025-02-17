@@ -1,4 +1,7 @@
 //! Where the magic happens for `cyme` binary!
+#[cfg(not(feature = "watch"))]
+use clap::Parser;
+#[cfg(feature = "watch")]
 use clap::{Parser, Subcommand};
 use colored::*;
 use serde::{Deserialize, Serialize};

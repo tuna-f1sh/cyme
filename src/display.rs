@@ -810,9 +810,10 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .map(|d| d.fully_defined_class().map_or(0, |c| c.to_string().len()))
                 .max()
                 .unwrap_or(0),
+            #[cfg(feature = "watch")]
             DeviceBlocks::LastEvent => d
                 .iter()
-                .flat_map(|d| d.last_event.as_ref().map(|e| e.to_string().len()))
+                .map(|d| d.last_event.to_string().len())
                 .max()
                 .unwrap_or(0),
             _ => self.block_length().len(),
@@ -971,16 +972,15 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 Some(v) => Self::format_base_u8((*v).into(), settings),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            DeviceBlocks::LastEvent => Some(match d.last_event.as_ref() {
-                None => {
-                    format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0))
-                }
-                Some(v) => v.to_string(),
-            }),
-            DeviceBlocks::EventIcon => match d.last_event.as_ref() {
-                None => None,
-                Some(e) => settings.icons.as_ref().map(|i| i.get_event_icon(e)),
-            },
+            #[cfg(feature = "watch")]
+            DeviceBlocks::LastEvent => Some(d.last_event.to_string()),
+            #[cfg(feature = "watch")]
+            DeviceBlocks::EventIcon => settings
+                .icons
+                .as_ref()
+                .map(|i| i.get_event_icon(&d.last_event)),
+            #[cfg(not(feature = "watch"))]
+            DeviceBlocks::LastEvent | DeviceBlocks::EventIcon => None,
         }
     }
 

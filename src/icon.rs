@@ -10,7 +10,7 @@ use std::sync::LazyLock;
 
 use crate::display::Encoding;
 use crate::error::{Error, ErrorKind};
-use crate::profiler::{Bus, Device, DeviceEvent};
+use crate::profiler::{Bus, Device};
 use crate::usb::{BaseClass, Direction};
 
 /// Serialize alphabetically for HashMaps so they don't change each generation
@@ -521,7 +521,10 @@ impl IconTheme {
     }
 
     /// Get icon for event based on [`WatchEvent`] type
-    pub fn get_event_icon(&self, event: &DeviceEvent) -> String {
+    #[cfg(feature = "watch")]
+    pub fn get_event_icon(&self, event: &crate::profiler::DeviceEvent) -> String {
+        use crate::profiler::DeviceEvent;
+
         match event {
             DeviceEvent::Profiled(_) => self
                 .user
