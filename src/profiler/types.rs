@@ -1566,11 +1566,11 @@ impl Device {
     pub fn is_disconnected(&self) -> bool {
         #[cfg(feature = "watch")]
         {
-        matches!(self.last_event, DeviceEvent::Disconnected(_))
+            matches!(self.last_event, DeviceEvent::Disconnected(_))
         }
         #[cfg(not(feature = "watch"))]
         {
-        false
+            false
         }
     }
 }

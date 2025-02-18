@@ -501,7 +501,7 @@ impl BlockLength {
 }
 
 /// Helper trait to allow for generic block handling
-pub trait BlockEnum: Eq + Hash + VariantArray {}
+pub trait BlockEnum: Eq + Hash + VariantArray + ValueEnum {}
 impl BlockEnum for DeviceBlocks {}
 impl BlockEnum for BusBlocks {}
 impl BlockEnum for ConfigurationBlocks {}

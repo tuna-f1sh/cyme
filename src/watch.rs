@@ -13,7 +13,6 @@ use crossterm::{
 use futures_lite::stream::StreamExt;
 use std::io::stdout;
 use std::io::Write;
-use std::string::ToString;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
@@ -34,11 +33,15 @@ enum WatchEvent {
     EditFilter(FilterField),
     PushFilter(char),
     PopFilter,
-    EditBlock(BlockType, BlockSelection),
+    EditBlock(BlockType),
+    MoveBlockUp(usize),
+    MoveBlockDown(usize),
+    ToggleBlock,
     Error(String),
     Resize,
     DrawDevices,
     DrawEditBlocks,
+    WriteEditBlocks,
     Draw,
     Enter,
     Stop,
@@ -66,49 +69,6 @@ impl BlockType {
     }
 }
 
-/// Block selection state (index, max)
-#[derive(Debug, Clone, Copy)]
-enum BlockSelection {
-    Enabled(usize, usize),
-    Available(usize, usize),
-}
-
-impl BlockSelection {
-    fn add(&self, n: usize) -> Self {
-        match self {
-            BlockSelection::Enabled(i, max) => {
-                BlockSelection::Enabled(i.saturating_add(n).min(*max), *max)
-            }
-            BlockSelection::Available(i, max) => {
-                BlockSelection::Available(i.saturating_add(n).min(*max), *max)
-            }
-        }
-    }
-
-    fn sub(&self, n: usize) -> Self {
-        match self {
-            BlockSelection::Enabled(i, max) => BlockSelection::Enabled(i.saturating_sub(n), *max),
-            BlockSelection::Available(i, max) => {
-                BlockSelection::Available(i.saturating_sub(n), *max)
-            }
-        }
-    }
-
-    fn set_max(&mut self, max: usize) {
-        match self {
-            BlockSelection::Enabled(_, m) => *m = max,
-            BlockSelection::Available(_, m) => *m = max,
-        }
-    }
-
-    fn next(&self) -> Self {
-        match self {
-            BlockSelection::Enabled(..) => BlockSelection::Available(0, 0),
-            BlockSelection::Available(..) => BlockSelection::Enabled(0, 0),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 enum InputMode {
     Normal,
@@ -119,7 +79,10 @@ enum InputMode {
     },
     BlockEditor {
         block_type: BlockType,
-        selected: BlockSelection,
+        selected_index: usize,
+        // Box<dyn BlockEnum> would be nice with downcast back to print_settings concrete type
+        // Block is currently not dyn-compatible however so serialize and deserialize works...
+        blocks: Vec<(ColoredString, bool)>,
     },
     Error(String),
 }
@@ -210,6 +173,12 @@ pub fn watch_usb_devices(
         print_settings
             .interface_blocks
             .or(Some(InterfaceBlocks::default_blocks(
+                print_settings.verbosity > 0,
+            )));
+    print_settings.endpoint_blocks =
+        print_settings
+            .endpoint_blocks
+            .or(Some(EndpointBlocks::default_blocks(
                 print_settings.verbosity > 0,
             )));
 
@@ -312,9 +281,9 @@ pub fn watch_usb_devices(
             }
             Ok(WatchEvent::MoveUp(n)) => {
                 match &mut *display.input_mode.lock().unwrap() {
-                    InputMode::BlockEditor { selected, .. } => {
-                        *selected = selected.sub(n);
-                        // TODO update selected line so auto-scrolls
+                    InputMode::BlockEditor { selected_index, .. } => {
+                        *selected_index = selected_index.saturating_sub(n);
+                        display.selected_line = Some(1 + *selected_index);
                     }
                     _ => {
                         display.selected_line = display
@@ -331,9 +300,14 @@ pub fn watch_usb_devices(
             }
             Ok(WatchEvent::MoveDown(n)) => {
                 match &mut *display.input_mode.lock().unwrap() {
-                    InputMode::BlockEditor { selected, .. } => {
-                        *selected = selected.add(n);
-                        log::info!("{:?}", selected);
+                    InputMode::BlockEditor {
+                        selected_index,
+                        blocks,
+                        ..
+                    } => {
+                        let select_max = blocks.len() - 1;
+                        *selected_index = selected_index.saturating_add(n).min(select_max);
+                        display.selected_line = Some(1 + *selected_index);
                     }
                     _ => {
                         display.selected_line = display.selected_line.map_or(Some(1), |l| {
@@ -351,7 +325,6 @@ pub fn watch_usb_devices(
                 }
             }
             Ok(WatchEvent::EditFilter(field)) => {
-                let mut input_mode = display.input_mode.lock().unwrap();
                 let original = match field {
                     FilterField::Name => display.filter.name.clone(),
                     FilterField::Serial => display.filter.serial.clone(),
@@ -362,7 +335,7 @@ pub fn watch_usb_devices(
                     },
                     FilterField::Class => display.filter.class.map(|c| c.to_string()),
                 };
-                *input_mode = InputMode::EditingFilter {
+                *display.input_mode.lock().unwrap() = InputMode::EditingFilter {
                     field,
                     buffer: original.clone(),
                     original,
@@ -402,43 +375,20 @@ pub fn watch_usb_devices(
                 }
             }
             Ok(WatchEvent::Enter) => {
-                let input_mode = display.input_mode.lock().unwrap().clone();
-                match input_mode {
+                let new_mode = match &*display.input_mode.lock().unwrap() {
                     InputMode::EditingFilter { field, buffer, .. } => {
-                        if let Err(e) = set_filter(&field, buffer, &mut display.filter) {
-                            *display.input_mode.lock().unwrap() = InputMode::Error(e.to_string());
+                        if let Err(e) = set_filter(field, buffer.to_owned(), &mut display.filter) {
+                            InputMode::Error(e.to_string())
                         } else {
-                            *display.input_mode.lock().unwrap() = InputMode::Normal;
-                            display.prepare_devices();
-                            display.draw_devices()?;
+                            InputMode::Normal
                         }
                     }
-                    InputMode::BlockEditor { selected, .. } => match selected {
-                        BlockSelection::Enabled(i, _) => {
-                            let mut print_settings = display.print_settings.lock().unwrap();
-                            let enabled_blocks = print_settings.device_blocks.as_mut().unwrap();
-                            // keep at least one block enabled
-                            if enabled_blocks.len() > 1 {
-                                enabled_blocks.remove(i);
-                            }
-                        }
-                        BlockSelection::Available(i, _) => {
-                            let mut print_settings = display.print_settings.lock().unwrap();
-                            let enabled_blocks = print_settings.device_blocks.as_mut().unwrap();
-                            let all_blocks = DeviceBlocks::all_blocks().to_vec();
-                            let available_blocks: Vec<DeviceBlocks> = all_blocks
-                                .into_iter()
-                                .filter(|b| !enabled_blocks.contains(b))
-                                .collect();
-                            if let Some(block) = available_blocks.get(i) {
-                                enabled_blocks.push(*block);
-                            }
-                        }
-                    },
-                    _ => {
-                        *display.input_mode.lock().unwrap() = InputMode::Normal;
-                    }
-                }
+                    _ => InputMode::Normal,
+                };
+
+                *display.input_mode.lock().unwrap() = new_mode;
+                display.prepare_devices();
+                display.draw_devices()?;
             }
             Ok(WatchEvent::Error(msg)) => {
                 *display.input_mode.lock().unwrap() = InputMode::Error(msg);
@@ -459,43 +409,79 @@ pub fn watch_usb_devices(
                 display.prepare_devices();
                 display.draw_devices()?;
             }
-            Ok(WatchEvent::EditBlock(block_type, selected)) => {
-                let mut input_mode = display.input_mode.lock().unwrap();
-                *input_mode = InputMode::BlockEditor {
-                    block_type,
-                    selected,
-                };
+
+            Ok(WatchEvent::EditBlock(block_type)) => {
+                display.prepare_edit_blocks(block_type);
+            }
+            Ok(WatchEvent::MoveBlockUp(n)) => {
+                if let InputMode::BlockEditor {
+                    selected_index,
+                    blocks,
+                    ..
+                } = &mut *display.input_mode.lock().unwrap()
+                {
+                    if *selected_index != 0 {
+                        blocks.swap(*selected_index, selected_index.saturating_sub(n));
+                        *selected_index = selected_index.saturating_sub(n);
+                    }
+                }
+            }
+            Ok(WatchEvent::MoveBlockDown(n)) => {
+                if let InputMode::BlockEditor {
+                    selected_index,
+                    blocks,
+                    ..
+                } = &mut *display.input_mode.lock().unwrap()
+                {
+                    if *selected_index < blocks.len() - 1 {
+                        blocks.swap(*selected_index, selected_index.saturating_add(n));
+                        *selected_index = selected_index.saturating_add(n);
+                    }
+                }
+            }
+            Ok(WatchEvent::ToggleBlock) => {
+                if let InputMode::BlockEditor {
+                    selected_index,
+                    blocks,
+                    ..
+                } = &mut *display.input_mode.lock().unwrap()
+                {
+                    if *selected_index < blocks.len() {
+                        blocks[*selected_index].1 = !blocks[*selected_index].1;
+                    }
+                }
             }
             Ok(WatchEvent::DrawEditBlocks) => {
                 log::info!("Draw edit blocks");
                 display.draw_edit_blocks()?;
             }
+            Ok(WatchEvent::WriteEditBlocks) => {
+                display.write_edit_blocks();
+            }
+
             Ok(WatchEvent::Draw) => {
                 display.draw()?;
             }
             Ok(WatchEvent::Stop) => {
-                let input_mode = display.input_mode.lock().unwrap().clone();
-                match input_mode {
+                let new_mode = match &*display.input_mode.lock().unwrap() {
                     InputMode::Normal => {
                         break;
                     }
                     InputMode::EditingFilter {
                         field, original, ..
-                    } => match set_filter(&field, original, &mut display.filter) {
-                        Ok(_) => {
-                            *display.input_mode.lock().unwrap() = InputMode::Normal;
-                            display.prepare_devices();
-                        }
+                    } => match set_filter(field, original.to_owned(), &mut display.filter) {
+                        Ok(_) => InputMode::Normal,
                         Err(e) => {
                             // original must be bad so clear it
-                            set_filter(&field, None, &mut display.filter)?;
-                            *display.input_mode.lock().unwrap() = InputMode::Error(e.to_string());
+                            set_filter(field, None, &mut display.filter)?;
+                            InputMode::Error(e.to_string())
                         }
                     },
-                    _ => {
-                        *display.input_mode.lock().unwrap() = InputMode::Normal;
-                    }
-                }
+                    _ => InputMode::Normal,
+                };
+
+                *display.input_mode.lock().unwrap() = new_mode;
+                display.prepare_devices();
                 display.draw_devices()?;
             }
             Err(_) => {
@@ -553,24 +539,26 @@ impl InputMode {
                 print_settings.more = !print_settings.more;
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
-            (KeyCode::Char('d'), _) => {
+            (KeyCode::Char('d'), KeyModifiers::NONE) => {
                 let mut print_settings = print_settings.lock().unwrap();
                 print_settings.decimal = !print_settings.decimal;
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
             (KeyCode::Char('j'), KeyModifiers::NONE) => {
-                tx.send(WatchEvent::ScrollDown(1)).unwrap();
+                //tx.send(WatchEvent::ScrollDown(1)).unwrap();
+                tx.send(WatchEvent::MoveDown(1)).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
             }
             (KeyCode::Char('k'), KeyModifiers::NONE) => {
-                tx.send(WatchEvent::ScrollUp(1)).unwrap();
+                //tx.send(WatchEvent::ScrollUp(1)).unwrap();
+                tx.send(WatchEvent::MoveUp(1)).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
             }
-            (KeyCode::Char('j'), KeyModifiers::CONTROL) | (KeyCode::PageDown, _) => {
+            (KeyCode::Char('d'), KeyModifiers::CONTROL) | (KeyCode::PageDown, _) => {
                 tx.send(WatchEvent::ScrollDownPage).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
             }
-            (KeyCode::Char('k'), KeyModifiers::CONTROL) | (KeyCode::PageUp, _) => {
+            (KeyCode::Char('u'), KeyModifiers::CONTROL) | (KeyCode::PageUp, _) => {
                 tx.send(WatchEvent::ScrollUpPage).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
             }
@@ -595,18 +583,18 @@ impl InputMode {
                 tx.send(WatchEvent::EditFilter(FilterField::Class)).unwrap();
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
-            (KeyCode::Char('s'), _) => {
+            (KeyCode::Char('s'), KeyModifiers::NONE) => {
                 tx.send(WatchEvent::EditFilter(FilterField::Serial))
                     .unwrap();
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
             (KeyCode::Char('b'), _) => {
-                tx.send(WatchEvent::EditBlock(
-                    BlockType::Device,
-                    BlockSelection::Enabled(0, 0),
-                ))
-                .unwrap();
+                tx.send(WatchEvent::EditBlock(BlockType::Device)).unwrap();
                 tx.send(WatchEvent::DrawEditBlocks).unwrap();
+            }
+            (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
+                // TODO save config?
+                log::info!("Save config");
             }
             _ => (),
         };
@@ -663,49 +651,53 @@ impl InputMode {
                     }
                     _ => {}
                 },
-                InputMode::BlockEditor {
-                    block_type,
-                    selected,
-                } => match (code, modifiers) {
+                InputMode::BlockEditor { block_type, .. } => match (code, modifiers) {
                     (KeyCode::Char('q'), _) => {
                         tx.send(WatchEvent::Stop).unwrap();
                     }
-                    (KeyCode::Up, _) => {
+                    (KeyCode::Up, _) | (KeyCode::Char('k'), _) => {
                         tx.send(WatchEvent::MoveUp(1)).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
-                    (KeyCode::Down, _) => {
+                    (KeyCode::Down, _) | (KeyCode::Char('j'), _) => {
                         tx.send(WatchEvent::MoveDown(1)).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
-                    (KeyCode::Tab, KeyModifiers::NONE) | (KeyCode::Char('b'), _) => {
+                    (KeyCode::Tab, _) | (KeyCode::Char('b'), _) => {
                         log::info!("Tab: switch block type");
-                        tx.send(WatchEvent::EditBlock(block_type.next(), *selected))
-                            .unwrap();
+                        tx.send(WatchEvent::EditBlock(block_type.next())).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
-                    (KeyCode::Char('s'), _) | (KeyCode::Tab, KeyModifiers::SHIFT) => {
-                        log::info!("Tab: switch selected type");
-                        tx.send(WatchEvent::EditBlock(*block_type, selected.next()))
-                            .unwrap();
+                    (KeyCode::Char(' '), _) => {
+                        tx.send(WatchEvent::ToggleBlock).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
-                    (KeyCode::Enter, _) | (KeyCode::Char(' '), _) => {
-                        log::info!("Enter: add/remove");
+                    (KeyCode::Enter, _) => {
+                        log::info!("Write block editor");
+                        tx.send(WatchEvent::WriteEditBlocks).unwrap();
                         tx.send(WatchEvent::Enter).unwrap();
-                        tx.send(WatchEvent::MoveUp(1)).unwrap();
+                    }
+                    (KeyCode::Char('<'), _)
+                    | (KeyCode::Char(','), _)
+                    | (KeyCode::Left, _)
+                    | (KeyCode::Char('['), _) => {
+                        log::info!("Move block up");
+                        tx.send(WatchEvent::MoveBlockUp(1)).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
-                    (KeyCode::Char('<'), _) => {
-                        // reorder in "enabled" if focus is on it
+                    (KeyCode::Char('>'), _)
+                    | (KeyCode::Char('.'), _)
+                    | (KeyCode::Right, _)
+                    | (KeyCode::Char(']'), _) => {
+                        log::info!("Move block down");
+                        tx.send(WatchEvent::MoveBlockDown(1)).unwrap();
+                        tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
-                    (KeyCode::Char('>'), _) => {
-                        // reorder in "enabled"
-                    }
-                    (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
-                        // default
-                    }
-                    _ => {}
+                    //(KeyCode::Char('d'), KeyModifiers::CONTROL) => {
+                    //    tx.send(WatchEvent::WriteDefaultBlocks).unwrap();
+                    //    tx.send(WatchEvent::DrawEditBlocks).unwrap();
+                    //}
+                    _ => (),
                 },
                 // others (error etc.) exit current on any key
                 _ => {
@@ -780,8 +772,7 @@ impl Display {
     fn draw_footer<W: Write>(&mut self, writer: &mut W) -> Result<()> {
         let (term_width, term_height) = self.terminal_size;
 
-        // TODO elipses for long footers
-        let footer = match self.input_mode.lock().unwrap().clone() {
+        let footer = match &*self.input_mode.lock().unwrap() {
             InputMode::Normal => {
                 let print_settings = self.print_settings.lock().unwrap();
                 let verbosity = if print_settings.verbosity == 3 {
@@ -789,14 +780,15 @@ impl Display {
                 } else {
                     (print_settings.verbosity + 1).to_string()
                 };
-                let footer = format!(
-                    " [q] Quit  [v] Verbosity (→ {})  [t] Tree (→ {})  [h] Headings (→ {})  [m] More (→ {})  [d] Decimal (→ {}) ",
+                let mut footer = format!(
+                    " [q]-Quit [v]-Verbosity-(→ {}) [t]-Tree-(→ {}) [h]-Headings-(→ {}) [m]-More-(→ {}) [d]-Decimal-(→ {}) [b]-Edit Blocks",
                     verbosity,
                     if print_settings.tree { "Off" } else { "On" },
                     if print_settings.headings { "Off" } else { "On" },
                     if print_settings.more { "Off" } else { "On" },
                     if print_settings.decimal { "Off" } else { "On" }
                 );
+                footer.truncate(term_width as usize);
 
                 format!("{:<width$}", footer, width = term_width as usize)
                     .bold()
@@ -805,12 +797,14 @@ impl Display {
             }
             InputMode::EditingFilter { field, buffer, .. } => {
                 let mut footer = match field {
-                    FilterField::Name => "Filter by Name: ".to_string(),
-                    FilterField::Serial => "Filter by Serial: ".to_string(),
-                    FilterField::VidPid => "Filter by VID:PID: ".to_string(),
-                    FilterField::Class => "Filter by Class: ".to_string(),
+                    FilterField::Name => "Filter Name: ".to_string(),
+                    FilterField::Serial => "Filter Serial: ".to_string(),
+                    FilterField::VidPid => "Filter VID:PID: ".to_string(),
+                    FilterField::Class => "Filter Class: ".to_string(),
                 };
-                footer.push_str(&buffer.unwrap_or_default());
+                if let Some(buffer) = buffer {
+                    footer.push_str(buffer);
+                }
                 format!("{:<width$}", footer, width = term_width as usize)
                     .black()
                     .on_yellow()
@@ -820,12 +814,14 @@ impl Display {
                 .red()
                 .on_white(),
             InputMode::BlockEditor { .. } => {
-                let footer = " [Up/Down] Move in one list  [Tab] switch lists  [Enter] Add/Remove  [<]/[>] reorder  [q] Exit".bold();
+                let mut footer = String::from(" [Up/Down]-Navigate [Space]-Toggle [<]/[>]-Move [Tab]-Switch [Enter]-Accept [q]-Exit");
+                footer.truncate(term_width as usize);
                 format!("{:<width$}", footer, width = term_width as usize)
+                    .bold()
                     .black()
                     .on_green()
             }
-        };
+        }.to_string();
 
         // move cursor to last row
         execute!(
@@ -838,96 +834,273 @@ impl Display {
         Ok(())
     }
 
-    fn draw_block_editor<W: Write, B: BlockEnum + ValueEnum, T>(
-        writer: &mut W,
-        print_settings: &PrintSettings,
-        selected: &BlockSelection,
-        enabled_blocks: &[impl Block<B, T> + ToString],
-        available_blocks: &[impl Block<B, T> + ToString],
-    ) -> Result<()> {
-        let selected_enabled = match selected {
-            BlockSelection::Enabled(i, _) => Some(*i),
-            _ => None,
+    fn prepare_edit_blocks(&mut self, block_type: BlockType) {
+        let print_settings = self.print_settings.lock().unwrap();
+        let ct = &print_settings.colours;
+
+        let new_mode = match block_type {
+            BlockType::Device => {
+                let enabled_blocks = print_settings.device_blocks.as_ref().unwrap();
+                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                    .iter()
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+                let available_blocks: Vec<ColoredString> = DeviceBlocks::all_blocks()
+                    .iter()
+                    .filter(|b| !enabled_blocks.contains(b))
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+
+                InputMode::BlockEditor {
+                    block_type,
+                    selected_index: 0,
+                    blocks: enabled_strings
+                        .into_iter()
+                        .map(|b| (b, true))
+                        .chain(available_blocks.into_iter().map(|b| (b, false)))
+                        .collect(),
+                }
+            }
+            BlockType::Bus => {
+                let enabled_blocks = print_settings.bus_blocks.as_ref().unwrap();
+                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                    .iter()
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+                let available_blocks: Vec<ColoredString> = BusBlocks::all_blocks()
+                    .iter()
+                    .filter(|b| !enabled_blocks.contains(b))
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+
+                InputMode::BlockEditor {
+                    block_type,
+                    selected_index: 0,
+                    blocks: enabled_strings
+                        .into_iter()
+                        .map(|b| (b, true))
+                        .chain(available_blocks.into_iter().map(|b| (b, false)))
+                        .collect(),
+                }
+            }
+            BlockType::Config => {
+                let enabled_blocks = print_settings.config_blocks.as_ref().unwrap();
+                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                    .iter()
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+                let available_blocks: Vec<ColoredString> = ConfigurationBlocks::all_blocks()
+                    .iter()
+                    .filter(|b| !enabled_blocks.contains(b))
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+
+                InputMode::BlockEditor {
+                    block_type,
+                    selected_index: 0,
+                    blocks: enabled_strings
+                        .into_iter()
+                        .map(|b| (b, true))
+                        .chain(available_blocks.into_iter().map(|b| (b, false)))
+                        .collect(),
+                }
+            }
+            BlockType::Interface => {
+                let enabled_blocks = print_settings.interface_blocks.as_ref().unwrap();
+                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                    .iter()
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+                let available_blocks: Vec<ColoredString> = InterfaceBlocks::all_blocks()
+                    .iter()
+                    .filter(|b| !enabled_blocks.contains(b))
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+
+                InputMode::BlockEditor {
+                    block_type,
+                    selected_index: 0,
+                    blocks: enabled_strings
+                        .into_iter()
+                        .map(|b| (b, true))
+                        .chain(available_blocks.into_iter().map(|b| (b, false)))
+                        .collect(),
+                }
+            }
+            BlockType::Endpoint => {
+                let enabled_blocks = print_settings.endpoint_blocks.as_ref().unwrap();
+                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                    .iter()
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+                let available_blocks: Vec<ColoredString> = EndpointBlocks::all_blocks()
+                    .iter()
+                    .filter(|b| !enabled_blocks.contains(b))
+                    .map(|b| {
+                        if let Some(ct) = ct.as_ref() {
+                            let block = b.to_possible_value().unwrap().get_name().to_string();
+                            b.colour(&block, ct)
+                        } else {
+                            b.to_possible_value().unwrap().get_name().into()
+                        }
+                    })
+                    .collect();
+
+                InputMode::BlockEditor {
+                    block_type,
+                    selected_index: 0,
+                    blocks: enabled_strings
+                        .into_iter()
+                        .map(|b| (b, true))
+                        .chain(available_blocks.into_iter().map(|b| (b, false)))
+                        .collect(),
+                }
+            }
         };
 
-        let selected_available = match selected {
-            BlockSelection::Available(i, _) => Some(*i),
-            _ => None,
+        *self.input_mode.lock().unwrap() = new_mode;
+    }
+
+    fn write_edit_blocks(&mut self) {
+        if let InputMode::BlockEditor {
+            block_type, blocks, ..
+        } = &*self.input_mode.lock().unwrap()
+        {
+            let mut print_settings = self.print_settings.lock().unwrap();
+            match block_type {
+                BlockType::Device => {
+                    print_settings.device_blocks = Some(
+                        blocks
+                            .iter()
+                            .filter(|(_, enabled)| *enabled)
+                            .map(|b| DeviceBlocks::from_str(&b.0, true).unwrap())
+                            .collect(),
+                    );
+                }
+                BlockType::Bus => {
+                    print_settings.bus_blocks = Some(
+                        blocks
+                            .iter()
+                            .filter(|(_, enabled)| *enabled)
+                            .map(|b| BusBlocks::from_str(&b.0, true).unwrap())
+                            .collect(),
+                    );
+                }
+                BlockType::Config => {
+                    print_settings.config_blocks = Some(
+                        blocks
+                            .iter()
+                            .filter(|(_, enabled)| *enabled)
+                            .map(|b| ConfigurationBlocks::from_str(&b.0, true).unwrap())
+                            .collect(),
+                    );
+                }
+                BlockType::Interface => {
+                    print_settings.interface_blocks = Some(
+                        blocks
+                            .iter()
+                            .filter(|(_, enabled)| *enabled)
+                            .map(|b| InterfaceBlocks::from_str(&b.0, true).unwrap())
+                            .collect(),
+                    );
+                }
+                BlockType::Endpoint => {
+                    print_settings.endpoint_blocks = Some(
+                        blocks
+                            .iter()
+                            .filter(|(_, enabled)| *enabled)
+                            .map(|b| EndpointBlocks::from_str(&b.0, true).unwrap())
+                            .collect(),
+                    );
+                }
+            }
         };
-
-        for (i, block) in enabled_blocks.iter().enumerate() {
-            let sel = Some(i) == selected_enabled;
-            let block_string = if sel {
-                log::info!("Selected: {}", block.to_string());
-                block.to_string().bold().on_bright_purple().to_string()
-            } else {
-                print_settings.colours.as_ref().map_or_else(
-                    || block.to_string(),
-                    |c| block.colour(&block.to_string(), c).to_string(),
-                )
-            };
-            writeln!(writer, " [x] {}", block_string)?;
-        }
-
-        writeln!(writer, " ---")?;
-        for (i, block) in available_blocks.iter().enumerate() {
-            let sel = Some(i) == selected_available;
-            let block_string = if sel {
-                log::info!("Selected: {}", block.to_string());
-                block.to_string().bold().on_bright_purple().to_string()
-            } else {
-                print_settings.colours.as_ref().map_or_else(
-                    || block.to_string(),
-                    |c| block.colour(&block.to_string(), c).to_string(),
-                )
-            };
-            writeln!(writer, " [ ] {}", block_string)?;
-        }
-
-        Ok(())
     }
 
     fn draw_edit_blocks(&mut self) -> Result<()> {
         self.buffer.clear();
 
         if let InputMode::BlockEditor {
-            block_type,
-            selected,
+            selected_index,
+            blocks,
+            ..
         } = &mut *self.input_mode.lock().unwrap()
         {
-            match block_type {
-                // TODO - implement for other block types and ensure print_settings has blocks so unwrap safe
-                BlockType::Device => {
-                    let print_settings = self.print_settings.lock().unwrap();
-                    let enabled_blocks = print_settings.device_blocks.as_ref();
-                    let all_blocks = DeviceBlocks::all_blocks().to_vec();
-                    let available_blocks: Vec<DeviceBlocks> = all_blocks
-                        .into_iter()
-                        .filter(|b| !enabled_blocks.as_ref().is_some_and(|e| e.contains(b)))
-                        .collect();
-                    match selected {
-                        BlockSelection::Enabled(_, _) => {
-                            selected
-                                .set_max(enabled_blocks.as_ref().unwrap().len().saturating_sub(1));
-                        }
-                        BlockSelection::Available(_, _) => {
-                            selected.set_max(available_blocks.len().saturating_sub(1));
-                        }
-                    }
-                    Display::draw_block_editor(
-                        &mut self.buffer,
-                        &print_settings,
-                        selected,
-                        enabled_blocks.as_ref().unwrap(),
-                        &available_blocks,
-                    )?;
-                }
-                _ => {
-                    log::warn!("Not implemented");
+            for (i, (block, enabled)) in blocks.iter().enumerate() {
+                let block_string = if i == *selected_index {
+                    block.clone().normal().bold().on_bright_purple().to_string()
+                } else {
+                    block.to_string()
+                };
+                if *enabled {
+                    writeln!(self.buffer, " [x] {}", block_string)?;
+                } else {
+                    writeln!(self.buffer, " [ ] {}", block_string)?;
                 }
             }
-        } else {
-            panic!("draw_edit_blocks called when not in block editor mode");
         }
 
         self.draw()
