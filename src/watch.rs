@@ -788,7 +788,7 @@ impl Display {
                     if print_settings.more { "Off" } else { "On" },
                     if print_settings.decimal { "Off" } else { "On" }
                 );
-                footer.truncate(term_width as usize);
+                truncate_string(&mut footer, term_width as usize);
 
                 format!("{:<width$}", footer, width = term_width as usize)
                     .bold()
@@ -815,7 +815,7 @@ impl Display {
                 .on_white(),
             InputMode::BlockEditor { .. } => {
                 let mut footer = String::from(" [Up/Down]-Navigate [Space]-Toggle [<]/[>]-Move [Tab]-Switch [Enter]-Accept [q]-Exit");
-                footer.truncate(term_width as usize);
+                truncate_string(&mut footer, term_width as usize);
                 format!("{:<width$}", footer, width = term_width as usize)
                     .bold()
                     .black()
@@ -838,187 +838,123 @@ impl Display {
         let print_settings = self.print_settings.lock().unwrap();
         let ct = &print_settings.colours;
 
-        let new_mode = match block_type {
+        let blocks = match block_type {
             BlockType::Device => {
                 let enabled_blocks = print_settings.device_blocks.as_ref().unwrap();
-                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                enabled_blocks
                     .iter()
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
+                    .map(|b| (b, true))
+                    .chain(
+                        DeviceBlocks::all_blocks()
+                            .iter()
+                            .filter(|b| !enabled_blocks.contains(b))
+                            .map(|b| (b, false)),
+                    )
+                    .map(|(b, enabled)| {
+                        let cs = if let Some(ct) = ct.as_ref() {
                             let block = b.to_possible_value().unwrap().get_name().to_string();
                             b.colour(&block, ct)
                         } else {
                             b.to_possible_value().unwrap().get_name().into()
-                        }
+                        };
+                        (cs, enabled)
                     })
-                    .collect();
-                let available_blocks: Vec<ColoredString> = DeviceBlocks::all_blocks()
-                    .iter()
-                    .filter(|b| !enabled_blocks.contains(b))
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
-                            let block = b.to_possible_value().unwrap().get_name().to_string();
-                            b.colour(&block, ct)
-                        } else {
-                            b.to_possible_value().unwrap().get_name().into()
-                        }
-                    })
-                    .collect();
-
-                InputMode::BlockEditor {
-                    block_type,
-                    selected_index: 0,
-                    blocks: enabled_strings
-                        .into_iter()
-                        .map(|b| (b, true))
-                        .chain(available_blocks.into_iter().map(|b| (b, false)))
-                        .collect(),
-                }
+                    .collect()
             }
             BlockType::Bus => {
                 let enabled_blocks = print_settings.bus_blocks.as_ref().unwrap();
-                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                enabled_blocks
                     .iter()
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
+                    .map(|b| (b, true))
+                    .chain(
+                        BusBlocks::all_blocks()
+                            .iter()
+                            .filter(|b| !enabled_blocks.contains(b))
+                            .map(|b| (b, false)),
+                    )
+                    .map(|(b, enabled)| {
+                        let cs = if let Some(ct) = ct.as_ref() {
                             let block = b.to_possible_value().unwrap().get_name().to_string();
                             b.colour(&block, ct)
                         } else {
                             b.to_possible_value().unwrap().get_name().into()
-                        }
+                        };
+                        (cs, enabled)
                     })
-                    .collect();
-                let available_blocks: Vec<ColoredString> = BusBlocks::all_blocks()
-                    .iter()
-                    .filter(|b| !enabled_blocks.contains(b))
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
-                            let block = b.to_possible_value().unwrap().get_name().to_string();
-                            b.colour(&block, ct)
-                        } else {
-                            b.to_possible_value().unwrap().get_name().into()
-                        }
-                    })
-                    .collect();
-
-                InputMode::BlockEditor {
-                    block_type,
-                    selected_index: 0,
-                    blocks: enabled_strings
-                        .into_iter()
-                        .map(|b| (b, true))
-                        .chain(available_blocks.into_iter().map(|b| (b, false)))
-                        .collect(),
-                }
+                    .collect()
             }
             BlockType::Config => {
                 let enabled_blocks = print_settings.config_blocks.as_ref().unwrap();
-                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                enabled_blocks
                     .iter()
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
+                    .map(|b| (b, true))
+                    .chain(
+                        ConfigurationBlocks::all_blocks()
+                            .iter()
+                            .filter(|b| !enabled_blocks.contains(b))
+                            .map(|b| (b, false)),
+                    )
+                    .map(|(b, enabled)| {
+                        let cs = if let Some(ct) = ct.as_ref() {
                             let block = b.to_possible_value().unwrap().get_name().to_string();
                             b.colour(&block, ct)
                         } else {
                             b.to_possible_value().unwrap().get_name().into()
-                        }
+                        };
+                        (cs, enabled)
                     })
-                    .collect();
-                let available_blocks: Vec<ColoredString> = ConfigurationBlocks::all_blocks()
-                    .iter()
-                    .filter(|b| !enabled_blocks.contains(b))
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
-                            let block = b.to_possible_value().unwrap().get_name().to_string();
-                            b.colour(&block, ct)
-                        } else {
-                            b.to_possible_value().unwrap().get_name().into()
-                        }
-                    })
-                    .collect();
-
-                InputMode::BlockEditor {
-                    block_type,
-                    selected_index: 0,
-                    blocks: enabled_strings
-                        .into_iter()
-                        .map(|b| (b, true))
-                        .chain(available_blocks.into_iter().map(|b| (b, false)))
-                        .collect(),
-                }
+                    .collect()
             }
             BlockType::Interface => {
                 let enabled_blocks = print_settings.interface_blocks.as_ref().unwrap();
-                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                enabled_blocks
                     .iter()
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
+                    .map(|b| (b, true))
+                    .chain(
+                        InterfaceBlocks::all_blocks()
+                            .iter()
+                            .filter(|b| !enabled_blocks.contains(b))
+                            .map(|b| (b, false)),
+                    )
+                    .map(|(b, enabled)| {
+                        let cs = if let Some(ct) = ct.as_ref() {
                             let block = b.to_possible_value().unwrap().get_name().to_string();
                             b.colour(&block, ct)
                         } else {
                             b.to_possible_value().unwrap().get_name().into()
-                        }
+                        };
+                        (cs, enabled)
                     })
-                    .collect();
-                let available_blocks: Vec<ColoredString> = InterfaceBlocks::all_blocks()
-                    .iter()
-                    .filter(|b| !enabled_blocks.contains(b))
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
-                            let block = b.to_possible_value().unwrap().get_name().to_string();
-                            b.colour(&block, ct)
-                        } else {
-                            b.to_possible_value().unwrap().get_name().into()
-                        }
-                    })
-                    .collect();
-
-                InputMode::BlockEditor {
-                    block_type,
-                    selected_index: 0,
-                    blocks: enabled_strings
-                        .into_iter()
-                        .map(|b| (b, true))
-                        .chain(available_blocks.into_iter().map(|b| (b, false)))
-                        .collect(),
-                }
+                    .collect()
             }
             BlockType::Endpoint => {
                 let enabled_blocks = print_settings.endpoint_blocks.as_ref().unwrap();
-                let enabled_strings: Vec<ColoredString> = enabled_blocks
+                enabled_blocks
                     .iter()
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
+                    .map(|b| (b, true))
+                    .chain(
+                        EndpointBlocks::all_blocks()
+                            .iter()
+                            .filter(|b| !enabled_blocks.contains(b))
+                            .map(|b| (b, false)),
+                    )
+                    .map(|(b, enabled)| {
+                        let cs = if let Some(ct) = ct.as_ref() {
                             let block = b.to_possible_value().unwrap().get_name().to_string();
                             b.colour(&block, ct)
                         } else {
                             b.to_possible_value().unwrap().get_name().into()
-                        }
+                        };
+                        (cs, enabled)
                     })
-                    .collect();
-                let available_blocks: Vec<ColoredString> = EndpointBlocks::all_blocks()
-                    .iter()
-                    .filter(|b| !enabled_blocks.contains(b))
-                    .map(|b| {
-                        if let Some(ct) = ct.as_ref() {
-                            let block = b.to_possible_value().unwrap().get_name().to_string();
-                            b.colour(&block, ct)
-                        } else {
-                            b.to_possible_value().unwrap().get_name().into()
-                        }
-                    })
-                    .collect();
-
-                InputMode::BlockEditor {
-                    block_type,
-                    selected_index: 0,
-                    blocks: enabled_strings
-                        .into_iter()
-                        .map(|b| (b, true))
-                        .chain(available_blocks.into_iter().map(|b| (b, false)))
-                        .collect(),
-                }
+                    .collect()
             }
+        };
+
+        let new_mode = InputMode::BlockEditor {
+            block_type,
+            selected_index: 0,
+            blocks,
         };
 
         *self.input_mode.lock().unwrap() = new_mode;
