@@ -535,7 +535,7 @@ impl SuperSpeedPlusCapability {
 
     /// Returns the number of sublink speed IDs supported by this device.
     pub fn sublink_speed_id_count(&self) -> usize {
-        (self.attributes as usize) >> 5 & (0xf + 1)
+        ((self.attributes as usize) >> 5) & (0xf + 1)
     }
 
     /// Returns the minimum functional speed attribute ID supported by this device.
@@ -545,12 +545,12 @@ impl SuperSpeedPlusCapability {
 
     /// Returns the minimum number of functional RX lanes supported by this device.
     pub fn functional_rx_lanes(&self) -> usize {
-        (self.functionality_supported as usize) >> 8 & 0x0f
+        ((self.functionality_supported as usize) >> 8) & 0x0f
     }
 
     /// Returns the minimum number of functional TX lanes supported by this device.
     pub fn functional_tx_lanes(&self) -> usize {
-        (self.functionality_supported as usize) >> 12 & 0x0f
+        ((self.functionality_supported as usize) >> 12) & 0x0f
     }
 }
 

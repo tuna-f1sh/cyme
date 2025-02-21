@@ -1477,19 +1477,19 @@ impl Filter {
             && (Some(device.location_id.number) == self.number || self.number.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
             && (device.product_id == self.pid || self.pid.is_none())
-            && (self
+            && self
                 .name
                 .as_ref()
-                .map_or(true, |n| device.name.contains(n.as_str())))
-            && (self.serial.as_ref().map_or(true, |n| {
+                .is_none_or(|n| device.name.contains(n.as_str()))
+            && self.serial.as_ref().is_none_or(|n| {
                 device
                     .serial_num
                     .as_ref()
                     .is_some_and(|s| s.contains(n.as_str()))
-            }))
-            && (self.class.as_ref().map_or(true, |fc| {
+            })
+            && self.class.as_ref().is_none_or(|fc| {
                 device.class.as_ref() == Some(fc) || device.has_interface_class(fc)
-            }))
+            })
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
             && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
