@@ -2276,6 +2276,7 @@ pub struct TreeData {
 /// Mainly for watch mode to allow control of output
 pub struct DisplayWriter<W: Write> {
     raw_mode: bool,
+    line_number: usize,
     inner: W,
 }
 
@@ -2300,6 +2301,7 @@ impl<W: Write> DisplayWriter<W> {
     pub fn new(inner: W) -> Self {
         Self {
             raw_mode: false,
+            line_number: 0,
             inner,
         }
     }
@@ -2325,6 +2327,7 @@ impl<W: Write> DisplayWriter<W> {
         } else {
             writeln!(self.inner, "{}", text.as_ref())?;
         }
+        self.line_number += 1;
         self.inner.flush()?;
         Ok(())
     }
@@ -2967,7 +2970,7 @@ impl<W: Write> DisplayWriter<W> {
             base_tree
         );
 
-        let len = sp_usb.buses.len();
+        let len = sp_usb.buses.iter().filter(|b| !b.internal.hidden).count();
         for (i, bus) in sp_usb
             .buses
             .iter()

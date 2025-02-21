@@ -33,6 +33,8 @@ enum WatchEvent {
     MoveUp(usize),
     MoveDown(usize),
     EditFilter(FilterField),
+    ToggleBuses,
+    ToggleHubs,
     PushFilter(char),
     PopFilter,
     EditBlock(BlockType),
@@ -391,6 +393,12 @@ pub fn watch_usb_devices(
                     }
                 }
             }
+            Ok(WatchEvent::ToggleBuses) => {
+                display.filter.exclude_empty_bus = !display.filter.exclude_empty_bus;
+            }
+            Ok(WatchEvent::ToggleHubs) => {
+                display.filter.exclude_empty_hub = !display.filter.exclude_empty_hub;
+            }
 
             Ok(WatchEvent::Enter) => {
                 let new_mode = match &*display.state.lock().unwrap() {
@@ -576,13 +584,13 @@ impl State {
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
             (KeyCode::Char('j'), KeyModifiers::NONE) => {
-                //tx.send(WatchEvent::ScrollDown(1)).unwrap();
-                tx.send(WatchEvent::MoveDown(1)).unwrap();
+                tx.send(WatchEvent::ScrollDown(1)).unwrap();
+                //tx.send(WatchEvent::MoveDown(1)).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
             }
             (KeyCode::Char('k'), KeyModifiers::NONE) => {
-                //tx.send(WatchEvent::ScrollUp(1)).unwrap();
-                tx.send(WatchEvent::MoveUp(1)).unwrap();
+                tx.send(WatchEvent::ScrollUp(1)).unwrap();
+                //tx.send(WatchEvent::MoveUp(1)).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
             }
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
@@ -611,6 +619,14 @@ impl State {
             }
             (KeyCode::Char('/'), _) => {
                 tx.send(WatchEvent::EditFilter(FilterField::Name)).unwrap();
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('\\'), _) => {
+                tx.send(WatchEvent::ToggleBuses).unwrap();
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char(';'), _) => {
+                tx.send(WatchEvent::ToggleHubs).unwrap();
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
             (KeyCode::Char('#'), _) => {

@@ -371,11 +371,11 @@ impl Bus {
         }
     }
 
-    /// Whether the bus has [`Device`]s
+    /// Whether the bus no [`Device`]s
     pub fn is_empty(&self) -> bool {
         match &self.devices {
-            Some(d) => !d.is_empty(),
-            None => false,
+            Some(d) => d.is_empty() || d.iter().all(|dd| dd.internal.hidden),
+            None => true,
         }
     }
 
@@ -936,6 +936,7 @@ pub struct InternalData {
     pub(crate) expanded: bool,
     pub(crate) hidden: bool,
     pub(crate) selected: bool,
+    pub(crate) line_number: usize,
 }
 
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
@@ -1028,7 +1029,7 @@ impl Device {
     /// Does the device have child devices; `devices` is Some and > 0
     pub fn has_devices(&self) -> bool {
         match &self.devices {
-            Some(d) => !d.is_empty(),
+            Some(d) => !d.is_empty() && !d.iter().all(|dd| dd.internal.hidden),
             None => false,
         }
     }
