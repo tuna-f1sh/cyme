@@ -991,8 +991,8 @@ impl Endpoint {
     /// Returns the attributes byte for the endpoint
     pub fn attributes(&self) -> u8 {
         self.transfer_type.to_owned() as u8
-            | (self.sync_type.to_owned() as u8) << 2
-            | (self.usage_type.to_owned() as u8) << 4
+            | ((self.sync_type.to_owned() as u8) << 2)
+            | ((self.usage_type.to_owned() as u8) << 4)
     }
 }
 

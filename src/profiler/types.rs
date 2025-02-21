@@ -371,7 +371,7 @@ impl Bus {
         }
     }
 
-    /// Whether the bus no [`Device`]s
+    /// Whether the bus has no [`Device`]s
     pub fn is_empty(&self) -> bool {
         match &self.devices {
             Some(d) => d.is_empty() || d.iter().all(|dd| dd.internal.hidden),
