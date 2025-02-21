@@ -2879,7 +2879,12 @@ impl<W: Write> DisplayWriter<W> {
                     d,
                     db,
                     settings,
-                    &generate_tree_data(tree, d.len(), i, settings),
+                    &generate_tree_data(
+                        tree,
+                        d.iter().filter(|dd| !dd.internal.hidden).count(),
+                        i,
+                        settings,
+                    ),
                 );
             }
         }
@@ -3111,7 +3116,10 @@ impl<W: Write> DisplayWriter<W> {
                         &generate_tree_data(
                             &Default::default(),
                             extra.configurations.len()
-                                + device.devices.as_ref().map_or(0, |d| d.len()),
+                                + device
+                                    .devices
+                                    .as_ref()
+                                    .map_or(0, |d| d.iter().filter(|d| !d.internal.hidden).count()),
                             i,
                             settings,
                         ),

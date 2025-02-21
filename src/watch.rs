@@ -72,6 +72,16 @@ impl BlockType {
             BlockType::Endpoint => BlockType::Bus,
         }
     }
+
+    fn key_number(&self) -> char {
+        match self {
+            BlockType::Bus => '1',
+            BlockType::Device => '2',
+            BlockType::Config => '3',
+            BlockType::Interface => '4',
+            BlockType::Endpoint => '5',
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -723,6 +733,27 @@ impl State {
                         tx.send(WatchEvent::EditBlock(block_type.next())).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
+                    (KeyCode::Char('1'), _) => {
+                        tx.send(WatchEvent::EditBlock(BlockType::Bus)).unwrap();
+                        tx.send(WatchEvent::DrawEditBlocks).unwrap();
+                    }
+                    (KeyCode::Char('2'), _) => {
+                        tx.send(WatchEvent::EditBlock(BlockType::Device)).unwrap();
+                        tx.send(WatchEvent::DrawEditBlocks).unwrap();
+                    }
+                    (KeyCode::Char('3'), _) => {
+                        tx.send(WatchEvent::EditBlock(BlockType::Config)).unwrap();
+                        tx.send(WatchEvent::DrawEditBlocks).unwrap();
+                    }
+                    (KeyCode::Char('4'), _) => {
+                        tx.send(WatchEvent::EditBlock(BlockType::Interface))
+                            .unwrap();
+                        tx.send(WatchEvent::DrawEditBlocks).unwrap();
+                    }
+                    (KeyCode::Char('5'), _) => {
+                        tx.send(WatchEvent::EditBlock(BlockType::Endpoint)).unwrap();
+                        tx.send(WatchEvent::DrawEditBlocks).unwrap();
+                    }
                     (KeyCode::Char(' '), _) => {
                         tx.send(WatchEvent::ToggleBlock).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
@@ -827,7 +858,11 @@ impl Display {
 
         let mut header = match &*self.state.lock().unwrap() {
             State::BlockEditor { block_type, .. } => {
-                format!(" EDITING BLOCKS: {}", block_type)
+                format!(
+                    " EDITING BLOCKS: [{}] {}",
+                    block_type.key_number(),
+                    block_type
+                )
             }
             _ => {
                 format!(
