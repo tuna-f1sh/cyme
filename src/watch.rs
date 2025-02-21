@@ -25,8 +25,10 @@ use cyme::profiler::{watch::SystemProfileStreamBuilder, Filter, SystemProfile};
 #[allow(dead_code)]
 enum WatchEvent {
     ScrollUp(usize),
+    ScrollUpHalf,
     ScrollUpPage,
     ScrollDown(usize),
+    ScrollDownHalf,
     ScrollDownPage,
     MoveUp(usize),
     MoveDown(usize),
@@ -43,6 +45,7 @@ enum WatchEvent {
     DrawEditBlocks,
     WriteEditBlocks,
     Draw,
+    ShowHelp,
     Enter,
     Stop,
 }
@@ -70,7 +73,7 @@ impl BlockType {
 }
 
 #[derive(Debug, Clone)]
-enum InputMode {
+enum State {
     Normal,
     EditingFilter {
         field: FilterField,
@@ -84,6 +87,7 @@ enum InputMode {
         // Block is currently not dyn-compatible however so serialize and deserialize works...
         blocks: Vec<(ColoredString, bool)>,
     },
+    Help,
     Error(String),
 }
 
@@ -101,7 +105,7 @@ struct Display {
     spusb: Arc<Mutex<SystemProfile>>,
     print_settings: Arc<Mutex<PrintSettings>>,
     filter: Filter,
-    input_mode: Arc<Mutex<InputMode>>,
+    state: Arc<Mutex<State>>,
     /// Size of current window
     terminal_size: (u16, u16),
     /// Currently selected line
@@ -203,7 +207,7 @@ pub fn watch_usb_devices(
 
     let (tx, rx) = mpsc::channel::<WatchEvent>();
     let print_settings = Arc::new(Mutex::new(print_settings));
-    let input_mode = Arc::new(Mutex::new(InputMode::Normal));
+    let input_mode = Arc::new(Mutex::new(State::Normal));
     // first draw
     tx.send(WatchEvent::DrawDevices).unwrap();
 
@@ -214,7 +218,7 @@ pub fn watch_usb_devices(
         spusb: profile_stream.get_profile(),
         print_settings: print_settings.clone(),
         filter: filter.unwrap_or_default(),
-        input_mode: input_mode.clone(),
+        state: input_mode.clone(),
         terminal_size: terminal::size().unwrap_or((80, 24)),
         lines: 0,
         available_rows: 0,
@@ -265,6 +269,11 @@ pub fn watch_usb_devices(
             Ok(WatchEvent::ScrollUp(n)) => {
                 display.scroll_offset = display.scroll_offset.saturating_sub(n);
             }
+            Ok(WatchEvent::ScrollUpHalf) => {
+                display.scroll_offset = display
+                    .scroll_offset
+                    .saturating_sub(display.available_rows / 2);
+            }
             Ok(WatchEvent::ScrollUpPage) => {
                 display.scroll_offset =
                     display.scroll_offset.saturating_sub(display.available_rows);
@@ -274,14 +283,21 @@ pub fn watch_usb_devices(
                     .max_offset
                     .min(display.scroll_offset.saturating_add(n));
             }
+            Ok(WatchEvent::ScrollDownHalf) => {
+                display.scroll_offset = display.max_offset.min(
+                    display
+                        .scroll_offset
+                        .saturating_add(display.available_rows / 2),
+                );
+            }
             Ok(WatchEvent::ScrollDownPage) => {
                 display.scroll_offset = display
                     .max_offset
                     .min(display.scroll_offset.saturating_add(display.max_offset));
             }
             Ok(WatchEvent::MoveUp(n)) => {
-                match &mut *display.input_mode.lock().unwrap() {
-                    InputMode::BlockEditor { selected_index, .. } => {
+                match &mut *display.state.lock().unwrap() {
+                    State::BlockEditor { selected_index, .. } => {
                         *selected_index = selected_index.saturating_sub(n);
                         display.selected_line = Some(1 + *selected_index);
                     }
@@ -299,8 +315,8 @@ pub fn watch_usb_devices(
                 }
             }
             Ok(WatchEvent::MoveDown(n)) => {
-                match &mut *display.input_mode.lock().unwrap() {
-                    InputMode::BlockEditor {
+                match &mut *display.state.lock().unwrap() {
+                    State::BlockEditor {
                         selected_index,
                         blocks,
                         ..
@@ -324,6 +340,7 @@ pub fn watch_usb_devices(
                     }
                 }
             }
+
             Ok(WatchEvent::EditFilter(field)) => {
                 let original = match field {
                     FilterField::Name => display.filter.name.clone(),
@@ -335,20 +352,20 @@ pub fn watch_usb_devices(
                     },
                     FilterField::Class => display.filter.class.map(|c| c.to_string()),
                 };
-                *display.input_mode.lock().unwrap() = InputMode::EditingFilter {
+                *display.state.lock().unwrap() = State::EditingFilter {
                     field,
                     buffer: original.clone(),
                     original,
                 };
             }
             Ok(WatchEvent::PushFilter(c)) => {
-                let mut input_mode = display.input_mode.lock().unwrap();
-                if let InputMode::EditingFilter { field, buffer, .. } = &mut *input_mode {
+                let mut input_mode = display.state.lock().unwrap();
+                if let State::EditingFilter { field, buffer, .. } = &mut *input_mode {
                     buffer.get_or_insert_with(String::new).push(c);
                     match field {
                         FilterField::Serial | FilterField::Name => {
                             if let Err(e) = set_filter(field, buffer.clone(), &mut display.filter) {
-                                *input_mode = InputMode::Error(e.to_string());
+                                *input_mode = State::Error(e.to_string());
                             }
                         }
                         _ => (),
@@ -356,8 +373,8 @@ pub fn watch_usb_devices(
                 }
             }
             Ok(WatchEvent::PopFilter) => {
-                let mut input_mode = display.input_mode.lock().unwrap();
-                if let InputMode::EditingFilter { field, buffer, .. } = &mut *input_mode {
+                let mut input_mode = display.state.lock().unwrap();
+                if let State::EditingFilter { field, buffer, .. } = &mut *input_mode {
                     if let Some(b) = buffer {
                         let ret = b.pop();
                         if b.is_empty() | ret.is_none() {
@@ -367,44 +384,43 @@ pub fn watch_usb_devices(
                     match field {
                         FilterField::Serial | FilterField::Name => {
                             if let Err(e) = set_filter(field, buffer.clone(), &mut display.filter) {
-                                *input_mode = InputMode::Error(e.to_string());
+                                *input_mode = State::Error(e.to_string());
                             }
                         }
                         _ => (),
                     }
                 }
             }
+
             Ok(WatchEvent::Enter) => {
-                let new_mode = match &*display.input_mode.lock().unwrap() {
-                    InputMode::EditingFilter { field, buffer, .. } => {
+                let new_mode = match &*display.state.lock().unwrap() {
+                    State::EditingFilter { field, buffer, .. } => {
                         if let Err(e) = set_filter(field, buffer.to_owned(), &mut display.filter) {
-                            InputMode::Error(e.to_string())
+                            State::Error(e.to_string())
                         } else {
-                            InputMode::Normal
+                            State::Normal
                         }
                     }
-                    _ => InputMode::Normal,
+                    _ => State::Normal,
                 };
 
-                *display.input_mode.lock().unwrap() = new_mode;
+                *display.state.lock().unwrap() = new_mode;
                 display.prepare_devices();
                 display.draw_devices()?;
             }
             Ok(WatchEvent::Error(msg)) => {
-                *display.input_mode.lock().unwrap() = InputMode::Error(msg);
+                *display.state.lock().unwrap() = State::Error(msg);
                 display.draw()?;
             }
             Ok(WatchEvent::Resize) => {
                 // resize needs to redraw devices as columns may have changed but not block editor
-                if !matches!(
-                    &*display.input_mode.lock().unwrap(),
-                    InputMode::BlockEditor { .. }
-                ) {
+                if !matches!(&*display.state.lock().unwrap(), State::BlockEditor { .. }) {
                     display.print_settings.lock().unwrap().terminal_size = terminal::size().ok();
                     display.draw_devices()?;
                 }
                 display.draw()?;
             }
+
             Ok(WatchEvent::DrawDevices) => {
                 display.prepare_devices();
                 display.draw_devices()?;
@@ -414,11 +430,11 @@ pub fn watch_usb_devices(
                 display.prepare_edit_blocks(block_type);
             }
             Ok(WatchEvent::MoveBlockUp(n)) => {
-                if let InputMode::BlockEditor {
+                if let State::BlockEditor {
                     selected_index,
                     blocks,
                     ..
-                } = &mut *display.input_mode.lock().unwrap()
+                } = &mut *display.state.lock().unwrap()
                 {
                     if *selected_index != 0 {
                         blocks.swap(*selected_index, selected_index.saturating_sub(n));
@@ -427,11 +443,11 @@ pub fn watch_usb_devices(
                 }
             }
             Ok(WatchEvent::MoveBlockDown(n)) => {
-                if let InputMode::BlockEditor {
+                if let State::BlockEditor {
                     selected_index,
                     blocks,
                     ..
-                } = &mut *display.input_mode.lock().unwrap()
+                } = &mut *display.state.lock().unwrap()
                 {
                     if *selected_index < blocks.len() - 1 {
                         blocks.swap(*selected_index, selected_index.saturating_add(n));
@@ -440,11 +456,11 @@ pub fn watch_usb_devices(
                 }
             }
             Ok(WatchEvent::ToggleBlock) => {
-                if let InputMode::BlockEditor {
+                if let State::BlockEditor {
                     selected_index,
                     blocks,
                     ..
-                } = &mut *display.input_mode.lock().unwrap()
+                } = &mut *display.state.lock().unwrap()
                 {
                     if *selected_index < blocks.len() {
                         blocks[*selected_index].1 = !blocks[*selected_index].1;
@@ -459,28 +475,32 @@ pub fn watch_usb_devices(
                 display.write_edit_blocks();
             }
 
+            Ok(WatchEvent::ShowHelp) => {
+                *display.state.lock().unwrap() = State::Help;
+                display.draw_help()?;
+            }
             Ok(WatchEvent::Draw) => {
                 display.draw()?;
             }
             Ok(WatchEvent::Stop) => {
-                let new_mode = match &*display.input_mode.lock().unwrap() {
-                    InputMode::Normal => {
+                let new_mode = match &*display.state.lock().unwrap() {
+                    State::Normal => {
                         break;
                     }
-                    InputMode::EditingFilter {
+                    State::EditingFilter {
                         field, original, ..
                     } => match set_filter(field, original.to_owned(), &mut display.filter) {
-                        Ok(_) => InputMode::Normal,
+                        Ok(_) => State::Normal,
                         Err(e) => {
                             // original must be bad so clear it
                             set_filter(field, None, &mut display.filter)?;
-                            InputMode::Error(e.to_string())
+                            State::Error(e.to_string())
                         }
                     },
-                    _ => InputMode::Normal,
+                    _ => State::Normal,
                 };
 
-                *display.input_mode.lock().unwrap() = new_mode;
+                *display.state.lock().unwrap() = new_mode;
                 display.prepare_devices();
                 display.draw_devices()?;
             }
@@ -503,7 +523,7 @@ pub fn watch_usb_devices(
     Ok(())
 }
 
-impl InputMode {
+impl State {
     fn process_normal_mode(
         event: KeyEvent,
         tx: mpsc::Sender<WatchEvent>,
@@ -515,6 +535,9 @@ impl InputMode {
         match (code, modifiers) {
             (KeyCode::Enter, _) => {
                 tx.send(WatchEvent::Enter).unwrap();
+            }
+            (KeyCode::Char('?'), _) => {
+                tx.send(WatchEvent::ShowHelp).unwrap();
             }
             (KeyCode::Char('q'), _) => {
                 tx.send(WatchEvent::Stop).unwrap();
@@ -539,9 +562,17 @@ impl InputMode {
                 print_settings.more = !print_settings.more;
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
-            (KeyCode::Char('d'), KeyModifiers::NONE) => {
+            (KeyCode::Char('o'), _) => {
                 let mut print_settings = print_settings.lock().unwrap();
                 print_settings.decimal = !print_settings.decimal;
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
+            (KeyCode::Char('p'), _) => {
+                let mut print_settings = print_settings.lock().unwrap();
+                match print_settings.sort_devices {
+                    Sort::BranchPosition => print_settings.sort_devices = Sort::DeviceNumber,
+                    _ => print_settings.sort_devices = Sort::BranchPosition,
+                }
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
             (KeyCode::Char('j'), KeyModifiers::NONE) => {
@@ -554,8 +585,16 @@ impl InputMode {
                 tx.send(WatchEvent::MoveUp(1)).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
             }
+            (KeyCode::Char('d'), KeyModifiers::NONE) => {
+                tx.send(WatchEvent::ScrollDownHalf).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
             (KeyCode::Char('d'), KeyModifiers::CONTROL) | (KeyCode::PageDown, _) => {
                 tx.send(WatchEvent::ScrollDownPage).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
+            (KeyCode::Char('u'), KeyModifiers::NONE) => {
+                tx.send(WatchEvent::ScrollUpHalf).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
             }
             (KeyCode::Char('u'), KeyModifiers::CONTROL) | (KeyCode::PageUp, _) => {
@@ -623,10 +662,10 @@ impl InputMode {
             }
             // others based on mode
             _ => match self {
-                InputMode::Normal => {
+                State::Normal | State::Help => {
                     Self::process_normal_mode(event, tx, print_settings);
                 }
-                InputMode::EditingFilter { field, .. } => match (code, modifiers) {
+                State::EditingFilter { field, .. } => match (code, modifiers) {
                     // only re-draw devices for string filter changes - others only once fully entered
                     (KeyCode::Char(c), _) => {
                         tx.send(WatchEvent::PushFilter(c)).unwrap();
@@ -651,7 +690,7 @@ impl InputMode {
                     }
                     _ => {}
                 },
-                InputMode::BlockEditor { block_type, .. } => match (code, modifiers) {
+                State::BlockEditor { block_type, .. } => match (code, modifiers) {
                     (KeyCode::Char('q'), _) => {
                         tx.send(WatchEvent::Stop).unwrap();
                     }
@@ -679,6 +718,7 @@ impl InputMode {
                     }
                     (KeyCode::Char('<'), _)
                     | (KeyCode::Char(','), _)
+                    | (KeyCode::Char('h'), _)
                     | (KeyCode::Left, _)
                     | (KeyCode::Char('['), _) => {
                         log::info!("Move block up");
@@ -687,6 +727,7 @@ impl InputMode {
                     }
                     (KeyCode::Char('>'), _)
                     | (KeyCode::Char('.'), _)
+                    | (KeyCode::Char('l'), _)
                     | (KeyCode::Right, _)
                     | (KeyCode::Char(']'), _) => {
                         log::info!("Move block down");
@@ -731,16 +772,50 @@ impl Display {
         self.draw()
     }
 
+    fn draw_help(&mut self) -> Result<()> {
+        self.buffer.clear();
+
+        writeln!(
+            self.buffer,
+            r#" {} v{} - USB Device Watcher
+ vim bindings where possible!
+
+ [q]/[Esc]: Exit program/abort mode
+ [v]: Cycle verbosity
+ [t]: Toggle tree
+ [h]: Toggle headings
+ [m]: Toggle 'more' blocks
+ [o]: Toggle decimal/hex
+ [p]: Cycle sort mode
+ [b]: Enter block editor
+ [/]: Edit name filter
+ [s]: Edit serial filter
+ [#]: Edit VID:PID filter
+ [c]: Edit class filter
+ [j]/[k], Up/Down: Move selection
+ [u]/[d], PgUp/PgDn Ctrl+u/Ctrl+d: Scroll page
+ [CR]: Accept or commit changes
+ Ctrl+c: Exit program
+ [?]: Show this help
+            "#,
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        )?;
+
+        // Then just call `draw()` to show the new buffer
+        self.draw()
+    }
+
     fn draw_header<W: Write>(&mut self, writer: &mut W) -> Result<()> {
         let (term_width, _) = self.terminal_size;
 
-        let header = match &*self.input_mode.lock().unwrap() {
-            InputMode::BlockEditor { block_type, .. } => {
-                format!(" EDITING DISPLAY BLOCKS: {}", block_type)
+        let mut header = match &*self.state.lock().unwrap() {
+            State::BlockEditor { block_type, .. } => {
+                format!(" EDITING BLOCKS: {}", block_type)
             }
             _ => {
                 format!(
-                    " FILTERS Name: {:?} Serial: {:?} VID:PID: {}:{} Class: {:?}",
+                    " FILTERS Name={:?} Serial={:?} VID:PID={}:{} Class={:?}",
                     self.filter.name,
                     self.filter.serial,
                     self.filter
@@ -753,6 +828,8 @@ impl Display {
                 )
             }
         };
+
+        truncate_string(&mut header, term_width as usize);
 
         execute!(
             writer,
@@ -772,8 +849,34 @@ impl Display {
     fn draw_footer<W: Write>(&mut self, writer: &mut W) -> Result<()> {
         let (term_width, term_height) = self.terminal_size;
 
-        let footer = match &*self.input_mode.lock().unwrap() {
-            InputMode::Normal => {
+        let footer = match &*self.state.lock().unwrap() {
+            State::EditingFilter { field, buffer, .. } => {
+                let mut footer = match field {
+                    FilterField::Name => "Filter Name: ".to_string(),
+                    FilterField::Serial => "Filter Serial: ".to_string(),
+                    FilterField::VidPid => "Filter VID:PID: ".to_string(),
+                    FilterField::Class => "Filter Class: ".to_string(),
+                };
+                if let Some(buffer) = buffer {
+                    footer.push_str(buffer);
+                }
+                format!("{:<width$}", footer, width = term_width as usize)
+                    .black()
+                    .on_yellow()
+            }
+            State::Error(msg) => format!("{:<width$}", msg, width = term_width as usize)
+                .bold()
+                .red()
+                .on_white(),
+            State::BlockEditor { .. } => {
+                let mut footer = String::from(" [Up/Down]-Navigate [Space]-Toggle [<]/[>]-Move [Tab]-Switch [Enter]-Accept [q]-Exit");
+                truncate_string(&mut footer, term_width as usize);
+                format!("{:<width$}", footer, width = term_width as usize)
+                    .bold()
+                    .black()
+                    .on_green()
+            }
+            _ => {
                 let print_settings = self.print_settings.lock().unwrap();
                 let verbosity = if print_settings.verbosity == 3 {
                     String::from("0")
@@ -790,32 +893,6 @@ impl Display {
                 );
                 truncate_string(&mut footer, term_width as usize);
 
-                format!("{:<width$}", footer, width = term_width as usize)
-                    .bold()
-                    .black()
-                    .on_green()
-            }
-            InputMode::EditingFilter { field, buffer, .. } => {
-                let mut footer = match field {
-                    FilterField::Name => "Filter Name: ".to_string(),
-                    FilterField::Serial => "Filter Serial: ".to_string(),
-                    FilterField::VidPid => "Filter VID:PID: ".to_string(),
-                    FilterField::Class => "Filter Class: ".to_string(),
-                };
-                if let Some(buffer) = buffer {
-                    footer.push_str(buffer);
-                }
-                format!("{:<width$}", footer, width = term_width as usize)
-                    .black()
-                    .on_yellow()
-            }
-            InputMode::Error(msg) => format!("{:<width$}", msg, width = term_width as usize)
-                .bold()
-                .red()
-                .on_white(),
-            InputMode::BlockEditor { .. } => {
-                let mut footer = String::from(" [Up/Down]-Navigate [Space]-Toggle [<]/[>]-Move [Tab]-Switch [Enter]-Accept [q]-Exit");
-                truncate_string(&mut footer, term_width as usize);
                 format!("{:<width$}", footer, width = term_width as usize)
                     .bold()
                     .black()
@@ -951,19 +1028,19 @@ impl Display {
             }
         };
 
-        let new_mode = InputMode::BlockEditor {
+        let new_mode = State::BlockEditor {
             block_type,
             selected_index: 0,
             blocks,
         };
 
-        *self.input_mode.lock().unwrap() = new_mode;
+        *self.state.lock().unwrap() = new_mode;
     }
 
     fn write_edit_blocks(&mut self) {
-        if let InputMode::BlockEditor {
+        if let State::BlockEditor {
             block_type, blocks, ..
-        } = &*self.input_mode.lock().unwrap()
+        } = &*self.state.lock().unwrap()
         {
             let mut print_settings = self.print_settings.lock().unwrap();
             match block_type {
@@ -1019,11 +1096,11 @@ impl Display {
     fn draw_edit_blocks(&mut self) -> Result<()> {
         self.buffer.clear();
 
-        if let InputMode::BlockEditor {
+        if let State::BlockEditor {
             selected_index,
             blocks,
             ..
-        } = &mut *self.input_mode.lock().unwrap()
+        } = &mut *self.state.lock().unwrap()
         {
             for (i, (block, enabled)) in blocks.iter().enumerate() {
                 let block_string = if i == *selected_index {
