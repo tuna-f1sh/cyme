@@ -662,13 +662,13 @@ fn cyme() -> Result<()> {
 
     log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
 
-    display::prepare(&mut spusb, filter.as_ref(), &settings);
-
     #[cfg(feature = "watch")]
     if matches!(args.command, Some(SubCommand::Watch)) {
         watch::watch_usb_devices(spusb, filter, settings)?;
         return Ok(());
     }
+
+    display::prepare(&mut spusb, filter.as_ref(), &settings);
 
     if args.lsusb {
         print_lsusb(&spusb, &args.device, &settings)?;
