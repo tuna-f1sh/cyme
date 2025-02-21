@@ -1,5 +1,8 @@
 //! Where the magic happens for `cyme` binary!
+#[cfg(not(feature = "watch"))]
 use clap::Parser;
+#[cfg(feature = "watch")]
+use clap::{Parser, Subcommand};
 use colored::*;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -12,6 +15,9 @@ use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::profiler;
 use cyme::usb::BaseClass;
+
+#[cfg(feature = "watch")]
+mod watch;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -174,6 +180,18 @@ struct Args {
     /// If not using nusb this is the default for macOS, merging with libusb data for verbose output. nusb uses IOKit directly so does not use system_profiler by default
     #[arg(long, default_value_t = false)]
     system_profiler: bool,
+
+    /// Watch sub-command
+    #[cfg(feature = "watch")]
+    #[command(subcommand)]
+    command: Option<SubCommand>,
+}
+
+#[cfg(feature = "watch")]
+#[derive(Subcommand, Debug, Serialize, Deserialize)]
+enum SubCommand {
+    /// Watch for USB devices being connected and disconnected
+    Watch,
 }
 
 /// Print in bold red and exit with error
@@ -220,8 +238,8 @@ fn merge_config(c: &Config, a: &mut Args) {
 
 /// Parse the vidpid filter lsusb format: vid:Option<pid>
 fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>)> {
-    if s.contains(':') {
-        let vid_split: Vec<&str> = s.split(':').collect();
+    let vid_split: Vec<&str> = s.split(':').collect();
+    if vid_split.len() >= 2 {
         let vid: Option<u16> =
             vid_split
                 .first()
@@ -233,7 +251,7 @@ fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>)> {
                 })?;
         let pid: Option<u16> =
             vid_split
-                .last()
+                .get(1)
                 .filter(|v| !v.is_empty())
                 .map_or(Ok(None), |v| {
                     u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
@@ -534,9 +552,8 @@ fn cyme() -> Result<()> {
         }
     };
 
-    log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
-
     let filter = if args.hide_hubs
+        || args.hide_buses
         || args.vidpid.is_some()
         || args.show.is_some()
         || args.device.is_some()
@@ -586,6 +603,7 @@ fn cyme() -> Result<()> {
         f.serial = args.filter_serial;
         f.class = args.filter_class;
         f.exclude_empty_hub = args.hide_hubs;
+        f.exclude_empty_bus = args.hide_buses;
         // exclude root hubs unless:
         // * lsusb compat (shows root_hubs)
         // * json - for --from-json support
@@ -619,7 +637,6 @@ fn cyme() -> Result<()> {
         no_padding: args.no_padding,
         decimal: args.decimal,
         tree: args.tree,
-        hide_buses: args.hide_buses,
         sort_devices: args.sort_devices,
         sort_buses: args.sort_buses,
         group_devices,
@@ -638,11 +655,20 @@ fn cyme() -> Result<()> {
         colours,
         max_variable_string_len: config.max_variable_string_len,
         auto_width: !config.no_auto_width,
-        terminal_size: terminal_size(),
+        terminal_size: terminal_size().map(|(w, h)| (w.0, h.0)),
         icon_when: args.icon,
+        ..Default::default()
     };
 
-    display::prepare(&mut spusb, filter, &settings);
+    log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
+
+    #[cfg(feature = "watch")]
+    if matches!(args.command, Some(SubCommand::Watch)) {
+        watch::watch_usb_devices(spusb, filter, settings)?;
+        return Ok(());
+    }
+
+    display::prepare(&mut spusb, filter.as_ref(), &settings);
 
     if args.lsusb {
         print_lsusb(&spusb, &args.device, &settings)?;

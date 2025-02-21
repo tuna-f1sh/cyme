@@ -222,6 +222,7 @@ impl From<&nusb::DeviceInfo> for Device {
             class: Some(usb::BaseClass::from(device_info.class())),
             sub_class: Some(device_info.subclass()),
             protocol: Some(device_info.protocol()),
+            id: Some(device_info.id()),
             name,
             manufacturer,
             serial_num,
@@ -598,7 +599,7 @@ impl NusbProfiler {
         Ok(extra)
     }
 
-    fn build_spdevice(
+    pub(crate) fn build_spdevice(
         &mut self,
         device_info: &nusb::DeviceInfo,
         with_extra: bool,

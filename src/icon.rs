@@ -59,6 +59,12 @@ pub enum Icon {
     TreeInterfaceTerminator,
     /// Icon for endpoint direction
     Endpoint(Direction),
+    /// Icon for profiled state
+    Profiled,
+    /// Icon for connected state
+    Connected,
+    /// Icon for disconnected state
+    Disconnected,
 }
 
 impl FromStr for Icon {
@@ -83,6 +89,9 @@ impl FromStr for Icon {
                 "tree-interface-terminator" => Ok(Icon::TreeInterfaceTerminator),
                 "endpoint_in" => Ok(Icon::Endpoint(Direction::In)),
                 "endpoint_out" => Ok(Icon::Endpoint(Direction::Out)),
+                "profiled" => Ok(Icon::Profiled),
+                "connected" => Ok(Icon::Connected),
+                "disconnected" => Ok(Icon::Disconnected),
                 _ => Err(Error::new(
                     ErrorKind::Parsing,
                     "Invalid Icon enum name or valued enum without value",
@@ -314,6 +323,9 @@ pub static DEFAULT_ICONS: LazyLock<HashMap<Icon, &'static str>> = LazyLock::new(
         (Icon::Classifier(BaseClass::CdcData), "\u{e795}"), // serial 
         (Icon::Classifier(BaseClass::Hid), "\u{f030c}"), // 󰌌
         (Icon::UndefinedClassifier, "\u{2636}"),       //☶
+        (Icon::Profiled, "\u{f041a}"),                 // 󰐚
+        (Icon::Connected, "\u{f0c53}"),                // 󰱓
+        (Icon::Disconnected, "\u{f015b}"),             // 󰅛
     ])
 });
 
@@ -505,6 +517,48 @@ impl IconTheme {
                 .unwrap_or(String::new())
         } else {
             IconTheme::get_default_name_icon(name)
+        }
+    }
+
+    /// Get icon for event based on [`WatchEvent`] type
+    #[cfg(feature = "watch")]
+    pub fn get_event_icon(&self, event: &crate::profiler::DeviceEvent) -> String {
+        use crate::profiler::DeviceEvent;
+
+        match event {
+            DeviceEvent::Profiled(_) => self
+                .user
+                .as_ref()
+                .and_then(|u| u.get(&Icon::Profiled))
+                .unwrap_or(
+                    &DEFAULT_ICONS
+                        .get(&Icon::Profiled)
+                        .unwrap_or(&"")
+                        .to_string(),
+                )
+                .to_string(),
+            DeviceEvent::Connected(_) => self
+                .user
+                .as_ref()
+                .and_then(|u| u.get(&Icon::Connected))
+                .unwrap_or(
+                    &DEFAULT_ICONS
+                        .get(&Icon::Connected)
+                        .unwrap_or(&"")
+                        .to_string(),
+                )
+                .to_string(),
+            DeviceEvent::Disconnected(_) => self
+                .user
+                .as_ref()
+                .and_then(|u| u.get(&Icon::Disconnected))
+                .unwrap_or(
+                    &DEFAULT_ICONS
+                        .get(&Icon::Disconnected)
+                        .unwrap_or(&"")
+                        .to_string(),
+                )
+                .to_string(),
         }
     }
 }
