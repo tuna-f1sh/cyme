@@ -1802,9 +1802,9 @@ impl Filter {
             && (device.product_id == self.pid || self.pid.is_none())
             && (self.string_match(&self.name, Some(&device.name)))
             && (self.string_match(&self.serial, device.serial_num.as_ref()))
-            && (self.class.as_ref().map_or(true, |fc| {
+            && self.class.as_ref().is_none_or(|fc| {
                 device.class.as_ref() == Some(fc) || device.has_interface_class(fc)
-            }))
+            })
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
             && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
