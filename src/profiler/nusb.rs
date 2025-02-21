@@ -355,7 +355,7 @@ impl NusbProfiler {
     fn build_endpoints(
         &self,
         device: &UsbDevice,
-        interface_desc: &nusb::descriptors::InterfaceAltSetting,
+        interface_desc: &nusb::descriptors::InterfaceDescriptor,
     ) -> Vec<usb::Endpoint> {
         let mut ret: Vec<usb::Endpoint> = Vec::new();
 
@@ -398,7 +398,7 @@ impl NusbProfiler {
     fn build_interfaces(
         &self,
         device: &UsbDevice,
-        config: &nusb::descriptors::Configuration,
+        config: &nusb::descriptors::ConfigurationDescriptor,
     ) -> Result<Vec<usb::Interface>> {
         let mut ret: Vec<usb::Interface> = Vec::new();
 
