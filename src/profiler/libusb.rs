@@ -533,7 +533,6 @@ impl LibUsbProfiler {
             class: Some(usb::BaseClass::from(device_desc.class_code())),
             sub_class: Some(device_desc.sub_class_code()),
             protocol: Some(device_desc.protocol_code()),
-            last_event: Some(WatchEvent::Profiled(chrono::Local::now())),
             ..Default::default()
         };
 
