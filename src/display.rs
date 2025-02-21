@@ -2999,7 +2999,7 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<Filter>, settings: &Pr
     // hide any empty buses and hubs now we've filtered
     if settings.hide_buses {
         log::debug!("Hiding empty buses");
-        sp_usb.buses.retain(|b| b.is_empty());
+        sp_usb.buses.retain(|b| !b.is_empty());
         // may still be empty hubs if the hub had an empty hub!
         if let Some(f) = filter.as_ref() {
             if f.exclude_empty_hub {

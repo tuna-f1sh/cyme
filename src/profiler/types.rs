@@ -250,11 +250,11 @@ impl Bus {
         }
     }
 
-    /// Whether the bus has [`Device`]s
+    /// Whether the bus has no [`Device`]s
     pub fn is_empty(&self) -> bool {
         match &self.devices {
-            Some(d) => !d.is_empty(),
-            None => false,
+            Some(d) => d.is_empty(),
+            None => true,
         }
     }
 

@@ -2,13 +2,14 @@
 
 ## [Unreleased]
 
-Mostly housekeeping and minor fixes. Did a dependency audit and updated some crates.
+Mostly housekeeping and minor fixes. Did a dependency audit and updated some crates. Working towards a hotplug 'watch' subcommand.
 
 ### Fixed
 
 - control read endpoint stall will be re-attempted after clearing halt ([#54](https://github.com/tuna-f1sh/cyme/pull/54)).
 - udev-hwdb: native supports hwdb lookup again ([#59](https://github.com/tuna-f1sh/cyme/pull/59)).
 - lsusb: fallback to desccriptor strings in verbose dump for idProduct and idVendor ([#55](https://github.com/tuna-f1sh/cyme/issues/55)).
+- Bus::is_empty was inverse but display::prepare_devices filter accounted by also inverting. No real bug but fixed for clarity.
 
 ### Changed
 
