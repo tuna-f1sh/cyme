@@ -17,8 +17,9 @@ use unicode_width::UnicodeWidthStr;
 use crate::colour;
 use crate::icon;
 use crate::profiler::{Bus, Device, Filter, SystemProfile};
-use crate::usb::DeviceExtra;
-use crate::usb::{ConfigAttributes, Configuration, Direction, Endpoint, Interface};
+use crate::usb::{
+    self, ConfigAttributes, Configuration, DeviceExtra, Direction, Endpoint, Interface,
+};
 
 const MAX_VERBOSITY: u8 = 4;
 const ICON_HEADING: &str = "I";
@@ -748,7 +749,11 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .map(|d| d.location_id.tree_positions.len() * 2)
                 .max()
                 .unwrap_or(0),
-            DeviceBlocks::PortPath => d.iter().map(|d| d.port_path().len()).max().unwrap_or(0),
+            DeviceBlocks::PortPath => d
+                .iter()
+                .map(|d| d.port_path().as_os_str().len())
+                .max()
+                .unwrap_or(0),
             DeviceBlocks::SysPath => d
                 .iter()
                 .flat_map(|d| {
@@ -838,7 +843,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::BranchPosition => Some(format!("{:3}", d.get_branch_position())),
             DeviceBlocks::PortPath => Some(format!(
                 "{:pad$}",
-                d.port_path(),
+                d.port_path().display(),
                 pad = pad.get(self).unwrap_or(&0)
             )),
             DeviceBlocks::SysPath => Some(match d.extra.as_ref() {
@@ -1140,7 +1145,7 @@ impl Block<BusBlocks, Bus> for BusBlocks {
                 .unwrap_or(0),
             BusBlocks::PortPath => d
                 .iter()
-                .map(|d| d.path().unwrap_or("-".to_string()).len())
+                .map(|d| d.path().unwrap_or_default().as_os_str().len())
                 .max()
                 .unwrap_or(0),
             _ => self.block_length().len(),
@@ -1215,7 +1220,7 @@ impl Block<BusBlocks, Bus> for BusBlocks {
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
             BusBlocks::PortPath => Some(match bus.path() {
-                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                Some(v) => format!("{:pad$}", v.display(), pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
         }
@@ -2271,12 +2276,29 @@ pub struct TreeData {
     prefix: String,
 }
 
+/// Used to describe the item being printed
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LineItem {
+    /// Bus number
+    Bus(usize),
+    /// Device port path
+    Device(usb::UsbPath),
+    /// Configuration number
+    Config(usb::UsbPath),
+    /// Interface name
+    Interface(usb::UsbPath),
+    /// Endpoint Address
+    Endpoint(usb::UsbPath),
+    /// New lines or other non-item
+    None,
+}
+
 /// DisplayWriter allows control of output to terminal or other Writer
 ///
 /// Mainly for watch mode to allow control of output
 pub struct DisplayWriter<W: Write> {
     raw_mode: bool,
-    line_number: usize,
+    line_context: Vec<LineItem>,
     inner: W,
 }
 
@@ -2301,7 +2323,7 @@ impl<W: Write> DisplayWriter<W> {
     pub fn new(inner: W) -> Self {
         Self {
             raw_mode: false,
-            line_number: 0,
+            line_context: Vec::new(),
             inner,
         }
     }
@@ -2321,13 +2343,13 @@ impl<W: Write> DisplayWriter<W> {
     }
 
     /// Print text to the writer with a newline
-    pub fn println<S: AsRef<str>>(&mut self, text: S) -> io::Result<()> {
+    pub fn println<S: AsRef<str>>(&mut self, text: S, item: LineItem) -> io::Result<()> {
         if self.raw_mode {
             write!(self.inner, "{}\r\n", text.as_ref())?;
         } else {
             writeln!(self.inner, "{}", text.as_ref())?;
         }
-        self.line_number += 1;
+        self.line_context.push(item);
         self.inner.flush()?;
         Ok(())
     }
@@ -2337,14 +2359,20 @@ impl<W: Write> DisplayWriter<W> {
         self.inner
     }
 
+    /// Get the line context for the writer
+    pub fn line_context(&self) -> &Vec<LineItem> {
+        &self.line_context
+    }
+
     /// All device [`Endpoint`]
     pub fn print_endpoints(
         &mut self,
-        endpoints: &[Endpoint],
+        interface: &Interface,
         blocks: &[EndpointBlocks],
         settings: &PrintSettings,
         tree: &TreeData,
     ) {
+        let endpoints = &interface.endpoints;
         let mut pad = if !settings.no_padding {
             let endpoints: Vec<&Endpoint> = endpoints.iter().collect();
             EndpointBlocks::generate_padding(&endpoints)
@@ -2435,8 +2463,11 @@ impl<W: Write> DisplayWriter<W> {
                 // maybe should just do once at start of bus
                 if settings.headings && i == 0 {
                     let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
-                    self.println(format!("{}  {}", prefix, heading.bold().underline()))
-                        .unwrap();
+                    self.println(
+                        format!("{}  {}", prefix, heading.bold().underline()),
+                        LineItem::Endpoint(usb::UsbPath::new(endpoint.path(&interface.path))),
+                    )
+                    .unwrap();
                 }
 
                 // render and print tree if doing it
@@ -2444,27 +2475,29 @@ impl<W: Write> DisplayWriter<W> {
                 self.println(
                     render_value(endpoint, blocks, &pad, settings, max_variable_string_len)
                         .join(" "),
+                    LineItem::Endpoint(usb::UsbPath::new(endpoint.path(&interface.path))),
                 )
                 .unwrap();
             } else {
                 if settings.headings && i == 0 {
                     let heading = render_heading(blocks, &pad, max_variable_string_len).join(" ");
-                    self.println(format!(
-                        "{:spaces$}{}",
-                        "",
-                        heading.bold().underline(),
-                        spaces = 6
-                    ))
+                    self.println(
+                        format!("{:spaces$}{}", "", heading.bold().underline(), spaces = 6),
+                        LineItem::Endpoint(usb::UsbPath::new(endpoint.path(&interface.path))),
+                    )
                     .unwrap();
                 }
 
-                self.println(format!(
-                    "{:spaces$}{}",
-                    "",
-                    render_value(endpoint, blocks, &pad, settings, max_variable_string_len)
-                        .join(" "),
-                    spaces = (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
-                ))
+                self.println(
+                    format!(
+                        "{:spaces$}{}",
+                        "",
+                        render_value(endpoint, blocks, &pad, settings, max_variable_string_len)
+                            .join(" "),
+                        spaces = (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
+                    ),
+                    LineItem::Endpoint(usb::UsbPath::new(endpoint.path(&interface.path))),
+                )
                 .unwrap();
             }
         }
@@ -2558,8 +2591,11 @@ impl<W: Write> DisplayWriter<W> {
                 // maybe should just do once at start of bus
                 if settings.headings && i == 0 {
                     let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
-                    self.println(format!("{}  {}", prefix, heading.bold().underline()))
-                        .unwrap();
+                    self.println(
+                        format!("{}  {}", prefix, heading.bold().underline()),
+                        LineItem::Interface(usb::UsbPath::new(interface.path.as_str())),
+                    )
+                    .unwrap();
                 }
 
                 // render and print tree if doing it
@@ -2568,34 +2604,36 @@ impl<W: Write> DisplayWriter<W> {
                 self.println(
                     render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
                         .join(" "),
+                    LineItem::Interface(usb::UsbPath::new(interface.path.as_str())),
                 )
                 .unwrap();
             } else {
                 if settings.headings && i == 0 {
                     let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
-                    self.println(format!(
-                        "{:spaces$}{}",
-                        "",
-                        heading.bold().underline(),
-                        spaces = 4
-                    ))
+                    self.println(
+                        format!("{:spaces$}{}", "", heading.bold().underline(), spaces = 4),
+                        LineItem::Interface(usb::UsbPath::new(interface.path.as_str())),
+                    )
                     .unwrap();
                 }
 
-                self.println(format!(
-                    "{:spaces$}{}",
-                    "",
-                    render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
-                        .join(" "),
-                    spaces = (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
-                ))
+                self.println(
+                    format!(
+                        "{:spaces$}{}",
+                        "",
+                        render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
+                            .join(" "),
+                        spaces = (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
+                    ),
+                    LineItem::Interface(usb::UsbPath::new(interface.path.as_str())),
+                )
                 .unwrap();
             }
 
             // print the endpoints
-            if settings.verbosity >= 3 {
+            if settings.verbosity >= 3 || interface.is_expanded() {
                 self.print_endpoints(
-                    &interface.endpoints,
+                    interface,
                     blocks.1,
                     settings,
                     &generate_tree_data(tree, interface.endpoints.len(), i, settings),
@@ -2607,6 +2645,7 @@ impl<W: Write> DisplayWriter<W> {
     /// All device [`Configuration`]
     pub fn print_configurations(
         &mut self,
+        device: &Device,
         configs: &[Configuration],
         blocks: (
             &Vec<ConfigurationBlocks>,
@@ -2701,8 +2740,11 @@ impl<W: Write> DisplayWriter<W> {
                 // maybe should just do once at start of bus
                 if settings.headings && i == 0 {
                     let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
-                    self.println(format!("{}  {}", prefix, heading.bold().underline()))
-                        .unwrap();
+                    self.println(
+                        format!("{}  {}", prefix, heading.bold().underline()),
+                        LineItem::Config(usb::UsbPath::new(config.path(device.port_path()))),
+                    )
+                    .unwrap();
                 }
 
                 // render and print tree if doing it
@@ -2711,32 +2753,34 @@ impl<W: Write> DisplayWriter<W> {
                 self.println(
                     render_value(config, blocks.0, &pad, settings, max_variable_string_len)
                         .join(" "),
+                    LineItem::Config(usb::UsbPath::new(config.path(device.port_path()))),
                 )
                 .unwrap();
             } else {
                 if settings.headings && i == 0 {
                     let heading = render_heading(blocks.0, &pad, max_variable_string_len).join(" ");
-                    self.println(format!(
-                        "{:spaces$}{}",
-                        "",
-                        heading.bold().underline(),
-                        spaces = 2
-                    ))
+                    self.println(
+                        format!("{:spaces$}{}", "", heading.bold().underline(), spaces = 2),
+                        LineItem::Config(usb::UsbPath::new(config.path(device.port_path()))),
+                    )
                     .unwrap();
                 }
 
-                self.println(format!(
-                    "{:spaces$}{}",
-                    "",
-                    render_value(config, blocks.0, &pad, settings, max_variable_string_len)
-                        .join(" "),
-                    spaces = (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
-                ))
+                self.println(
+                    format!(
+                        "{:spaces$}{}",
+                        "",
+                        render_value(config, blocks.0, &pad, settings, max_variable_string_len)
+                            .join(" "),
+                        spaces = (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
+                    ),
+                    LineItem::Config(usb::UsbPath::new(config.path(device.port_path()))),
+                )
                 .unwrap();
             }
 
             // print the interfaces
-            if settings.verbosity >= 2 {
+            if settings.verbosity >= 2 || config.is_expanded() {
                 self.print_interfaces(
                     &config.interfaces,
                     ((blocks.1), (blocks.2)),
@@ -2758,7 +2802,7 @@ impl<W: Write> DisplayWriter<W> {
         tree: &TreeData,
     ) {
         let mut pad = if !settings.no_padding {
-            let devices: Vec<&Device> = devices.iter().filter(|d| !d.internal.hidden).collect();
+            let devices: Vec<&Device> = devices.iter().filter(|d| !d.is_hidden()).collect();
             DeviceBlocks::generate_padding(&devices)
         } else {
             HashMap::new()
@@ -2786,7 +2830,7 @@ impl<W: Write> DisplayWriter<W> {
 
         log::trace!("Print devices padding {:?}, tree {:?}", pad, tree);
 
-        for (i, device) in devices.iter().filter(|d| !d.internal.hidden).enumerate() {
+        for (i, device) in devices.iter().filter(|d| !d.is_hidden()).enumerate() {
             // get current prefix based on if last in tree and whether we are within the tree
             if settings.tree {
                 let mut prefix = if tree.depth > 0 {
@@ -2828,16 +2872,22 @@ impl<W: Write> DisplayWriter<W> {
                 // maybe should just do once at start of bus
                 if settings.headings && i == 0 {
                     let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
-                    self.println(format!("{}  {}", prefix, heading.bold().underline()))
-                        .unwrap();
+                    self.println(
+                        format!("{}  {}", prefix, heading.bold().underline()),
+                        LineItem::Device(usb::UsbPath::new(device.port_path())),
+                    )
+                    .unwrap();
                 }
 
                 // render and print tree if doing it
                 self.print(format!("{}{} ", prefix, terminator)).unwrap();
             } else if settings.headings && i == 0 {
                 let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
-                self.println(format!("{}", heading.bold().underline()))
-                    .unwrap();
+                self.println(
+                    format!("{}", heading.bold().underline()),
+                    LineItem::Device(usb::UsbPath::new(device.port_path())),
+                )
+                .unwrap();
             }
 
             // print the device
@@ -2846,20 +2896,25 @@ impl<W: Write> DisplayWriter<W> {
             if device.is_disconnected() {
                 device_string = device_string.dimmed().white().to_string();
             }
-            self.println(&device_string).unwrap();
+            self.println(
+                &device_string,
+                LineItem::Device(usb::UsbPath::new(device.port_path())),
+            )
+            .unwrap();
 
             // print the configurations
             if let Some(extra) = device.extra.as_ref() {
-                if settings.verbosity >= 1 {
+                if settings.verbosity >= 1 || device.is_expanded() {
                     // generate extra blocks if not passed and drop icons if not supported by encoding
                     let blocks = generate_extra_blocks(extra, settings);
                     let num = device
                         .devices
                         .as_ref()
-                        .map_or(0, |d| d.iter().filter(|d| !d.internal.hidden).count());
+                        .map_or(0, |d| d.iter().filter(|d| !d.is_hidden()).count());
 
                     // pass branch length as number of configurations for this device plus devices still to print
                     self.print_configurations(
+                        device,
                         &extra.configurations,
                         (&blocks.0, &blocks.1, &blocks.2),
                         settings,
@@ -2881,7 +2936,7 @@ impl<W: Write> DisplayWriter<W> {
                     settings,
                     &generate_tree_data(
                         tree,
-                        d.iter().filter(|dd| !dd.internal.hidden).count(),
+                        d.iter().filter(|dd| !dd.is_hidden()).count(),
                         i,
                         settings,
                     ),
@@ -2975,13 +3030,8 @@ impl<W: Write> DisplayWriter<W> {
             base_tree
         );
 
-        let len = sp_usb.buses.iter().filter(|b| !b.internal.hidden).count();
-        for (i, bus) in sp_usb
-            .buses
-            .iter()
-            .filter(|b| !b.internal.hidden)
-            .enumerate()
-        {
+        let len = sp_usb.buses.iter().filter(|b| !b.is_hidden()).count();
+        for (i, bus) in sp_usb.buses.iter().filter(|b| !b.is_hidden()).enumerate() {
             if settings.tree {
                 let mut prefix = base_tree.prefix.to_owned();
                 let mut start = settings.icons.as_ref().map_or(
@@ -3004,12 +3054,10 @@ impl<W: Write> DisplayWriter<W> {
                 if settings.headings {
                     let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
                     // 2 spaces for bus start icon and space to info
-                    self.println(format!(
-                        "{:>spaces$}{}",
-                        "",
-                        heading.bold().underline(),
-                        spaces = 2
-                    ))
+                    self.println(
+                        format!("{:>spaces$}{}", "", heading.bold().underline(), spaces = 2),
+                        LineItem::Bus(i),
+                    )
                     .unwrap();
                 }
 
@@ -3017,14 +3065,17 @@ impl<W: Write> DisplayWriter<W> {
             } else if settings.headings {
                 let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
                 // 2 spaces for bus start icon and space to info
-                self.println(format!("{}", heading.bold().underline()))
+                self.println(format!("{}", heading.bold().underline()), LineItem::Bus(i))
                     .unwrap();
             }
-            self.println(render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" "))
-                .unwrap();
+            self.println(
+                render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" "),
+                LineItem::Bus(i),
+            )
+            .unwrap();
 
             if let Some(d) = bus.devices.as_ref() {
-                let num = d.iter().filter(|d| !d.internal.hidden).count();
+                let num = d.iter().filter(|d| !d.is_hidden()).count();
                 // and then walk down devices printing them too
                 self.print_devices(
                     d,
@@ -3036,7 +3087,7 @@ impl<W: Write> DisplayWriter<W> {
 
             // separate bus groups with line
             if i + 1 != len {
-                self.println("").unwrap();
+                self.println("", LineItem::None).unwrap();
             }
         }
     }
@@ -3105,11 +3156,12 @@ impl<W: Write> DisplayWriter<W> {
             );
             // print the configurations
             if let Some(extra) = device.extra.as_ref() {
-                if settings.verbosity >= 1 {
+                if settings.verbosity >= 1 || device.is_expanded() {
                     let blocks = generate_extra_blocks(extra, settings);
 
                     // pass branch length as number of configurations for this device plus devices still to print
                     self.print_configurations(
+                        device,
                         &extra.configurations,
                         (&blocks.0, &blocks.1, &blocks.2),
                         settings,
@@ -3119,7 +3171,7 @@ impl<W: Write> DisplayWriter<W> {
                                 + device
                                     .devices
                                     .as_ref()
-                                    .map_or(0, |d| d.iter().filter(|d| !d.internal.hidden).count()),
+                                    .map_or(0, |d| d.iter().filter(|d| !d.is_hidden()).count()),
                             i,
                             settings,
                         ),
@@ -3178,15 +3230,18 @@ impl<W: Write> DisplayWriter<W> {
         for (i, (bus, devices)) in bus_devices.into_iter().enumerate() {
             if settings.headings {
                 let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
-                self.println(format!("{}", heading.bold().underline()))
+                self.println(format!("{}", heading.bold().underline()), LineItem::Bus(i))
                     .unwrap();
             }
-            self.println(render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" "))
-                .unwrap();
+            self.println(
+                render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" "),
+                LineItem::Bus(i),
+            )
+            .unwrap();
             self.print_flattened_devices(&devices, settings);
             // new line for each group
             if i + 1 != len {
-                self.println("").unwrap();
+                self.println("", LineItem::None).unwrap();
             }
         }
     }

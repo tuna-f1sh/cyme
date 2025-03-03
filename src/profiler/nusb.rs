@@ -27,7 +27,7 @@ impl std::fmt::Debug for UsbDevice {
             "UsbDevice {{ vidpid: {:#04x}:{:#04x}, location: {} }}",
             self.vidpid.0,
             self.vidpid.1,
-            self.location.port_path()
+            self.location.port_path().display()
         )
     }
 }
@@ -390,6 +390,7 @@ impl NusbProfiler {
                     )
                     .ok()
                     .flatten(),
+                internal: InternalData::default(),
             });
         }
 
@@ -411,6 +412,7 @@ impl NusbProfiler {
                     config.configuration_value(),
                     interface_alt.interface_number(),
                 );
+                let path = path.to_str().unwrap();
 
                 let interface_desc = interface_alt.descriptors().next().unwrap();
                 let interface_extra = interface_alt
@@ -422,7 +424,7 @@ impl NusbProfiler {
                     .collect::<Vec<u8>>();
 
                 let interface = usb::Interface {
-                    name: get_sysfs_string(&path, "interface").or_else(|| {
+                    name: get_sysfs_string(path, "interface").or_else(|| {
                         interface_alt
                             .string_index()
                             .and_then(|i| device.get_descriptor_string(i))
@@ -433,8 +435,8 @@ impl NusbProfiler {
                     sub_class: interface_alt.subclass(),
                     protocol: interface_alt.protocol(),
                     alt_setting: interface_alt.alternate_setting(),
-                    driver: get_sysfs_readlink(&path, "driver")
-                        .or_else(|| get_udev_driver_name(&path).ok().flatten()),
+                    driver: get_sysfs_readlink(path, "driver")
+                        .or_else(|| get_udev_driver_name(path).ok().flatten()),
                     syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
                     length: interface_desc[0],
                     endpoints: self.build_endpoints(device, &interface_alt),
@@ -450,7 +452,8 @@ impl NusbProfiler {
                             interface_extra,
                         )
                         .ok(),
-                    path,
+                    path: path.to_string(),
+                    internal: InternalData::default(),
                 };
 
                 ret.push(interface);
@@ -505,6 +508,7 @@ impl NusbProfiler {
                 extra: self
                     .build_config_descriptor_extra(device, config_extra)
                     .ok(),
+                ..Default::default()
             });
         }
 
@@ -545,7 +549,7 @@ impl NusbProfiler {
             }
         }
 
-        let sysfs_name = sp_device.sysfs_name();
+        let sysfs_name = sp_device.sysfs_name().display().to_string();
         let mut extra = usb::DeviceExtra {
             max_packet_size: device_desc.max_packet_size,
             string_indexes: (
@@ -662,7 +666,8 @@ impl NusbProfiler {
                             None
                         }
                         Err(e) => {
-                            sp_device.extra = Some(generic_extra(&sp_device.sysfs_name()));
+                            sp_device.extra =
+                                Some(generic_extra(&sp_device.sysfs_name().display().to_string()));
                             Some(format!("Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e))
                         }
                     }
@@ -673,7 +678,7 @@ impl NusbProfiler {
                     "Failed to open device, extra data incomplete and possibly inaccurate"
                         .to_string(),
                 );
-                sp_device.extra = Some(generic_extra(&sp_device.sysfs_name()));
+                sp_device.extra = Some(generic_extra(&sp_device.sysfs_name().display().to_string()));
             }
         }
 

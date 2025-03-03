@@ -9,6 +9,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::fs;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use super::*;
@@ -67,8 +68,10 @@ impl SystemProfile {
     }
 
     /// Search for reference to [`Device`] at `port_path` on correct bus number if present else all buses
-    pub fn get_node(&self, port_path: &str) -> Option<&Device> {
+    pub fn get_node<P: AsRef<Path>>(&self, port_path: P) -> Option<&Device> {
         let bus_no = port_path
+            .as_ref()
+            .to_str()?
             .split("-")
             .next()
             .and_then(|v| v.parse::<u8>().ok())?;
@@ -80,7 +83,7 @@ impl SystemProfile {
             }
         } else {
             for bus in self.buses.iter() {
-                if let Some(node) = bus.get_node(port_path) {
+                if let Some(node) = bus.get_node(port_path.as_ref()) {
                     return Some(node);
                 }
             }
@@ -90,8 +93,10 @@ impl SystemProfile {
     }
 
     /// Search for mutable reference to [`Device`] at `port_path` on correct bus number if present else all buses
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
+    pub fn get_node_mut<P: AsRef<Path>>(&mut self, port_path: P) -> Option<&mut Device> {
         let bus_no = port_path
+            .as_ref()
+            .to_str()?
             .split("-")
             .next()
             .and_then(|v| v.parse::<u8>().ok())?;
@@ -104,13 +109,74 @@ impl SystemProfile {
             }
         } else {
             for bus in self.buses.iter_mut() {
-                if let Some(node) = bus.get_node_mut(port_path) {
+                if let Some(node) = bus.get_node_mut(port_path.as_ref()) {
                     return Some(node);
                 }
             }
         }
 
         None
+    }
+
+    /// Get reference to [`Configuration`] at `port_path` and `config` if present
+    pub fn get_config<P: AsRef<Path>>(&self, port_path: P, config: u8) -> Option<&Configuration> {
+        self.get_node(port_path).and_then(|d| d.get_config(config))
+    }
+
+    /// Get mutable reference to [`Configuration`] at `port_path` and `config` if present
+    pub fn get_config_mut<P: AsRef<Path>>(
+        &mut self,
+        port_path: P,
+        config: u8,
+    ) -> Option<&mut Configuration> {
+        self.get_node_mut(port_path)
+            .and_then(|d| d.get_config_mut(config))
+    }
+
+    /// Get reference to [`Interface`] at `port_path`, `config` and `interface` if present
+    pub fn get_interface<P: AsRef<Path>>(
+        &self,
+        port_path: P,
+        config: u8,
+        interface: u8,
+    ) -> Option<&Interface> {
+        self.get_node(port_path)
+            .and_then(|d| d.get_interface(config, interface))
+    }
+
+    /// Get mutable reference to [`Interface`] at `port_path`, `config` and `interface` if present
+    pub fn get_interface_mut<P: AsRef<Path>>(
+        &mut self,
+        port_path: P,
+        config: u8,
+        interface: u8,
+    ) -> Option<&mut Interface> {
+        self.get_node_mut(port_path)
+            .and_then(|d| d.get_interface_mut(config, interface))
+    }
+
+    /// Get reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
+    pub fn get_endpoint<P: AsRef<Path>>(
+        &self,
+        port_path: P,
+        config: u8,
+        interface: u8,
+        endpoint: u8,
+    ) -> Option<&Endpoint> {
+        self.get_node(port_path)
+            .and_then(|d| d.get_endpoint(config, interface, endpoint))
+    }
+
+    /// Get mutable reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
+    pub fn get_endpoint_mut<P: AsRef<Path>>(
+        &mut self,
+        port_path: P,
+        config: u8,
+        interface: u8,
+        endpoint: u8,
+    ) -> Option<&mut Endpoint> {
+        self.get_node_mut(port_path)
+            .and_then(|d| d.get_endpoint_mut(config, interface, endpoint))
     }
 
     #[cfg(feature = "nusb")]
@@ -139,7 +205,7 @@ impl SystemProfile {
     ///
     /// If the device was existing, it will be replaced with the old device and returned as `Ok`, else `Err` if the device was not found.
     pub fn replace(&mut self, mut new: Device) -> Result<Device> {
-        if let Some(existing) = self.get_node_mut(&new.port_path()) {
+        if let Some(existing) = self.get_node_mut(new.port_path()) {
             let devices = std::mem::take(&mut existing.devices);
             new.devices = devices;
             new.internal = existing.internal.clone();
@@ -158,7 +224,7 @@ impl SystemProfile {
     /// If the device was existing, it will be replaced with the new device and returned as `Some` (without child devices), else `None`. `None` will also be returned if the device parent is not found.
     pub fn insert(&mut self, mut new: Device) -> Option<Device> {
         // check existing device and replace if found
-        if let Some(existing) = self.get_node_mut(&new.port_path()) {
+        if let Some(existing) = self.get_node_mut(new.port_path()) {
             let devices = std::mem::take(&mut existing.devices);
             new.devices = devices;
             new.internal = existing.internal.clone();
@@ -173,7 +239,7 @@ impl SystemProfile {
                 bus.devices = Some(vec![new]);
             }
         } else if let Ok(parent_path) = new.parent_path() {
-            if let Some(parent) = self.get_node_mut(&parent_path) {
+            if let Some(parent) = self.get_node_mut(parent_path) {
                 if let Some(bd) = parent.devices.as_mut() {
                     bd.push(new);
                 } else {
@@ -261,7 +327,7 @@ pub struct Bus {
     pub devices: Option<Vec<Device>>,
     /// Internal data for tracking events and other data
     #[serde(skip)]
-    pub internal: InternalData,
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Bus`]
@@ -397,12 +463,12 @@ impl Bus {
     }
 
     /// syspath style path to bus
-    pub fn path(&self) -> Option<String> {
+    pub fn path(&self) -> Option<PathBuf> {
         self.get_bus_number().map(|n| get_trunk_path(n, &[]))
     }
 
     /// sysfs style path to bus interface
-    pub fn interface(&self) -> Option<String> {
+    pub fn interface(&self) -> Option<PathBuf> {
         self.get_bus_number()
             .map(|n| get_interface_path(n, &Vec::new(), 1, 0))
     }
@@ -416,19 +482,19 @@ impl Bus {
 
     /// Gets the device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device(&self) -> Option<&Device> {
-        self.interface().and_then(|i| self.get_node(&i))
+        self.interface().and_then(|i| self.get_node(i))
     }
 
     /// Gets a mutable device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device_mut(&mut self) -> Option<&mut Device> {
-        self.interface().and_then(|i| self.get_node_mut(&i))
+        self.interface().and_then(|i| self.get_node_mut(i))
     }
 
     /// Search for [`Device`] in branches of bus and return reference
-    pub fn get_node(&self, port_path: &str) -> Option<&Device> {
+    pub fn get_node<P: AsRef<Path>>(&self, port_path: P) -> Option<&Device> {
         if let Some(devices) = self.devices.as_ref() {
             for dev in devices {
-                if let Some(node) = dev.get_node(port_path) {
+                if let Some(node) = dev.get_node(port_path.as_ref()) {
                     log::debug!("Found {}", node);
                     return Some(node);
                 }
@@ -439,10 +505,10 @@ impl Bus {
     }
 
     /// Search for [`Device`] in branches of bus and return mutable if found
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
+    pub fn get_node_mut<P: AsRef<Path>>(&mut self, port_path: P) -> Option<&mut Device> {
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {
-                if let Some(node) = dev.get_node_mut(port_path) {
+                if let Some(node) = dev.get_node_mut(port_path.as_ref()) {
                     log::debug!("Found {}", node);
                     return Some(node);
                 }
@@ -450,6 +516,67 @@ impl Bus {
         }
 
         None
+    }
+
+    /// Get reference to [`Configuration`] at `port_path` and `config` if present
+    pub fn get_config<P: AsRef<Path>>(&self, port_path: P, config: u8) -> Option<&Configuration> {
+        self.get_node(port_path).and_then(|d| d.get_config(config))
+    }
+
+    /// Get mutable reference to [`Configuration`] at `port_path` and `config` if present
+    pub fn get_config_mut<P: AsRef<Path>>(
+        &mut self,
+        port_path: P,
+        config: u8,
+    ) -> Option<&mut Configuration> {
+        self.get_node_mut(port_path)
+            .and_then(|d| d.get_config_mut(config))
+    }
+
+    /// Get reference to [`Interface`] at `port_path`, `config` and `interface` if present
+    pub fn get_interface<P: AsRef<Path>>(
+        &self,
+        port_path: P,
+        config: u8,
+        interface: u8,
+    ) -> Option<&Interface> {
+        self.get_node(port_path)
+            .and_then(|d| d.get_interface(config, interface))
+    }
+
+    /// Get mutable reference to [`Interface`] at `port_path`, `config` and `interface` if present
+    pub fn get_interface_mut<P: AsRef<Path>>(
+        &mut self,
+        port_path: P,
+        config: u8,
+        interface: u8,
+    ) -> Option<&mut Interface> {
+        self.get_node_mut(port_path)
+            .and_then(|d| d.get_interface_mut(config, interface))
+    }
+
+    /// Get reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
+    pub fn get_endpoint<P: AsRef<Path>>(
+        &self,
+        port_path: P,
+        config: u8,
+        interface: u8,
+        endpoint: u8,
+    ) -> Option<&Endpoint> {
+        self.get_node(port_path)
+            .and_then(|d| d.get_endpoint(config, interface, endpoint))
+    }
+
+    /// Get mutable reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
+    pub fn get_endpoint_mut<P: AsRef<Path>>(
+        &mut self,
+        port_path: P,
+        config: u8,
+        interface: u8,
+        endpoint: u8,
+    ) -> Option<&mut Endpoint> {
+        self.get_node_mut(port_path)
+            .and_then(|d| d.get_endpoint_mut(config, interface, endpoint))
     }
 
     #[cfg(feature = "nusb")]
@@ -546,7 +673,7 @@ impl Bus {
                 format!(
                     "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number().unwrap_or(0xff),
-                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None)
+                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None).display()
                 ),
             )])
         } else {
@@ -566,7 +693,7 @@ impl Bus {
                 format!(
                     "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number().unwrap_or(0xff),
-                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None)
+                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None).display()
                 ),
             )])
         }
@@ -577,6 +704,31 @@ impl Bus {
             if let Some(d) = pci_ids::Device::from_vid_pid(v, p) {
                 self.host_controller_vendor = Some(d.vendor().name().to_string());
                 self.host_controller_device = Some(d.name().to_string());
+            }
+        }
+    }
+
+    /// Should the bus be hidden when printing
+    pub fn is_hidden(&self) -> bool {
+        self.internal.hidden
+    }
+
+    /// Should the bus be expanded when printing
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the bus
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+    }
+
+    /// Set the expanded state of the bus and all devices
+    pub fn set_all_expanded(&mut self, expanded: bool) {
+        self.internal.expanded = expanded;
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                dev.set_all_expanded(expanded);
             }
         }
     }
@@ -713,26 +865,26 @@ impl DeviceLocation {
     /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
     ///
     /// A wrapper for [`get_port_path`]
-    pub fn port_path(&self) -> String {
+    pub fn port_path(&self) -> PathBuf {
         get_port_path(self.bus, &self.tree_positions)
     }
 
     /// Port path of parent
     ///
     /// A wrapper for [`get_parent_path`]
-    pub fn parent_path(&self) -> Result<String> {
+    pub fn parent_path(&self) -> Result<PathBuf> {
         get_parent_path(self.bus, &self.tree_positions)
     }
 
     /// Port path of trunk
     ///
     /// A wrapper for [`get_trunk_path`]
-    pub fn trunk_path(&self) -> String {
+    pub fn trunk_path(&self) -> PathBuf {
         get_trunk_path(self.bus, &self.tree_positions)
     }
 
     /// Linux sysfs name of [`Device`] similar to `port_path` but root_hubs use the USB controller name instead of port
-    pub fn sysfs_name(&self) -> String {
+    pub fn sysfs_name(&self) -> PathBuf {
         get_sysfs_name(self.bus, &self.tree_positions)
     }
 }
@@ -935,8 +1087,6 @@ impl DeviceEvent {
 pub struct InternalData {
     pub(crate) expanded: bool,
     pub(crate) hidden: bool,
-    pub(crate) selected: bool,
-    pub(crate) line_number: usize,
 }
 
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
@@ -1006,6 +1156,7 @@ pub struct Device {
     #[cfg(feature = "nusb")]
     pub id: Option<::nusb::DeviceId>,
     /// Last event that occurred on device
+    /// TODO make option and serialize as from json will show incorrect profiled time
     #[serde(skip)]
     #[cfg(feature = "watch")]
     pub last_event: DeviceEvent,
@@ -1076,12 +1227,14 @@ impl Device {
     }
 
     /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning reference
-    pub fn get_node(&self, port_path: &str) -> Option<&Device> {
+    pub fn get_node<P: AsRef<Path>>(&self, port_path: P) -> Option<&Device> {
         // special case for root_hub, it ends with :1.0
-        if port_path.ends_with(":1.0") {
+        if port_path.as_ref().ends_with(":1.0") {
             return self.get_root_hub();
         }
         let node_depth = port_path
+            .as_ref()
+            .to_str()?
             .split('-')
             .last()
             .expect("Invalid port path")
@@ -1090,8 +1243,8 @@ impl Device {
         let current_depth = self.get_depth();
         log::debug!(
             "Get node at {} with {} ({}); depth {}/{}",
-            port_path,
-            self.port_path(),
+            port_path.as_ref().to_string_lossy(),
+            self.port_path().display(),
             self,
             current_depth,
             node_depth
@@ -1101,7 +1254,7 @@ impl Device {
         match current_depth.cmp(&node_depth) {
             Ordering::Greater => return None,
             Ordering::Equal => {
-                if self.port_path() == port_path {
+                if self.port_path().as_os_str() == port_path.as_ref().as_os_str() {
                     return Some(self);
                 } else {
                     return None;
@@ -1113,7 +1266,7 @@ impl Device {
         // else walk through devices recursively running function and returning if found
         if let Some(devices) = self.devices.as_ref() {
             for dev in devices {
-                if let Some(node) = dev.get_node(port_path) {
+                if let Some(node) = dev.get_node(port_path.as_ref()) {
                     return Some(node);
                 }
             }
@@ -1125,8 +1278,8 @@ impl Device {
     /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning mutable
     ///
     /// Will panic if `port_path` is not a child device or if it sits shallower than self
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
-        if port_path.ends_with(":1.0") {
+    pub fn get_node_mut<P: AsRef<Path>>(&mut self, port_path: P) -> Option<&mut Device> {
+        if port_path.as_ref().ends_with(":1.0") {
             if self.is_root_hub() {
                 return Some(self);
             } else {
@@ -1134,6 +1287,8 @@ impl Device {
             }
         }
         let node_depth = port_path
+            .as_ref()
+            .to_str()?
             .split('-')
             .last()
             .expect("Invalid port path")
@@ -1142,8 +1297,8 @@ impl Device {
         let current_depth = self.get_depth();
         log::debug!(
             "Get node at {} with {} ({}); depth {}/{}",
-            port_path,
-            self.port_path(),
+            port_path.as_ref().to_string_lossy(),
+            self.port_path().display(),
             self,
             current_depth,
             node_depth
@@ -1153,7 +1308,7 @@ impl Device {
         match current_depth.cmp(&node_depth) {
             Ordering::Greater => return None,
             Ordering::Equal => {
-                if self.port_path() == port_path {
+                if self.port_path().as_os_str() == port_path.as_ref().as_os_str() {
                     return Some(self);
                 } else {
                     return None;
@@ -1165,13 +1320,67 @@ impl Device {
         // else walk through devices recursively running function and returning if found
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {
-                if let Some(node) = dev.get_node_mut(port_path) {
+                if let Some(node) = dev.get_node_mut(port_path.as_ref()) {
                     return Some(node);
                 }
             }
         }
 
         None
+    }
+
+    /// Get the [`Configuration`] with number `config` from the device's extra data
+    pub fn get_config(&self, config: u8) -> Option<&Configuration> {
+        self.extra
+            .as_ref()
+            .and_then(|e| e.configurations.iter().find(|c| c.number == config))
+    }
+
+    /// Get the mutable [`Configuration`] with number `config` from the device's extra data
+    pub fn get_config_mut(&mut self, config: u8) -> Option<&mut Configuration> {
+        self.extra
+            .as_mut()
+            .and_then(|e| e.configurations.iter_mut().find(|c| c.number == config))
+    }
+
+    /// Get the [`Interface`] with number `interface` from the device's extra data
+    pub fn get_interface(&self, config: u8, interface: u8) -> Option<&Interface> {
+        self.get_config(config)
+            .and_then(|c| c.interfaces.iter().find(|i| i.number == interface))
+    }
+
+    /// Get the mutable [`Interface`] with number `interface` from the device's extra data
+    pub fn get_interface_mut(&mut self, config: u8, interface: u8) -> Option<&mut Interface> {
+        self.get_config_mut(config)
+            .and_then(|c| c.interfaces.iter_mut().find(|i| i.number == interface))
+    }
+
+    /// Get the [`Endpoint`] with number `endpoint` from the device's extra data
+    pub fn get_endpoint(
+        &self,
+        config: u8,
+        interface: u8,
+        endpoint_address: u8,
+    ) -> Option<&Endpoint> {
+        self.get_interface(config, interface).and_then(|i| {
+            i.endpoints
+                .iter()
+                .find(|e| e.address.address == endpoint_address)
+        })
+    }
+
+    /// Get the mutable [`Endpoint`] with number `endpoint` from the device's extra data
+    pub fn get_endpoint_mut(
+        &mut self,
+        config: u8,
+        interface: u8,
+        endpoint_address: u8,
+    ) -> Option<&mut Endpoint> {
+        self.get_interface_mut(config, interface).and_then(|i| {
+            i.endpoints
+                .iter_mut()
+                .find(|e| e.address.address == endpoint_address)
+        })
     }
 
     /// Returns position on branch (parent), which is the last number in `tree_positions` also sometimes referred to as port
@@ -1217,7 +1426,7 @@ impl Device {
     /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.port_path(), "1-0:1.0");
     /// ```
-    pub fn port_path(&self) -> String {
+    pub fn port_path(&self) -> PathBuf {
         // special case for root_hub, it's the interface 0 on config 1
         if self.is_root_hub() {
             get_interface_path(self.location_id.bus, &self.location_id.tree_positions, 1, 0)
@@ -1245,7 +1454,7 @@ impl Device {
     /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.parent_path().is_err(), true);
     /// ```
-    pub fn parent_path(&self) -> Result<String> {
+    pub fn parent_path(&self) -> Result<PathBuf> {
         self.location_id.parent_path()
     }
 
@@ -1255,17 +1464,17 @@ impl Device {
     /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
     /// assert_eq!(d.trunk_path(), "1-1");
     /// ```
-    pub fn trunk_path(&self) -> String {
+    pub fn trunk_path(&self) -> PathBuf {
         self.location_id.trunk_path()
     }
 
     /// Linux devpath to [`Device`]
-    pub fn dev_path(&self) -> String {
+    pub fn dev_path(&self) -> PathBuf {
         get_dev_path(self.location_id.bus, Some(self.location_id.number))
     }
 
     /// Linux sysfs name of [`Device`]
-    pub fn sysfs_name(&self) -> String {
+    pub fn sysfs_name(&self) -> PathBuf {
         self.location_id.sysfs_name()
     }
 
@@ -1404,8 +1613,8 @@ impl Device {
                         format!(
                             "{}/{}  {}",
                             "/sys/bus/usb/devices",
-                            self.port_path(),
-                            self.dev_path(),
+                            self.port_path().display(),
+                            self.dev_path().display(),
                         ),
                     ));
                 }
@@ -1437,8 +1646,8 @@ impl Device {
                 format!(
                     "{}/{}  {}",
                     "/sys/bus/usb/devices",
-                    self.port_path(),
-                    self.dev_path(),
+                    self.port_path().display(),
+                    self.dev_path().display(),
                 ),
             ));
         }
@@ -1561,6 +1770,12 @@ impl Device {
         None
     }
 
+    /// Get last event that occurred on device
+    #[cfg(feature = "watch")]
+    pub fn last_event(&self) -> Option<DeviceEvent> {
+        Some(self.last_event)
+    }
+
     /// Has the device disconnected based last event being disconnected
     ///
     /// Logic rather than is_connected since Profiled event is not certain still present
@@ -1572,6 +1787,31 @@ impl Device {
         #[cfg(not(feature = "watch"))]
         {
             false
+        }
+    }
+
+    /// Should the device be hidden when printing
+    pub fn is_hidden(&self) -> bool {
+        self.internal.hidden
+    }
+
+    /// Should the device be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the device
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+    }
+
+    /// Set the expanded state of the device and all configurations, interfaces and endpoints
+    pub fn set_all_expanded(&mut self, expanded: bool) {
+        self.internal.expanded = expanded;
+        if let Some(extra) = self.extra.as_mut() {
+            for config in &mut extra.configurations {
+                config.set_all_expanded(expanded);
+            }
         }
     }
 }

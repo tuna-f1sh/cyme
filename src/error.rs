@@ -82,6 +82,8 @@ pub enum ErrorKind {
     DescriptorLength(ErrorArg<usize, usize>),
     /// Invalid device used in context
     InvalidDevice,
+    /// Invalid USB path
+    InvalidPath,
 }
 
 #[derive(Debug, PartialEq)]

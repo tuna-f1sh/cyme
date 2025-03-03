@@ -9,12 +9,16 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::convert::TryFrom;
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 pub mod descriptors;
 pub use descriptors::*;
+pub mod path;
+pub use path::*;
 
 use crate::error::{self, Error, ErrorKind};
+use crate::profiler::InternalData;
 use crate::types::NumericalUnit;
 
 /// The version value (for BCD and USB) is in binary coded decimal with a format of 0xJJMN where JJ is the major version number, M is the minor version number and N is the sub minor version number. e.g. USB 2.0 is reported as 0x0200, USB 1.1 as 0x0110 and USB 1.0 as 0x0100. The type is a mirror of the one from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
@@ -892,7 +896,7 @@ fn default_endpoint_desc_length() -> u8 {
 
 /// Address information for a [`Endpoint`]
 // This struct could be one byte with getters using mask but this saves a custom Serialize impl for system_profiler
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EndpointAddress {
     /// Endpoint address byte
     pub address: u8,
@@ -950,6 +954,8 @@ pub struct Endpoint {
     /// Extra descriptors data based on type
     #[serde(default)] // default for legacy json
     pub extra: Option<Vec<Descriptor>>,
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Endpoint`]
@@ -958,28 +964,6 @@ pub type USBEndpoint = Endpoint;
 
 impl Endpoint {
     /// Decodes the max packet value into a multiplier and number of bytes like lsusb
-    ///
-    /// ```
-    /// # use cyme::usb::*;
-    ///
-    /// let mut ep = Endpoint {
-    ///     length: 7,
-    ///     address: EndpointAddress {
-    ///         address: 0,
-    ///         number: 0,
-    ///         direction: Direction::In
-    ///     },
-    ///     transfer_type: TransferType::Control,
-    ///     sync_type: SyncType::None,
-    ///     usage_type: UsageType::Data,
-    ///     max_packet_size: 0xfff1,
-    ///     interval: 3,
-    ///     extra: None,
-    /// };
-    /// assert_eq!(ep.max_packet_string(), "4x 2033");
-    /// ep.max_packet_size = 0x0064;
-    /// assert_eq!(ep.max_packet_string(), "1x 100");
-    /// ```
     pub fn max_packet_string(&self) -> String {
         format!(
             "{}x {}",
@@ -994,10 +978,30 @@ impl Endpoint {
             | ((self.sync_type.to_owned() as u8) << 2)
             | ((self.usage_type.to_owned() as u8) << 4)
     }
+
+    /// Should the endpoint be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Set the expanded state of the endpoint
+    pub fn set_expanded(&mut self, expanded: bool) {
+        self.internal.expanded = expanded;
+    }
+
+    /// Toggle the expanded state of the endpoint
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+    }
+
+    /// Path to endpoint in sysfs
+    pub fn path(&self, interface_path: &str) -> String {
+        format!("{}/ep_{}", interface_path, u8::from(self.address))
+    }
 }
 
 /// Interface within a [`Configuration`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Interface {
     /// Name from descriptor
     pub name: Option<String>,
@@ -1028,6 +1032,8 @@ pub struct Interface {
     /// Extra descriptors for interface based on type
     #[serde(default)] // default for legacy json
     pub extra: Option<Vec<Descriptor>>,
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Interface`]
@@ -1036,8 +1042,8 @@ pub type USBInterface = Interface;
 
 impl Interface {
     /// Linux syspath to interface
-    pub fn path(&self, bus: u8, ports: &[u8], config: u8) -> String {
-        get_interface_path(bus, ports, config, self.number)
+    pub fn path(&self) -> PathBuf {
+        self.path.clone().into()
     }
 
     /// Name of class from Linux USB IDs repository
@@ -1062,10 +1068,28 @@ impl Interface {
     pub fn fully_defined_class(&self) -> ClassCode {
         (self.class, self.sub_class, self.protocol).into()
     }
+
+    /// Should the interface be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the interface
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+    }
+
+    /// Set the expanded state of the interface and all its endpoints
+    pub fn set_all_expanded(&mut self, expanded: bool) {
+        self.internal.expanded = expanded;
+        for endpoint in self.endpoints.iter_mut() {
+            endpoint.set_expanded(expanded);
+        }
+    }
 }
 
 /// Devices can have multiple configurations, each with different attributes and interfaces
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Configuration {
     /// Name from string descriptor
     pub name: String,
@@ -1089,6 +1113,8 @@ pub struct Configuration {
     /// Extra descriptors for configuration based on type
     #[serde(default)] // default for legacy json
     pub extra: Option<Vec<Descriptor>>,
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Configuration`]
@@ -1113,6 +1139,29 @@ impl Configuration {
         }
 
         ret
+    }
+
+    /// Should the configuration be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the configuration
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+    }
+
+    /// Set the expanded state of the configuration and all its interfaces
+    pub fn set_all_expanded(&mut self, expanded: bool) {
+        self.internal.expanded = expanded;
+        for interface in self.interfaces.iter_mut() {
+            interface.set_all_expanded(expanded);
+        }
+    }
+
+    /// Linux syspath to configuration
+    pub fn path<P: AsRef<Path>>(&self, port_path: P) -> PathBuf {
+        format!("{}:{}.0", port_path.as_ref().display(), self.number).into()
     }
 }
 
@@ -1150,122 +1199,6 @@ pub struct DeviceExtra {
 /// Deprecated alias for [`DeviceExtra`]
 #[deprecated(since = "2.0.0", note = "Use DeviceExtra instead")]
 pub type USBDeviceExtra = DeviceExtra;
-
-/// Builds a replica of sysfs path; excludes config.interface
-///
-/// ```
-/// use cyme::usb::get_port_path;
-///
-/// assert_eq!(get_port_path(1, &[1, 3, 2]), String::from("1-1.3.2"));
-/// assert_eq!(get_port_path(1, &[2]), String::from("1-2"));
-/// // special case for root_hub
-/// assert_eq!(get_port_path(2, &[]), String::from("2-0"));
-/// ```
-///
-/// [ref](http://gajjarpremal.blogspot.com/2015/04/sysfs-structures-for-linux-usb.html)
-/// The names that begin with "usb" refer to USB controllers. More accurately, they refer to the "root hub" associated with each controller. The number is the USB bus number. In the example there is only one controller, so its bus is number 1. Hence the name "usb1".
-///
-/// "1-0:1.0" is a special case. It refers to the root hub's interface. This acts just like the interface in an actual hub an almost every respect; see below.
-/// All the other entries refer to genuine USB devices and their interfaces. The devices are named by a scheme like this:
-///
-///  bus-port.port.port ...
-pub fn get_port_path(bus: u8, ports: &[u8]) -> String {
-    if ports.len() <= 1 {
-        get_trunk_path(bus, ports)
-    } else {
-        format!("{:}-{}", bus, ports.iter().format("."))
-    }
-}
-
-/// Parent path is path to parent device
-/// ```
-/// use cyme::usb::get_parent_path;
-///
-/// assert_eq!(get_parent_path(1, &[1, 3, 4, 5]).unwrap(), String::from("1-1.3.4"));
-/// ```
-pub fn get_parent_path(bus: u8, ports: &[u8]) -> error::Result<String> {
-    if ports.is_empty() {
-        Err(Error::new(
-            ErrorKind::InvalidArg,
-            "Cannot get parent path for root device",
-        ))
-    } else {
-        Ok(get_port_path(bus, &ports[..ports.len() - 1]))
-    }
-}
-
-/// Trunk path is path to trunk device on bus
-/// ```
-/// use cyme::usb::get_trunk_path;
-///
-/// assert_eq!(get_trunk_path(1, &[1, 3, 5, 6]), String::from("1-1"));
-/// // special case for root_hub
-/// assert_eq!(get_trunk_path(1, &[]), String::from("1-0"));
-/// ```
-pub fn get_trunk_path(bus: u8, ports: &[u8]) -> String {
-    if ports.is_empty() {
-        // special case for root_hub
-        format!("{:}-{}", bus, 0)
-    } else {
-        format!("{:}-{}", bus, ports[0])
-    }
-}
-
-/// Build replica of sysfs path with interface
-///
-/// ```
-/// use cyme::usb::get_interface_path;
-///
-/// assert_eq!(get_interface_path(1, &[1, 3], 1, 0), String::from("1-1.3:1.0"));
-/// // bus
-/// assert_eq!(get_interface_path(1, &[], 1, 0), String::from("1-0:1.0"));
-/// ```
-pub fn get_interface_path(bus: u8, ports: &[u8], config: u8, interface: u8) -> String {
-    format!("{}:{}.{}", get_port_path(bus, ports), config, interface)
-}
-
-/// Build replica of Linux dev path from libusb.c *devbususb for getting device with -D
-///
-/// It's /dev/bus/usb/BUS/DEVNO
-///
-/// Supply `device_no` as None for bus
-///
-/// ```
-/// use cyme::usb::get_dev_path;
-///
-/// assert_eq!(get_dev_path(1, Some(3)), String::from("/dev/bus/usb/001/003"));
-/// assert_eq!(get_dev_path(1, Some(2)), String::from("/dev/bus/usb/001/002"));
-/// // special case for bus
-/// assert_eq!(get_dev_path(1, None), String::from("/dev/bus/usb/001/001"));
-/// ```
-pub fn get_dev_path(bus: u8, device_no: Option<u8>) -> String {
-    if let Some(devno) = device_no {
-        format!("/dev/bus/usb/{:03}/{:03}", bus, devno)
-    } else {
-        format!("/dev/bus/usb/{:03}/001", bus)
-    }
-}
-
-/// Builds a replica of sysfs name for reading sysfs_props ala: <https://github.com/gregkh/usbutils/blob/master/sysfs.c#L29>
-///
-/// Like `get_port_path` but root_hubs use the USB controller name (usbX) rather than interface
-///
-/// ```
-/// use cyme::usb::get_sysfs_name;
-///
-/// assert_eq!(get_sysfs_name(1, &vec![1, 3, 2]), String::from("1-1.3.2"));
-/// assert_eq!(get_sysfs_name(1, &vec![2]), String::from("1-2"));
-/// // special case for root_hub
-/// assert_eq!(get_sysfs_name(2, &vec![]), String::from("usb2"));
-/// ```
-pub fn get_sysfs_name(bus: u8, ports: &[u8]) -> String {
-    if ports.is_empty() {
-        // special cae for root_hub
-        format!("usb{}", bus)
-    } else {
-        get_port_path(bus, ports)
-    }
-}
 
 #[cfg(test)]
 mod tests {

@@ -4,6 +4,7 @@
 use crate::display::PrintSettings;
 use crate::error::{Error, ErrorKind};
 use crate::profiler::{Device, SystemProfile};
+use std::path::Path;
 use uuid::Uuid;
 
 use crate::usb::descriptors::audio;
@@ -279,14 +280,14 @@ pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
 }
 
 /// Dump a single [`Device`] matching `dev_path` verbosely
-pub fn dump_one_device(devices: &Vec<&Device>, dev_path: &String) -> Result<(), Error> {
+pub fn dump_one_device<P: AsRef<Path>>(devices: &Vec<&Device>, dev_path: P) -> Result<(), Error> {
     for device in devices {
-        if &device.dev_path() == dev_path {
+        if device.dev_path().as_os_str() == dev_path.as_ref().as_os_str() {
             // error if extra is none because we need it for vebose
             if device.extra.is_none() {
                 return Err(Error::new(
                     ErrorKind::Opening,
-                    &format!("Unable to open {}", dev_path),
+                    &format!("Unable to open {}", dev_path.as_ref().display()),
                 ));
             }
 
@@ -297,7 +298,7 @@ pub fn dump_one_device(devices: &Vec<&Device>, dev_path: &String) -> Result<(), 
 
     Err(Error::new(
         ErrorKind::NotFound,
-        &format!("Unable to find {}", dev_path),
+        &format!("Unable to find {}", dev_path.as_ref().display()),
     ))
 }
 

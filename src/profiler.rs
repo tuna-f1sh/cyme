@@ -672,7 +672,7 @@ where
             // sort key - ends_with to ensure root_hubs, which will have same str length as trunk devices will still be ahead
             for (parent_path, children) in parent_groups
                 .into_iter()
-                .sorted_by_key(|x| x.0.len() - x.0.ends_with("-0") as usize)
+                .sorted_by_key(|x| x.0.as_os_str().len() - x.0.ends_with("-0") as usize)
             {
                 // if root devices, add them to bus
                 if parent_path.ends_with("-0") {

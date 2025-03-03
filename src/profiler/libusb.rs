@@ -259,6 +259,7 @@ impl LibUsbProfiler {
                 interval: endpoint_desc.interval(),
                 length: endpoint_desc.length(),
                 extra: extra_desc,
+                internal: InternalData::default(),
             });
         }
 
@@ -311,6 +312,7 @@ impl LibUsbProfiler {
                             interface_desc.extra().to_vec(),
                         )
                         .ok(),
+                    internal: InternalData::default(),
                 };
 
                 ret.push(interface);
@@ -378,6 +380,7 @@ impl LibUsbProfiler {
                 extra: self
                     .build_config_descriptor_extra(handle, config_desc.extra().to_vec())
                     .ok(),
+                ..Default::default()
             });
         }
 
