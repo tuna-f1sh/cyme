@@ -390,6 +390,7 @@ impl NusbProfiler {
                     )
                     .ok()
                     .flatten(),
+                internal: InternalData::default(),
             });
         }
 
@@ -451,6 +452,7 @@ impl NusbProfiler {
                         )
                         .ok(),
                     path,
+                    internal: InternalData::default(),
                 };
 
                 ret.push(interface);
@@ -505,6 +507,7 @@ impl NusbProfiler {
                 extra: self
                     .build_config_descriptor_extra(device, config_extra)
                     .ok(),
+                ..Default::default()
             });
         }
 

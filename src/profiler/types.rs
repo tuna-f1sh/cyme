@@ -261,7 +261,7 @@ pub struct Bus {
     pub devices: Option<Vec<Device>>,
     /// Internal data for tracking events and other data
     #[serde(skip)]
-    pub internal: InternalData,
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Bus`]
@@ -579,6 +579,11 @@ impl Bus {
                 self.host_controller_device = Some(d.name().to_string());
             }
         }
+    }
+
+    /// Should the bus be hidden when printing
+    pub fn is_hidden(&self) -> bool {
+        self.internal.hidden
     }
 }
 
@@ -935,8 +940,6 @@ impl DeviceEvent {
 pub struct InternalData {
     pub(crate) expanded: bool,
     pub(crate) hidden: bool,
-    pub(crate) selected: bool,
-    pub(crate) line_number: usize,
 }
 
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
@@ -1006,12 +1009,13 @@ pub struct Device {
     #[cfg(feature = "nusb")]
     pub id: Option<::nusb::DeviceId>,
     /// Last event that occurred on device
+    /// TODO make option and serialize as from json will show incorrect profiled time
     #[serde(skip)]
     #[cfg(feature = "watch")]
     pub last_event: DeviceEvent,
     /// Internal data for cyme
     #[serde(skip)]
-    pub internal: InternalData,
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Device`]
@@ -1572,6 +1576,26 @@ impl Device {
         #[cfg(not(feature = "watch"))]
         {
             false
+        }
+    }
+
+    /// Should the device be hidden when printing
+    pub fn is_hidden(&self) -> bool {
+        self.internal.hidden
+    }
+
+    /// Should the device be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the device
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+        if let Some(extra) = self.extra.as_mut() {
+            for config in &mut extra.configurations {
+                config.toggle_expanded();
+            }
         }
     }
 }

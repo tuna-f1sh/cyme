@@ -11,6 +11,7 @@ use crossterm::{
     terminal,
 };
 use futures_lite::stream::StreamExt;
+use regex::Regex;
 use std::io::stdout;
 use std::io::Write;
 use std::sync::{mpsc, Arc, Mutex};
@@ -49,7 +50,8 @@ enum WatchEvent {
     Draw,
     ShowHelp,
     Enter,
-    Stop,
+    Esc,
+    Quit,
 }
 
 /// Distinguish which set of blocks we’re editing
@@ -121,6 +123,8 @@ struct Display {
     /// Size of current window
     terminal_size: (u16, u16),
     /// Currently selected line
+    ///
+    /// Already accounts for header and footer
     selected_line: Option<usize>,
     /// Number of rows available for output
     available_rows: usize,
@@ -130,6 +134,10 @@ struct Display {
     lines: usize,
     /// Current scroll offset
     scroll_offset: usize,
+    /// Line context provides lookup for selected item
+    line_context: Vec<LineItem>,
+    /// Selected line context
+    selected_item: Option<LineItem>,
 }
 
 fn set_filter(field: &FilterField, value: Option<String>, filter: &mut Filter) -> Result<()> {
@@ -237,6 +245,8 @@ pub fn watch_usb_devices(
         max_offset: 0,
         scroll_offset: 0,
         selected_line: None,
+        selected_item: None,
+        line_context: Vec::new(),
     };
 
     // Thread to listen for USB profiling events
@@ -278,6 +288,7 @@ pub fn watch_usb_devices(
     // manages the display and listens for events
     loop {
         match rx.recv() {
+            // TODO maybe check if selected line off screen and move?
             Ok(WatchEvent::ScrollUp(n)) => {
                 display.scroll_offset = display.scroll_offset.saturating_sub(n);
             }
@@ -311,17 +322,27 @@ pub fn watch_usb_devices(
                 match &mut *display.state.lock().unwrap() {
                     State::BlockEditor { selected_index, .. } => {
                         *selected_index = selected_index.saturating_sub(n);
-                        display.selected_line = Some(1 + *selected_index);
+                        display.selected_line = Some(*selected_index);
                     }
                     _ => {
-                        display.selected_line = display
-                            .selected_line
-                            .map_or(Some(display.available_rows), |l| Some(l.saturating_sub(n)));
+                        let li = display
+                            .line_context
+                            .iter()
+                            .enumerate()
+                            .rev()
+                            .skip(display.line_context.len() - display.selected_line.unwrap_or(0))
+                            .find(|(_, l)| matches!(l, LineItem::Device(_)));
+                        if let Some((i, item)) = li {
+                            display.selected_line = Some(i);
+                            display.selected_item = Some(item.clone());
+                        }
                     }
                 };
+                log::debug!("Selected line: {:?}", display.selected_line);
+                log::debug!("Scroll device: {:?}", display.selected_item);
 
                 if let Some(l) = display.selected_line {
-                    if l < display.scroll_offset {
+                    while l < display.scroll_offset {
                         display.scroll_offset = display.scroll_offset.saturating_sub(1);
                     }
                 }
@@ -335,17 +356,28 @@ pub fn watch_usb_devices(
                     } => {
                         let select_max = blocks.len() - 1;
                         *selected_index = selected_index.saturating_add(n).min(select_max);
-                        display.selected_line = Some(1 + *selected_index);
+                        display.selected_line = Some(*selected_index);
                     }
                     _ => {
-                        display.selected_line = display.selected_line.map_or(Some(1), |l| {
-                            Some((display.lines - 1).min(l.saturating_add(n)))
-                        })
+                        let li = display
+                            .line_context
+                            .iter()
+                            .enumerate()
+                            .skip(display.selected_line.unwrap_or(0).saturating_add(1))
+                            .find(|(_, l)| matches!(l, LineItem::Device(_)));
+                        if let Some((i, item)) = li {
+                            display.selected_line = Some(i);
+                            display.selected_item = Some(item.clone());
+                        }
                     }
                 }
 
+                log::debug!("Selected line: {:?}", display.selected_line);
+                log::debug!("Scroll device: {:?}", display.selected_item);
+
                 if let Some(l) = display.selected_line {
-                    if l >= display.available_rows {
+                    // what could go wrong...
+                    while l >= display.scroll_offset + display.available_rows {
                         display.scroll_offset = display
                             .max_offset
                             .min(display.scroll_offset.saturating_add(1));
@@ -419,6 +451,10 @@ pub fn watch_usb_devices(
                             State::Normal
                         }
                     }
+                    State::Normal => {
+                        display.toggle_selected();
+                        State::Normal
+                    }
                     _ => State::Normal,
                 };
 
@@ -457,6 +493,7 @@ pub fn watch_usb_devices(
                     if *selected_index != 0 {
                         blocks.swap(*selected_index, selected_index.saturating_sub(n));
                         *selected_index = selected_index.saturating_sub(n);
+                        display.selected_line = Some(*selected_index);
                     }
                 }
             }
@@ -470,6 +507,7 @@ pub fn watch_usb_devices(
                     if *selected_index < blocks.len() - 1 {
                         blocks.swap(*selected_index, selected_index.saturating_add(n));
                         *selected_index = selected_index.saturating_add(n);
+                        display.selected_line = Some(*selected_index);
                     }
                 }
             }
@@ -486,7 +524,6 @@ pub fn watch_usb_devices(
                 }
             }
             Ok(WatchEvent::DrawEditBlocks) => {
-                log::info!("Draw edit blocks");
                 display.draw_edit_blocks()?;
             }
             Ok(WatchEvent::WriteEditBlocks) => {
@@ -500,10 +537,13 @@ pub fn watch_usb_devices(
             Ok(WatchEvent::Draw) => {
                 display.draw()?;
             }
-            Ok(WatchEvent::Stop) => {
+            Ok(WatchEvent::Esc) => {
                 let new_mode = match &*display.state.lock().unwrap() {
+                    // clear selected item
                     State::Normal => {
-                        break;
+                        display.selected_line = None;
+                        display.selected_item = None;
+                        State::Normal
                     }
                     State::EditingFilter {
                         field, original, ..
@@ -521,6 +561,9 @@ pub fn watch_usb_devices(
                 *display.state.lock().unwrap() = new_mode;
                 display.prepare_devices();
                 display.draw_devices()?;
+            }
+            Ok(WatchEvent::Quit) => {
+                break;
             }
             Err(_) => {
                 break;
@@ -558,7 +601,7 @@ impl State {
                 tx.send(WatchEvent::ShowHelp).unwrap();
             }
             (KeyCode::Char('q'), _) => {
-                tx.send(WatchEvent::Stop).unwrap();
+                tx.send(WatchEvent::Quit).unwrap();
             }
             (KeyCode::Char('v'), _) => {
                 let mut print_settings = print_settings.lock().unwrap();
@@ -593,38 +636,12 @@ impl State {
                 }
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
-            (KeyCode::Char('j'), KeyModifiers::NONE) => {
-                tx.send(WatchEvent::ScrollDown(1)).unwrap();
-                //tx.send(WatchEvent::MoveDown(1)).unwrap();
-                tx.send(WatchEvent::Draw).unwrap();
-            }
-            (KeyCode::Char('k'), KeyModifiers::NONE) => {
-                tx.send(WatchEvent::ScrollUp(1)).unwrap();
-                //tx.send(WatchEvent::MoveUp(1)).unwrap();
-                tx.send(WatchEvent::Draw).unwrap();
-            }
-            (KeyCode::Char('d'), KeyModifiers::NONE) => {
-                tx.send(WatchEvent::ScrollDownHalf).unwrap();
-                tx.send(WatchEvent::Draw).unwrap();
-            }
-            (KeyCode::Char('d'), KeyModifiers::CONTROL) | (KeyCode::PageDown, _) => {
-                tx.send(WatchEvent::ScrollDownPage).unwrap();
-                tx.send(WatchEvent::Draw).unwrap();
-            }
-            (KeyCode::Char('u'), KeyModifiers::NONE) => {
-                tx.send(WatchEvent::ScrollUpHalf).unwrap();
-                tx.send(WatchEvent::Draw).unwrap();
-            }
-            (KeyCode::Char('u'), KeyModifiers::CONTROL) | (KeyCode::PageUp, _) => {
-                tx.send(WatchEvent::ScrollUpPage).unwrap();
-                tx.send(WatchEvent::Draw).unwrap();
-            }
-            (KeyCode::Up, _) => {
-                tx.send(WatchEvent::MoveUp(1)).unwrap();
-                tx.send(WatchEvent::Draw).unwrap();
-            }
-            (KeyCode::Down, _) => {
+            (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => {
                 tx.send(WatchEvent::MoveDown(1)).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
+            (KeyCode::Char('k'), KeyModifiers::NONE) | (KeyCode::Up, _) => {
+                tx.send(WatchEvent::MoveUp(1)).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
             }
             (KeyCode::Char('/'), _) => {
@@ -661,6 +678,14 @@ impl State {
                 // TODO save config?
                 log::info!("Save config");
             }
+            (KeyCode::Char('d'), KeyModifiers::NONE) => {
+                tx.send(WatchEvent::ScrollDownHalf).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
+            (KeyCode::Char('u'), KeyModifiers::NONE) => {
+                tx.send(WatchEvent::ScrollUpHalf).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
             _ => (),
         };
     }
@@ -682,9 +707,20 @@ impl State {
         }
         match (code, modifiers) {
             // global keys
-            (KeyCode::Esc, _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                 // will stop current context or exit the program
-                tx.send(WatchEvent::Stop).unwrap();
+                tx.send(WatchEvent::Quit).unwrap();
+            }
+            (KeyCode::Esc, _) => {
+                tx.send(WatchEvent::Esc).unwrap();
+            }
+            (KeyCode::Char('d'), KeyModifiers::CONTROL) | (KeyCode::PageDown, _) => {
+                tx.send(WatchEvent::ScrollDownPage).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
+            }
+            (KeyCode::Char('u'), KeyModifiers::CONTROL) | (KeyCode::PageUp, _) => {
+                tx.send(WatchEvent::ScrollUpPage).unwrap();
+                tx.send(WatchEvent::Draw).unwrap();
             }
             // others based on mode
             _ => match self {
@@ -718,7 +754,7 @@ impl State {
                 },
                 State::BlockEditor { block_type, .. } => match (code, modifiers) {
                     (KeyCode::Char('q'), _) => {
-                        tx.send(WatchEvent::Stop).unwrap();
+                        tx.send(WatchEvent::Esc).unwrap();
                     }
                     (KeyCode::Up, _) | (KeyCode::Char('k'), _) => {
                         tx.send(WatchEvent::MoveUp(1)).unwrap();
@@ -729,7 +765,6 @@ impl State {
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
                     (KeyCode::Tab, _) | (KeyCode::Char('b'), _) => {
-                        log::info!("Tab: switch block type");
                         tx.send(WatchEvent::EditBlock(block_type.next())).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
@@ -759,7 +794,6 @@ impl State {
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
                     (KeyCode::Enter, _) => {
-                        log::info!("Write block editor");
                         tx.send(WatchEvent::WriteEditBlocks).unwrap();
                         tx.send(WatchEvent::Enter).unwrap();
                     }
@@ -768,7 +802,6 @@ impl State {
                     | (KeyCode::Char('h'), _)
                     | (KeyCode::Left, _)
                     | (KeyCode::Char('['), _) => {
-                        log::info!("Move block up");
                         tx.send(WatchEvent::MoveBlockUp(1)).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
@@ -777,7 +810,6 @@ impl State {
                     | (KeyCode::Char('l'), _)
                     | (KeyCode::Right, _)
                     | (KeyCode::Char(']'), _) => {
-                        log::info!("Move block down");
                         tx.send(WatchEvent::MoveBlockDown(1)).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
@@ -789,7 +821,7 @@ impl State {
                 },
                 // others (error etc.) exit current on any key
                 _ => {
-                    tx.send(WatchEvent::Stop).unwrap();
+                    tx.send(WatchEvent::Quit).unwrap();
                 }
             },
         }
@@ -797,6 +829,14 @@ impl State {
 }
 
 impl Display {
+    fn toggle_selected(&self) {
+        if let Some(LineItem::Device(d)) = self.selected_item.as_ref() {
+            if let Some(node) = self.spusb.lock().unwrap().get_node_mut(d) {
+                node.toggle_expanded();
+            }
+        }
+    }
+
     fn prepare_devices(&mut self) {
         let print_settings = self.print_settings.lock().unwrap();
         let mut spusb = self.spusb.lock().unwrap();
@@ -814,6 +854,21 @@ impl Display {
             let spusb = self.spusb.lock().unwrap();
             let print_settings = self.print_settings.lock().unwrap();
             dw.print_sp_usb(&spusb, &print_settings);
+        }
+        self.line_context = dw.line_context().to_owned();
+
+        // find selected device
+        if let Some(selected_device) = self.selected_item.as_ref() {
+            if let Some((i, _)) = self
+                .line_context
+                .iter()
+                .enumerate()
+                .find(|(_, l)| *l == selected_device)
+            {
+                self.selected_line = Some(i);
+            }
+        } else {
+            self.selected_line = None;
         }
 
         self.draw()
@@ -935,7 +990,7 @@ impl Display {
                     (print_settings.verbosity + 1).to_string()
                 };
                 let mut footer = format!(
-                    " [q]-Quit [v]-Verbosity-(→ {}) [t]-Tree-(→ {}) [h]-Headings-(→ {}) [m]-More-(→ {}) [d]-Decimal-(→ {}) [b]-Edit Blocks",
+                    " [q]-Quit [b]-Edit Blocks [v]-Verbosity-(→{}) [t]-Tree-(→{}) [h]-Headings-(→{}) [m]-More-(→{}) [o]-Decimal-(→{})",
                     verbosity,
                     if print_settings.tree { "Off" } else { "On" },
                     if print_settings.headings { "Off" } else { "On" },
@@ -966,7 +1021,7 @@ impl Display {
         let print_settings = self.print_settings.lock().unwrap();
         let ct = &print_settings.colours;
 
-        let blocks = match block_type {
+        let blocks: Vec<(ColoredString, bool)> = match block_type {
             BlockType::Device => {
                 let enabled_blocks = print_settings.device_blocks.as_ref().unwrap();
                 enabled_blocks
@@ -1079,11 +1134,20 @@ impl Display {
             }
         };
 
+        let index =
+            if let State::BlockEditor { selected_index, .. } = &mut *self.state.lock().unwrap() {
+                (*selected_index).min(blocks.len() - 1)
+            } else {
+                0
+            };
+
         let new_mode = State::BlockEditor {
             block_type,
-            selected_index: 0,
+            selected_index: index,
             blocks,
         };
+        // set selected line for block editor
+        self.selected_line = Some(index);
 
         *self.state.lock().unwrap() = new_mode;
     }
@@ -1155,7 +1219,7 @@ impl Display {
         {
             for (i, (block, enabled)) in blocks.iter().enumerate() {
                 let block_string = if i == *selected_index {
-                    block.clone().normal().bold().on_bright_purple().to_string()
+                    block.clone().normal().to_string()
                 } else {
                     block.to_string()
                 };
@@ -1193,15 +1257,30 @@ impl Display {
         self.lines = lines.len();
         self.max_offset = self.lines.saturating_sub(self.available_rows);
         // clamp ensures if output contracts fully scrolled, one doesn't have to *overscroll* back
-        self.scroll_offset = self.scroll_offset.min(self.max_offset);
+        self.scroll_offset = (self.scroll_offset).min(self.max_offset);
+
+        // HACK keep coloredstring in buffer?
+        fn strip_ansi_codes(input: &str) -> String {
+            let re = Regex::new(r"\x1B\[[0-9;]*[A-Za-z]").unwrap();
+            re.replace_all(input, "").to_string()
+        }
 
         // print the visible portion of the buffer
-        for line in lines
+        for (i, line) in lines
             .iter()
+            .enumerate()
             .skip(self.scroll_offset)
             .take(self.available_rows)
         {
-            write!(stdout, "{}\n\r", line)?;
+            if self.selected_line == Some(i) {
+                write!(
+                    stdout,
+                    "{}\n\r",
+                    strip_ansi_codes(line).bold().on_bright_purple()
+                )?;
+            } else {
+                write!(stdout, "{}\n\r", line)?;
+            }
         }
 
         // status bar with key bindings
