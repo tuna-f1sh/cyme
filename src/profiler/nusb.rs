@@ -678,7 +678,8 @@ impl NusbProfiler {
                     "Failed to open device, extra data incomplete and possibly inaccurate"
                         .to_string(),
                 );
-                sp_device.extra = Some(generic_extra(&sp_device.sysfs_name().display().to_string()));
+                sp_device.extra =
+                    Some(generic_extra(&sp_device.sysfs_name().display().to_string()));
             }
         }
 

@@ -823,6 +823,7 @@ pub struct DeviceLocation {
     pub number: u8,
 }
 
+/// Converts from macOS system_profiler string to `DeviceLocation`
 impl FromStr for DeviceLocation {
     type Err = Error;
 
@@ -1243,7 +1244,7 @@ impl Device {
         let current_depth = self.get_depth();
         log::debug!(
             "Get node at {} with {} ({}); depth {}/{}",
-            port_path.as_ref().to_string_lossy(),
+            port_path.as_ref().display(),
             self.port_path().display(),
             self,
             current_depth,
