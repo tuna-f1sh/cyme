@@ -76,6 +76,16 @@ impl BlockType {
         }
     }
 
+    fn prev(&self) -> Self {
+        match self {
+            BlockType::Bus => BlockType::Endpoint,
+            BlockType::Device => BlockType::Bus,
+            BlockType::Config => BlockType::Device,
+            BlockType::Interface => BlockType::Config,
+            BlockType::Endpoint => BlockType::Interface,
+        }
+    }
+
     fn key_number(&self) -> char {
         match self {
             BlockType::Bus => '1',
@@ -325,22 +335,29 @@ pub fn watch_usb_devices(
                         *selected_index = selected_index.saturating_sub(n);
                         display.selected_line = Some(*selected_index);
                     }
-                    _ => {
+                    State::Normal => {
                         let li = display
                             .line_context
                             .iter()
                             .enumerate()
                             .rev()
                             .skip(display.line_context.len() - display.selected_line.unwrap_or(0))
-                            .find(|(_, l)| !matches!(l, LineItem::None));
+                            .find(|(_, l)| {
+                                !(matches!(l, LineItem::None) || matches!(l, LineItem::Bus(_)))
+                            });
                         if let Some((i, item)) = li {
                             display.selected_line = Some(i);
                             display.selected_item = Some(item.clone());
                         }
                     }
+                    _ => (),
                 };
-                log::debug!("Selected line: {:?}", display.selected_line);
-                log::debug!("Scroll device: {:?}", display.selected_item);
+
+                log::debug!(
+                    "Selected line: {:?} ({:?})",
+                    display.selected_line,
+                    display.selected_item
+                );
 
                 if let Some(l) = display.selected_line {
                     while l < display.scroll_offset {
@@ -359,22 +376,28 @@ pub fn watch_usb_devices(
                         *selected_index = selected_index.saturating_add(n).min(select_max);
                         display.selected_line = Some(*selected_index);
                     }
-                    _ => {
+                    State::Normal => {
                         let li = display
                             .line_context
                             .iter()
                             .enumerate()
                             .skip(display.selected_line.map_or(0, |i| i + 1))
-                            .find(|(_, l)| !matches!(l, LineItem::None));
+                            .find(|(_, l)| {
+                                !(matches!(l, LineItem::None) || matches!(l, LineItem::Bus(_)))
+                            });
                         if let Some((i, item)) = li {
                             display.selected_line = Some(i);
                             display.selected_item = Some(item.clone());
                         }
                     }
+                    _ => (),
                 }
 
-                log::debug!("Selected line: {:?}", display.selected_line);
-                log::debug!("Scroll device: {:?}", display.selected_item);
+                log::debug!(
+                    "Selected line: {:?} ({:?})",
+                    display.selected_line,
+                    display.selected_item
+                );
 
                 if let Some(l) = display.selected_line {
                     // what could go wrong...
@@ -768,8 +791,13 @@ impl State {
                         tx.send(WatchEvent::MoveDown(1)).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
-                    (KeyCode::Tab, _) | (KeyCode::Char('b'), _) => {
+                    (KeyCode::Tab, KeyModifiers::NONE) | (KeyCode::Char('b'), _) => {
                         tx.send(WatchEvent::EditBlock(block_type.next())).unwrap();
+                        tx.send(WatchEvent::DrawEditBlocks).unwrap();
+                    }
+                    (KeyCode::Tab, KeyModifiers::SHIFT) => {
+                        tx.send(WatchEvent::EditBlock(block_type.prev()))
+                            .unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
                     (KeyCode::Char('1'), _) => {
@@ -1328,7 +1356,8 @@ impl Display {
             .skip(self.scroll_offset)
             .take(self.available_rows)
         {
-            if self.selected_line == Some(i) {
+            if self.selected_line == Some(i) && !matches!(&*self.state.lock().unwrap(), State::Help)
+            {
                 write!(
                     stdout,
                     "{}\n\r",
