@@ -10,7 +10,6 @@ use super::*;
 /// Represents a USB path in sysfs but used cross-platform to get part of device tree
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UsbPath(PathBuf);
-pub(crate) type GenericPath = UsbPath;
 
 impl fmt::Display for UsbPath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -48,14 +47,14 @@ impl UsbPath {
     /// Get the parent of the device
     ///
     /// ```
-    /// use cyme::usb::GenericPath;
+    /// use cyme::usb::UsbPath;
     /// use std::path::Path;
     ///
-    /// let path = GenericPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81").unwrap();
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
     /// assert_eq!(path.parent(), Some(Path::new("/sys/bus/usb/devices")));
-    /// let path = GenericPath::new("/sys/bus/usb/devices/1-1.3:1.0").unwrap();
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0");
     /// assert_eq!(path.parent(), Some(Path::new("/sys/bus/usb/devices")));
-    /// let path = GenericPath::new("1-1.3:1.0").unwrap();
+    /// let path = UsbPath::new("1-1.3:1.0");
     /// assert_eq!(path.parent(), Some(Path::new("")));
     /// ```
     pub fn parent(&self) -> Option<&Path> {
@@ -66,39 +65,58 @@ impl UsbPath {
         }
     }
 
-    /// Extract device port path from path
+    /// Get the device path
     ///
     /// ```
-    /// use cyme::usb::GenericPath;
-    /// let path = GenericPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81").unwrap();
+    /// use cyme::usb::UsbPath;
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
+    /// assert_eq!(path.device_path(), Some("/sys/bus/usb/devices/1-1.3:1.0"));
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0");
+    /// assert_eq!(path.device_path(), Some("/sys/bus/usb/devices/1-1.3:1.0"));
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1");
+    /// assert_eq!(path.device_path(), Some("/sys/bus/usb/devices/1-1"));
+    /// let path = UsbPath::new("1-1.3:1.0");
+    /// assert_eq!(path.device_path(), Some("1-1.3:1.0"));
+    /// ```
+    pub fn device_path(&self) -> &Path {
+        if self.endpoint().is_some() {
+            self.parent().unwrap_or(self.path())
+        } else {
+            self.path()
+        }
+    }
+
+    /// Extract device port path from path
+    ///
+    /// The port path is the path to the device on the bus without the interface
+    ///
+    /// ```
+    /// use cyme::usb::UsbPath;
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
     /// assert_eq!(path.port(), Some("1-1.3"));
-    /// let path = GenericPath::new("1-1.3:1.0").unwrap();
+    /// let path = UsbPath::new("1-1.3:1.0");
     /// assert_eq!(path.port(), Some("1-1.3"));
-    /// let path = GenericPath::new("1-2").unwrap();
+    /// let path = UsbPath::new("1-2");
     /// assert_eq!(path.port(), Some("1-2"));
-    pub fn port(&self) -> Option<&Path> {
+    pub fn port(&self) -> Option<&str> {
         self.path()
             .to_str()
             .and_then(|f| f.split_once(':').map(|f| f.0).or(Some(f)))
             .and_then(|f| f.split('/').last())
-            .map(Path::new)
     }
 
     /// Extract bus number from path
     ///
     /// ```
-    /// use cyme::usb::GenericPath;
-    /// let path = GenericPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81").unwrap();
+    /// use cyme::usb::UsbPath;
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
     /// assert_eq!(path.bus(), Some(1));
-    /// let path = GenericPath::new("1-1.3:1.0").unwrap();
+    /// let path = UsbPath::new("1-1.3:1.0");
     /// assert_eq!(path.bus(), Some(1));
     /// ```
     pub fn bus(&self) -> Option<u8> {
         if let Some(port) = self.port() {
-            port.to_str()?
-                .split('-')
-                .next()
-                .and_then(|f| f.parse().ok())
+            port.split('-').next().and_then(|f| f.parse().ok())
         // special case for root_hub
         } else {
             self.path()
@@ -108,15 +126,32 @@ impl UsbPath {
         }
     }
 
+    /// Extract trunk path from path
+    ///
+    /// The trunk path is the path to the first device on the bus
+    ///
+    /// ```
+    /// use cyme::usb::UsbPath;
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
+    /// assert_eq!(path.trunk(), Some("1-1"));
+    /// let path = UsbPath::new("1-1.3:1.0");
+    /// assert_eq!(path.trunk(), Some("1-1"));
+    /// let path = UsbPath::new("1-2");
+    /// assert_eq!(path.trunk(), Some("1-2"));
+    pub fn trunk(&self) -> Option<&str> {
+        self.port()
+            .and_then(|f| f.split_once('.').map(|f| f.0).or(Some(f)))
+    }
+
     /// Extract configuration number from path
     ///
     /// ```
-    /// use cyme::usb::GenericPath;
+    /// use cyme::usb::UsbPath;
     ///
-    /// let path = GenericPath::new("/sys/bus/usb/devices/1-1.3:1.0").unwrap();
-    /// assert_eq!(path.maybe_configuration(), Some(1));
-    /// let path = GenericPath::new("/sys/bus/usb/devices/1-1.3:1").unwrap();
-    /// assert_eq!(path.maybe_configuration(), Some(1));
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0");
+    /// assert_eq!(path.configuration(), Some(1));
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1");
+    /// assert_eq!(path.configuration(), Some(1));
     /// ```
     pub fn configuration(&self) -> Option<u8> {
         self.path()
@@ -129,10 +164,10 @@ impl UsbPath {
     /// Extract interface number from path
     ///
     /// ```
-    /// use cyme::usb::GenericPath;
+    /// use cyme::usb::UsbPath;
     ///
-    /// let path = GenericPath::new("/sys/bus/usb/devices/1-1.3:1.0").unwrap();
-    /// assert_eq!(path.maybe_interface(), Some(0));
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0");
+    /// assert_eq!(path.interface(), Some(0));
     /// ```
     pub fn interface(&self) -> Option<u8> {
         self.path()
@@ -145,8 +180,8 @@ impl UsbPath {
     /// Extract endpoint number from path
     ///
     /// ```
-    /// use cyme::usb::GenericPath;
-    /// let path = GenericPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81").unwrap();
+    /// use cyme::usb::UsbPath;
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
     /// assert_eq!(path.endpoint(), Some(81));
     pub fn endpoint(&self) -> Option<u8> {
         self.path()
@@ -287,11 +322,11 @@ pub fn get_dev_path(bus: u8, device_no: Option<u8>) -> PathBuf {
 /// // special case for root_hub
 /// assert_eq!(get_sysfs_name(2, &vec![]), String::from("usb2"));
 /// ```
-pub fn get_sysfs_name(bus: u8, ports: &[u8]) -> PathBuf {
+pub fn get_sysfs_name(bus: u8, ports: &[u8]) -> String {
     if ports.is_empty() {
-        // special cae for root_hub
-        format!("usb{}", bus).into()
+        // special case for root_hub
+        format!("usb{}", bus)
     } else {
-        get_port_path(bus, ports)
+        get_port_path(bus, ports).to_string_lossy().to_string()
     }
 }

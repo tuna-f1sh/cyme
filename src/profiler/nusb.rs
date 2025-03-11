@@ -122,6 +122,7 @@ impl From<&nusb::BusInfo> for Device {
                 manufacturer: None,
                 // serial number is the PCI instance on Linux
                 serial_num: Some(bus.parent_instance_id().to_string_lossy().to_string()),
+                last_event: Some(Default::default()),
                 ..Default::default()
             }
         }
@@ -156,6 +157,7 @@ impl From<&nusb::BusInfo> for Device {
                 name: bus.class_name().to_string(),
                 manufacturer: Some(bus.provider_class_name().to_string()),
                 serial_num: bus.name().map(|s| s.to_string()),
+                last_event: Some(Default::default()),
                 ..Default::default()
             }
         }
@@ -226,6 +228,7 @@ impl From<&nusb::DeviceInfo> for Device {
             name,
             manufacturer,
             serial_num,
+            last_event: Some(DeviceEvent::default()),
             ..Default::default()
         }
     }
@@ -437,7 +440,7 @@ impl NusbProfiler {
                     alt_setting: interface_alt.alternate_setting(),
                     driver: get_sysfs_readlink(path, "driver")
                         .or_else(|| get_udev_driver_name(path).ok().flatten()),
-                    syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
+                    syspath: get_syspath(path).or_else(|| get_udev_syspath(path).ok().flatten()),
                     length: interface_desc[0],
                     endpoints: self.build_endpoints(device, &interface_alt),
                     extra: self

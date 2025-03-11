@@ -665,14 +665,18 @@ where
             let mut new_bus = buses.remove(&key).unwrap_or(Bus::from(key));
 
             // group into parent groups with parent path as key or trunk devices so they end up in same place
-            let parent_groups = group.group_by(|d| d.parent_path().unwrap_or(d.trunk_path()));
+            let parent_groups = group.group_by(|d| {
+                d.parent_path()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or(d.trunk_path().to_string_lossy().to_string())
+            });
 
             // now go through parent paths inserting devices owned by that parent
             // this is not perfect...if the sort of devices does not result in order of depth, it will panic because the parent of a device will not exist. But that won't happen, right...
             // sort key - ends_with to ensure root_hubs, which will have same str length as trunk devices will still be ahead
             for (parent_path, children) in parent_groups
                 .into_iter()
-                .sorted_by_key(|x| x.0.as_os_str().len() - x.0.ends_with("-0") as usize)
+                .sorted_by_key(|x| x.0.len() - x.0.ends_with("-0") as usize)
             {
                 // if root devices, add them to bus
                 if parent_path.ends_with("-0") {

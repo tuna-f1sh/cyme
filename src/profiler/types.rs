@@ -886,7 +886,7 @@ impl DeviceLocation {
 
     /// Linux sysfs name of [`Device`] similar to `port_path` but root_hubs use the USB controller name instead of port
     pub fn sysfs_name(&self) -> PathBuf {
-        get_sysfs_name(self.bus, &self.tree_positions)
+        get_sysfs_name(self.bus, &self.tree_positions).into()
     }
 }
 
@@ -1035,7 +1035,6 @@ impl FromStr for DeviceSpeed {
 }
 
 /// Events used by the watch feature
-#[cfg(feature = "watch")]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum DeviceEvent {
     /// Device profiled at time
@@ -1046,7 +1045,6 @@ pub enum DeviceEvent {
     Disconnected(chrono::DateTime<chrono::Local>),
 }
 
-#[cfg(feature = "watch")]
 impl fmt::Display for DeviceEvent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -1059,14 +1057,12 @@ impl fmt::Display for DeviceEvent {
     }
 }
 
-#[cfg(feature = "watch")]
 impl Default for DeviceEvent {
     fn default() -> Self {
         DeviceEvent::Profiled(chrono::Local::now())
     }
 }
 
-#[cfg(feature = "watch")]
 impl DeviceEvent {
     /// Get the time of the event
     pub fn time(&self) -> chrono::DateTime<chrono::Local> {
@@ -1157,10 +1153,7 @@ pub struct Device {
     #[cfg(feature = "nusb")]
     pub id: Option<::nusb::DeviceId>,
     /// Last event that occurred on device
-    /// TODO make option and serialize as from json will show incorrect profiled time
-    #[serde(skip)]
-    #[cfg(feature = "watch")]
-    pub last_event: DeviceEvent,
+    pub last_event: Option<DeviceEvent>,
     /// Internal data for cyme
     #[serde(skip)]
     pub internal: InternalData,
@@ -1772,23 +1765,15 @@ impl Device {
     }
 
     /// Get last event that occurred on device
-    #[cfg(feature = "watch")]
     pub fn last_event(&self) -> Option<DeviceEvent> {
-        Some(self.last_event)
+        self.last_event
     }
 
     /// Has the device disconnected based last event being disconnected
     ///
     /// Logic rather than is_connected since Profiled event is not certain still present
     pub fn is_disconnected(&self) -> bool {
-        #[cfg(feature = "watch")]
-        {
-            matches!(self.last_event, DeviceEvent::Disconnected(_))
-        }
-        #[cfg(not(feature = "watch"))]
-        {
-            false
-        }
+        matches!(self.last_event, Some(DeviceEvent::Disconnected(_)))
     }
 
     /// Should the device be hidden when printing

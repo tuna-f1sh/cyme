@@ -37,7 +37,7 @@ pci-ids = "0.2.5" # PCI ID database
 unicode-width = "0.2.0" # ensure USB device table is printed with equal width columns - zero dependencies
 crossterm = { version = "0.28.1", optional = true } # watch: terminal manipulation
 futures-lite = { version = "2.6.0", optional = true } # watch: async helper
-chrono = { version = "0.4.39", optional = true, features = ["serde"] } # watch: event times as human readable
+chrono = { version = "0.4.39", features = ["serde"] } # watch: event times as human readable
 
 [dev-dependencies]
 diff = "0.1"
@@ -62,7 +62,7 @@ regex_icon = ["dep:regex"] # icon name lookup with regex
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
 native = ["nusb", "udev"] # pure Rust USB and udev bindings
 ffi = ["libusb", "udevlib"] # C bindings for libusb and libudev
-watch = ["crossterm", "futures-lite", "chrono", "nusb", "dep:regex"] # watch mode
+watch = ["crossterm", "futures-lite", "nusb", "dep:regex"] # watch mode
 default = ["native", "regex_icon", "watch"] # default native Rust USB (nusb, udevrs) with regex icon name lookup
 
 [[bin]]
