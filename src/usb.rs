@@ -15,6 +15,7 @@ pub mod descriptors;
 pub use descriptors::*;
 
 use crate::error::{self, Error, ErrorKind};
+use crate::profiler::InternalData;
 use crate::types::NumericalUnit;
 
 /// The version value (for BCD and USB) is in binary coded decimal with a format of 0xJJMN where JJ is the major version number, M is the minor version number and N is the sub minor version number. e.g. USB 2.0 is reported as 0x0200, USB 1.1 as 0x0110 and USB 1.0 as 0x0100. The type is a mirror of the one from [rusb](https://docs.rs/rusb/latest/rusb/) in order to impl Display, From etc.
@@ -892,7 +893,7 @@ fn default_endpoint_desc_length() -> u8 {
 
 /// Address information for a [`Endpoint`]
 // This struct could be one byte with getters using mask but this saves a custom Serialize impl for system_profiler
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EndpointAddress {
     /// Endpoint address byte
     pub address: u8,
@@ -950,6 +951,8 @@ pub struct Endpoint {
     /// Extra descriptors data based on type
     #[serde(default)] // default for legacy json
     pub extra: Option<Vec<Descriptor>>,
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Endpoint`]
@@ -994,10 +997,20 @@ impl Endpoint {
             | ((self.sync_type.to_owned() as u8) << 2)
             | ((self.usage_type.to_owned() as u8) << 4)
     }
+
+    /// Should the endpoint be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the endpoint
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+    }
 }
 
 /// Interface within a [`Configuration`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Interface {
     /// Name from descriptor
     pub name: Option<String>,
@@ -1028,6 +1041,8 @@ pub struct Interface {
     /// Extra descriptors for interface based on type
     #[serde(default)] // default for legacy json
     pub extra: Option<Vec<Descriptor>>,
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Interface`]
@@ -1062,10 +1077,23 @@ impl Interface {
     pub fn fully_defined_class(&self) -> ClassCode {
         (self.class, self.sub_class, self.protocol).into()
     }
+
+    /// Should the interface be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the interface
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+        for endpoint in self.endpoints.iter_mut() {
+            endpoint.toggle_expanded();
+        }
+    }
 }
 
 /// Devices can have multiple configurations, each with different attributes and interfaces
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Configuration {
     /// Name from string descriptor
     pub name: String,
@@ -1089,6 +1117,8 @@ pub struct Configuration {
     /// Extra descriptors for configuration based on type
     #[serde(default)] // default for legacy json
     pub extra: Option<Vec<Descriptor>>,
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Configuration`]
@@ -1113,6 +1143,19 @@ impl Configuration {
         }
 
         ret
+    }
+
+    /// Should the configuration be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the configuration
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+        for interface in self.interfaces.iter_mut() {
+            interface.toggle_expanded();
+        }
     }
 }
 
@@ -1211,6 +1254,11 @@ pub fn get_trunk_path(bus: u8, ports: &[u8]) -> String {
     }
 }
 
+/// Build replica of sysfs path with config
+pub fn get_config_path(bus: u8, ports: &[u8], config: u8) -> String {
+    format!("{}:{}", get_port_path(bus, ports), config)
+}
+
 /// Build replica of sysfs path with interface
 ///
 /// ```
@@ -1221,7 +1269,22 @@ pub fn get_trunk_path(bus: u8, ports: &[u8]) -> String {
 /// assert_eq!(get_interface_path(1, &[], 1, 0), String::from("1-0:1.0"));
 /// ```
 pub fn get_interface_path(bus: u8, ports: &[u8], config: u8, interface: u8) -> String {
-    format!("{}:{}.{}", get_port_path(bus, ports), config, interface)
+    format!("{}.{}", get_config_path(bus, ports, config), interface)
+}
+
+/// Build replica of sysfs path to endpoint
+///
+/// ```
+/// use cyme::usb::get_endpoint_path;
+///
+/// assert_eq!(get_endpoint_path(1, &[1, 3], 1, 0, 81), String::from("1-1.3:1.0/ep_81"));
+/// ```
+pub fn get_endpoint_path(bus: u8, ports: &[u8], config: u8, interface: u8, endpoint: u8) -> String {
+    format!(
+        "{}/ep_{}",
+        get_interface_path(bus, ports, config, interface),
+        endpoint
+    )
 }
 
 /// Build replica of Linux dev path from libusb.c *devbususb for getting device with -D

@@ -76,7 +76,9 @@ uid-class\:"Class name from USB IDs repository"
 uid-sub-class\:"Sub-class name from USB IDs repository"
 uid-protocol\:"Protocol name from USB IDs repository"
 class\:"Fully defined USB Class Code enum based on BaseClass/SubClass/Protocol triplet"
-base-value\:"Base class as number value rather than enum"))' \
+base-value\:"Base class as number value rather than enum"
+last-event\:"Last time device was seen"
+event-icon\:"Event icon"))' \
 '*--blocks=[Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times to specify multiple blocks]:BLOCKS:((bus-number\:"Number of bus device is attached"
 device-number\:"Bus issued device number"
 branch-position\:"Position of device in parent branch"
@@ -105,7 +107,9 @@ uid-class\:"Class name from USB IDs repository"
 uid-sub-class\:"Sub-class name from USB IDs repository"
 uid-protocol\:"Protocol name from USB IDs repository"
 class\:"Fully defined USB Class Code enum based on BaseClass/SubClass/Protocol triplet"
-base-value\:"Base class as number value rather than enum"))' \
+base-value\:"Base class as number value rather than enum"
+last-event\:"Last time device was seen"
+event-icon\:"Event icon"))' \
 '*--bus-blocks=[Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times to specify multiple blocks]:BUS_BLOCKS:((bus-number\:"System bus number identifier"
 icon\:"Icon based on VID/PID"
 name\:"System internal bus name based on Root Hub device name"
@@ -194,13 +198,80 @@ replace\:"Mask by replacing length with random chars"))' \
 '--help[Print help (see more with '\''--help'\'')]' \
 '-V[Print version]' \
 '--version[Print version]' \
+":: :_cyme_commands" \
+"*::: :->cyme" \
 && ret=0
+    case $state in
+    (cyme)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:cyme-command-$line[1]:"
+        case $line[1] in
+            (watch)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_cyme__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:cyme-help-command-$line[1]:"
+        case $line[1] in
+            (watch)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
 }
 
 (( $+functions[_cyme_commands] )) ||
 _cyme_commands() {
-    local commands; commands=()
+    local commands; commands=(
+'watch:Watch for USB devices being connected and disconnected' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
     _describe -t commands 'cyme commands' commands "$@"
+}
+(( $+functions[_cyme__help_commands] )) ||
+_cyme__help_commands() {
+    local commands; commands=(
+'watch:Watch for USB devices being connected and disconnected' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'cyme help commands' commands "$@"
+}
+(( $+functions[_cyme__help__help_commands] )) ||
+_cyme__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'cyme help help commands' commands "$@"
+}
+(( $+functions[_cyme__help__watch_commands] )) ||
+_cyme__help__watch_commands() {
+    local commands; commands=()
+    _describe -t commands 'cyme help watch commands' commands "$@"
+}
+(( $+functions[_cyme__watch_commands] )) ||
+_cyme__watch_commands() {
+    local commands; commands=()
+    _describe -t commands 'cyme watch commands' commands "$@"
 }
 
 if [ "$funcstack[1]" = "_cyme" ]; then

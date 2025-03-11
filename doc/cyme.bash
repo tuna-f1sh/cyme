@@ -12,6 +12,18 @@ _cyme() {
             ",$1")
                 cmd="cyme"
                 ;;
+            cyme,help)
+                cmd="cyme__help"
+                ;;
+            cyme,watch)
+                cmd="cyme__watch"
+                ;;
+            cyme__help,help)
+                cmd="cyme__help__help"
+                ;;
+            cyme__help,watch)
+                cmd="cyme__help__watch"
+                ;;
             *)
                 ;;
         esac
@@ -19,7 +31,7 @@ _cyme() {
 
     case "${cmd}" in
         cyme)
-            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --system-profiler --help --version"
+            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --system-profiler --help --version watch help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -62,11 +74,11 @@ _cyme() {
                     return 0
                     ;;
                 --blocks)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value last-event event-icon" -- "${cur}"))
                     return 0
                     ;;
                 -b)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value last-event event-icon" -- "${cur}"))
                     return 0
                     ;;
                 --bus-blocks)
@@ -121,6 +133,62 @@ _cyme() {
                     COMPREPLY=($(compgen -W "hide scramble replace" -- "${cur}"))
                     return 0
                     ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        cyme__help)
+            opts="watch help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        cyme__help__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        cyme__help__watch)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        cyme__watch)
+            opts="-h --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
                 *)
                     COMPREPLY=()
                     ;;

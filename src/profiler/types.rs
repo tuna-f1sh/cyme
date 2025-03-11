@@ -66,24 +66,132 @@ impl SystemProfile {
             .find(|b| b.usb_bus_number == Some(number))
     }
 
-    /// Search for reference to [`Device`] at `port_path` in all buses
+    /// Search for reference to [`Device`] at `port_path` on correct bus number if present else all buses
     pub fn get_node(&self, port_path: &str) -> Option<&Device> {
-        for bus in self.buses.iter() {
+        let bus_no = port_path
+            .split("-")
+            .next()
+            .and_then(|v| v.parse::<u8>().ok())?;
+
+        // the logic of getting bus is required because bus_no is Optional; there may be valid port part on a bus with no number
+        if let Some(bus) = self.get_bus(bus_no) {
             if let Some(node) = bus.get_node(port_path) {
+                return Some(node);
+            }
+        } else {
+            for bus in self.buses.iter() {
+                if let Some(node) = bus.get_node(port_path) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Search for mutable reference to [`Device`] at `port_path` on correct bus number if present else all buses
+    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
+        let bus_no = port_path
+            .split("-")
+            .next()
+            .and_then(|v| v.parse::<u8>().ok())?;
+
+        if self.buses.iter().any(|b| b.usb_bus_number == Some(bus_no)) {
+            if let Some(bus) = self.get_bus_mut(bus_no) {
+                if let Some(node) = bus.get_node_mut(port_path) {
+                    return Some(node);
+                }
+            }
+        } else {
+            for bus in self.buses.iter_mut() {
+                if let Some(node) = bus.get_node_mut(port_path) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and return reference
+    pub fn get_id(&self, id: &::nusb::DeviceId) -> Option<&Device> {
+        for bus in self.buses.iter() {
+            if let Some(node) = bus.get_id(id) {
                 return Some(node);
             }
         }
         None
     }
 
-    /// Search for mutable reference to [`Device`] at `port_path` in all buses
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and returns a mutable reference if found
+    pub fn get_id_mut(&mut self, id: &::nusb::DeviceId) -> Option<&mut Device> {
         for bus in self.buses.iter_mut() {
-            if let Some(node) = bus.get_node_mut(port_path) {
+            if let Some(node) = bus.get_id_mut(id) {
                 return Some(node);
             }
         }
         None
+    }
+
+    /// Replace a [`Device`] in the correct [`Bus`] and parent device based on its location_id
+    ///
+    /// If the device was existing, it will be replaced with the old device and returned as `Ok`, else `Err` if the device was not found.
+    pub fn replace(&mut self, mut new: Device) -> Result<Device> {
+        if let Some(existing) = self.get_node_mut(&new.port_path()) {
+            let devices = std::mem::take(&mut existing.devices);
+            new.devices = devices;
+            new.internal = existing.internal.clone();
+            let ret = std::mem::replace(existing, new);
+            Ok(ret)
+        } else {
+            Err(Error::new(
+                ErrorKind::NotFound,
+                "Device not found to replace",
+            ))
+        }
+    }
+
+    /// Insert a [`Device`] into the correct [`Bus`] and parent device based on its location_id
+    ///
+    /// If the device was existing, it will be replaced with the new device and returned as `Some` (without child devices), else `None`. `None` will also be returned if the device parent is not found.
+    pub fn insert(&mut self, mut new: Device) -> Option<Device> {
+        // check existing device and replace if found
+        if let Some(existing) = self.get_node_mut(&new.port_path()) {
+            let devices = std::mem::take(&mut existing.devices);
+            new.devices = devices;
+            new.internal = existing.internal.clone();
+            let ret = std::mem::replace(existing, new);
+            return Some(ret);
+        // else we have to stick into tree at correct place
+        } else if new.is_trunk_device() {
+            let bus = self.get_bus_mut(new.location_id.bus).unwrap();
+            if let Some(bd) = bus.devices.as_mut() {
+                bd.push(new);
+            } else {
+                bus.devices = Some(vec![new]);
+            }
+        } else if let Ok(parent_path) = new.parent_path() {
+            if let Some(parent) = self.get_node_mut(&parent_path) {
+                if let Some(bd) = parent.devices.as_mut() {
+                    bd.push(new);
+                } else {
+                    parent.devices = Some(vec![new]);
+                }
+            }
+        }
+
+        None
+    }
+}
+
+impl<'a> IntoIterator for &'a SystemProfile {
+    type Item = &'a Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.flattened_devices().into_iter()
     }
 }
 
@@ -151,6 +259,9 @@ pub struct Bus {
     /// On Linux, the root hub is also included in this list
     #[serde(rename(deserialize = "_items"), alias = "devices")]
     pub devices: Option<Vec<Device>>,
+    /// Internal data for tracking events and other data
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Bus`]
@@ -198,7 +309,17 @@ impl TryFrom<Device> for Bus {
             pci_revision: pci_revision.filter(|v| *v != 0xffff && *v != 0),
             usb_bus_number: Some(device.location_id.bus),
             devices: device.devices,
+            ..Default::default()
         })
+    }
+}
+
+impl<'a> IntoIterator for &'a Bus {
+    type Item = &'a Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.flattened_devices().into_iter()
     }
 }
 
@@ -253,7 +374,7 @@ impl Bus {
     /// Whether the bus has no [`Device`]s
     pub fn is_empty(&self) -> bool {
         match &self.devices {
-            Some(d) => d.is_empty(),
+            Some(d) => d.is_empty() || d.iter().all(|dd| dd.internal.hidden),
             None => true,
         }
     }
@@ -323,6 +444,34 @@ impl Bus {
             for dev in devices {
                 if let Some(node) = dev.get_node_mut(port_path) {
                     log::debug!("Found {}", node);
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and return reference
+    pub fn get_id(&self, id: &::nusb::DeviceId) -> Option<&Device> {
+        if let Some(devices) = self.devices.as_ref() {
+            for dev in devices {
+                if let Some(node) = dev.get_id(id) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and returns a mutable reference if found
+    pub fn get_id_mut(&mut self, id: &::nusb::DeviceId) -> Option<&mut Device> {
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                if let Some(node) = dev.get_id_mut(id) {
                     return Some(node);
                 }
             }
@@ -430,6 +579,11 @@ impl Bus {
                 self.host_controller_device = Some(d.name().to_string());
             }
         }
+    }
+
+    /// Should the bus be hidden when printing
+    pub fn is_hidden(&self) -> bool {
+        self.internal.hidden
     }
 }
 
@@ -732,6 +886,62 @@ impl FromStr for DeviceSpeed {
     }
 }
 
+/// Events used by the watch feature
+#[cfg(feature = "watch")]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum DeviceEvent {
+    /// Device profiled at time
+    Profiled(chrono::DateTime<chrono::Local>),
+    /// Device connected at time
+    Connected(chrono::DateTime<chrono::Local>),
+    /// Device disconnected at time
+    Disconnected(chrono::DateTime<chrono::Local>),
+}
+
+#[cfg(feature = "watch")]
+impl fmt::Display for DeviceEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DeviceEvent::Profiled(t) => write!(f, "P: {}", t.format("%y-%m-%d %H:%M:%S")),
+            DeviceEvent::Connected(t) => write!(f, "C: {}", t.format("%y-%m-%d %H:%M:%S")),
+            DeviceEvent::Disconnected(t) => {
+                write!(f, "D: {}", t.format("%y-%m-%d %H:%M:%S"))
+            }
+        }
+    }
+}
+
+#[cfg(feature = "watch")]
+impl Default for DeviceEvent {
+    fn default() -> Self {
+        DeviceEvent::Profiled(chrono::Local::now())
+    }
+}
+
+#[cfg(feature = "watch")]
+impl DeviceEvent {
+    /// Get the time of the event
+    pub fn time(&self) -> chrono::DateTime<chrono::Local> {
+        match self {
+            DeviceEvent::Profiled(t) => *t,
+            DeviceEvent::Connected(t) => *t,
+            DeviceEvent::Disconnected(t) => *t,
+        }
+    }
+
+    /// Format the event time using the provided format string
+    pub fn format(&self, fmt: &str) -> String {
+        self.time().format(fmt).to_string()
+    }
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// Internal data used by cyme for display
+pub struct InternalData {
+    pub(crate) expanded: bool,
+    pub(crate) hidden: bool,
+}
+
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
 ///
 /// Designed to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb. Fields should probably be non-pub with getters/setters but treat them as read-only.
@@ -794,17 +1004,36 @@ pub struct Device {
     /// Internal to store any non-critical errors captured whilst profiling, unable to open for example
     #[serde(skip)]
     pub profiler_error: Option<String>,
+    /// Unique ID assigned by system
+    #[serde(skip)]
+    #[cfg(feature = "nusb")]
+    pub id: Option<::nusb::DeviceId>,
+    /// Last event that occurred on device
+    /// TODO make option and serialize as from json will show incorrect profiled time
+    #[serde(skip)]
+    #[cfg(feature = "watch")]
+    pub last_event: DeviceEvent,
+    /// Internal data for cyme
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Device`]
 #[deprecated(since = "2.0.0", note = "Use Device instead")]
 pub type USBDevice = Device;
 
+#[cfg(feature = "nusb")]
+impl PartialEq for Device {
+    fn eq(&self, other: &Self) -> bool {
+        (self.id == other.id) && self.id.is_some()
+    }
+}
+
 impl Device {
     /// Does the device have child devices; `devices` is Some and > 0
     pub fn has_devices(&self) -> bool {
         match &self.devices {
-            Some(d) => !d.is_empty(),
+            Some(d) => !d.is_empty() && !d.iter().all(|dd| dd.internal.hidden),
             None => false,
         }
     }
@@ -851,8 +1080,6 @@ impl Device {
     }
 
     /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning reference
-    ///
-    /// Will panic if `port_path` is not a child device or if it sits shallower than self
     pub fn get_node(&self, port_path: &str) -> Option<&Device> {
         // special case for root_hub, it ends with :1.0
         if port_path.ends_with(":1.0") {
@@ -876,10 +1103,7 @@ impl Device {
 
         // should not be looking for nodes below us unless root
         match current_depth.cmp(&node_depth) {
-            Ordering::Greater => panic!(
-                "Trying to find node at {}/{} shallower than current position {}!",
-                &port_path, node_depth, current_depth
-            ),
+            Ordering::Greater => return None,
             Ordering::Equal => {
                 if self.port_path() == port_path {
                     return Some(self);
@@ -931,10 +1155,7 @@ impl Device {
 
         // should not be looking for nodes below us
         match current_depth.cmp(&node_depth) {
-            Ordering::Greater => panic!(
-                "Trying to find node at {}/{} shallower than current position {}!",
-                &port_path, node_depth, current_depth
-            ),
+            Ordering::Greater => return None,
             Ordering::Equal => {
                 if self.port_path() == port_path {
                     return Some(self);
@@ -1283,6 +1504,17 @@ impl Device {
         ret
     }
 
+    /// Recursively gets all devices in a [`Device`] and flattens them into a Vec of mutable references, **excluding** self
+    pub fn flatten_mut(&mut self) -> Vec<&mut Device> {
+        if let Some(d) = self.devices.as_mut() {
+            d.iter_mut()
+                .flat_map(|d| d.flatten_mut())
+                .collect::<Vec<&mut Device>>()
+        } else {
+            Vec::new()
+        }
+    }
+
     /// Recursively gets all devices in a [`Device`] and flattens them into a Vec, including self
     ///
     /// Similar to `flatten` but flattens in place rather than returning references so is destructive
@@ -1297,6 +1529,74 @@ impl Device {
         ret.insert(0, self);
 
         ret
+    }
+
+    /// Recursively searches for a device with a specific [`::nusb::DeviceId`] and returns a reference
+    #[cfg(feature = "nusb")]
+    pub fn get_id(&self, id: &::nusb::DeviceId) -> Option<&Self> {
+        if self.id == Some(*id) {
+            return Some(self);
+        }
+        if let Some(devices) = self.devices.as_ref() {
+            for dev in devices {
+                if let Some(node) = dev.get_id(id) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Recursively searches for a device with a specific [`::nusb::DeviceId`] and returns a mutable reference
+    #[cfg(feature = "nusb")]
+    pub fn get_id_mut(&mut self, id: &::nusb::DeviceId) -> Option<&mut Self> {
+        if self.id == Some(*id) {
+            return Some(self);
+        }
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                if let Some(node) = dev.get_id_mut(id) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Has the device disconnected based last event being disconnected
+    ///
+    /// Logic rather than is_connected since Profiled event is not certain still present
+    pub fn is_disconnected(&self) -> bool {
+        #[cfg(feature = "watch")]
+        {
+            matches!(self.last_event, DeviceEvent::Disconnected(_))
+        }
+        #[cfg(not(feature = "watch"))]
+        {
+            false
+        }
+    }
+
+    /// Should the device be hidden when printing
+    pub fn is_hidden(&self) -> bool {
+        self.internal.hidden
+    }
+
+    /// Should the device be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the device
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+        if let Some(extra) = self.extra.as_mut() {
+            for config in &mut extra.configurations {
+                config.toggle_expanded();
+            }
+        }
     }
 }
 
@@ -1363,6 +1663,31 @@ impl fmt::Display for Device {
     }
 }
 
+impl<'a> IntoIterator for &'a Device {
+    type Item = &'a Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        if let Some(d) = self.devices.as_ref() {
+            d.iter()
+                .flat_map(|d| d.flatten())
+                .collect::<Vec<&Device>>()
+                .into_iter()
+        } else {
+            Vec::new().into_iter()
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Device {
+    type Item = &'a mut Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.flatten_mut().into_iter()
+    }
+}
+
 /// Used to filter devices within buses
 ///
 /// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
@@ -1382,10 +1707,14 @@ pub struct Filter {
     pub serial: Option<String>,
     /// retain only device of BaseClass class
     pub class: Option<BaseClass>,
+    /// Exclude empty buses in the tree
+    pub exclude_empty_bus: bool,
     /// Exclude empty hubs in the tree
     pub exclude_empty_hub: bool,
     /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`Bus`]'s in the tree
     pub no_exclude_root_hub: bool,
+    /// Case sensitive matching for strings. False will be unless capital letter in query
+    pub case_sensitive: bool,
 }
 
 /// Deprecated alias for [`Filter`]
@@ -1471,22 +1800,32 @@ impl Filter {
         Default::default()
     }
 
+    fn string_match(&self, pattern: &Option<String>, query: Option<&String>) -> bool {
+        if let (Some(p), Some(q)) = (pattern, query) {
+            let case_sensitive = if !self.case_sensitive {
+                p.chars().any(|c| c.is_uppercase())
+            } else {
+                self.case_sensitive
+            };
+
+            if !case_sensitive {
+                q.to_lowercase().contains(p.to_lowercase().as_str())
+            } else {
+                q.contains(p.as_str())
+            }
+        } else {
+            true
+        }
+    }
+
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &Device) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
             && (device.product_id == self.pid || self.pid.is_none())
-            && self
-                .name
-                .as_ref()
-                .is_none_or(|n| device.name.contains(n.as_str()))
-            && self.serial.as_ref().is_none_or(|n| {
-                device
-                    .serial_num
-                    .as_ref()
-                    .is_some_and(|s| s.contains(n.as_str()))
-            })
+            && (self.string_match(&self.name, Some(&device.name)))
+            && (self.string_match(&self.serial, device.serial_num.as_ref()))
             && self.class.as_ref().is_none_or(|fc| {
                 device.class.as_ref() == Some(fc) || device.has_interface_class(fc)
             })
@@ -1494,26 +1833,10 @@ impl Filter {
             && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
-    /// Recursively retain only `Bus` in `buses` with `Device` matching filter
-    pub fn retain_buses(&self, buses: &mut Vec<Bus>) {
-        buses.retain(|b| {
-            b.usb_bus_number == self.bus || self.bus.is_none() || b.usb_bus_number.is_none()
-        });
-
-        for bus in buses {
-            bus.devices.iter_mut().for_each(|d| self.retain_devices(d));
-        }
-    }
-
-    /// Recursively retain only `Device` in `devices` matching filter
-    ///
-    /// Note that non-matching parents will still be retained if they have a matching `Device` within their branches
-    pub fn retain_devices(&self, devices: &mut Vec<Device>) {
-        devices.retain(|d| self.exists_in_tree(d));
-
-        for d in devices {
-            d.devices.iter_mut().for_each(|d| self.retain_devices(d));
-        }
+    /// Checks whether `bus` passes through filter
+    pub fn is_bus_match(&self, bus: &Bus) -> bool {
+        (bus.usb_bus_number == self.bus || self.bus.is_none() || bus.usb_bus_number.is_none())
+            && !(self.exclude_empty_bus && bus.is_empty())
     }
 
     /// Recursively looks down tree for any `device` matching filter
@@ -1528,6 +1851,56 @@ impl Filter {
         match &device.devices {
             Some(devs) => devs.iter().any(|d| self.exists_in_tree(d)),
             None => false,
+        }
+    }
+
+    /// Recursively retain only `Bus` in `buses` with `Device` matching filter
+    pub fn retain_buses(&self, buses: &mut Vec<Bus>) {
+        // filter any empty or number matches
+        buses.retain(|b| self.is_bus_match(b));
+
+        for bus in buses.iter_mut() {
+            bus.devices.iter_mut().for_each(|d| self.retain_devices(d));
+        }
+
+        // check bus match again in case empty after device filter
+        buses.retain(|b| self.is_bus_match(b));
+    }
+
+    /// Recursively hide `Bus` in `buses` with `Device` matching filter
+    pub fn hide_buses(&self, buses: &mut [Bus]) {
+        buses
+            .iter_mut()
+            .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
+
+        for bus in buses.iter_mut() {
+            bus.devices.iter_mut().for_each(|d| self.hide_devices(d));
+        }
+
+        buses
+            .iter_mut()
+            .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
+    }
+
+    /// Recursively retain only `Device` in `devices` matching filter
+    ///
+    /// Note that non-matching parents will still be retained if they have a matching `Device` within their branches
+    pub fn retain_devices(&self, devices: &mut Vec<Device>) {
+        devices.retain(|d| self.exists_in_tree(d));
+
+        for d in devices {
+            d.devices.iter_mut().for_each(|d| self.retain_devices(d));
+        }
+    }
+
+    /// Recursively retain only `Device` in `devices` matching filter
+    pub fn hide_devices(&self, devices: &mut [Device]) {
+        devices
+            .iter_mut()
+            .for_each(|d| d.internal.hidden = !self.exists_in_tree(d));
+
+        for d in devices {
+            d.devices.iter_mut().for_each(|d| self.hide_devices(d));
         }
     }
 
@@ -1590,6 +1963,7 @@ pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SystemProfile> {
         pci_revision: None,
         usb_bus_number: None,
         devices: Some(devices),
+        ..Default::default()
     };
 
     Ok(SystemProfile { buses: vec![bus] })
