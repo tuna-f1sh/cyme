@@ -18,6 +18,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
 use super::parse_vidpid;
+use cyme::config::Config;
 use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::profiler::{watch::SystemProfileStreamBuilder, Filter, SystemProfile};
@@ -48,6 +49,7 @@ enum WatchEvent {
     DrawDevices,
     DrawEditBlocks,
     WriteEditBlocks,
+    SaveConfig,
     Draw,
     ShowHelp,
     Enter,
@@ -184,6 +186,7 @@ pub fn watch_usb_devices(
     spusb: SystemProfile,
     filter: Option<Filter>,
     mut print_settings: PrintSettings,
+    mut config: Config,
 ) -> Result<()> {
     // set print mode to dynamic so we can update the display without re-running the profiler
     // non-destructively hides devices that don't match the filter etc.
@@ -556,6 +559,14 @@ pub fn watch_usb_devices(
             Ok(WatchEvent::WriteEditBlocks) => {
                 display.write_edit_blocks();
             }
+            Ok(WatchEvent::SaveConfig) => {
+                config.merge_print_settings(&display.print_settings.lock().unwrap());
+                if let Err(e) = config.save() {
+                    *display.state.lock().unwrap() = State::Error(e.to_string());
+                    display.prepare_devices();
+                    display.draw_devices()?;
+                }
+            }
 
             Ok(WatchEvent::ShowHelp) => {
                 *display.state.lock().unwrap() = State::Help;
@@ -703,6 +714,7 @@ impl State {
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                 // TODO save config?
                 log::info!("Save config");
+                tx.send(WatchEvent::SaveConfig).unwrap();
             }
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
                 tx.send(WatchEvent::ScrollDownHalf).unwrap();

@@ -7,6 +7,7 @@ use colored::*;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::env;
+use std::path::{Path, PathBuf};
 use terminal_size::terminal_size;
 
 use cyme::config::Config;
@@ -150,7 +151,7 @@ struct Args {
 
     /// Read from json output rather than profiling system
     #[arg(long)]
-    from_json: Option<String>,
+    from_json: Option<PathBuf>,
 
     /// Force pure libusb profiler on macOS rather than combining system_profiler output
     ///
@@ -160,7 +161,7 @@ struct Args {
 
     /// Path to user config file to use for custom icons, colours and default settings
     #[arg(short = 'c', long)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
     #[arg(short = 'z', long, action = clap::ArgAction::Count)]
@@ -461,6 +462,16 @@ fn print_man() -> Result<()> {
     Ok(())
 }
 
+fn load_config<P: AsRef<Path>>(path: Option<P>) -> Result<Config> {
+    if let Some(p) = path {
+        let config = Config::from_file(p);
+        log::info!("Using user config {:?}", config);
+        config
+    } else {
+        Config::sys()
+    }
+}
+
 fn cyme() -> Result<()> {
     let mut args = Args::parse();
 
@@ -476,13 +487,7 @@ fn cyme() -> Result<()> {
     #[cfg(feature = "libusb")]
     profiler::libusb::set_log_level(args.debug);
 
-    let config = if let Some(path) = args.config.as_ref() {
-        let config = Config::from_file(path)?;
-        log::info!("Using user config {:?}", config);
-        config
-    } else {
-        Config::sys()?
-    };
+    let config = load_config(args.config.as_deref())?;
 
     // add any config ENV override
     if config.print_non_critical_profiler_stderr {
@@ -530,14 +535,14 @@ fn cyme() -> Result<()> {
     };
 
     let mut spusb = if let Some(file_path) = args.from_json {
-        match profiler::read_json_dump(file_path.as_str()) {
+        match profiler::read_json_dump(&file_path) {
             Ok(s) => s,
             Err(e) => {
                 log::warn!(
                     "Failed to read json dump, attempting as flattened with phony bus: Error({})",
                     e
                 );
-                profiler::read_flat_json_to_phony_bus(file_path.as_str())?
+                profiler::read_flat_json_to_phony_bus(&file_path)?
             }
         }
     } else {
@@ -664,7 +669,8 @@ fn cyme() -> Result<()> {
 
     #[cfg(feature = "watch")]
     if matches!(args.command, Some(SubCommand::Watch)) {
-        watch::watch_usb_devices(spusb, filter, settings)?;
+        let config = load_config(args.config)?;
+        watch::watch_usb_devices(spusb, filter, settings, config)?;
         return Ok(());
     }
 

@@ -2117,8 +2117,8 @@ impl Filter {
 /// Reads a json dump at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
 ///
 /// Must be a full tree including buses. Use `read_flat_json_dump` for devices only
-pub fn read_json_dump(file_path: &str) -> Result<SystemProfile> {
-    let mut file = fs::File::options().read(true).open(file_path)?;
+pub fn read_json_dump<P: AsRef<Path>>(file_path: P) -> Result<SystemProfile> {
+    let mut file = fs::File::options().read(true).open(file_path.as_ref())?;
 
     let mut data = String::new();
     file.read_to_string(&mut data)?;
@@ -2126,7 +2126,11 @@ pub fn read_json_dump(file_path: &str) -> Result<SystemProfile> {
     let json_dump: SystemProfile = serde_json::from_str(&data).map_err(|e| {
         Error::new(
             ErrorKind::Parsing,
-            &format!("Failed to parse dump at {:?}; Error({})", file_path, e),
+            &format!(
+                "Failed to parse dump at {:?}; Error({})",
+                file_path.as_ref().display(),
+                e
+            ),
         )
     })?;
 
@@ -2134,8 +2138,8 @@ pub fn read_json_dump(file_path: &str) -> Result<SystemProfile> {
 }
 
 /// Reads a flat json dump (devices no buses) at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
-pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<Device>> {
-    let mut file = fs::File::options().read(true).open(file_path)?;
+pub fn read_flat_json_dump<P: AsRef<Path>>(file_path: P) -> Result<Vec<Device>> {
+    let mut file = fs::File::options().read(true).open(file_path.as_ref())?;
 
     let mut data = String::new();
     file.read_to_string(&mut data)?;
@@ -2143,7 +2147,11 @@ pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<Device>> {
     let json_dump: Vec<Device> = serde_json::from_str(&data).map_err(|e| {
         Error::new(
             ErrorKind::Parsing,
-            &format!("Failed to parse dump at {:?}; Error({})", file_path, e),
+            &format!(
+                "Failed to parse dump at {:?}; Error({})",
+                file_path.as_ref().display(),
+                e
+            ),
         )
     })?;
 
@@ -2153,7 +2161,7 @@ pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<Device>> {
 /// Reads a flat json dump (devices no buses) at `file_path` with serde deserializer from `cyme --json` and converts to `SPUSBDataType`
 ///
 /// This is useful for converting a flat json dump to a full tree for use with `Filter`. Bus information is phony however.
-pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SystemProfile> {
+pub fn read_flat_json_to_phony_bus<P: AsRef<Path>>(file_path: P) -> Result<SystemProfile> {
     let devices = read_flat_json_dump(file_path)?;
     let bus = Bus {
         name: String::from("Phony Flat JSON Import Bus"),
