@@ -464,13 +464,13 @@ impl Bus {
 
     /// syspath style path to bus
     pub fn path(&self) -> Option<PathBuf> {
-        self.get_bus_number().map(|n| get_trunk_path(n, &[]))
+        self.get_bus_number().map(|n| get_trunk_path(n, &[]).into())
     }
 
     /// sysfs style path to bus interface
     pub fn interface(&self) -> Option<PathBuf> {
         self.get_bus_number()
-            .map(|n| get_interface_path(n, &Vec::new(), 1, 0))
+            .map(|n| get_interface_path(n, &Vec::new(), 1, 0).into())
     }
 
     /// Remove the root_hub if existing in bus
@@ -866,27 +866,27 @@ impl DeviceLocation {
     /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
     ///
     /// A wrapper for [`get_port_path`]
-    pub fn port_path(&self) -> PathBuf {
+    pub fn port_path(&self) -> String {
         get_port_path(self.bus, &self.tree_positions)
     }
 
     /// Port path of parent
     ///
     /// A wrapper for [`get_parent_path`]
-    pub fn parent_path(&self) -> Result<PathBuf> {
+    pub fn parent_path(&self) -> Result<String> {
         get_parent_path(self.bus, &self.tree_positions)
     }
 
     /// Port path of trunk
     ///
     /// A wrapper for [`get_trunk_path`]
-    pub fn trunk_path(&self) -> PathBuf {
+    pub fn trunk_path(&self) -> String {
         get_trunk_path(self.bus, &self.tree_positions)
     }
 
     /// Linux sysfs name of [`Device`] similar to `port_path` but root_hubs use the USB controller name instead of port
-    pub fn sysfs_name(&self) -> PathBuf {
-        get_sysfs_name(self.bus, &self.tree_positions).into()
+    pub fn sysfs_name(&self) -> String {
+        get_sysfs_name(self.bus, &self.tree_positions)
     }
 }
 
@@ -1238,7 +1238,7 @@ impl Device {
         log::debug!(
             "Get node at {} with {} ({}); depth {}/{}",
             port_path.as_ref().display(),
-            self.port_path().display(),
+            self.port_path(),
             self,
             current_depth,
             node_depth
@@ -1248,7 +1248,7 @@ impl Device {
         match current_depth.cmp(&node_depth) {
             Ordering::Greater => return None,
             Ordering::Equal => {
-                if self.port_path().as_os_str() == port_path.as_ref().as_os_str() {
+                if self.port_path() == port_path.as_ref().to_string_lossy() {
                     return Some(self);
                 } else {
                     return None;
@@ -1292,7 +1292,7 @@ impl Device {
         log::debug!(
             "Get node at {} with {} ({}); depth {}/{}",
             port_path.as_ref().to_string_lossy(),
-            self.port_path().display(),
+            self.port_path(),
             self,
             current_depth,
             node_depth
@@ -1302,7 +1302,7 @@ impl Device {
         match current_depth.cmp(&node_depth) {
             Ordering::Greater => return None,
             Ordering::Equal => {
-                if self.port_path().as_os_str() == port_path.as_ref().as_os_str() {
+                if self.port_path() == port_path.as_ref().to_string_lossy() {
                     return Some(self);
                 } else {
                     return None;
@@ -1420,10 +1420,10 @@ impl Device {
     /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.port_path(), "1-0:1.0");
     /// ```
-    pub fn port_path(&self) -> PathBuf {
+    pub fn port_path(&self) -> String {
         // special case for root_hub, it's the interface 0 on config 1
         if self.is_root_hub() {
-            get_interface_path(self.location_id.bus, &self.location_id.tree_positions, 1, 0)
+            get_interface_path(self.location_id.bus, &self.location_id.tree_positions, 1, 0).into()
         } else {
             self.location_id.port_path()
         }
@@ -1448,7 +1448,7 @@ impl Device {
     /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
     /// assert_eq!(d.parent_path().is_err(), true);
     /// ```
-    pub fn parent_path(&self) -> Result<PathBuf> {
+    pub fn parent_path(&self) -> Result<String> {
         self.location_id.parent_path()
     }
 
@@ -1458,7 +1458,7 @@ impl Device {
     /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
     /// assert_eq!(d.trunk_path(), "1-1");
     /// ```
-    pub fn trunk_path(&self) -> PathBuf {
+    pub fn trunk_path(&self) -> String {
         self.location_id.trunk_path()
     }
 
@@ -1468,7 +1468,7 @@ impl Device {
     }
 
     /// Linux sysfs name of [`Device`]
-    pub fn sysfs_name(&self) -> PathBuf {
+    pub fn sysfs_name(&self) -> String {
         self.location_id.sysfs_name()
     }
 
@@ -1607,7 +1607,7 @@ impl Device {
                         format!(
                             "{}/{}  {}",
                             "/sys/bus/usb/devices",
-                            self.port_path().display(),
+                            self.port_path(),
                             self.dev_path().display(),
                         ),
                     ));
@@ -1640,7 +1640,7 @@ impl Device {
                 format!(
                     "{}/{}  {}",
                     "/sys/bus/usb/devices",
-                    self.port_path().display(),
+                    self.port_path(),
                     self.dev_path().display(),
                 ),
             ));

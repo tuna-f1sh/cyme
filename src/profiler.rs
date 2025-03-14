@@ -667,8 +667,7 @@ where
             // group into parent groups with parent path as key or trunk devices so they end up in same place
             let parent_groups = group.group_by(|d| {
                 d.parent_path()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or(d.trunk_path().to_string_lossy().to_string())
+                    .unwrap_or(d.trunk_path())
             });
 
             // now go through parent paths inserting devices owned by that parent

@@ -751,7 +751,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .unwrap_or(0),
             DeviceBlocks::PortPath => d
                 .iter()
-                .map(|d| d.port_path().as_os_str().len())
+                .map(|d| d.port_path().len())
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::SysPath => d
@@ -842,7 +842,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::BranchPosition => Some(format!("{:3}", d.get_branch_position())),
             DeviceBlocks::PortPath => Some(format!(
                 "{:pad$}",
-                d.port_path().display(),
+                d.port_path(),
                 pad = pad.get(self).unwrap_or(&0)
             )),
             DeviceBlocks::SysPath => Some(match d.extra.as_ref() {
