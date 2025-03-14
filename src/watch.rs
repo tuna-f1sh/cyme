@@ -36,7 +36,7 @@ enum WatchEvent {
     EditFilter(FilterField),
     ToggleBuses,
     ToggleHubs,
-    ToggleSelected,
+    ExpandSelected,
     PushFilter(char),
     PopFilter,
     EditBlock(BlockType),
@@ -408,10 +408,8 @@ pub fn watch_usb_devices(
                     }
                 }
             }
-            Ok(WatchEvent::ToggleSelected) => {
+            Ok(WatchEvent::ExpandSelected) => {
                 display.toggle_selected(false);
-                display.prepare_devices();
-                display.draw_devices()?;
             }
 
             Ok(WatchEvent::EditFilter(field)) => {
@@ -627,7 +625,8 @@ impl State {
                 tx.send(WatchEvent::Enter).unwrap();
             }
             (KeyCode::Char(' '), _) => {
-                tx.send(WatchEvent::ToggleSelected).unwrap();
+                tx.send(WatchEvent::ExpandSelected).unwrap();
+                tx.send(WatchEvent::DrawDevices).unwrap();
             }
             (KeyCode::Char('?'), _) => {
                 tx.send(WatchEvent::ShowHelp).unwrap();
@@ -796,8 +795,7 @@ impl State {
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
                     (KeyCode::Tab, KeyModifiers::SHIFT) => {
-                        tx.send(WatchEvent::EditBlock(block_type.prev()))
-                            .unwrap();
+                        tx.send(WatchEvent::EditBlock(block_type.prev())).unwrap();
                         tx.send(WatchEvent::DrawEditBlocks).unwrap();
                     }
                     (KeyCode::Char('1'), _) => {

@@ -1223,7 +1223,7 @@ impl Device {
     /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning reference
     pub fn get_node<P: AsRef<Path>>(&self, port_path: P) -> Option<&Device> {
         // special case for root_hub, it ends with :1.0
-        if port_path.as_ref().ends_with(":1.0") {
+        if port_path.as_ref().to_string_lossy().ends_with(":1.0") {
             return self.get_root_hub();
         }
         let node_depth = port_path
@@ -1273,7 +1273,7 @@ impl Device {
     ///
     /// Will panic if `port_path` is not a child device or if it sits shallower than self
     pub fn get_node_mut<P: AsRef<Path>>(&mut self, port_path: P) -> Option<&mut Device> {
-        if port_path.as_ref().ends_with(":1.0") {
+        if port_path.as_ref().to_string_lossy().ends_with(":1.0") {
             if self.is_root_hub() {
                 return Some(self);
             } else {
