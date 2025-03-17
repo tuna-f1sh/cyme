@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use cyme::profiler;
+use cyme::usb::{DevicePath, EndpointPath, PortPath};
 use std::sync::LazyLock;
 
 fn bench_dump() -> profiler::SystemProfile {
@@ -10,15 +11,15 @@ static DUMP: LazyLock<profiler::SystemProfile> = LazyLock::new(bench_dump);
 
 pub fn get_node(c: &mut Criterion) {
     let dump = &DUMP;
-    c.bench_function("get_device", |b| {
+    c.bench_function("bench_get_device", |b| {
         b.iter(|| {
-            let result = dump.get_node("2-2.3.1");
+            let result = dump.get_node(&PortPath::new(2, vec![2, 3, 1]));
             black_box(result);
         });
     });
-    c.bench_function("get_root", |b| {
+    c.bench_function("bench_get_root", |b| {
         b.iter(|| {
-            let result = dump.get_node("2-0");
+            let result = dump.get_node(&PortPath::new(2, vec![0]));
             black_box(result);
         });
     });
@@ -26,9 +27,10 @@ pub fn get_node(c: &mut Criterion) {
 
 pub fn get_interface(c: &mut Criterion) {
     let dump = &DUMP;
-    c.bench_function("get_interface", |b| {
+    c.bench_function("bench_get_interface", |b| {
         b.iter(|| {
-            let result = dump.get_interface("20-3.3", 1, 5);
+            let result =
+                dump.get_interface(&DevicePath::new_port_path(20, vec![3, 3], Some(1), Some(5)));
             black_box(result);
         });
     });
@@ -36,9 +38,15 @@ pub fn get_interface(c: &mut Criterion) {
 
 pub fn get_endpoint(c: &mut Criterion) {
     let dump = &DUMP;
-    c.bench_function("get_endpoint", |b| {
+    c.bench_function("bench_get_endpoint", |b| {
         b.iter(|| {
-            let result = dump.get_endpoint("20-3.3", 1, 5, 0x85);
+            let result = dump.get_endpoint(&EndpointPath::new_device_path(
+                20,
+                vec![3, 3],
+                Some(1),
+                Some(5),
+                0x85,
+            ));
             black_box(result);
         });
     });

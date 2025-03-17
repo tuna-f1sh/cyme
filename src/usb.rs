@@ -1046,6 +1046,11 @@ impl Interface {
         self.path.clone().into()
     }
 
+    /// [`DevicePath`] for interface
+    pub fn device_path(&self) -> Result<DevicePath, Error> {
+        DevicePath::try_from(self.path().as_path())
+    }
+
     /// Name of class from Linux USB IDs repository
     pub fn class_name(&self) -> Option<&str> {
         usb_ids::Classes::iter()

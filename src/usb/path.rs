@@ -370,6 +370,14 @@ impl TryFrom<&Path> for PortPath {
     }
 }
 
+impl TryFrom<&str> for PortPath {
+    type Error = Error;
+
+    fn try_from(s: &str) -> error::Result<Self> {
+        s.parse()
+    }
+}
+
 impl PortPath {
     /// Create a new port path from bus number and port tree positions
     pub fn new(bus: u8, ports: Vec<u8>) -> Self {
@@ -431,6 +439,16 @@ impl PortPath {
             }
         }
     }
+
+    /// Get the branch depth in the port tree - length of ports vector
+    pub fn depth(&self) -> usize {
+        self.ports.len()
+    }
+
+    /// Is the port path to a root hub
+    pub fn is_root_hub(&self) -> bool {
+        self.ports.is_empty() || self.ports == [0]
+    }
 }
 
 /// Device path to a device
@@ -489,11 +507,31 @@ impl TryFrom<&Path> for DevicePath {
     }
 }
 
+impl From<DevicePath> for PortPath {
+    fn from(d: DevicePath) -> Self {
+        d.port_path
+    }
+}
+
 impl DevicePath {
     /// Create a new device path from port path, configuration and interface
     pub fn new(port_path: PortPath, config: Option<u8>, interface: Option<u8>) -> Self {
         Self {
             port_path,
+            config,
+            interface,
+        }
+    }
+
+    /// Create a new device path from bus number, port tree positions, configuration and interface
+    pub fn new_port_path(
+        bus: u8,
+        ports: Vec<u8>,
+        config: Option<u8>,
+        interface: Option<u8>,
+    ) -> Self {
+        Self {
+            port_path: PortPath::new(bus, ports),
             config,
             interface,
         }
@@ -570,6 +608,20 @@ impl EndpointPath {
     pub fn new(device_path: DevicePath, endpoint: u8) -> Self {
         Self {
             device_path,
+            endpoint,
+        }
+    }
+
+    /// Create a new endpoint path from bus number, port tree positions, configuration, interface and endpoint number
+    pub fn new_device_path(
+        bus: u8,
+        ports: Vec<u8>,
+        config: Option<u8>,
+        interface: Option<u8>,
+        endpoint: u8,
+    ) -> Self {
+        Self {
+            device_path: DevicePath::new_port_path(bus, ports, config, interface),
             endpoint,
         }
     }

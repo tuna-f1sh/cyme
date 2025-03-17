@@ -883,49 +883,31 @@ impl Display {
                 }
             }
             Some(LineItem::Config(path)) => {
-                if let (Some(port_path), Some(cn)) = (path.sysfs_name(), path.configuration()) {
-                    if let Some(config) = self.spusb.lock().unwrap().get_config_mut(port_path, cn) {
-                        if all {
-                            config.set_all_expanded(!config.is_expanded());
-                        } else {
-                            config.toggle_expanded();
-                        }
+                if let Some(config) = self
+                    .spusb
+                    .lock()
+                    .unwrap()
+                    .get_config_mut(path.port_path(), path.config().unwrap())
+                {
+                    if all {
+                        config.set_all_expanded(!config.is_expanded());
+                    } else {
+                        config.toggle_expanded();
                     }
                 }
             }
             Some(LineItem::Interface(path)) => {
-                if let (Some(port_path), Some(cn), Some(inf)) =
-                    (path.sysfs_name(), path.configuration(), path.interface())
-                {
-                    if let Some(interface) = self
-                        .spusb
-                        .lock()
-                        .unwrap()
-                        .get_interface_mut(port_path, cn, inf)
-                    {
-                        if all {
-                            interface.set_all_expanded(!interface.is_expanded());
-                        } else {
-                            interface.toggle_expanded();
-                        }
+                if let Some(interface) = self.spusb.lock().unwrap().get_interface_mut(path) {
+                    if all {
+                        interface.set_all_expanded(!interface.is_expanded());
+                    } else {
+                        interface.toggle_expanded();
                     }
                 }
             }
             Some(LineItem::Endpoint(path)) => {
-                if let (Some(port_path), Some(cn), Some(inf), Some(ep)) = (
-                    path.sysfs_name(),
-                    path.configuration(),
-                    path.interface(),
-                    path.endpoint(),
-                ) {
-                    if let Some(endpoint) = self
-                        .spusb
-                        .lock()
-                        .unwrap()
-                        .get_endpoint_mut(port_path, cn, inf, ep)
-                    {
-                        endpoint.toggle_expanded();
-                    }
+                if let Some(endpoint) = self.spusb.lock().unwrap().get_endpoint_mut(path) {
+                    endpoint.toggle_expanded();
                 }
             }
             _ => (),

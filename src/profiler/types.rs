@@ -68,13 +68,8 @@ impl SystemProfile {
     }
 
     /// Search for reference to [`Device`] at `port_path` on correct bus number if present else all buses
-    pub fn get_node<P: AsRef<Path>>(&self, port_path: P) -> Option<&Device> {
-        let bus_no = port_path
-            .as_ref()
-            .to_str()?
-            .split("-")
-            .next()
-            .and_then(|v| v.parse::<u8>().ok())?;
+    pub fn get_node(&self, port_path: &PortPath) -> Option<&Device> {
+        let bus_no = port_path.bus();
 
         // the logic of getting bus is required because bus_no is Optional; there may be valid port part on a bus with no number
         if let Some(bus) = self.get_bus(bus_no) {
@@ -83,7 +78,7 @@ impl SystemProfile {
             }
         } else {
             for bus in self.buses.iter() {
-                if let Some(node) = bus.get_node(port_path.as_ref()) {
+                if let Some(node) = bus.get_node(port_path) {
                     return Some(node);
                 }
             }
@@ -93,13 +88,8 @@ impl SystemProfile {
     }
 
     /// Search for mutable reference to [`Device`] at `port_path` on correct bus number if present else all buses
-    pub fn get_node_mut<P: AsRef<Path>>(&mut self, port_path: P) -> Option<&mut Device> {
-        let bus_no = port_path
-            .as_ref()
-            .to_str()?
-            .split("-")
-            .next()
-            .and_then(|v| v.parse::<u8>().ok())?;
+    pub fn get_node_mut(&mut self, port_path: &PortPath) -> Option<&mut Device> {
+        let bus_no = port_path.bus();
 
         if self.buses.iter().any(|b| b.usb_bus_number == Some(bus_no)) {
             if let Some(bus) = self.get_bus_mut(bus_no) {
@@ -109,7 +99,7 @@ impl SystemProfile {
             }
         } else {
             for bus in self.buses.iter_mut() {
-                if let Some(node) = bus.get_node_mut(port_path.as_ref()) {
+                if let Some(node) = bus.get_node_mut(port_path) {
                     return Some(node);
                 }
             }
@@ -118,15 +108,43 @@ impl SystemProfile {
         None
     }
 
+    /// Search for reference to [`Device`] at `port_path` as Path
+    pub fn get_node_by_path<P: AsRef<Path>>(&self, path: P) -> Option<&Device> {
+        UsbPath::from(path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for mutable reference to [`Device`] at `port_path` as Path
+    pub fn get_node_path_by_path_mut<P: AsRef<Path>>(&mut self, path: P) -> Option<&mut Device> {
+        UsbPath::from(path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
+    /// Search for reference to [`Device`] at port path as string
+    pub fn get_node_by_str(&self, path: &str) -> Option<&Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for mutable reference to [`Device`] at port path as string
+    pub fn get_node_str_mut(&mut self, path: &str) -> Option<&mut Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
     /// Get reference to [`Configuration`] at `port_path` and `config` if present
-    pub fn get_config<P: AsRef<Path>>(&self, port_path: P, config: u8) -> Option<&Configuration> {
+    pub fn get_config(&self, port_path: &PortPath, config: u8) -> Option<&Configuration> {
         self.get_node(port_path).and_then(|d| d.get_config(config))
     }
 
     /// Get mutable reference to [`Configuration`] at `port_path` and `config` if present
-    pub fn get_config_mut<P: AsRef<Path>>(
+    pub fn get_config_mut(
         &mut self,
-        port_path: P,
+        port_path: &PortPath,
         config: u8,
     ) -> Option<&mut Configuration> {
         self.get_node_mut(port_path)
@@ -134,49 +152,51 @@ impl SystemProfile {
     }
 
     /// Get reference to [`Interface`] at `port_path`, `config` and `interface` if present
-    pub fn get_interface<P: AsRef<Path>>(
-        &self,
-        port_path: P,
-        config: u8,
-        interface: u8,
-    ) -> Option<&Interface> {
-        self.get_node(port_path)
-            .and_then(|d| d.get_interface(config, interface))
+    pub fn get_interface(&self, device_path: &DevicePath) -> Option<&Interface> {
+        if let (Some(config), Some(interface)) = (device_path.config(), device_path.interface()) {
+            self.get_node(device_path.port_path())
+                .and_then(|d| d.get_interface(config, interface))
+        } else {
+            None
+        }
     }
 
     /// Get mutable reference to [`Interface`] at `port_path`, `config` and `interface` if present
-    pub fn get_interface_mut<P: AsRef<Path>>(
-        &mut self,
-        port_path: P,
-        config: u8,
-        interface: u8,
-    ) -> Option<&mut Interface> {
-        self.get_node_mut(port_path)
-            .and_then(|d| d.get_interface_mut(config, interface))
+    pub fn get_interface_mut(&mut self, device_path: &DevicePath) -> Option<&mut Interface> {
+        if let (Some(config), Some(interface)) = (device_path.config(), device_path.interface()) {
+            self.get_node_mut(device_path.port_path())
+                .and_then(|d| d.get_interface_mut(config, interface))
+        } else {
+            None
+        }
     }
 
     /// Get reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
-    pub fn get_endpoint<P: AsRef<Path>>(
-        &self,
-        port_path: P,
-        config: u8,
-        interface: u8,
-        endpoint: u8,
-    ) -> Option<&Endpoint> {
-        self.get_node(port_path)
-            .and_then(|d| d.get_endpoint(config, interface, endpoint))
+    pub fn get_endpoint(&self, endpoint_path: &EndpointPath) -> Option<&Endpoint> {
+        if let (Some(config), Some(interface), endpoint) = (
+            endpoint_path.device_path().config(),
+            endpoint_path.device_path().interface(),
+            endpoint_path.endpoint(),
+        ) {
+            self.get_node(endpoint_path.device_path().port_path())
+                .and_then(|d| d.get_endpoint(config, interface, endpoint))
+        } else {
+            None
+        }
     }
 
     /// Get mutable reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
-    pub fn get_endpoint_mut<P: AsRef<Path>>(
-        &mut self,
-        port_path: P,
-        config: u8,
-        interface: u8,
-        endpoint: u8,
-    ) -> Option<&mut Endpoint> {
-        self.get_node_mut(port_path)
-            .and_then(|d| d.get_endpoint_mut(config, interface, endpoint))
+    pub fn get_endpoint_mut(&mut self, endpoint_path: &EndpointPath) -> Option<&mut Endpoint> {
+        if let (Some(config), Some(interface), endpoint) = (
+            endpoint_path.device_path().config(),
+            endpoint_path.device_path().interface(),
+            endpoint_path.endpoint(),
+        ) {
+            self.get_node_mut(endpoint_path.device_path().port_path())
+                .and_then(|d| d.get_endpoint_mut(config, interface, endpoint))
+        } else {
+            None
+        }
     }
 
     #[cfg(feature = "nusb")]
@@ -205,7 +225,7 @@ impl SystemProfile {
     ///
     /// If the device was existing, it will be replaced with the old device and returned as `Ok`, else `Err` if the device was not found.
     pub fn replace(&mut self, mut new: Device) -> Result<Device> {
-        if let Some(existing) = self.get_node_mut(new.port_path()) {
+        if let Some(existing) = self.get_node_mut(&new.port_path()) {
             let devices = std::mem::take(&mut existing.devices);
             new.devices = devices;
             new.internal = existing.internal.clone();
@@ -224,7 +244,7 @@ impl SystemProfile {
     /// If the device was existing, it will be replaced with the new device and returned as `Some` (without child devices), else `None`. `None` will also be returned if the device parent is not found.
     pub fn insert(&mut self, mut new: Device) -> Option<Device> {
         // check existing device and replace if found
-        if let Some(existing) = self.get_node_mut(new.port_path()) {
+        if let Some(existing) = self.get_node_mut(&new.port_path()) {
             let devices = std::mem::take(&mut existing.devices);
             new.devices = devices;
             new.internal = existing.internal.clone();
@@ -238,8 +258,8 @@ impl SystemProfile {
             } else {
                 bus.devices = Some(vec![new]);
             }
-        } else if let Ok(parent_path) = new.parent_path() {
-            if let Some(parent) = self.get_node_mut(parent_path) {
+        } else if let Some(parent_path) = new.parent_path() {
+            if let Some(parent) = self.get_node_mut(&parent_path) {
                 if let Some(bd) = parent.devices.as_mut() {
                     bd.push(new);
                 } else {
@@ -468,9 +488,9 @@ impl Bus {
     }
 
     /// sysfs style path to bus interface
-    pub fn interface(&self) -> Option<PathBuf> {
+    pub fn interface(&self) -> Option<DevicePath> {
         self.get_bus_number()
-            .map(|n| get_interface_path(n, &Vec::new(), 1, 0).into())
+            .map(|n| DevicePath::new_port_path(n, vec![0], Some(1), Some(0)))
     }
 
     /// Remove the root_hub if existing in bus
@@ -482,19 +502,20 @@ impl Bus {
 
     /// Gets the device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device(&self) -> Option<&Device> {
-        self.interface().and_then(|i| self.get_node(i))
+        self.interface().and_then(|i| self.get_node(i.port_path()))
     }
 
     /// Gets a mutable device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device_mut(&mut self) -> Option<&mut Device> {
-        self.interface().and_then(|i| self.get_node_mut(i))
+        self.interface()
+            .and_then(|i| self.get_node_mut(i.port_path()))
     }
 
     /// Search for [`Device`] in branches of bus and return reference
-    pub fn get_node<P: AsRef<Path>>(&self, port_path: P) -> Option<&Device> {
+    pub fn get_node(&self, port_path: &PortPath) -> Option<&Device> {
         if let Some(devices) = self.devices.as_ref() {
             for dev in devices {
-                if let Some(node) = dev.get_node(port_path.as_ref()) {
+                if let Some(node) = dev.get_node(port_path) {
                     log::debug!("Found {}", node);
                     return Some(node);
                 }
@@ -505,10 +526,10 @@ impl Bus {
     }
 
     /// Search for [`Device`] in branches of bus and return mutable if found
-    pub fn get_node_mut<P: AsRef<Path>>(&mut self, port_path: P) -> Option<&mut Device> {
+    pub fn get_node_mut(&mut self, port_path: &PortPath) -> Option<&mut Device> {
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {
-                if let Some(node) = dev.get_node_mut(port_path.as_ref()) {
+                if let Some(node) = dev.get_node_mut(port_path) {
                     log::debug!("Found {}", node);
                     return Some(node);
                 }
@@ -518,15 +539,46 @@ impl Bus {
         None
     }
 
+    /// Search for [`Device`] in branches of bus by Path and return reference
+    pub fn get_node_by_path<P: AsRef<Path>>(&self, port_path: P) -> Option<&Device> {
+        UsbPath::from(port_path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for [`Device`] in branches of bus by Path and return mutable reference
+    pub fn get_node_path_by_path_mut<P: AsRef<Path>>(
+        &mut self,
+        port_path: P,
+    ) -> Option<&mut Device> {
+        UsbPath::from(port_path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
+    /// Search for reference to [`Device`] at port path as string
+    pub fn get_node_by_str(&self, path: &str) -> Option<&Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for mutable reference to [`Device`] at port path as string
+    pub fn get_node_str_mut(&mut self, path: &str) -> Option<&mut Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
     /// Get reference to [`Configuration`] at `port_path` and `config` if present
-    pub fn get_config<P: AsRef<Path>>(&self, port_path: P, config: u8) -> Option<&Configuration> {
+    pub fn get_config(&self, port_path: &PortPath, config: u8) -> Option<&Configuration> {
         self.get_node(port_path).and_then(|d| d.get_config(config))
     }
 
     /// Get mutable reference to [`Configuration`] at `port_path` and `config` if present
-    pub fn get_config_mut<P: AsRef<Path>>(
+    pub fn get_config_mut(
         &mut self,
-        port_path: P,
+        port_path: &PortPath,
         config: u8,
     ) -> Option<&mut Configuration> {
         self.get_node_mut(port_path)
@@ -534,49 +586,54 @@ impl Bus {
     }
 
     /// Get reference to [`Interface`] at `port_path`, `config` and `interface` if present
-    pub fn get_interface<P: AsRef<Path>>(
-        &self,
-        port_path: P,
-        config: u8,
-        interface: u8,
-    ) -> Option<&Interface> {
-        self.get_node(port_path)
-            .and_then(|d| d.get_interface(config, interface))
+    pub fn get_interface(&self, device_path: &DevicePath) -> Option<&Interface> {
+        if let (Some(config), Some(interface)) = (device_path.config(), device_path.interface()) {
+            self.get_node(device_path.port_path())
+                .and_then(|d| d.get_interface(config, interface))
+        } else {
+            None
+        }
     }
 
     /// Get mutable reference to [`Interface`] at `port_path`, `config` and `interface` if present
     pub fn get_interface_mut<P: AsRef<Path>>(
         &mut self,
-        port_path: P,
-        config: u8,
-        interface: u8,
+        device_path: &DevicePath,
     ) -> Option<&mut Interface> {
-        self.get_node_mut(port_path)
-            .and_then(|d| d.get_interface_mut(config, interface))
+        if let (Some(config), Some(interface)) = (device_path.config(), device_path.interface()) {
+            self.get_node_mut(device_path.port_path())
+                .and_then(|d| d.get_interface_mut(config, interface))
+        } else {
+            None
+        }
     }
 
     /// Get reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
-    pub fn get_endpoint<P: AsRef<Path>>(
-        &self,
-        port_path: P,
-        config: u8,
-        interface: u8,
-        endpoint: u8,
-    ) -> Option<&Endpoint> {
-        self.get_node(port_path)
-            .and_then(|d| d.get_endpoint(config, interface, endpoint))
+    pub fn get_endpoint(&self, endpoint_path: &EndpointPath) -> Option<&Endpoint> {
+        if let (Some(config), Some(interface), endpoint) = (
+            endpoint_path.device_path().config(),
+            endpoint_path.device_path().interface(),
+            endpoint_path.endpoint(),
+        ) {
+            self.get_node(endpoint_path.device_path().port_path())
+                .and_then(|d| d.get_endpoint(config, interface, endpoint))
+        } else {
+            None
+        }
     }
 
     /// Get mutable reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
-    pub fn get_endpoint_mut<P: AsRef<Path>>(
-        &mut self,
-        port_path: P,
-        config: u8,
-        interface: u8,
-        endpoint: u8,
-    ) -> Option<&mut Endpoint> {
-        self.get_node_mut(port_path)
-            .and_then(|d| d.get_endpoint_mut(config, interface, endpoint))
+    pub fn get_endpoint_mut(&mut self, endpoint_path: &EndpointPath) -> Option<&mut Endpoint> {
+        if let (Some(config), Some(interface), endpoint) = (
+            endpoint_path.device_path().config(),
+            endpoint_path.device_path().interface(),
+            endpoint_path.endpoint(),
+        ) {
+            self.get_node_mut(endpoint_path.device_path().port_path())
+                .and_then(|d| d.get_endpoint_mut(config, interface, endpoint))
+        } else {
+            None
+        }
     }
 
     #[cfg(feature = "nusb")]
@@ -888,6 +945,12 @@ impl DeviceLocation {
     /// Linux sysfs name of [`Device`] similar to `port_path` but root_hubs use the USB controller name instead of port
     pub fn sysfs_name(&self) -> String {
         get_sysfs_name(self.bus, &self.tree_positions)
+    }
+}
+
+impl From<DeviceLocation> for PortPath {
+    fn from(location: DeviceLocation) -> Self {
+        PortPath::new(location.bus, location.tree_positions)
     }
 }
 
@@ -1210,24 +1273,17 @@ impl Device {
     }
 
     /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning reference
-    pub fn get_node<P: AsRef<Path>>(&self, port_path: P) -> Option<&Device> {
-        // special case for root_hub, it ends with :1.0
-        if port_path.as_ref().to_string_lossy().ends_with(":1.0") {
+    pub fn get_node(&self, port_path: &PortPath) -> Option<&Device> {
+        if port_path.is_root_hub() {
             return self.get_root_hub();
         }
-        let node_depth = port_path
-            .as_ref()
-            .to_str()?
-            .split('-')
-            .last()
-            .expect("Invalid port path")
-            .split('.')
-            .count();
+        let node_depth = port_path.depth();
         let current_depth = self.get_depth();
+        let self_port_path = self.port_path();
         log::debug!(
             "Get node at {} with {} ({}); depth {}/{}",
-            port_path.as_ref().display(),
-            self.port_path(),
+            port_path,
+            self_port_path,
             self,
             current_depth,
             node_depth
@@ -1237,7 +1293,7 @@ impl Device {
         match current_depth.cmp(&node_depth) {
             Ordering::Greater => return None,
             Ordering::Equal => {
-                if self.port_path() == port_path.as_ref().to_string_lossy() {
+                if self_port_path == *port_path {
                     return Some(self);
                 } else {
                     return None;
@@ -1249,7 +1305,7 @@ impl Device {
         // else walk through devices recursively running function and returning if found
         if let Some(devices) = self.devices.as_ref() {
             for dev in devices {
-                if let Some(node) = dev.get_node(port_path.as_ref()) {
+                if let Some(node) = dev.get_node(port_path) {
                     return Some(node);
                 }
             }
@@ -1261,27 +1317,21 @@ impl Device {
     /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning mutable
     ///
     /// Will panic if `port_path` is not a child device or if it sits shallower than self
-    pub fn get_node_mut<P: AsRef<Path>>(&mut self, port_path: P) -> Option<&mut Device> {
-        if port_path.as_ref().to_string_lossy().ends_with(":1.0") {
+    pub fn get_node_mut(&mut self, port_path: &PortPath) -> Option<&mut Device> {
+        if port_path.is_root_hub() {
             if self.is_root_hub() {
                 return Some(self);
             } else {
                 return None;
             }
         }
-        let node_depth = port_path
-            .as_ref()
-            .to_str()?
-            .split('-')
-            .last()
-            .expect("Invalid port path")
-            .split('.')
-            .count();
+        let node_depth = port_path.depth();
         let current_depth = self.get_depth();
+        let self_port_path = self.port_path();
         log::debug!(
             "Get node at {} with {} ({}); depth {}/{}",
-            port_path.as_ref().to_string_lossy(),
-            self.port_path(),
+            port_path,
+            self_port_path,
             self,
             current_depth,
             node_depth
@@ -1291,7 +1341,7 @@ impl Device {
         match current_depth.cmp(&node_depth) {
             Ordering::Greater => return None,
             Ordering::Equal => {
-                if self.port_path() == port_path.as_ref().to_string_lossy() {
+                if self_port_path == *port_path {
                     return Some(self);
                 } else {
                     return None;
@@ -1303,13 +1353,41 @@ impl Device {
         // else walk through devices recursively running function and returning if found
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {
-                if let Some(node) = dev.get_node_mut(port_path.as_ref()) {
+                if let Some(node) = dev.get_node_mut(port_path) {
                     return Some(node);
                 }
             }
         }
 
         None
+    }
+
+    /// Find the [`Device`] by it's Path
+    pub fn get_node_by_path<P: AsRef<Path>>(&self, path: P) -> Option<&Device> {
+        UsbPath::from(path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Find the mutable [`Device`] by it's Path
+    pub fn get_node_mut_by_path<P: AsRef<Path>>(&mut self, path: P) -> Option<&mut Device> {
+        UsbPath::from(path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
+    /// Search for reference to [`Device`] at port path as string
+    pub fn get_node_by_str(&self, path: &str) -> Option<&Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for mutable reference to [`Device`] at port path as string
+    pub fn get_node_str_mut(&mut self, path: &str) -> Option<&mut Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node_mut(&pp))
     }
 
     /// Get the [`Configuration`] with number `config` from the device's extra data
@@ -1383,23 +1461,18 @@ impl Device {
     }
 
     /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
-    pub fn port_path(&self) -> String {
-        // special case for root_hub, it's the interface 0 on config 1
-        if self.is_root_hub() {
-            get_interface_path(self.location_id.bus, &self.location_id.tree_positions, 1, 0)
-        } else {
-            self.location_id.port_path()
-        }
+    pub fn port_path(&self) -> PortPath {
+        self.location_id.clone().into()
     }
 
     /// Path of parent [`Device`]; one above in tree
-    pub fn parent_path(&self) -> Result<String> {
-        self.location_id.parent_path()
+    pub fn parent_path(&self) -> Option<PortPath> {
+        self.port_path().parent()
     }
 
     /// Path of trunk [`Device`]; first in tree
-    pub fn trunk_path(&self) -> String {
-        self.location_id.trunk_path()
+    pub fn trunk_path(&self) -> PortPath {
+        self.port_path().trunk()
     }
 
     /// Linux devpath to [`Device`]
@@ -1878,7 +1951,7 @@ pub type USBFilter = Filter;
 /// // node was on a hub so that will remain with it
 /// assert_eq!(flattened.len(), 2);
 /// // get the node from path known before for purpose of test
-/// let device = spusb.get_node(&"20-3.3");
+/// let device = spusb.get_node_by_str("20-3.3");
 /// assert_eq!(device.unwrap().name, "Black Magic Probe  v1.8.2");
 /// ```
 ///
@@ -1897,7 +1970,7 @@ pub type USBFilter = Filter;
 /// // node was on a hub so that will remain with it
 /// assert_eq!(flattened.len(), 2);
 /// // get the node from path known before for purpose of test
-/// let device = spusb.get_node(&"20-3.3");
+/// let device = spusb.get_node_by_str("20-3.3");
 /// assert_eq!(device.unwrap().vendor_id.unwrap(), 0x1d50);
 /// ```
 ///
@@ -1932,7 +2005,7 @@ pub type USBFilter = Filter;
 /// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // black magic probe has CDCCommunications serial
-/// let device = spusb.get_node(&"20-3.3");
+/// let device = spusb.get_node_by_str("20-3.3");
 /// assert_eq!(device.unwrap().name, "Black Magic Probe  v1.8.2");
 /// ```
 ///
