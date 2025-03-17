@@ -24,8 +24,8 @@ const REQUEST_GET_DESCRIPTOR: u8 = 0x06;
 const REQUEST_GET_STATUS: u8 = 0x00;
 const REQUEST_WEBUSB_URL: u8 = 0x02;
 
-const SYSFS_USB_PREFIX: &str = "/sys/bus/usb/devices/";
-const SYSFS_PCI_PREFIX: &str = "/sys/bus/pci/devices/";
+pub(crate) const SYSFS_USB_PREFIX: &str = "/sys/bus/usb/devices/";
+pub(crate) const SYSFS_PCI_PREFIX: &str = "/sys/bus/pci/devices/";
 
 // separate module but import all
 pub mod types;
@@ -665,10 +665,7 @@ where
             let mut new_bus = buses.remove(&key).unwrap_or(Bus::from(key));
 
             // group into parent groups with parent path as key or trunk devices so they end up in same place
-            let parent_groups = group.group_by(|d| {
-                d.parent_path()
-                    .unwrap_or(d.trunk_path())
-            });
+            let parent_groups = group.group_by(|d| d.parent_path().unwrap_or(d.trunk_path()));
 
             // now go through parent paths inserting devices owned by that parent
             // this is not perfect...if the sort of devices does not result in order of depth, it will panic because the parent of a device will not exist. But that won't happen, right...

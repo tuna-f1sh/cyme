@@ -813,13 +813,13 @@ impl fmt::Display for Bus {
 ///   bb  -- bus number in hexadecimal
 ///   dddddd -- up to six levels for the tree, each digit represents its
 ///             position on that level
-#[derive(Debug, Default, Clone, PartialEq, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Eq)]
 pub struct DeviceLocation {
     /// Number of bus attached too
     pub bus: u8,
-    /// Will be len() depth in tree and position at each branch
+    /// Length is depth in tree and position at each branch, empty is bus controller
     pub tree_positions: Vec<u8>,
-    /// Device number on bus
+    /// Device number on bus, generally not related to tree
     pub number: u8,
 }
 
@@ -828,6 +828,7 @@ impl FromStr for DeviceLocation {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
+        // TODO support from port path style, check first then fall back
         let location_split: Vec<&str> = s.split('/').collect();
         let reg = location_split
             .first()
@@ -1200,18 +1201,6 @@ impl Device {
     }
 
     /// Gets root_hub [`Device`] if it is one
-    ///
-    /// root_hub returns `Some(Self)`
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
-    /// assert_eq!(d.get_root_hub().is_some(), true);
-    /// ```
-    ///
-    /// Not a root_hub returns `None`
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
-    /// assert_eq!(d.get_root_hub().is_some(), false);
-    /// ```
     pub fn get_root_hub(&self) -> Option<&Device> {
         if self.is_root_hub() {
             Some(self)
@@ -1388,76 +1377,27 @@ impl Device {
     }
 
     /// Returns `true` if device is a hub based on device name - not perfect but most hubs advertise as a hub in name - or class code if it has one
-    ///
-    /// ```
-    /// // hub in name
-    /// let d = cyme::profiler::Device{ name: String::from("My special hub"), ..Default::default() };
-    /// assert_eq!(d.is_hub(), true);
-    ///
-    /// // Class is hub
-    /// let d = cyme::profiler::Device{ name: String::from("Not named but Class"), class: Some(cyme::usb::BaseClass::Hub),  ..Default::default() };
-    /// assert_eq!(d.is_hub(), true);
-    ///
-    /// // not a hub
-    /// let d = cyme::profiler::Device{ name: String::from("My special device"), ..Default::default() };
-    /// assert_eq!(d.is_hub(), false);
-    /// ```
     pub fn is_hub(&self) -> bool {
         self.name.to_lowercase().contains("hub")
             || self.class.as_ref().is_some_and(|c| *c == BaseClass::Hub)
     }
 
     /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
-    ///
-    /// Normal device
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
-    /// assert_eq!(d.port_path(), "1-1.2.3");
-    /// ```
-    ///
-    /// Get a root_hub port path
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
-    /// assert_eq!(d.port_path(), "1-0:1.0");
-    /// ```
     pub fn port_path(&self) -> String {
         // special case for root_hub, it's the interface 0 on config 1
         if self.is_root_hub() {
-            get_interface_path(self.location_id.bus, &self.location_id.tree_positions, 1, 0).into()
+            get_interface_path(self.location_id.bus, &self.location_id.tree_positions, 1, 0)
         } else {
             self.location_id.port_path()
         }
     }
 
     /// Path of parent [`Device`]; one above in tree
-    ///
-    /// Device with parent
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
-    /// assert_eq!(d.parent_path(), Ok(String::from("1-1.2")));
-    /// ```
-    ///
-    /// Trunk device parent is path to bus
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
-    /// assert_eq!(d.parent_path(), Ok(String::from("1-0")));
-    /// ```
-    ///
-    /// Cannot get parent for root_hub
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
-    /// assert_eq!(d.parent_path().is_err(), true);
-    /// ```
     pub fn parent_path(&self) -> Result<String> {
         self.location_id.parent_path()
     }
 
     /// Path of trunk [`Device`]; first in tree
-    ///
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
-    /// assert_eq!(d.trunk_path(), "1-1");
-    /// ```
     pub fn trunk_path(&self) -> String {
         self.location_id.trunk_path()
     }

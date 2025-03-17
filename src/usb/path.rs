@@ -1,13 +1,14 @@
 //! Helper functions for USB sysfs style paths
 //!
-//! Used for Linux sysfs but also cyme retrieval of USB device information within the [`crate::profiler`] module.
+//! Used for Linux sysfs but also cyme retrieval of USB device information within the [`crate::profiler`] module and [`crate::usb`] module
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
 use super::*;
+use crate::profiler::SYSFS_USB_PREFIX;
 
-/// Represents a USB path in sysfs but used cross-platform to get part of device tree
+/// Represents a USB path in sysfs but used cross-platform to represent paths to USB devices, interfaces and endpoints
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UsbPath(PathBuf);
 
@@ -23,6 +24,18 @@ impl AsRef<Path> for UsbPath {
     }
 }
 
+impl From<PathBuf> for UsbPath {
+    fn from(path: PathBuf) -> Self {
+        Self(path)
+    }
+}
+
+impl From<&Path> for UsbPath {
+    fn from(path: &Path) -> Self {
+        Self(path.to_path_buf())
+    }
+}
+
 impl UsbPath {
     /// Create a new USB path
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
@@ -32,16 +45,6 @@ impl UsbPath {
     /// Get the inner path
     pub fn path(&self) -> &Path {
         &self.0
-    }
-
-    /// Get the length of the inner path
-    pub fn len(self) -> usize {
-        self.path().as_os_str().len()
-    }
-
-    /// Is the inner path empty
-    pub fn is_empty(self) -> bool {
-        self.len() == 0
     }
 
     /// Get the parent of the device
@@ -54,18 +57,20 @@ impl UsbPath {
     /// assert_eq!(path.parent(), Some(Path::new("/sys/bus/usb/devices")));
     /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0");
     /// assert_eq!(path.parent(), Some(Path::new("/sys/bus/usb/devices")));
+    /// let path = UsbPath::new("/sys/bus/usb/devices/usb1");
+    /// assert_eq!(path.parent(), Some(Path::new("/sys/bus/usb/devices")));
     /// let path = UsbPath::new("1-1.3:1.0");
-    /// assert_eq!(path.parent(), Some(Path::new("")));
+    /// assert_eq!(path.parent(), None);
     /// ```
     pub fn parent(&self) -> Option<&Path> {
-        if self.endpoint().is_some() {
-            self.path().parent().and_then(|p| p.parent())
-        } else {
-            self.path().parent()
-        }
+        // find : in path, work backwards from index to find next / and return path 0..index
+        let path_str = self.path().to_str()?;
+        let index = path_str.rfind('-').or_else(|| path_str.rfind("usb"))?;
+        let index = path_str[..index].rfind('/')?;
+        Some(Path::new(&path_str[..index]))
     }
 
-    /// Is the path a bus controller; starts with "usb" in sysfs
+    /// Is the path to a bus controller (root hub); device starts with "usb" in sysfs
     ///
     /// ```
     /// use cyme::usb::UsbPath;
@@ -74,16 +79,14 @@ impl UsbPath {
     /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0");
     /// assert!(!path.is_bus_controller());
     pub fn is_bus_controller(&self) -> bool {
-        self.path()
-            .file_name()
-            .and_then(|f| f.to_str())
+        self.sysfs_device()
             .map(|f| f.starts_with("usb"))
             .unwrap_or(false)
     }
 
-    /// Is the path a root hub
+    /// Does the path belong to a root hub
     ///
-    /// Trunk ends with "-0" in sysfs, e.g. "1-0". Only root hubs can be port 0
+    /// Trunk ends with "-0" in sysfs, e.g. "1-0" or usbX (bus controller). Only root hubs can be port 0
     ///
     /// ```
     /// use cyme::usb::UsbPath;
@@ -95,7 +98,9 @@ impl UsbPath {
     /// assert!(!path.is_root_hub());
     /// ```
     pub fn is_root_hub(&self) -> bool {
-        self.trunk().map(|f| f.ends_with("-0")).unwrap_or(false)
+        self.sysfs_trunk()
+            .map(|f| f.ends_with("-0"))
+            .unwrap_or(self.is_bus_controller())
     }
 
     /// Extract bus number from path
@@ -106,17 +111,11 @@ impl UsbPath {
     /// assert_eq!(path.bus(), Some(1));
     /// let path = UsbPath::new("1-1.3:1.0");
     /// assert_eq!(path.bus(), Some(1));
+    /// let path = UsbPath::new("usb1");
+    /// assert_eq!(path.bus(), Some(1));
     /// ```
     pub fn bus(&self) -> Option<u8> {
-        if let Some(port) = self.port() {
-            port.split('-').next().and_then(|f| f.parse().ok())
-        // special case for bus controller: usbX
-        } else {
-            self.path()
-                .file_name()
-                .and_then(|f| f.to_str())
-                .and_then(|f| f.strip_prefix("usb").and_then(|f| f.parse().ok()))
-        }
+        self.port_path().map(|f| f.bus)
     }
 
     /// Extract trunk path from path
@@ -126,71 +125,114 @@ impl UsbPath {
     /// ```
     /// use cyme::usb::UsbPath;
     /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
-    /// assert_eq!(path.trunk(), Some("1-1"));
+    /// assert_eq!(path.sysfs_trunk(), Some("1-1"));
     /// let path = UsbPath::new("1-1.3:1.0");
-    /// assert_eq!(path.trunk(), Some("1-1"));
+    /// assert_eq!(path.sysfs_trunk(), Some("1-1"));
     /// let path = UsbPath::new("1-2");
-    /// assert_eq!(path.trunk(), Some("1-2"));
-    pub fn trunk(&self) -> Option<&str> {
-        self.port()
+    /// assert_eq!(path.sysfs_trunk(), Some("1-2"));
+    /// let path = UsbPath::new("usb1");
+    /// assert_eq!(path.sysfs_trunk(), Some("usb1"));
+    pub fn sysfs_trunk(&self) -> Option<&str> {
+        self.sysfs_name()
             .and_then(|f| f.split_once('.').map(|f| f.0).or(Some(f)))
     }
 
     /// The device path could be a base device or a device interface representing a device
     ///
-    /// It is the path to the device on the bus with any configuration.interface but without any endpoint. On Linux sysfs, this should be a directory with descriptors etc.
+    /// It is the path to the device on the bus with any configuration.interface but without any endpoint. On Linux sysfs, this should be a directory with descriptors etc for the interface or device.
     ///
-    /// If one is looking for the the device without any the interface, use [`UsbPath::port_path`]
+    /// If one is looking for the the device without any the interface, use [`UsbPath::sysfs_port_path`]
     ///
     /// ```
     /// use cyme::usb::UsbPath;
     /// use std::path::Path;
-    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0");
-    /// assert_eq!(path.device_path(), Path::new("/sys/bus/usb/devices/1-1.3:1.0"));
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
+    /// assert_eq!(path.sysfs_device_path(), Some(Path::new("/sys/bus/usb/devices/1-1.3:1.0")));
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3");
+    /// assert_eq!(path.sysfs_device_path(), Some(Path::new("/sys/bus/usb/devices/1-1.3")));
     /// let path = UsbPath::new("/sys/bus/usb/devices/1-1");
-    /// assert_eq!(path.device_path(), Path::new("/sys/bus/usb/devices/1-1"));
+    /// assert_eq!(path.sysfs_device_path(), Some(Path::new("/sys/bus/usb/devices/1-1")));
     /// let path = UsbPath::new("1-1.3:1.0");
-    /// assert_eq!(path.device_path(), Path::new("1-1.3:1.0"));
+    /// assert_eq!(path.sysfs_device_path(), Some(Path::new("1-1.3:1.0")));
     /// ```
-    pub fn device_path(&self) -> &Path {
-        if self.endpoint().is_some() {
-            self.path().parent().unwrap_or(self.path())
+    pub fn sysfs_device_path(&self) -> Option<&Path> {
+        let path_str = self.path().to_str().unwrap();
+        let index = path_str.rfind('-').or_else(|| path_str.rfind("usb"))?;
+        // now look for next / from index
+        let end_index = path_str[index..]
+            .find('/')
+            .map(|f| f.saturating_add(index))
+            .unwrap_or(path_str.len());
+        Some(Path::new(&path_str[..end_index]))
+    }
+
+    fn sysfs_device_str(&self) -> Option<&str> {
+        self.sysfs_device_path()?
+            .file_name()
+            .and_then(|f| f.to_str())
+    }
+
+    /// Extract just the device filename from [`UsbPath::sysfs_device_path`]
+    ///
+    /// Unlike [`UsbPath::sysfs_name`] this could be a fully described configuration.interface directory
+    pub fn sysfs_device(&self) -> Option<&str> {
+        // validate is valid sysfs USB device
+        if self.device_path().is_some() {
+            self.sysfs_device_str()
         } else {
-            self.path()
+            None
         }
     }
 
-    /// Extract just the device filename from [`UsbPath::device_path`]
-    pub fn device(&self) -> Option<&str> {
-        self.device_path().file_name().and_then(|f| f.to_str())
+    /// Extract [`DevicePath`] from path
+    pub fn device_path(&self) -> Option<DevicePath> {
+        self.sysfs_device_str().and_then(|f| f.parse().ok())
     }
 
     /// Extract device port path from path
     ///
-    /// The port path is the path to the device on the bus without any configuration.interface. On Linux sysfs, this is the path to the device directory with base device descriptors etc.
+    /// The port path is the path to the device on the bus without any configuration.interface. On Linux sysfs, this is the path to the device directory with base device descriptors etc. Use [`UsbPath::sysfs_device_path`] to get the full described path if present.
     ///
     /// ```
     /// use cyme::usb::UsbPath;
     /// use std::path::Path;
     ///
     /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
-    /// assert_eq!(path.port_path(), Some(Path::new("/sys/bus/usb/devices/1-1.3")));
+    /// assert_eq!(path.sysfs_port_path(), Some(Path::new("/sys/bus/usb/devices/1-1.3")));
     /// let path = UsbPath::new("1-1.3:1.0");
-    /// assert_eq!(path.port_path(), Some(Path::new("1-1.3")));
+    /// assert_eq!(path.sysfs_port_path(), Some(Path::new("1-1.3")));
     /// let path = UsbPath::new("1-2");
-    /// assert_eq!(path.port_path(), Some(Path::new("1-2")));
+    /// assert_eq!(path.sysfs_port_path(), Some(Path::new("1-2")));
+    /// // root hub
+    /// let path = UsbPath::new("/sys/bus/usb/devices/usb1");
+    /// assert_eq!(path.sysfs_port_path(), Some(Path::new("/sys/bus/usb/devices/usb1")));
     /// ```
-    pub fn port_path(&self) -> Option<&Path> {
-        self.path()
-            .to_str()
+    pub fn sysfs_port_path(&self) -> Option<&Path> {
+        self.sysfs_device_path()
+            .and_then(|f| f.to_str())
             .and_then(|f| f.split_once(':').map(|f| f.0).or(Some(f)))
             .map(Path::new)
     }
 
-    /// Extract port path from path
-    pub fn port(&self) -> Option<&str> {
-        self.port_path()
+    fn sysfs_port_str(&self) -> Option<&str> {
+        self.sysfs_port_path()
             .and_then(|f| f.file_name().and_then(|f| f.to_str()))
+    }
+
+    /// Extract port path from path
+    ///
+    /// On Linux sysfs, this is the path to the device directory with base device descriptors etc - the device sysfs name.
+    pub fn sysfs_name(&self) -> Option<&str> {
+        if self.port_path().is_some() {
+            self.sysfs_port_str()
+        } else {
+            None
+        }
+    }
+
+    /// Extract [`PortPath`] from path
+    pub fn port_path(&self) -> Option<PortPath> {
+        self.sysfs_port_str().and_then(|f| f.parse().ok())
     }
 
     /// Extract configuration number from path
@@ -200,15 +242,11 @@ impl UsbPath {
     ///
     /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0");
     /// assert_eq!(path.configuration(), Some(1));
-    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1");
-    /// assert_eq!(path.configuration(), Some(1));
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3");
+    /// assert_eq!(path.configuration(), None);
     /// ```
     pub fn configuration(&self) -> Option<u8> {
-        self.path()
-            .to_str()
-            .and_then(|f| f.split_once(':'))
-            .and_then(|f| f.1.split_once('.').or(Some((f.1, ""))))
-            .and_then(|f| f.0.parse().ok())
+        self.device_path().and_then(|f| f.config)
     }
 
     /// Extract interface number from path
@@ -220,11 +258,16 @@ impl UsbPath {
     /// assert_eq!(path.interface(), Some(0));
     /// ```
     pub fn interface(&self) -> Option<u8> {
-        self.path()
-            .to_str()
-            .and_then(|f| f.split_once(':'))
-            .and_then(|f| f.1.split_once('.'))
-            .and_then(|f| f.1.parse().ok())
+        self.device_path().and_then(|f| f.interface)
+    }
+
+    fn endpoint_path_str(&self) -> Option<&str> {
+        self.path().file_name().and_then(|f| f.to_str())
+    }
+
+    /// Extract the [`EndpointPath`] from path
+    pub fn endpoint_path(&self) -> Option<EndpointPath> {
+        Some(EndpointPath::new(self.device_path()?, self.endpoint()?))
     }
 
     /// Extract endpoint number from path
@@ -234,11 +277,316 @@ impl UsbPath {
     /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
     /// assert_eq!(path.endpoint(), Some(81));
     pub fn endpoint(&self) -> Option<u8> {
-        self.path()
-            .file_name()
-            .and_then(|f| f.to_str())
+        self.endpoint_path_str()
             .and_then(|f| f.strip_prefix("ep_"))
             .and_then(|f| f.parse().ok())
+    }
+
+    /// Convert to sysfs path for reading sysfs properties
+    ///
+    /// If the path is already a sysfs path, it will be returned as is
+    ///
+    /// ```
+    /// use cyme::usb::UsbPath;
+    /// use std::path::Path;
+    /// let path = UsbPath::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81");
+    /// assert_eq!(path.to_sysfs_path(), Path::new("/sys/bus/usb/devices/1-1.3:1.0/ep_81"));
+    /// let path = UsbPath::new("1-1.3:1.0");
+    /// assert_eq!(path.to_sysfs_path(), Path::new("/sys/bus/usb/devices/1-1.3:1.0"));
+    pub fn to_sysfs_path(&self) -> PathBuf {
+        if self.path().starts_with(SYSFS_USB_PREFIX) {
+            self.path().to_path_buf()
+        } else {
+            Path::new(SYSFS_USB_PREFIX).join(self.path())
+        }
+    }
+}
+
+/// Port path to a device
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PortPath {
+    /// Bus number
+    bus: u8,
+    /// Port numbers through bus to device
+    ports: Vec<u8>,
+}
+
+impl FromStr for PortPath {
+    type Err = Error;
+
+    fn from_str(s: &str) -> error::Result<Self> {
+        // root hub
+        if let Some(s) = s.strip_prefix("usb") {
+            let num = s
+                .parse::<u8>()
+                .map_err(|_| Error::new(ErrorKind::Parsing, "Invalid root hub bus number"))?;
+            Ok(Self {
+                bus: num,
+                ports: vec![],
+            })
+        } else {
+            // strip out any config.interface, then split by '-'
+            let mut parts = s.split(':').next().unwrap_or(s).split('-');
+            let bus = parts
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::Parsing, "No bus number"))?
+                .parse()
+                .map_err(|_| Error::new(ErrorKind::Parsing, "Invalid bus number"))?;
+            let ports = parts
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::Parsing, "No ports"))?
+                .split('.')
+                .map(|p| p.parse())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| Error::new(ErrorKind::Parsing, "Invalid port number"))?;
+            Ok(Self { bus, ports })
+        }
+    }
+}
+
+impl fmt::Display for PortPath {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // root hut
+        if self.ports.is_empty() {
+            if f.alternate() {
+                write!(f, "{}-0", self.bus)
+            } else {
+                write!(f, "usb{}", self.bus)
+            }
+        } else {
+            write!(f, "{}-{}", self.bus, self.ports.iter().format("."))
+        }
+    }
+}
+
+impl TryFrom<&Path> for PortPath {
+    type Error = Error;
+
+    fn try_from(s: &Path) -> error::Result<Self> {
+        s.file_name()
+            .and_then(|f| f.to_str())
+            .ok_or_else(|| Error::new(ErrorKind::InvalidPath, "Invalid path"))
+            .and_then(|f| f.parse())
+    }
+}
+
+impl PortPath {
+    /// Create a new port path from bus number and port tree positions
+    pub fn new(bus: u8, ports: Vec<u8>) -> Self {
+        Self { bus, ports }
+    }
+
+    /// Get the bus number
+    pub fn bus(&self) -> u8 {
+        self.bus
+    }
+
+    /// Get the port tree positions
+    pub fn ports(&self) -> &[u8] {
+        &self.ports
+    }
+
+    /// Get the parent port path; one branch up the tree
+    ///
+    /// ```
+    /// use cyme::usb::PortPath;
+    /// let path = PortPath::new(1, vec![1, 3, 4, 5]);
+    /// assert_eq!(path.parent(), Some(PortPath::new(1, vec![1, 3, 4])));
+    /// let path = PortPath::new(1, vec![]);
+    /// assert_eq!(path.parent(), None);
+    /// ```
+    pub fn parent(&self) -> Option<Self> {
+        if self.ports.is_empty() {
+            None
+        } else {
+            Some(Self {
+                bus: self.bus,
+                ports: self.ports[..self.ports.len() - 1].to_vec(),
+            })
+        }
+    }
+
+    /// Get the trunk port path; the first device in the tree
+    ///
+    /// ```
+    /// use cyme::usb::PortPath;
+    /// let path = PortPath::new(1, vec![1, 3, 5, 6]);
+    /// assert_eq!(path.trunk(), PortPath::new(1, vec![1]));
+    /// let path = PortPath::new(1, vec![2]);
+    /// assert_eq!(path.trunk(), PortPath::new(1, vec![2]));
+    /// // root hub
+    /// let path = PortPath::new(2, vec![]);
+    /// assert_eq!(path.trunk(), PortPath::new(2, vec![]));
+    /// ```
+    pub fn trunk(&self) -> Self {
+        if self.ports.is_empty() {
+            Self {
+                bus: self.bus,
+                ports: vec![],
+            }
+        } else {
+            Self {
+                bus: self.bus,
+                ports: vec![self.ports[0]],
+            }
+        }
+    }
+}
+
+/// Device path to a device
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DevicePath {
+    port_path: PortPath,
+    config: Option<u8>,
+    interface: Option<u8>,
+}
+
+impl FromStr for DevicePath {
+    type Err = Error;
+
+    fn from_str(s: &str) -> error::Result<Self> {
+        let (p, ci) = s.split_once(':').unwrap_or((s, ""));
+        let port_path = p.parse()?;
+        let mut parts = ci.split('.');
+        // make sure both config and interface are present if one is
+        match (
+            parts.next().and_then(|f| f.parse::<u8>().ok()),
+            parts.next().and_then(|f| f.parse::<u8>().ok()),
+        ) {
+            (Some(config), Some(interface)) => Ok(Self {
+                port_path,
+                config: Some(config),
+                interface: Some(interface),
+            }),
+            _ => Ok(Self {
+                port_path,
+                config: None,
+                interface: None,
+            }),
+        }
+    }
+}
+
+impl fmt::Display for DevicePath {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.port_path)?;
+        if let (Some(config), Some(interface)) = (self.config, self.interface) {
+            write!(f, ":{}", config)?;
+            write!(f, ".{}", interface)?;
+        }
+        Ok(())
+    }
+}
+
+impl TryFrom<&Path> for DevicePath {
+    type Error = Error;
+
+    fn try_from(s: &Path) -> error::Result<Self> {
+        s.file_name()
+            .and_then(|f| f.to_str())
+            .ok_or_else(|| Error::new(ErrorKind::InvalidPath, "Invalid path"))
+            .and_then(|f| f.parse())
+    }
+}
+
+impl DevicePath {
+    /// Create a new device path from port path, configuration and interface
+    pub fn new(port_path: PortPath, config: Option<u8>, interface: Option<u8>) -> Self {
+        Self {
+            port_path,
+            config,
+            interface,
+        }
+    }
+
+    /// Get the port path
+    pub fn port_path(&self) -> &PortPath {
+        &self.port_path
+    }
+
+    /// Get the configuration number
+    pub fn config(&self) -> Option<u8> {
+        self.config
+    }
+
+    /// Get the interface number
+    pub fn interface(&self) -> Option<u8> {
+        self.interface
+    }
+}
+
+/// Path to an endpoint on a device
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EndpointPath {
+    device_path: DevicePath,
+    endpoint: u8,
+}
+
+impl FromStr for EndpointPath {
+    type Err = Error;
+
+    fn from_str(s: &str) -> error::Result<Self> {
+        let mut parts = s.split("/ep_");
+        if let (Some(d), Some(e)) = (parts.next(), parts.next()) {
+            let device_path = d.parse()?;
+            let endpoint = e
+                .parse()
+                .map_err(|_| Error::new(ErrorKind::Parsing, "Invalid endpoint"))?;
+            Ok(Self {
+                device_path,
+                endpoint,
+            })
+        } else {
+            Err(Error::new(ErrorKind::Parsing, "Invalid endpoint path"))
+        }
+    }
+}
+
+impl TryFrom<&Path> for EndpointPath {
+    type Error = Error;
+
+    fn try_from(s: &Path) -> error::Result<Self> {
+        s.to_str()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidPath, "Invalid path"))
+            .and_then(|f| f.parse())
+    }
+}
+
+impl fmt::Display for EndpointPath {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.device_path)?;
+        write!(f, "/ep_{}", self.endpoint)
+    }
+}
+
+impl From<EndpointPath> for UsbPath {
+    fn from(ep: EndpointPath) -> Self {
+        UsbPath::new(ep.device_path.to_string())
+    }
+}
+
+impl EndpointPath {
+    /// Create a new endpoint path from device path and endpoint number
+    pub fn new(device_path: DevicePath, endpoint: u8) -> Self {
+        Self {
+            device_path,
+            endpoint,
+        }
+    }
+
+    /// Get the device path
+    pub fn device_path(&self) -> &DevicePath {
+        &self.device_path
+    }
+
+    /// Get the endpoint address byte
+    pub fn endpoint(&self) -> u8 {
+        self.endpoint
+    }
+
+    /// Get the [`EndpointAddress`] from the endpoint number
+    pub fn endpoint_address(&self) -> EndpointAddress {
+        EndpointAddress::from(self.endpoint)
     }
 }
 
@@ -379,5 +727,101 @@ pub fn get_sysfs_name(bus: u8, ports: &[u8]) -> String {
         format!("usb{}", bus)
     } else {
         get_port_path(bus, ports)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_port_path_parse() {
+        assert_eq!(
+            "1-1.3.4".parse::<PortPath>(),
+            Ok(PortPath {
+                bus: 1,
+                ports: vec![1, 3, 4]
+            })
+        );
+
+        assert_eq!(
+            "1-1.3".parse::<PortPath>(),
+            Ok(PortPath {
+                bus: 1,
+                ports: vec![1, 3]
+            })
+        );
+
+        assert_eq!(
+            "1-2".parse::<PortPath>(),
+            Ok(PortPath {
+                bus: 1,
+                ports: vec![2]
+            })
+        );
+
+        assert_eq!(
+            "1-0:1-0".parse::<PortPath>(),
+            Ok(PortPath {
+                bus: 1,
+                ports: vec![0]
+            })
+        );
+
+        assert_eq!(
+            "usb1".parse::<PortPath>(),
+            Ok(PortPath {
+                bus: 1,
+                ports: vec![]
+            })
+        );
+    }
+
+    #[test]
+    fn test_port_path_display() {
+        assert_eq!(
+            PortPath {
+                bus: 1,
+                ports: vec![1, 3, 4]
+            }
+            .to_string(),
+            "1-1.3.4"
+        );
+
+        assert_eq!(
+            PortPath {
+                bus: 1,
+                ports: vec![1, 3]
+            }
+            .to_string(),
+            "1-1.3"
+        );
+
+        assert_eq!(
+            PortPath {
+                bus: 1,
+                ports: vec![2]
+            }
+            .to_string(),
+            "1-2"
+        );
+
+        assert_eq!(
+            PortPath {
+                bus: 1,
+                ports: vec![0]
+            }
+            .to_string(),
+            "1-0"
+        );
+
+        assert_eq!(
+            PortPath {
+                bus: 1,
+                ports: vec![]
+            }
+            .to_string(),
+            "usb1"
+        );
     }
 }

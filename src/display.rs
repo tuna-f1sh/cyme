@@ -749,11 +749,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .map(|d| d.location_id.tree_positions.len() * 2)
                 .max()
                 .unwrap_or(0),
-            DeviceBlocks::PortPath => d
-                .iter()
-                .map(|d| d.port_path().len())
-                .max()
-                .unwrap_or(0),
+            DeviceBlocks::PortPath => d.iter().map(|d| d.port_path().len()).max().unwrap_or(0),
             DeviceBlocks::SysPath => d
                 .iter()
                 .flat_map(|d| {
