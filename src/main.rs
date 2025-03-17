@@ -6,6 +6,8 @@ use clap::{Parser, Subcommand};
 use colored::*;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use simple_logger::SimpleLogger;
+use std::collections::HashSet;
 use std::env;
 use std::path::{Path, PathBuf};
 use terminal_size::terminal_size;
@@ -219,21 +221,24 @@ macro_rules! wprintln {
 }
 
 /// Merges non-Option Config with passed `Args`
-fn merge_config(c: &Config, a: &mut Args) {
-    a.lsusb |= c.lsusb;
-    a.tree |= c.tree;
-    a.more |= c.more;
-    a.hide_buses |= c.hide_buses;
-    a.hide_hubs |= c.hide_hubs;
-    a.list_root_hubs |= c.list_root_hubs;
-    a.decimal |= c.decimal;
-    a.no_padding |= c.no_padding;
-    a.ascii |= c.ascii;
-    a.headings |= c.headings;
-    a.force_libusb |= c.force_libusb;
-    a.no_icons |= c.no_icons;
-    if a.verbose == 0 {
-        a.verbose = c.verbose;
+///
+/// Args will override Config if set
+fn merge_config(c: &mut Config, a: &Args) {
+    c.lsusb |= a.lsusb;
+    c.tree |= a.tree;
+    c.more |= a.more;
+    c.hide_buses |= a.hide_buses;
+    c.hide_hubs |= a.hide_hubs;
+    c.list_root_hubs |= a.list_root_hubs;
+    c.decimal |= a.decimal;
+    c.no_padding |= a.no_padding;
+    c.ascii |= a.ascii;
+    c.headings |= a.headings;
+    c.force_libusb |= a.force_libusb;
+    c.no_icons |= a.no_icons;
+    c.no_color |= a.no_color;
+    if c.verbose == 0 {
+        c.verbose = a.verbose;
     }
 }
 
@@ -472,6 +477,77 @@ fn load_config<P: AsRef<Path>>(path: Option<P>) -> Result<Config> {
     }
 }
 
+/// Set log level
+pub fn set_log_level(debug: u8) -> Result<()> {
+    let mut builder = SimpleLogger::new();
+    let mut env_levels: HashSet<(String, log::LevelFilter)> = HashSet::new();
+
+    let global_level = match debug {
+        0 => {
+            env_levels.insert(("udevrs".to_string(), log::LevelFilter::Off));
+            env_levels.insert(("nusb".to_string(), log::LevelFilter::Off));
+            log::LevelFilter::Error
+        }
+        1 => {
+            env_levels.insert(("udevrs".to_string(), log::LevelFilter::Warn));
+            env_levels.insert(("nusb".to_string(), log::LevelFilter::Warn));
+            env_levels.insert(("cyme".to_string(), log::LevelFilter::Info));
+            log::LevelFilter::Error
+        }
+        2 => {
+            env_levels.insert(("udevrs".to_string(), log::LevelFilter::Info));
+            env_levels.insert(("nusb".to_string(), log::LevelFilter::Info));
+            env_levels.insert(("cyme".to_string(), log::LevelFilter::Debug));
+            log::LevelFilter::Error
+        }
+        3 => {
+            env_levels.insert(("udevrs".to_string(), log::LevelFilter::Debug));
+            env_levels.insert(("nusb".to_string(), log::LevelFilter::Debug));
+            env_levels.insert(("cyme".to_string(), log::LevelFilter::Trace));
+            log::LevelFilter::Error
+        }
+        _ => log::LevelFilter::Trace,
+    };
+
+    if let Ok(rust_log) = std::env::var("RUST_LOG") {
+        rust_log
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(|s| {
+                let mut split = s.split('=');
+                let k = split.next().unwrap();
+                let v = split.next().and_then(|s| s.parse().ok());
+                (k.to_string(), v)
+            })
+            .filter(|(_, v)| v.is_some())
+            .map(|(k, v)| (k, v.unwrap()))
+            .for_each(|(k, v)| {
+                env_levels.replace((k, v));
+            });
+    }
+
+    for (k, v) in env_levels {
+        builder = builder.with_module_level(&k, v);
+    }
+
+    builder
+        .with_utc_timestamps()
+        .with_level(global_level)
+        .env()
+        .init()
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::Other("logger"),
+                &format!("Failed to set log level: {}", e),
+            )
+        })?;
+
+    #[cfg(feature = "libusb")]
+    profiler::libusb::set_log_level(args.debug);
+
+    Ok(())
+}
+
 fn cyme() -> Result<()> {
     let mut args = Args::parse();
 
@@ -482,19 +558,16 @@ fn cyme() -> Result<()> {
     }
 
     // set the module debug level, will also check env if args.debug == 0
-    cyme::set_log_level(args.debug)?;
+    set_log_level(args.debug)?;
 
-    #[cfg(feature = "libusb")]
-    profiler::libusb::set_log_level(args.debug);
-
-    let config = load_config(args.config.as_deref())?;
+    let mut config = load_config(args.config.as_deref())?;
 
     // add any config ENV override
     if config.print_non_critical_profiler_stderr {
         std::env::set_var("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR", "1");
     }
 
-    merge_config(&config, &mut args);
+    merge_config(&mut config, &args);
 
     // legacy arg, hidden but still support with new format
     if args.no_color {
@@ -502,37 +575,25 @@ fn cyme() -> Result<()> {
     }
 
     // set the output colouring
-    let colours = match args.color {
-        display::ColorWhen::Auto => {
-            // colored crate manages coloring
-            Some(config.colours)
-        }
+    match args.color {
         display::ColorWhen::Always => {
             env::set_var("NO_COLOR", "0");
             colored::control::set_override(true);
-            Some(config.colours)
+            config.no_color = false;
         }
         display::ColorWhen::Never => {
             // set env to be sure too
             env::set_var("NO_COLOR", "1");
             colored::control::set_override(false);
-            None
+            config.no_color = true;
         }
+        _ => (),
     };
 
     // legacy arg, hidden but still support with new format
     if args.ascii {
         args.encoding = display::Encoding::Ascii;
     }
-
-    // support hidden no_icons arg
-    let icons = if args.no_icons {
-        // For the tree, the display crate falls back to the static defaults for the encoding
-        None
-    } else {
-        // Default icons and any user supplied
-        Some(config.icons)
-    };
 
     let mut spusb = if let Some(file_path) = args.from_json {
         match profiler::read_json_dump(&file_path) {
@@ -631,45 +692,40 @@ fn cyme() -> Result<()> {
         }
     };
 
-    let group_devices = if args.group_devices == display::Group::Bus && args.tree {
+    // create print settings from config - merged with arg flags above
+    // then override with any clone args
+    let mut settings = config.print_settings();
+    settings.terminal_size = terminal_size().map(|(w, h)| (w.0, h.0));
+    settings.json = args.json;
+    if let Some(blocks) = args.blocks {
+        settings.device_blocks = Some(blocks);
+    }
+    if let Some(blocks) = args.bus_blocks {
+        settings.bus_blocks = Some(blocks);
+    }
+    if let Some(blocks) = args.config_blocks {
+        settings.config_blocks = Some(blocks);
+    }
+    if let Some(blocks) = args.interface_blocks {
+        settings.interface_blocks = Some(blocks);
+    }
+    if let Some(blocks) = args.endpoint_blocks {
+        settings.endpoint_blocks = Some(blocks);
+    }
+    if let Some(mask) = args.mask_serials {
+        settings.mask_serials = Some(mask);
+    }
+    settings.group_devices = if args.group_devices == display::Group::Bus && args.tree {
         eprintln!("--group-devices with --tree is ignored; will print as tree");
         display::Group::NoGroup
     } else {
         args.group_devices
     };
 
-    let settings = display::PrintSettings {
-        no_padding: args.no_padding,
-        decimal: args.decimal,
-        tree: args.tree,
-        sort_devices: args.sort_devices,
-        sort_buses: args.sort_buses,
-        group_devices,
-        json: args.json,
-        headings: args.headings,
-        verbosity: args.verbose,
-        more: args.more,
-        encoding: args.encoding,
-        mask_serials: args.mask_serials.map_or(config.mask_serials, Some),
-        device_blocks: args.blocks.map_or(config.blocks, Some),
-        bus_blocks: args.bus_blocks.map_or(config.bus_blocks, Some),
-        config_blocks: args.config_blocks.map_or(config.config_blocks, Some),
-        interface_blocks: args.interface_blocks.map_or(config.interface_blocks, Some),
-        endpoint_blocks: args.endpoint_blocks.map_or(config.endpoint_blocks, Some),
-        icons,
-        colours,
-        max_variable_string_len: config.max_variable_string_len,
-        auto_width: !config.no_auto_width,
-        terminal_size: terminal_size().map(|(w, h)| (w.0, h.0)),
-        icon_when: args.icon,
-        ..Default::default()
-    };
-
     log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
 
     #[cfg(feature = "watch")]
     if matches!(args.command, Some(SubCommand::Watch)) {
-        let config = load_config(args.config)?;
         watch::watch_usb_devices(spusb, filter, settings, config)?;
         return Ok(());
     }

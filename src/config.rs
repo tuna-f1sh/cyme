@@ -58,12 +58,10 @@ pub struct Config {
     pub decimal: bool,
     /// Disable padding to align blocks
     pub no_padding: bool,
-    // /// Output coloring mode
-    // pub color: display::ColorWhen,
+    /// Disable color
+    pub no_color: bool,
     /// Disables icons and utf-8 characters
     pub ascii: bool,
-    // /// Output character encoding
-    // pub encoding: display::Encoding,
     /// Disables all [`display::Block`] icons
     pub no_icons: bool,
     /// Show block headings
@@ -198,12 +196,52 @@ impl Config {
         self.endpoint_blocks = settings.endpoint_blocks.clone();
         self.more = settings.more;
         self.decimal = settings.decimal;
+        self.mask_serials = settings.mask_serials.clone();
         self.no_padding = settings.no_padding;
         self.headings = settings.headings;
         self.tree = settings.tree;
         self.max_variable_string_len = settings.max_variable_string_len;
         self.no_auto_width = !settings.auto_width;
         self.no_icons = matches!(settings.icon_when, display::IconWhen::Never);
+        self.verbose = settings.verbosity;
+    }
+
+    /// Returns a [`display::PrintSettings`] based on the config
+    pub fn print_settings(&self) -> display::PrintSettings {
+        let colours = if self.no_color {
+            None
+        } else {
+            Some(self.colours.clone())
+        };
+        let icons = if self.no_icons {
+            None
+        } else {
+            Some(self.icons.clone())
+        };
+        display::PrintSettings {
+            device_blocks: self.blocks.clone(),
+            bus_blocks: self.bus_blocks.clone(),
+            config_blocks: self.config_blocks.clone(),
+            interface_blocks: self.interface_blocks.clone(),
+            endpoint_blocks: self.endpoint_blocks.clone(),
+            more: self.more,
+            decimal: self.decimal,
+            mask_serials: self.mask_serials.clone(),
+            no_padding: self.no_padding,
+            headings: self.headings,
+            tree: self.tree,
+            max_variable_string_len: self.max_variable_string_len,
+            auto_width: !self.no_auto_width,
+            icon_when: if self.no_icons {
+                display::IconWhen::Never
+            } else {
+                display::IconWhen::Auto
+            },
+            icons,
+            colours,
+            verbosity: self.verbose,
+            ..Default::default()
+        }
     }
 }
 

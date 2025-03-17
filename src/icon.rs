@@ -202,7 +202,7 @@ impl fmt::Display for Icon {
 }
 
 /// Allows user supplied icons to replace or add to [`static@DEFAULT_ICONS`] and [`static@DEFAULT_UTF8_TREE`]
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[serde(default)]
@@ -520,8 +520,7 @@ impl IconTheme {
         }
     }
 
-    /// Get icon for event based on [`WatchEvent`] type
-    #[cfg(feature = "watch")]
+    /// Get icon for event based on [`crate::profiler::DeviceEvent`] type
     pub fn get_event_icon(&self, event: &crate::profiler::DeviceEvent) -> String {
         use crate::profiler::DeviceEvent;
 

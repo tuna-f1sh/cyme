@@ -23,7 +23,7 @@ serde = { version = "1.0", features = ["derive"] } # --json serialisation and --
 serde_json = "1.0.87"
 serde_with = "2.0.1"
 log = "0.4.17"
-simple_logger = { version = "4.0.0", features = ["stderr"] }
+simple_logger = { version = "4.0.0", features = ["stderr"], optional = true }
 usb-ids = { version = "1" } # USB ID database
 heck = "0.4.0" # common case conversions - could be internal but simple crate with no dependencies
 dirs = "6.0.0" # cross-platform XDG_CONFIG_HOME - could be internal since only this path
@@ -64,7 +64,8 @@ cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and
 native = ["nusb", "udev"] # pure Rust USB and udev bindings
 ffi = ["libusb", "udevlib"] # C bindings for libusb and libudev
 watch = ["crossterm", "futures-lite", "nusb", "dep:regex"] # watch mode
-default = ["native", "regex_icon", "watch"] # default native Rust USB (nusb, udevrs) with regex icon name lookup
+bin = ["simple_logger"]
+default = ["native", "regex_icon", "watch", "bin"] # default native Rust USB (nusb, udevrs) with regex icon name lookup
 
 [[bin]]
 name = "cyme"
