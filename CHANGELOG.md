@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.1.2] - 2024-02-21
 
 Mostly housekeeping and minor fixes. Did a dependency audit and updated some crates. Working towards a hotplug 'watch' subcommand.
 
