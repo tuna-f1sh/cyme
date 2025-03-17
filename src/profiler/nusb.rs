@@ -24,10 +24,8 @@ impl std::fmt::Debug for UsbDevice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "UsbDevice {{ vidpid: {:#04x}:{:#04x}, location: {} }}",
-            self.vidpid.0,
-            self.vidpid.1,
-            self.location.port_path()
+            "UsbDevice {{ vidpid: {:#04x}:{:#04x}, location: {:?} }}",
+            self.vidpid.0, self.vidpid.1, self.location
         )
     }
 }

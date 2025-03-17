@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::convert::TryFrom;
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 pub mod descriptors;
@@ -927,6 +927,12 @@ impl From<EndpointAddress> for u8 {
     }
 }
 
+impl From<EndpointPath> for EndpointAddress {
+    fn from(path: EndpointPath) -> Self {
+        path.endpoint_address()
+    }
+}
+
 impl fmt::Display for EndpointAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "EP {} {}", self.number, self.direction)
@@ -1162,11 +1168,6 @@ impl Configuration {
         for interface in self.interfaces.iter_mut() {
             interface.set_all_expanded(expanded);
         }
-    }
-
-    /// Linux syspath to configuration
-    pub fn path<P: AsRef<Path>>(&self, port_path: P) -> PathBuf {
-        format!("{}:{}.0", port_path.as_ref().display(), self.number).into()
     }
 }
 

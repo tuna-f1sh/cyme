@@ -258,7 +258,7 @@ impl SystemProfile {
             } else {
                 bus.devices = Some(vec![new]);
             }
-        } else if let Some(parent_path) = new.parent_path() {
+        } else if let Some(parent_path) = new.parent_port_path() {
             if let Some(parent) = self.get_node_mut(&parent_path) {
                 if let Some(bd) = parent.devices.as_mut() {
                     bd.push(new);
@@ -885,63 +885,61 @@ impl FromStr for DeviceLocation {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        // TODO support from port path style, check first then fall back
         let location_split: Vec<&str> = s.split('/').collect();
-        let reg = location_split
-            .first()
-            .unwrap()
-            .trim()
-            .trim_start_matches("0x");
+        match (location_split.first(), location_split.get(1)) {
+            (Some(reg), Some(dev)) => {
+                let reg = reg.trim().trim_start_matches("0x");
+                let tree_positions: Vec<u8> = reg
+                    .get(2..)
+                    .unwrap_or("0")
+                    .trim_end_matches('0')
+                    .chars()
+                    .map(|v| v.to_digit(10).unwrap_or(0) as u8)
+                    .collect();
+                // bus no is msb
+                let bus = (u32::from_str_radix(reg, 16)
+                    .map_err(|v| Error::new(ErrorKind::Parsing, &v.to_string()))?
+                    >> 24) as u8;
+                let number = dev.trim().parse::<u8>().map_err(|v| {
+                    Error::new(
+                        ErrorKind::Parsing,
+                        &format!("Invalid device number: {} {}", dev, v),
+                    )
+                })?;
 
-        // get position in tree based on number of non-zero chars or just 0 if not using tree
-        let tree_positions: Vec<u8> = reg
-            .get(2..)
-            .unwrap_or("0")
-            .trim_end_matches('0')
-            .chars()
-            .map(|v| v.to_digit(10).unwrap_or(0) as u8)
-            .collect();
-        // bus no is msb
-        let bus = (u32::from_str_radix(reg, 16)
-            .map_err(|v| Error::new(ErrorKind::Parsing, &v.to_string()))?
-            >> 24) as u8;
-        // port is after / but not always present
-        let number = match location_split.last().unwrap().trim().parse::<u8>() {
-            Ok(v) => v,
-            // port is not always present for some reason so sum tree positions will be unique
-            Err(_) => tree_positions.iter().sum(),
-        };
-
-        Ok(DeviceLocation {
-            bus,
-            tree_positions,
-            number,
-        })
+                Ok(DeviceLocation {
+                    bus,
+                    tree_positions,
+                    number,
+                })
+            }
+            (Some(reg), None) => {
+                let reg = reg.trim().trim_start_matches("0x");
+                let tree_positions: Vec<u8> = reg
+                    .get(2..)
+                    .unwrap_or("0")
+                    .trim_end_matches('0')
+                    .chars()
+                    .map(|v| v.to_digit(10).unwrap_or(0) as u8)
+                    .collect();
+                // bus no is msb
+                let bus = (u32::from_str_radix(reg, 16)
+                    .map_err(|v| Error::new(ErrorKind::Parsing, &v.to_string()))?
+                    >> 24) as u8;
+                // make it up but unique
+                let number = tree_positions.iter().sum();
+                Ok(DeviceLocation {
+                    bus,
+                    tree_positions,
+                    number,
+                })
+            }
+            _ => Err(Error::new(ErrorKind::Parsing, "Invalid location_id")),
+        }
     }
 }
 
 impl DeviceLocation {
-    /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
-    ///
-    /// A wrapper for [`get_port_path`]
-    pub fn port_path(&self) -> String {
-        get_port_path(self.bus, &self.tree_positions)
-    }
-
-    /// Port path of parent
-    ///
-    /// A wrapper for [`get_parent_path`]
-    pub fn parent_path(&self) -> Result<String> {
-        get_parent_path(self.bus, &self.tree_positions)
-    }
-
-    /// Port path of trunk
-    ///
-    /// A wrapper for [`get_trunk_path`]
-    pub fn trunk_path(&self) -> String {
-        get_trunk_path(self.bus, &self.tree_positions)
-    }
-
     /// Linux sysfs name of [`Device`] similar to `port_path` but root_hubs use the USB controller name instead of port
     pub fn sysfs_name(&self) -> String {
         get_sysfs_name(self.bus, &self.tree_positions)
@@ -1272,25 +1270,34 @@ impl Device {
         }
     }
 
+    /// Gets mutable root_hub [`Device`] if it is one
+    pub fn get_root_hub_mut(&mut self) -> Option<&mut Device> {
+        if self.is_root_hub() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
     /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning reference
     pub fn get_node(&self, port_path: &PortPath) -> Option<&Device> {
         if port_path.is_root_hub() {
             return self.get_root_hub();
         }
-        let node_depth = port_path.depth();
+        let search_depth = port_path.depth();
         let current_depth = self.get_depth();
         let self_port_path = self.port_path();
         log::debug!(
-            "Get node at {} with {} ({}); depth {}/{}",
+            "Get node @ {}: exploring {} ({}); depth {}/{}",
             port_path,
             self_port_path,
             self,
             current_depth,
-            node_depth
+            search_depth
         );
 
         // should not be looking for nodes below us unless root
-        match current_depth.cmp(&node_depth) {
+        match current_depth.cmp(&search_depth) {
             Ordering::Greater => return None,
             Ordering::Equal => {
                 if self_port_path == *port_path {
@@ -1319,26 +1326,22 @@ impl Device {
     /// Will panic if `port_path` is not a child device or if it sits shallower than self
     pub fn get_node_mut(&mut self, port_path: &PortPath) -> Option<&mut Device> {
         if port_path.is_root_hub() {
-            if self.is_root_hub() {
-                return Some(self);
-            } else {
-                return None;
-            }
+            return self.get_root_hub_mut();
         }
-        let node_depth = port_path.depth();
+        let search_depth = port_path.depth();
         let current_depth = self.get_depth();
         let self_port_path = self.port_path();
         log::debug!(
-            "Get node at {} with {} ({}); depth {}/{}",
+            "Get node @ {}: exploring {} ({}); depth {}/{}",
             port_path,
             self_port_path,
             self,
             current_depth,
-            node_depth
+            search_depth
         );
 
         // should not be looking for nodes below us
-        match current_depth.cmp(&node_depth) {
+        match current_depth.cmp(&search_depth) {
             Ordering::Greater => return None,
             Ordering::Equal => {
                 if self_port_path == *port_path {
@@ -1446,7 +1449,8 @@ impl Device {
 
     /// Returns position on branch (parent), which is the last number in `tree_positions` also sometimes referred to as port
     pub fn get_branch_position(&self) -> u8 {
-        *self.location_id.tree_positions.last().unwrap_or(&0)
+        // root hub could be [] or [0] but we want to return 0
+        self.location_id.tree_positions.last().copied().unwrap_or(0)
     }
 
     /// The number of [`Device`] deep; branch depth
@@ -1466,12 +1470,12 @@ impl Device {
     }
 
     /// Path of parent [`Device`]; one above in tree
-    pub fn parent_path(&self) -> Option<PortPath> {
+    pub fn parent_port_path(&self) -> Option<PortPath> {
         self.port_path().parent()
     }
 
     /// Path of trunk [`Device`]; first in tree
-    pub fn trunk_path(&self) -> PortPath {
+    pub fn trunk_port_path(&self) -> PortPath {
         self.port_path().trunk()
     }
 
@@ -1486,33 +1490,13 @@ impl Device {
     }
 
     /// Trunk device is first in tree
-    ///
-    /// ```
-    /// // trunk device only 1 position in tree
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
-    /// assert_eq!(d.is_trunk_device(), true);
-    ///
-    /// // not a trunk device
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2] }, ..Default::default() };
-    /// assert_eq!(d.is_trunk_device(), false);
-    /// ```
     pub fn is_trunk_device(&self) -> bool {
         self.location_id.tree_positions.len() == 1
     }
 
     /// Root hub is a specific device on Linux, essentially the bus but sits in device tree because of system_profiler legacy
-    ///
-    /// ```
-    /// // a root hub no tree positions
-    /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
-    /// assert_eq!(d.is_root_hub(), true);
-    ///
-    /// // not a root hub has tree positions
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
-    /// assert_eq!(d.is_root_hub(), false);
-    /// ```
     pub fn is_root_hub(&self) -> bool {
-        self.location_id.tree_positions.is_empty()
+        self.location_id.tree_positions.is_empty() || self.location_id.tree_positions == [0]
     }
 
     /// From lsusb.c: Attempt to get friendly vendor and product names from the udev hwdb. If either or both are not present, instead populate those from the device's own string descriptors

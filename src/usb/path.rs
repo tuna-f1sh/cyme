@@ -378,6 +378,12 @@ impl TryFrom<&str> for PortPath {
     }
 }
 
+impl From<PortPath> for UsbPath {
+    fn from(p: PortPath) -> Self {
+        UsbPath::new(p.to_string())
+    }
+}
+
 impl PortPath {
     /// Create a new port path from bus number and port tree positions
     pub fn new(bus: u8, ports: Vec<u8>) -> Self {
@@ -488,6 +494,8 @@ impl FromStr for DevicePath {
 impl fmt::Display for DevicePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.port_path)?;
+        // only write config.interface if both are present
+        // one does not get path with just config or interface
         if let (Some(config), Some(interface)) = (self.config, self.interface) {
             write!(f, ":{}", config)?;
             write!(f, ".{}", interface)?;
@@ -510,6 +518,22 @@ impl TryFrom<&Path> for DevicePath {
 impl From<DevicePath> for PortPath {
     fn from(d: DevicePath) -> Self {
         d.port_path
+    }
+}
+
+impl From<PortPath> for DevicePath {
+    fn from(p: PortPath) -> Self {
+        Self {
+            port_path: p,
+            config: None,
+            interface: None,
+        }
+    }
+}
+
+impl From<DevicePath> for UsbPath {
+    fn from(d: DevicePath) -> Self {
+        UsbPath::new(d.to_string())
     }
 }
 
@@ -661,8 +685,9 @@ impl EndpointPath {
 ///
 ///  bus-port.port.port ...
 pub fn get_port_path(bus: u8, ports: &[u8]) -> String {
-    if ports.len() <= 1 {
-        get_trunk_path(bus, ports)
+    if ports.is_empty() {
+        // special case for root_hub
+        format!("{:}-0", bus)
     } else {
         format!("{:}-{}", bus, ports.iter().format("."))
     }
@@ -672,16 +697,13 @@ pub fn get_port_path(bus: u8, ports: &[u8]) -> String {
 /// ```
 /// use cyme::usb::get_parent_path;
 ///
-/// assert_eq!(get_parent_path(1, &[1, 3, 4, 5]).unwrap(), String::from("1-1.3.4"));
+/// assert_eq!(get_parent_path(1, &[1, 3, 4, 5]), Some(String::from("1-1.3.4")));
 /// ```
-pub fn get_parent_path(bus: u8, ports: &[u8]) -> error::Result<String> {
+pub fn get_parent_path(bus: u8, ports: &[u8]) -> Option<String> {
     if ports.is_empty() {
-        Err(Error::new(
-            ErrorKind::InvalidArg,
-            "Cannot get parent path for root device",
-        ))
+        None
     } else {
-        Ok(get_port_path(bus, &ports[..ports.len() - 1]))
+        Some(get_port_path(bus, &ports[..ports.len() - 1]))
     }
 }
 
