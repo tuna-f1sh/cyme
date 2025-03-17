@@ -543,7 +543,7 @@ pub fn set_log_level(debug: u8) -> Result<()> {
         })?;
 
     #[cfg(feature = "libusb")]
-    profiler::libusb::set_log_level(args.debug);
+    profiler::libusb::set_log_level(debug);
 
     Ok(())
 }

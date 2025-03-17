@@ -163,9 +163,9 @@ ascii\:"Use only ASCII characters for the output; 0x00 - 0x7F (127 chars)"))' \
 '--icon=[When to print icon blocks]:ICON:((auto\:"Show icon blocks if the \[\`Encoding\`\] supports icons matched in the \[\`icon\:\:IconTheme\`\]"
 always\:"Always print icon blocks if included in configured blocks"
 never\:"Never print icon blocks"))' \
-'--from-json=[Read from json output rather than profiling system]:FROM_JSON:_default' \
-'-c+[Path to user config file to use for custom icons, colours and default settings]:CONFIG:_default' \
-'--config=[Path to user config file to use for custom icons, colours and default settings]:CONFIG:_default' \
+'--from-json=[Read from json output rather than profiling system]:FROM_JSON:_files' \
+'-c+[Path to user config file to use for custom icons, colours and default settings]:CONFIG:_files' \
+'--config=[Path to user config file to use for custom icons, colours and default settings]:CONFIG:_files' \
 '--mask-serials=[Mask serial numbers with '\''*'\'' or random chars]:MASK_SERIALS:((hide\:"Hide with '\''*'\'' char"
 scramble\:"Mask by randomising existing chars"
 replace\:"Mask by replacing length with random chars"))' \

@@ -103,6 +103,7 @@
   "list-root-hubs": false,
   "decimal": false,
   "no-padding": false,
+  "no-color": false,
   "ascii": false,
   "no-icons": false,
   "headings": false,

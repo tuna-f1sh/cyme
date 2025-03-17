@@ -138,8 +138,8 @@ ascii\t'Use only ASCII characters for the output; 0x00 - 0x7F (127 chars)'"
 complete -c cyme -n "__fish_cyme_needs_command" -l icon -d 'When to print icon blocks' -r -f -a "auto\t'Show icon blocks if the [`Encoding`] supports icons matched in the [`icon::IconTheme`]'
 always\t'Always print icon blocks if included in configured blocks'
 never\t'Never print icon blocks'"
-complete -c cyme -n "__fish_cyme_needs_command" -l from-json -d 'Read from json output rather than profiling system' -r
-complete -c cyme -n "__fish_cyme_needs_command" -s c -l config -d 'Path to user config file to use for custom icons, colours and default settings' -r
+complete -c cyme -n "__fish_cyme_needs_command" -l from-json -d 'Read from json output rather than profiling system' -r -F
+complete -c cyme -n "__fish_cyme_needs_command" -s c -l config -d 'Path to user config file to use for custom icons, colours and default settings' -r -F
 complete -c cyme -n "__fish_cyme_needs_command" -l mask-serials -d 'Mask serial numbers with \'*\' or random chars' -r -f -a "hide\t'Hide with \'*\' char'
 scramble\t'Mask by randomising existing chars'
 replace\t'Mask by replacing length with random chars'"
