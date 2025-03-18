@@ -49,6 +49,7 @@ enum WatchEvent {
     DrawDevices,
     DrawEditBlocks,
     WriteEditBlocks,
+    ConfirmSave(String),
     SaveConfig,
     Draw,
     ShowHelp,
@@ -116,6 +117,7 @@ enum State {
     },
     Help,
     Error(String),
+    Confirm(String, WatchEvent),
 }
 
 #[derive(Debug, Clone)]
@@ -496,6 +498,10 @@ pub fn watch_usb_devices(
                 *display.state.lock().unwrap() = State::Error(msg);
                 display.draw()?;
             }
+            Ok(WatchEvent::ConfirmSave(msg)) => {
+                *display.state.lock().unwrap() = State::Confirm(msg, WatchEvent::SaveConfig);
+                display.draw()?;
+            }
             Ok(WatchEvent::Resize) => {
                 // resize needs to redraw devices as columns may have changed but not block editor
                 if !matches!(&*display.state.lock().unwrap(), State::BlockEditor { .. }) {
@@ -712,9 +718,10 @@ impl State {
                 tx.send(WatchEvent::DrawEditBlocks).unwrap();
             }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
-                // TODO save config?
-                log::info!("Save config");
-                tx.send(WatchEvent::SaveConfig).unwrap();
+                tx.send(WatchEvent::ConfirmSave(
+                    "Save current settings to global config?".into(),
+                ))
+                .unwrap();
             }
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
                 tx.send(WatchEvent::ScrollDownHalf).unwrap();
@@ -861,6 +868,16 @@ impl State {
                     //}
                     _ => (),
                 },
+                State::Confirm(_, n) => match (code, modifiers) {
+                    // abort
+                    (KeyCode::Char('n'), _) | (KeyCode::Esc, _) | (KeyCode::Char('N'), _) => {
+                        tx.send(WatchEvent::Esc).unwrap();
+                    }
+                    _ => {
+                        tx.send(n.clone()).unwrap();
+                        tx.send(WatchEvent::Esc).unwrap();
+                    }
+                },
                 // others (error etc.) exit current on any key
                 _ => {
                     tx.send(WatchEvent::Quit).unwrap();
@@ -974,7 +991,8 @@ impl Display {
  [u]/[d], PgUp/PgDn Ctrl+u/Ctrl+d: Scroll page
  [CR]: Expand selected/Accept or commit changes
  [space]: Toggle selected
- Ctrl+c: Exit program
+ [C-s]: Save current display settings to cyme config.json
+ [C-c]: Exit program
  [?]: Show this help
             "#,
             env!("CARGO_PKG_NAME"),
@@ -1050,6 +1068,10 @@ impl Display {
             State::Error(msg) => format!("{:<width$}", msg, width = term_width as usize)
                 .bold()
                 .red()
+                .on_white(),
+            State::Confirm(msg, _) => format!("{:<width$}", format!("{} Y/n", msg), width = term_width as usize)
+                .bold()
+                .black()
                 .on_white(),
             State::BlockEditor { .. } => {
                 let mut footer = String::from(" [Up/Down]-Navigate [Space]-Toggle [<]/[>]-Move [Tab]-Switch [Enter]-Accept [q]-Exit");
