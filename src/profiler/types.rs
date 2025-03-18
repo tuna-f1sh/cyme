@@ -67,7 +67,7 @@ impl SystemProfile {
             .find(|b| b.usb_bus_number == Some(number))
     }
 
-    /// Search for reference to [`Device`] at `port_path` on correct bus number if present else all buses
+    /// Search for reference to [`Device`] at [`PortPath`] on correct bus number if present else all buses
     pub fn get_node(&self, port_path: &PortPath) -> Option<&Device> {
         let bus_no = port_path.bus();
 
@@ -87,7 +87,7 @@ impl SystemProfile {
         None
     }
 
-    /// Search for mutable reference to [`Device`] at `port_path` on correct bus number if present else all buses
+    /// Search for mutable reference to [`Device`] at [`PortPath`] on correct bus number if present else all buses
     pub fn get_node_mut(&mut self, port_path: &PortPath) -> Option<&mut Device> {
         let bus_no = port_path.bus();
 
@@ -141,7 +141,7 @@ impl SystemProfile {
         self.get_node(port_path).and_then(|d| d.get_config(config))
     }
 
-    /// Get mutable reference to [`Configuration`] at `port_path` and `config` if present
+    /// Get mutable reference to [`Configuration`] at [`PortPath`] and `config` if present
     pub fn get_config_mut(
         &mut self,
         port_path: &PortPath,
@@ -570,12 +570,12 @@ impl Bus {
             .and_then(|pp| self.get_node_mut(&pp))
     }
 
-    /// Get reference to [`Configuration`] at `port_path` and `config` if present
+    /// Get reference to [`Configuration`] at [`PortPath`] and `config` if present
     pub fn get_config(&self, port_path: &PortPath, config: u8) -> Option<&Configuration> {
         self.get_node(port_path).and_then(|d| d.get_config(config))
     }
 
-    /// Get mutable reference to [`Configuration`] at `port_path` and `config` if present
+    /// Get mutable reference to [`Configuration`] at [`PortPath`] and `config` if present
     pub fn get_config_mut(
         &mut self,
         port_path: &PortPath,
@@ -585,7 +585,7 @@ impl Bus {
             .and_then(|d| d.get_config_mut(config))
     }
 
-    /// Get reference to [`Interface`] at `port_path`, `config` and `interface` if present
+    /// Get reference to [`Interface`] at [`DevicePath`] if config and interface are present
     pub fn get_interface(&self, device_path: &DevicePath) -> Option<&Interface> {
         if let (Some(config), Some(interface)) = (device_path.config(), device_path.interface()) {
             self.get_node(device_path.port_path())
@@ -595,7 +595,7 @@ impl Bus {
         }
     }
 
-    /// Get mutable reference to [`Interface`] at `port_path`, `config` and `interface` if present
+    /// Get mutable reference to [`Interface`] at [`DevicePath`] if config and interface are present
     pub fn get_interface_mut<P: AsRef<Path>>(
         &mut self,
         device_path: &DevicePath,
@@ -608,7 +608,7 @@ impl Bus {
         }
     }
 
-    /// Get reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
+    /// Get reference to [`Endpoint`] at [`EndpointPath`] if config and interface are present
     pub fn get_endpoint(&self, endpoint_path: &EndpointPath) -> Option<&Endpoint> {
         if let (Some(config), Some(interface), endpoint) = (
             endpoint_path.device_path().config(),
@@ -622,7 +622,7 @@ impl Bus {
         }
     }
 
-    /// Get mutable reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
+    /// Get mutable reference to [`Endpoint`] at [`EndpointPath`] if config and interface are present
     pub fn get_endpoint_mut(&mut self, endpoint_path: &EndpointPath) -> Option<&mut Endpoint> {
         if let (Some(config), Some(interface), endpoint) = (
             endpoint_path.device_path().config(),
@@ -936,13 +936,6 @@ impl FromStr for DeviceLocation {
             }
             _ => Err(Error::new(ErrorKind::Parsing, "Invalid location_id")),
         }
-    }
-}
-
-impl DeviceLocation {
-    /// Linux sysfs name of [`Device`] similar to `port_path` but root_hubs use the USB controller name instead of port
-    pub fn sysfs_name(&self) -> String {
-        get_sysfs_name(self.bus, &self.tree_positions)
     }
 }
 
@@ -1279,7 +1272,7 @@ impl Device {
         }
     }
 
-    /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning reference
+    /// Recursively walk all [`Device`] from self, looking for the one with [`PortPath`] and returning reference
     pub fn get_node(&self, port_path: &PortPath) -> Option<&Device> {
         if port_path.is_root_hub() {
             return self.get_root_hub();
@@ -1321,9 +1314,7 @@ impl Device {
         None
     }
 
-    /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning mutable
-    ///
-    /// Will panic if `port_path` is not a child device or if it sits shallower than self
+    /// Recursively walk all [`Device`] from self, looking for the one with [`PortPath`] and returning mutable
     pub fn get_node_mut(&mut self, port_path: &PortPath) -> Option<&mut Device> {
         if port_path.is_root_hub() {
             return self.get_root_hub_mut();
@@ -1464,17 +1455,22 @@ impl Device {
             || self.class.as_ref().is_some_and(|c| *c == BaseClass::Hub)
     }
 
-    /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
+    /// [`PortPath`] of the [`Device`]
     pub fn port_path(&self) -> PortPath {
         self.location_id.clone().into()
     }
 
-    /// Path of parent [`Device`]; one above in tree
+    /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
+    pub fn sysfs_path(&self) -> PathBuf {
+        UsbPath::from(self.port_path()).to_sysfs_path()
+    }
+
+    /// [`PortPath`] of parent [`Device`]; one above in tree
     pub fn parent_port_path(&self) -> Option<PortPath> {
         self.port_path().parent()
     }
 
-    /// Path of trunk [`Device`]; first in tree
+    /// [`PortPath`] of trunk [`Device`]; first in tree
     pub fn trunk_port_path(&self) -> PortPath {
         self.port_path().trunk()
     }
@@ -1486,7 +1482,7 @@ impl Device {
 
     /// Linux sysfs name of [`Device`]
     pub fn sysfs_name(&self) -> String {
-        self.location_id.sysfs_name()
+        get_sysfs_name(self.location_id.bus, &self.location_id.tree_positions)
     }
 
     /// Trunk device is first in tree
