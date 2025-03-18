@@ -12,6 +12,7 @@ use crossterm::{
 };
 use futures_lite::stream::StreamExt;
 use regex::Regex;
+use std::env;
 use std::io::stdout;
 use std::io::Write;
 use std::sync::{mpsc, Arc, Mutex};
@@ -1358,6 +1359,7 @@ impl Display {
         self.scroll_offset = (self.scroll_offset).min(self.max_offset);
 
         // HACK keep coloredstring in buffer?
+        // horribly inefficient way to strip color
         fn strip_ansi_codes(input: &str) -> String {
             let re = Regex::new(r"\x1B\[[0-9;]*[A-Za-z]").unwrap();
             re.replace_all(input, "").to_string()
@@ -1372,11 +1374,17 @@ impl Display {
         {
             if self.selected_line == Some(i) && !matches!(&*self.state.lock().unwrap(), State::Help)
             {
-                write!(
-                    stdout,
-                    "{}\n\r",
-                    strip_ansi_codes(line).bold().on_bright_purple()
-                )?;
+                let stripped_line = strip_ansi_codes(line);
+                // HACK this could be done more efficiently
+                if self.print_settings.lock().unwrap().colours.is_none()
+                    || env::var("NO_COLOR").is_ok_and(|v| v == "1")
+                {
+                    let mut indicated = stripped_line.chars().skip(1).collect::<String>();
+                    indicated.insert(0, '>');
+                    write!(stdout, "{}\n\r", indicated.bold().on_bright_purple())?;
+                } else {
+                    write!(stdout, "{}\n\r", stripped_line.bold().on_bright_purple())?;
+                }
             } else {
                 write!(stdout, "{}\n\r", line)?;
             }

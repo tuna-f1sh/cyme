@@ -2860,12 +2860,14 @@ impl<W: Write> DisplayWriter<W> {
                     tree.prefix.to_string()
                 };
 
+                let icon_terminator = if device.is_disconnected() {
+                    icon::Icon::TreeDisconnectedTerminator
+                } else {
+                    icon::Icon::TreeDeviceTerminator
+                };
                 let mut terminator = settings.icons.as_ref().map_or(
-                    icon::get_default_tree_icon(
-                        &icon::Icon::TreeDeviceTerminator,
-                        &settings.encoding,
-                    ),
-                    |i| i.get_tree_icon(&icon::Icon::TreeDeviceTerminator, &settings.encoding),
+                    icon::get_default_tree_icon(&icon_terminator, &settings.encoding),
+                    |i| i.get_tree_icon(&icon_terminator, &settings.encoding),
                 );
 
                 // colour tree

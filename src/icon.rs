@@ -57,6 +57,8 @@ pub enum Icon {
     TreeConfigurationTerminator,
     /// Icon printed at end of tree before printing interface
     TreeInterfaceTerminator,
+    /// Icon printed at end of tree before disconnected device
+    TreeDisconnectedTerminator,
     /// Icon for endpoint direction
     Endpoint(Direction),
     /// Icon for profiled state
@@ -87,6 +89,7 @@ impl FromStr for Icon {
                 "tree-device-terminator" => Ok(Icon::TreeDeviceTerminator),
                 "tree-configuration-terminator" => Ok(Icon::TreeConfigurationTerminator),
                 "tree-interface-terminator" => Ok(Icon::TreeInterfaceTerminator),
+                "tree-disconnected-terminator" => Ok(Icon::TreeDisconnectedTerminator),
                 "endpoint_in" => Ok(Icon::Endpoint(Direction::In)),
                 "endpoint_out" => Ok(Icon::Endpoint(Direction::Out)),
                 "profiled" => Ok(Icon::Profiled),
@@ -236,6 +239,7 @@ pub static DEFAULT_UTF8_TREE: LazyLock<HashMap<Icon, &'static str>> = LazyLock::
         (Icon::TreeDeviceTerminator, "\u{25CB}"),        // "○"
         (Icon::TreeConfigurationTerminator, "\u{2022}"), // "•"
         (Icon::TreeInterfaceTerminator, "\u{25E6}"),     // "◦"
+        (Icon::TreeDisconnectedTerminator, "\u{2715}"),  // "×"
         (Icon::Endpoint(Direction::In), "\u{2192}"),     // →
         (Icon::Endpoint(Direction::Out), "\u{2190}"),    // ←
     ])
@@ -249,11 +253,12 @@ pub static DEFAULT_ASCII_TREE: LazyLock<HashMap<Icon, &'static str>> = LazyLock:
         (Icon::TreeCorner, "|__"),
         (Icon::TreeBlank, "   "), // inset like line
         (Icon::TreeBusStart, "/: "),
-        (Icon::TreeDeviceTerminator, "O"),        // null
-        (Icon::TreeConfigurationTerminator, "o"), // null
-        (Icon::TreeInterfaceTerminator, "."),     // null
-        (Icon::Endpoint(Direction::In), ">"),     //
-        (Icon::Endpoint(Direction::Out), "<"),    //
+        (Icon::TreeDeviceTerminator, "O"),
+        (Icon::TreeConfigurationTerminator, "o"),
+        (Icon::TreeInterfaceTerminator, "."),
+        (Icon::TreeDisconnectedTerminator, "X"),
+        (Icon::Endpoint(Direction::In), ">"),
+        (Icon::Endpoint(Direction::Out), "<"),
     ])
 });
 
