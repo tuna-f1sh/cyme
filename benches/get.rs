@@ -29,8 +29,7 @@ pub fn get_interface(c: &mut Criterion) {
     let dump = &DUMP;
     c.bench_function("bench_get_interface", |b| {
         b.iter(|| {
-            let result =
-                dump.get_interface(&DevicePath::new_port_path(20, vec![3, 3], Some(1), Some(5)));
+            let result = dump.get_interface(&DevicePath::new(20, vec![3, 3], Some(1), Some(5)));
             black_box(result);
         });
     });
@@ -40,13 +39,7 @@ pub fn get_endpoint(c: &mut Criterion) {
     let dump = &DUMP;
     c.bench_function("bench_get_endpoint", |b| {
         b.iter(|| {
-            let result = dump.get_endpoint(&EndpointPath::new_device_path(
-                20,
-                vec![3, 3],
-                Some(1),
-                Some(5),
-                0x85,
-            ));
+            let result = dump.get_endpoint(&EndpointPath::new(20, vec![3, 3], 1, 5, 0x85));
             black_box(result);
         });
     });

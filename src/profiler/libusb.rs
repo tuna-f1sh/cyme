@@ -21,10 +21,8 @@ impl<T: libusb::UsbContext> std::fmt::Debug for UsbDevice<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "UsbDevice {{ vidpid: {:#04x}:{:#04x}, location: {} }}",
-            self.vidpid.0,
-            self.vidpid.1,
-            self.location.port_path()
+            "UsbDevice {{ vidpid: {:#04x}:{:#04x}, location: {:?} }}",
+            self.vidpid.0, self.vidpid.1, self.location
         )
     }
 }
@@ -224,6 +222,7 @@ impl LibUsbProfiler {
     fn build_endpoints<T: libusb::UsbContext>(
         &self,
         handle: &UsbDevice<T>,
+        interface_path: &usb::DevicePath,
         interface_desc: &libusb::InterfaceDescriptor,
     ) -> Vec<usb::Endpoint> {
         let mut ret: Vec<usb::Endpoint> = Vec::new();
@@ -245,6 +244,10 @@ impl LibUsbProfiler {
             } else {
                 None
             };
+            let endpoint_path = usb::EndpointPath::new_with_device_path(
+                interface_path.to_owned(),
+                endpoint_desc.number(),
+            );
 
             ret.push(usb::Endpoint {
                 address: usb::EndpointAddress {
@@ -260,6 +263,7 @@ impl LibUsbProfiler {
                 length: endpoint_desc.length(),
                 extra: extra_desc,
                 internal: InternalData::default(),
+                endpoint_path: Some(endpoint_path),
             });
         }
 
@@ -275,12 +279,12 @@ impl LibUsbProfiler {
 
         for interface in config_desc.interfaces() {
             for interface_desc in interface.descriptors() {
-                let path = usb::get_interface_path(
-                    handle.location.bus,
-                    &handle.location.tree_positions,
-                    config_desc.number(),
-                    interface_desc.interface_number(),
+                let device_path = usb::DevicePath::new_with_port_path(
+                    handle.location.clone().into(),
+                    Some(config_desc.number()),
+                    Some(interface_desc.interface_number()),
                 );
+                let path = device_path.to_string();
 
                 let interface = usb::Interface {
                     name: get_sysfs_string(&path, "interface").or_else(|| {
@@ -299,7 +303,7 @@ impl LibUsbProfiler {
                     syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
                     path,
                     length: interface_desc.length(),
-                    endpoints: self.build_endpoints(handle, &interface_desc),
+                    endpoints: self.build_endpoints(handle, &device_path, &interface_desc),
                     extra: self
                         .build_interface_descriptor_extra(
                             handle,
@@ -313,6 +317,7 @@ impl LibUsbProfiler {
                         )
                         .ok(),
                     internal: InternalData::default(),
+                    device_path: Some(device_path),
                 };
 
                 ret.push(interface);
@@ -380,7 +385,7 @@ impl LibUsbProfiler {
                 extra: self
                     .build_config_descriptor_extra(handle, config_desc.extra().to_vec())
                     .ok(),
-                ..Default::default()
+                internal: Default::default(),
             });
         }
 

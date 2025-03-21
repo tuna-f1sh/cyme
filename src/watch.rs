@@ -1,4 +1,5 @@
 //! Watch for USB devices being connected and disconnected.
+use cansi::v3::{categorise_text, construct_text_no_codes};
 use clap::ValueEnum;
 use colored::*;
 use crossterm::{
@@ -11,7 +12,6 @@ use crossterm::{
     terminal,
 };
 use futures_lite::stream::StreamExt;
-use regex::Regex;
 use std::env;
 use std::io::stdout;
 use std::io::Write;
@@ -185,6 +185,11 @@ fn set_filter(field: &FilterField, value: Option<String>, filter: &mut Filter) -
     Ok(())
 }
 
+fn strip_ansi_codes(input: &str) -> String {
+    let decolored = categorise_text(input);
+    construct_text_no_codes(&decolored)
+}
+
 pub fn watch_usb_devices(
     spusb: SystemProfile,
     filter: Option<Filter>,
@@ -283,13 +288,15 @@ pub fn watch_usb_devices(
             Event::Resize(_, _) => {
                 tx.send(WatchEvent::Resize).unwrap();
             }
-            Event::Mouse(MouseEvent { kind, .. }) => {
-                if kind == MouseEventKind::ScrollUp {
+            Event::Mouse(MouseEvent { kind, .. }) => match kind {
+                MouseEventKind::ScrollUp => {
                     tx.send(WatchEvent::ScrollUp(1)).unwrap();
-                } else if kind == MouseEventKind::ScrollDown {
+                }
+                MouseEventKind::ScrollDown => {
                     tx.send(WatchEvent::ScrollDown(1)).unwrap();
                 }
-            }
+                _ => (),
+            },
             Event::Key(key_event) => {
                 input_mode.lock().unwrap().process_key_event(
                     key_event,
@@ -347,7 +354,7 @@ pub fn watch_usb_devices(
                             .iter()
                             .enumerate()
                             .rev()
-                            .skip(display.line_context.len() - display.selected_line.unwrap_or(0))
+                            .skip(display.line_context.len() - display.selected_line.unwrap_or(n))
                             .find(|(_, l)| {
                                 !(matches!(l, LineItem::None) || matches!(l, LineItem::Bus(_)))
                             });
@@ -387,7 +394,7 @@ pub fn watch_usb_devices(
                             .line_context
                             .iter()
                             .enumerate()
-                            .skip(display.selected_line.map_or(0, |i| i + 1))
+                            .skip(display.selected_line.map_or(0, |i| i + n))
                             .find(|(_, l)| {
                                 !(matches!(l, LineItem::None) || matches!(l, LineItem::Bus(_)))
                             });
@@ -680,6 +687,14 @@ impl State {
                 }
                 tx.send(WatchEvent::DrawDevices).unwrap();
             }
+            (KeyCode::Char('a'), _) => {
+                let mut print_settings = print_settings.lock().unwrap();
+                match print_settings.encoding {
+                    Encoding::Glyphs => print_settings.encoding = Encoding::Ascii,
+                    _ => print_settings.encoding = Encoding::Glyphs,
+                }
+                tx.send(WatchEvent::DrawDevices).unwrap();
+            }
             (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => {
                 tx.send(WatchEvent::MoveDown(1)).unwrap();
                 tx.send(WatchEvent::Draw).unwrap();
@@ -901,12 +916,7 @@ impl Display {
                 }
             }
             Some(LineItem::Config(path)) => {
-                if let Some(config) = self
-                    .spusb
-                    .lock()
-                    .unwrap()
-                    .get_config_mut(path.port_path(), path.config().unwrap())
-                {
+                if let Some(config) = self.spusb.lock().unwrap().get_config_mut(&path.0, path.1) {
                     if all {
                         config.set_all_expanded(!config.is_expanded());
                     } else {
@@ -1358,13 +1368,6 @@ impl Display {
         // clamp ensures if output contracts fully scrolled, one doesn't have to *overscroll* back
         self.scroll_offset = (self.scroll_offset).min(self.max_offset);
 
-        // HACK keep coloredstring in buffer?
-        // horribly inefficient way to strip color
-        fn strip_ansi_codes(input: &str) -> String {
-            let re = Regex::new(r"\x1B\[[0-9;]*[A-Za-z]").unwrap();
-            re.replace_all(input, "").to_string()
-        }
-
         // print the visible portion of the buffer
         for (i, line) in lines
             .iter()
@@ -1375,7 +1378,8 @@ impl Display {
             if self.selected_line == Some(i) && !matches!(&*self.state.lock().unwrap(), State::Help)
             {
                 let stripped_line = strip_ansi_codes(line);
-                // HACK this could be done more efficiently
+                // use '>' to indicate selected line if no color
+                // not that pretty but works...
                 if self.print_settings.lock().unwrap().colours.is_none()
                     || env::var("NO_COLOR").is_ok_and(|v| v == "1")
                 {

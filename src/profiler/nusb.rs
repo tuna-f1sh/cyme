@@ -357,6 +357,7 @@ impl NusbProfiler {
     fn build_endpoints(
         &self,
         device: &UsbDevice,
+        interface_path: &usb::DevicePath,
         interface_desc: &nusb::descriptors::InterfaceDescriptor,
     ) -> Vec<usb::Endpoint> {
         let mut ret: Vec<usb::Endpoint> = Vec::new();
@@ -369,6 +370,10 @@ impl NusbProfiler {
                 // no filter as all _should_ be endpoint descriptors at this point
                 .flat_map(|d| d.to_vec())
                 .collect::<Vec<u8>>();
+            let endpoint_path = usb::EndpointPath::new_with_device_path(
+                interface_path.to_owned(),
+                endpoint.address(),
+            );
 
             ret.push(usb::Endpoint {
                 address: usb::EndpointAddress::from(endpoint.address()),
@@ -392,6 +397,7 @@ impl NusbProfiler {
                     .ok()
                     .flatten(),
                 internal: InternalData::default(),
+                endpoint_path: Some(endpoint_path),
             });
         }
 
@@ -407,12 +413,12 @@ impl NusbProfiler {
 
         for interface in config.interfaces() {
             for interface_alt in interface.alt_settings() {
-                let path = usb::get_interface_path(
-                    device.location.bus,
-                    &device.location.tree_positions,
-                    config.configuration_value(),
-                    interface_alt.interface_number(),
+                let device_path = usb::DevicePath::new_with_port_path(
+                    device.location.to_owned().into(),
+                    Some(config.configuration_value()),
+                    Some(interface_alt.interface_number()),
                 );
+                let path = device_path.to_string();
 
                 let interface_desc = interface_alt.descriptors().next().unwrap();
                 let interface_extra = interface_alt
@@ -439,7 +445,7 @@ impl NusbProfiler {
                         .or_else(|| get_udev_driver_name(&path).ok().flatten()),
                     syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
                     length: interface_desc[0],
-                    endpoints: self.build_endpoints(device, &interface_alt),
+                    endpoints: self.build_endpoints(device, &device_path, &interface_alt),
                     extra: self
                         .build_interface_descriptor_extra(
                             device,
@@ -453,6 +459,7 @@ impl NusbProfiler {
                         )
                         .ok(),
                     path: path.to_string(),
+                    device_path: Some(device_path),
                     internal: InternalData::default(),
                 };
 
@@ -508,7 +515,7 @@ impl NusbProfiler {
                 extra: self
                     .build_config_descriptor_extra(device, config_extra)
                     .ok(),
-                ..Default::default()
+                internal: InternalData::default(),
             });
         }
 
@@ -656,7 +663,7 @@ impl NusbProfiler {
                         handle: device,
                         language,
                         vidpid: (device_info.vendor_id(), device_info.product_id()),
-                        location: sp_device.location_id.clone(),
+                        location: sp_device.location_id.to_owned(),
                         timeout: std::time::Duration::from_secs(1),
                     };
 

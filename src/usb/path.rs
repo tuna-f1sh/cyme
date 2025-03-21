@@ -267,7 +267,10 @@ impl UsbPath {
 
     /// Extract the [`EndpointPath`] from path
     pub fn endpoint_path(&self) -> Option<EndpointPath> {
-        Some(EndpointPath::new(self.device_path()?, self.endpoint()?))
+        Some(EndpointPath::new_with_device_path(
+            self.device_path()?,
+            self.endpoint()?,
+        ))
     }
 
     /// Extract endpoint number from path
@@ -317,9 +320,9 @@ impl FromStr for PortPath {
     fn from_str(s: &str) -> error::Result<Self> {
         // root hub
         if let Some(s) = s.strip_prefix("usb") {
-            let num = s
-                .parse::<u8>()
-                .map_err(|_| Error::new(ErrorKind::Parsing, "Invalid root hub bus number"))?;
+            let num = s.parse::<u8>().map_err(|_| {
+                Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {}", s))
+            })?;
             Ok(Self {
                 bus: num,
                 ports: vec![],
@@ -329,16 +332,20 @@ impl FromStr for PortPath {
             let mut parts = s.split(':').next().unwrap_or(s).split('-');
             let bus = parts
                 .next()
-                .ok_or_else(|| Error::new(ErrorKind::Parsing, "No bus number"))?
+                .ok_or_else(|| Error::new(ErrorKind::Parsing, &format!("No bus number: {}", s)))?
                 .parse()
-                .map_err(|_| Error::new(ErrorKind::Parsing, "Invalid bus number"))?;
+                .map_err(|_| {
+                    Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {}", s))
+                })?;
             let ports = parts
                 .next()
-                .ok_or_else(|| Error::new(ErrorKind::Parsing, "No ports"))?
+                .ok_or_else(|| Error::new(ErrorKind::Parsing, &format!("No port number: {}", s)))?
                 .split('.')
                 .map(|p| p.parse())
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| Error::new(ErrorKind::Parsing, "Invalid port number"))?;
+                .map_err(|_| {
+                    Error::new(ErrorKind::Parsing, &format!("Invalid port number: {}", s))
+                })?;
             Ok(Self { bus, ports })
         }
     }
@@ -380,6 +387,12 @@ impl TryFrom<&str> for PortPath {
 
 impl From<PortPath> for UsbPath {
     fn from(p: PortPath) -> Self {
+        UsbPath::new(p.to_string())
+    }
+}
+
+impl From<&PortPath> for UsbPath {
+    fn from(p: &PortPath) -> Self {
         UsbPath::new(p.to_string())
     }
 }
@@ -457,7 +470,14 @@ impl PortPath {
     }
 }
 
+/// Helper type for defining the location of a [`Configuration`]
+///
+/// A configuration does not exist in sysfs without an interface so this is used internally to get a [`Configuration`] from a [`PortPath`]
+pub type ConfigurationPath = (PortPath, u8);
+
 /// Device path to a device
+///
+/// A device path is a port path with optional configuration and interface numbers. It is used to represent a device in sysfs, which could mean a base device or a device interface.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DevicePath {
     port_path: PortPath,
@@ -531,6 +551,12 @@ impl From<PortPath> for DevicePath {
     }
 }
 
+impl From<&DevicePath> for UsbPath {
+    fn from(d: &DevicePath) -> Self {
+        UsbPath::new(d.to_string())
+    }
+}
+
 impl From<DevicePath> for UsbPath {
     fn from(d: DevicePath) -> Self {
         UsbPath::new(d.to_string())
@@ -538,8 +564,12 @@ impl From<DevicePath> for UsbPath {
 }
 
 impl DevicePath {
-    /// Create a new device path from port path, configuration and interface
-    pub fn new(port_path: PortPath, config: Option<u8>, interface: Option<u8>) -> Self {
+    /// Create a new device path from [`PortPath`], configuration and interface
+    pub fn new_with_port_path(
+        port_path: PortPath,
+        config: Option<u8>,
+        interface: Option<u8>,
+    ) -> Self {
         Self {
             port_path,
             config,
@@ -548,12 +578,7 @@ impl DevicePath {
     }
 
     /// Create a new device path from bus number, port tree positions, configuration and interface
-    pub fn new_port_path(
-        bus: u8,
-        ports: Vec<u8>,
-        config: Option<u8>,
-        interface: Option<u8>,
-    ) -> Self {
+    pub fn new(bus: u8, ports: Vec<u8>, config: Option<u8>, interface: Option<u8>) -> Self {
         Self {
             port_path: PortPath::new(bus, ports),
             config,
@@ -567,7 +592,7 @@ impl DevicePath {
     }
 
     /// Get the configuration number
-    pub fn config(&self) -> Option<u8> {
+    pub fn configuration(&self) -> Option<u8> {
         self.config
     }
 
@@ -590,16 +615,26 @@ impl FromStr for EndpointPath {
     fn from_str(s: &str) -> error::Result<Self> {
         let mut parts = s.split("/ep_");
         if let (Some(d), Some(e)) = (parts.next(), parts.next()) {
-            let device_path = d.parse()?;
+            let device_path: DevicePath = d.parse()?;
+            // thought about this but there are actually base device (1-1) with ep_00 so it is valid, just not used by cyme
+            //if device_path.configuration().is_none() || device_path.interface().is_none() {
+            //    return Err(Error::new(
+            //        ErrorKind::Parsing,
+            //        &format!("Invalid endpoint path {}: requires config.interface", s),
+            //    ));
+            //}
             let endpoint = e
                 .parse()
-                .map_err(|_| Error::new(ErrorKind::Parsing, "Invalid endpoint"))?;
+                .map_err(|_| Error::new(ErrorKind::Parsing, &format!("Invalid endpoint: {}", e)))?;
             Ok(Self {
                 device_path,
                 endpoint,
             })
         } else {
-            Err(Error::new(ErrorKind::Parsing, "Invalid endpoint path"))
+            Err(Error::new(
+                ErrorKind::Parsing,
+                &format!("Invalid endpoint path: {}", s),
+            ))
         }
     }
 }
@@ -628,24 +663,31 @@ impl From<EndpointPath> for UsbPath {
 }
 
 impl EndpointPath {
-    /// Create a new endpoint path from device path and endpoint number
-    pub fn new(device_path: DevicePath, endpoint: u8) -> Self {
+    /// Create a new endpoint path from [`PortPath`], configuration, interface and endpoint number
+    pub fn new_with_device_path(device_path: DevicePath, endpoint: u8) -> Self {
         Self {
             device_path,
             endpoint,
         }
     }
 
-    /// Create a new endpoint path from bus number, port tree positions, configuration, interface and endpoint number
-    pub fn new_device_path(
-        bus: u8,
-        ports: Vec<u8>,
-        config: Option<u8>,
-        interface: Option<u8>,
+    /// Create a new endpoint path from [`PortPath`], configuration, interface and endpoint number
+    pub fn new_with_port_path(
+        port_path: PortPath,
+        config: u8,
+        interface: u8,
         endpoint: u8,
     ) -> Self {
         Self {
-            device_path: DevicePath::new_port_path(bus, ports, config, interface),
+            device_path: DevicePath::new_with_port_path(port_path, Some(config), Some(interface)),
+            endpoint,
+        }
+    }
+
+    /// Create a new endpoint path from bus number, port tree positions, configuration, interface and endpoint number
+    pub fn new(bus: u8, ports: Vec<u8>, config: u8, interface: u8, endpoint: u8) -> Self {
+        Self {
+            device_path: DevicePath::new(bus, ports, Some(config), Some(interface)),
             endpoint,
         }
     }

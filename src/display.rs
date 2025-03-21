@@ -18,8 +18,8 @@ use crate::colour;
 use crate::icon;
 use crate::profiler::{Bus, Device, Filter, SystemProfile};
 use crate::usb::{
-    path::DevicePath, path::EndpointPath, path::PortPath, ConfigAttributes, Configuration,
-    DeviceExtra, Direction, Endpoint, Interface,
+    path::ConfigurationPath, path::DevicePath, path::EndpointPath, path::PortPath,
+    ConfigAttributes, Configuration, DeviceExtra, Direction, Endpoint, Interface,
 };
 
 const MAX_VERBOSITY: u8 = 4;
@@ -750,7 +750,11 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .map(|d| d.location_id.tree_positions.len() * 2)
                 .max()
                 .unwrap_or(0),
-            DeviceBlocks::PortPath => d.iter().map(|d| d.port_path().depth()).max().unwrap_or(0),
+            DeviceBlocks::PortPath => d
+                .iter()
+                .map(|d| d.port_path().to_string().len())
+                .max()
+                .unwrap_or(0),
             DeviceBlocks::SysPath => d
                 .iter()
                 .flat_map(|d| {
@@ -2279,7 +2283,7 @@ pub enum LineItem {
     /// Device port path
     Device(PortPath),
     /// Configuration number
-    Config(DevicePath),
+    Config(ConfigurationPath),
     /// Interface name
     Interface(DevicePath),
     /// Endpoint Address
@@ -2368,7 +2372,7 @@ impl<W: Write> DisplayWriter<W> {
         tree: &TreeData,
     ) {
         let endpoints = &interface.endpoints;
-        let device_path = interface.device_path().expect("Invalid interface path");
+        let device_path = interface.device_path();
         let mut pad = if !settings.no_padding {
             let endpoints: Vec<&Endpoint> = endpoints.iter().collect();
             EndpointBlocks::generate_padding(&endpoints)
@@ -2471,7 +2475,7 @@ impl<W: Write> DisplayWriter<W> {
                 self.println(
                     render_value(endpoint, blocks, &pad, settings, max_variable_string_len)
                         .join(" "),
-                    LineItem::Endpoint(EndpointPath::new(
+                    LineItem::Endpoint(EndpointPath::new_with_device_path(
                         device_path.to_owned(),
                         endpoint.address.address,
                     )),
@@ -2495,7 +2499,7 @@ impl<W: Write> DisplayWriter<W> {
                             .join(" "),
                         spaces = (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
                     ),
-                    LineItem::Endpoint(EndpointPath::new(
+                    LineItem::Endpoint(EndpointPath::new_with_device_path(
                         device_path.to_owned(),
                         endpoint.address.address,
                     )),
@@ -2552,7 +2556,7 @@ impl<W: Write> DisplayWriter<W> {
         log::trace!("Print interfaces padding {:?}, tree {:?}", pad, tree);
 
         for (i, interface) in interfaces.iter().enumerate() {
-            let device_path = interface.device_path().expect("Invalid device path");
+            let device_path = interface.device_path();
             // get current prefix based on if last in tree and whether we are within the tree
             if settings.tree {
                 let mut prefix = if tree.depth > 0 {
@@ -2607,7 +2611,7 @@ impl<W: Write> DisplayWriter<W> {
                 self.println(
                     render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
                         .join(" "),
-                    LineItem::Interface(device_path.clone()),
+                    LineItem::Interface(device_path),
                 )
                 .unwrap();
             } else {
@@ -2628,7 +2632,7 @@ impl<W: Write> DisplayWriter<W> {
                             .join(" "),
                         spaces = (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
                     ),
-                    LineItem::Interface(device_path.clone()),
+                    LineItem::Interface(device_path),
                 )
                 .unwrap();
             }
@@ -2756,11 +2760,7 @@ impl<W: Write> DisplayWriter<W> {
                 self.println(
                     render_value(config, blocks.0, &pad, settings, max_variable_string_len)
                         .join(" "),
-                    LineItem::Config(DevicePath::new(
-                        device.port_path(),
-                        Some(config.number),
-                        None,
-                    )),
+                    LineItem::Config((device.port_path(), config.number)),
                 )
                 .unwrap();
             } else {
@@ -2781,11 +2781,7 @@ impl<W: Write> DisplayWriter<W> {
                             .join(" "),
                         spaces = (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
                     ),
-                    LineItem::Config(DevicePath::new(
-                        device.port_path(),
-                        Some(config.number),
-                        None,
-                    )),
+                    LineItem::Config((device.port_path(), config.number)),
                 )
                 .unwrap();
             }
@@ -3341,15 +3337,13 @@ pub fn print(sp_usb: &SystemProfile, settings: &PrintSettings) {
             dw.print_sp_usb(sp_usb, settings);
         }
     } else {
-        {
-            // get a list of all devices
-            let devs = sp_usb.flattened_devices();
+        // get a list of all devices
+        let devs = sp_usb.flattened_devices();
 
-            if settings.json {
-                println!("{}", serde_json::to_string_pretty(&devs).unwrap());
-            } else {
-                dw.print_flattened_devices(&devs, settings);
-            }
+        if settings.json {
+            println!("{}", serde_json::to_string_pretty(&devs).unwrap());
+        } else {
+            dw.print_flattened_devices(&devs, settings);
         }
     }
 }

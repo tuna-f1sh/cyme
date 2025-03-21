@@ -962,6 +962,10 @@ pub struct Endpoint {
     pub extra: Option<Vec<Descriptor>>,
     #[serde(skip)]
     pub(crate) internal: InternalData,
+    /// Option because of legacy json de compatibility
+    ///
+    /// Allows lookup back to parent
+    pub(crate) endpoint_path: Option<EndpointPath>,
 }
 
 /// Deprecated alias for [`Endpoint`]
@@ -1000,14 +1004,14 @@ impl Endpoint {
         self.internal.expanded = !self.internal.expanded;
     }
 
-    /// Path to endpoint in sysfs
-    pub fn path(&self, interface_path: &str) -> String {
-        format!("{}/ep_{}", interface_path, u8::from(self.address))
+    /// Get [`EndpointPath`] for endpoint which includes [`DevicePath`]
+    pub fn endpoint_path(&self) -> Option<&EndpointPath> {
+        self.endpoint_path.as_ref()
     }
 }
 
 /// Interface within a [`Configuration`]
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Interface {
     /// Name from descriptor
     pub name: Option<String>,
@@ -1040,6 +1044,10 @@ pub struct Interface {
     pub extra: Option<Vec<Descriptor>>,
     #[serde(skip)]
     pub(crate) internal: InternalData,
+    /// [`DevicePath`] to interface
+    ///
+    /// This is option for legacy json de compatibility. In hindsight this would have been used and syspath, path derived from it
+    pub(crate) device_path: Option<DevicePath>,
 }
 
 /// Deprecated alias for [`Interface`]
@@ -1047,14 +1055,28 @@ pub struct Interface {
 pub type USBInterface = Interface;
 
 impl Interface {
-    /// Linux syspath to interface
-    pub fn path(&self) -> PathBuf {
-        self.path.clone().into()
+    /// Linux sysfs name of [`Interface`]
+    ///
+    /// The port path with config.interface, for example '1-1.2:1.0'
+    pub fn sysfs_name(&self) -> String {
+        self.path.to_owned()
     }
 
-    /// [`DevicePath`] for interface
-    pub fn device_path(&self) -> Result<DevicePath, Error> {
-        DevicePath::try_from(self.path().as_path())
+    /// Linux sysfs path to [`Interface`]
+    ///
+    /// The [`sysfs_name`] with the sysfs path prefix from udev on Linux, else None
+    pub fn sysfs_path(&self) -> Option<PathBuf> {
+        self.syspath.as_ref().map(PathBuf::from)
+    }
+
+    /// [`DevicePath`] to interface
+    pub fn device_path(&self) -> DevicePath {
+        // will be present unless legacy json import
+        if let Some(ref path) = self.device_path {
+            path.to_owned()
+        } else {
+            DevicePath::from_str(&self.path).expect("Invalid device path for interface!")
+        }
     }
 
     /// Name of class from Linux USB IDs repository
@@ -1100,7 +1122,7 @@ impl Interface {
 }
 
 /// Devices can have multiple configurations, each with different attributes and interfaces
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Configuration {
     /// Name from string descriptor
     pub name: String,
@@ -1168,6 +1190,21 @@ impl Configuration {
         for interface in self.interfaces.iter_mut() {
             interface.set_all_expanded(expanded);
         }
+    }
+
+    /// Gets the [`DevicePath`] for the configuration based on first [`Interface`]
+    pub fn device_path(&self) -> Option<DevicePath> {
+        self.interfaces.first().map(|i| i.device_path())
+    }
+
+    /// Gets the [`PortPath`] for the configuration based on first [`Interface`]
+    pub fn parent_port_path(&self) -> Option<PortPath> {
+        self.device_path().map(|p| p.port_path().to_owned())
+    }
+
+    /// Gets the [`ConfigurationPath`] for the configuration based on [`Self::parent_port_path`] and configuration number
+    pub fn configuration_path(&self) -> Option<ConfigurationPath> {
+        self.parent_port_path().map(|p| (p, self.number))
     }
 }
 

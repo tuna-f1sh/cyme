@@ -151,9 +151,11 @@ impl SystemProfile {
             .and_then(|d| d.get_config_mut(config))
     }
 
-    /// Get reference to [`Interface`] at `port_path`, `config` and `interface` if present
+    /// Get reference to [`Interface`] at `port_path`, `config` and `interface` if present in [`DevicePath`]
     pub fn get_interface(&self, device_path: &DevicePath) -> Option<&Interface> {
-        if let (Some(config), Some(interface)) = (device_path.config(), device_path.interface()) {
+        if let (Some(config), Some(interface)) =
+            (device_path.configuration(), device_path.interface())
+        {
             self.get_node(device_path.port_path())
                 .and_then(|d| d.get_interface(config, interface))
         } else {
@@ -161,9 +163,11 @@ impl SystemProfile {
         }
     }
 
-    /// Get mutable reference to [`Interface`] at `port_path`, `config` and `interface` if present
+    /// Get mutable reference to [`Interface`] at `port_path`, `config` and `interface` if present in [`DevicePath`]
     pub fn get_interface_mut(&mut self, device_path: &DevicePath) -> Option<&mut Interface> {
-        if let (Some(config), Some(interface)) = (device_path.config(), device_path.interface()) {
+        if let (Some(config), Some(interface)) =
+            (device_path.configuration(), device_path.interface())
+        {
             self.get_node_mut(device_path.port_path())
                 .and_then(|d| d.get_interface_mut(config, interface))
         } else {
@@ -174,7 +178,7 @@ impl SystemProfile {
     /// Get reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
     pub fn get_endpoint(&self, endpoint_path: &EndpointPath) -> Option<&Endpoint> {
         if let (Some(config), Some(interface), endpoint) = (
-            endpoint_path.device_path().config(),
+            endpoint_path.device_path().configuration(),
             endpoint_path.device_path().interface(),
             endpoint_path.endpoint(),
         ) {
@@ -188,7 +192,7 @@ impl SystemProfile {
     /// Get mutable reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
     pub fn get_endpoint_mut(&mut self, endpoint_path: &EndpointPath) -> Option<&mut Endpoint> {
         if let (Some(config), Some(interface), endpoint) = (
-            endpoint_path.device_path().config(),
+            endpoint_path.device_path().configuration(),
             endpoint_path.device_path().interface(),
             endpoint_path.endpoint(),
         ) {
@@ -490,7 +494,7 @@ impl Bus {
     /// sysfs style path to bus interface
     pub fn interface(&self) -> Option<DevicePath> {
         self.get_bus_number()
-            .map(|n| DevicePath::new_port_path(n, vec![0], Some(1), Some(0)))
+            .map(|n| DevicePath::new(n, vec![0], Some(1), Some(0)))
     }
 
     /// Remove the root_hub if existing in bus
@@ -587,7 +591,9 @@ impl Bus {
 
     /// Get reference to [`Interface`] at [`DevicePath`] if config and interface are present
     pub fn get_interface(&self, device_path: &DevicePath) -> Option<&Interface> {
-        if let (Some(config), Some(interface)) = (device_path.config(), device_path.interface()) {
+        if let (Some(config), Some(interface)) =
+            (device_path.configuration(), device_path.interface())
+        {
             self.get_node(device_path.port_path())
                 .and_then(|d| d.get_interface(config, interface))
         } else {
@@ -600,7 +606,9 @@ impl Bus {
         &mut self,
         device_path: &DevicePath,
     ) -> Option<&mut Interface> {
-        if let (Some(config), Some(interface)) = (device_path.config(), device_path.interface()) {
+        if let (Some(config), Some(interface)) =
+            (device_path.configuration(), device_path.interface())
+        {
             self.get_node_mut(device_path.port_path())
                 .and_then(|d| d.get_interface_mut(config, interface))
         } else {
@@ -611,7 +619,7 @@ impl Bus {
     /// Get reference to [`Endpoint`] at [`EndpointPath`] if config and interface are present
     pub fn get_endpoint(&self, endpoint_path: &EndpointPath) -> Option<&Endpoint> {
         if let (Some(config), Some(interface), endpoint) = (
-            endpoint_path.device_path().config(),
+            endpoint_path.device_path().configuration(),
             endpoint_path.device_path().interface(),
             endpoint_path.endpoint(),
         ) {
@@ -625,7 +633,7 @@ impl Bus {
     /// Get mutable reference to [`Endpoint`] at [`EndpointPath`] if config and interface are present
     pub fn get_endpoint_mut(&mut self, endpoint_path: &EndpointPath) -> Option<&mut Endpoint> {
         if let (Some(config), Some(interface), endpoint) = (
-            endpoint_path.device_path().config(),
+            endpoint_path.device_path().configuration(),
             endpoint_path.device_path().interface(),
             endpoint_path.endpoint(),
         ) {
