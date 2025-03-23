@@ -2412,6 +2412,14 @@ impl<W: Write> DisplayWriter<W> {
         }
 
         for (i, endpoint) in endpoints.iter().enumerate() {
+            let line_item = if let Some(dp) = device_path.as_ref() {
+                LineItem::Endpoint(EndpointPath::new_with_device_path(
+                    dp.to_owned(),
+                    endpoint.address.address,
+                ))
+            } else {
+                LineItem::None
+            };
             // get current prefix based on if last in tree and whether we are within the tree
             if settings.tree {
                 let mut prefix = if tree.depth > 0 {
@@ -2475,10 +2483,7 @@ impl<W: Write> DisplayWriter<W> {
                 self.println(
                     render_value(endpoint, blocks, &pad, settings, max_variable_string_len)
                         .join(" "),
-                    LineItem::Endpoint(EndpointPath::new_with_device_path(
-                        device_path.to_owned(),
-                        endpoint.address.address,
-                    )),
+                    line_item,
                 )
                 .unwrap();
             } else {
@@ -2499,10 +2504,7 @@ impl<W: Write> DisplayWriter<W> {
                             .join(" "),
                         spaces = (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
                     ),
-                    LineItem::Endpoint(EndpointPath::new_with_device_path(
-                        device_path.to_owned(),
-                        endpoint.address.address,
-                    )),
+                    line_item,
                 )
                 .unwrap();
             }
@@ -2556,7 +2558,11 @@ impl<W: Write> DisplayWriter<W> {
         log::trace!("Print interfaces padding {:?}, tree {:?}", pad, tree);
 
         for (i, interface) in interfaces.iter().enumerate() {
-            let device_path = interface.device_path();
+            let line_item = if let Some(dp) = interface.device_path() {
+                LineItem::Interface(dp)
+            } else {
+                LineItem::None
+            };
             // get current prefix based on if last in tree and whether we are within the tree
             if settings.tree {
                 let mut prefix = if tree.depth > 0 {
@@ -2611,7 +2617,7 @@ impl<W: Write> DisplayWriter<W> {
                 self.println(
                     render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
                         .join(" "),
-                    LineItem::Interface(device_path),
+                    line_item,
                 )
                 .unwrap();
             } else {
@@ -2632,7 +2638,7 @@ impl<W: Write> DisplayWriter<W> {
                             .join(" "),
                         spaces = (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
                     ),
-                    LineItem::Interface(device_path),
+                    line_item,
                 )
                 .unwrap();
             }

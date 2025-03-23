@@ -1005,8 +1005,8 @@ impl Endpoint {
     }
 
     /// Get [`EndpointPath`] for endpoint which includes [`DevicePath`]
-    pub fn endpoint_path(&self) -> Option<&EndpointPath> {
-        self.endpoint_path.as_ref()
+    pub fn endpoint_path(&self) -> Option<EndpointPath> {
+        self.endpoint_path.to_owned()
     }
 }
 
@@ -1070,12 +1070,14 @@ impl Interface {
     }
 
     /// [`DevicePath`] to interface
-    pub fn device_path(&self) -> DevicePath {
+    ///
+    /// Option for legacy json deserialize compatibility - should be present in > 2.1.3. Will attempt to parse from `path` if not present
+    pub fn device_path(&self) -> Option<DevicePath> {
         // will be present unless legacy json import
         if let Some(ref path) = self.device_path {
-            path.to_owned()
+            Some(path.to_owned())
         } else {
-            DevicePath::from_str(&self.path).expect("Invalid device path for interface!")
+            DevicePath::from_str(&self.path).ok()
         }
     }
 
@@ -1193,8 +1195,8 @@ impl Configuration {
     }
 
     /// Gets the [`DevicePath`] for the configuration based on first [`Interface`]
-    pub fn device_path(&self) -> Option<DevicePath> {
-        self.interfaces.first().map(|i| i.device_path())
+    fn device_path(&self) -> Option<DevicePath> {
+        self.interfaces.first().map(|i| i.device_path()).flatten()
     }
 
     /// Gets the [`PortPath`] for the configuration based on first [`Interface`]
