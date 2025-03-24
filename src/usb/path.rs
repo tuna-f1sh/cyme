@@ -262,7 +262,13 @@ impl UsbPath {
     }
 
     fn endpoint_path_str(&self) -> Option<&str> {
-        self.path().file_name().and_then(|f| f.to_str())
+        let path_str = self.path().to_str()?;
+        let index = path_str.rfind("ep_")?;
+        let end_index = path_str[index..]
+            .find('/')
+            .map(|f| f.saturating_add(index))
+            .unwrap_or(path_str.len());
+        Some(&path_str[index..end_index])
     }
 
     /// Extract the [`EndpointPath`] from path
@@ -483,6 +489,7 @@ pub struct DevicePath {
     port_path: PortPath,
     config: Option<u8>,
     interface: Option<u8>,
+    alt_setting: Option<u8>,
 }
 
 impl FromStr for DevicePath {
@@ -501,11 +508,13 @@ impl FromStr for DevicePath {
                 port_path,
                 config: Some(config),
                 interface: Some(interface),
+                alt_setting: None,
             }),
             _ => Ok(Self {
                 port_path,
                 config: None,
                 interface: None,
+                alt_setting: None,
             }),
         }
     }
@@ -547,6 +556,7 @@ impl From<PortPath> for DevicePath {
             port_path: p,
             config: None,
             interface: None,
+            alt_setting: None,
         }
     }
 }
@@ -569,20 +579,29 @@ impl DevicePath {
         port_path: PortPath,
         config: Option<u8>,
         interface: Option<u8>,
+        alt_setting: Option<u8>,
     ) -> Self {
         Self {
             port_path,
             config,
             interface,
+            alt_setting,
         }
     }
 
     /// Create a new device path from bus number, port tree positions, configuration and interface
-    pub fn new(bus: u8, ports: Vec<u8>, config: Option<u8>, interface: Option<u8>) -> Self {
+    pub fn new(
+        bus: u8,
+        ports: Vec<u8>,
+        config: Option<u8>,
+        interface: Option<u8>,
+        alt_setting: Option<u8>,
+    ) -> Self {
         Self {
             port_path: PortPath::new(bus, ports),
             config,
             interface,
+            alt_setting,
         }
     }
 
@@ -599,6 +618,18 @@ impl DevicePath {
     /// Get the interface number
     pub fn interface(&self) -> Option<u8> {
         self.interface
+    }
+
+    /// Get the interface alternate setting
+    ///
+    /// If not set, it defaults to 0
+    pub fn alt_setting(&self) -> u8 {
+        self.alt_setting.unwrap_or(0)
+    }
+
+    /// Set the interface alternate setting
+    pub fn set_alt_setting(&mut self, alt: u8) {
+        self.alt_setting = Some(alt);
     }
 }
 
@@ -676,18 +707,37 @@ impl EndpointPath {
         port_path: PortPath,
         config: u8,
         interface: u8,
+        alt_setting: u8,
         endpoint: u8,
     ) -> Self {
         Self {
-            device_path: DevicePath::new_with_port_path(port_path, Some(config), Some(interface)),
+            device_path: DevicePath::new_with_port_path(
+                port_path,
+                Some(config),
+                Some(interface),
+                Some(alt_setting),
+            ),
             endpoint,
         }
     }
 
     /// Create a new endpoint path from bus number, port tree positions, configuration, interface and endpoint number
-    pub fn new(bus: u8, ports: Vec<u8>, config: u8, interface: u8, endpoint: u8) -> Self {
+    pub fn new(
+        bus: u8,
+        ports: Vec<u8>,
+        config: u8,
+        interface: u8,
+        alt_setting: u8,
+        endpoint: u8,
+    ) -> Self {
         Self {
-            device_path: DevicePath::new(bus, ports, Some(config), Some(interface)),
+            device_path: DevicePath::new(
+                bus,
+                ports,
+                Some(config),
+                Some(interface),
+                Some(alt_setting),
+            ),
             endpoint,
         }
     }

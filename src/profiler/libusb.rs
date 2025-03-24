@@ -283,6 +283,7 @@ impl LibUsbProfiler {
                     handle.location.clone().into(),
                     Some(config_desc.number()),
                     Some(interface_desc.interface_number()),
+                    Some(interface_desc.setting_number()),
                 );
                 let path = device_path.to_string();
 

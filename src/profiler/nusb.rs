@@ -417,6 +417,7 @@ impl NusbProfiler {
                     device.location.to_owned().into(),
                     Some(config.configuration_value()),
                     Some(interface_alt.interface_number()),
+                    Some(interface_alt.alternate_setting()),
                 );
                 let path = device_path.to_string();
 

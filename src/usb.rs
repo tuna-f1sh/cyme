@@ -1028,7 +1028,7 @@ pub struct Interface {
     pub sub_class: u8,
     /// Prototol code for interface provided by USB IF
     pub protocol: u8,
-    /// Interfaces can have the same number but an alternate settings defined here
+    /// Interfaces can have the same number/path but an alternate setting defined here
     pub alt_setting: u8,
     /// Driver obtained from udev on Linux only
     pub driver: Option<String>,
@@ -1196,7 +1196,7 @@ impl Configuration {
 
     /// Gets the [`DevicePath`] for the configuration based on first [`Interface`]
     fn device_path(&self) -> Option<DevicePath> {
-        self.interfaces.first().map(|i| i.device_path()).flatten()
+        self.interfaces.first().and_then(|i| i.device_path())
     }
 
     /// Gets the [`PortPath`] for the configuration based on first [`Interface`]

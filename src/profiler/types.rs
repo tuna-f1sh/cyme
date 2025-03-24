@@ -157,7 +157,7 @@ impl SystemProfile {
             (device_path.configuration(), device_path.interface())
         {
             self.get_node(device_path.port_path())
-                .and_then(|d| d.get_interface(config, interface))
+                .and_then(|d| d.get_interface(config, interface, device_path.alt_setting()))
         } else {
             None
         }
@@ -169,7 +169,7 @@ impl SystemProfile {
             (device_path.configuration(), device_path.interface())
         {
             self.get_node_mut(device_path.port_path())
-                .and_then(|d| d.get_interface_mut(config, interface))
+                .and_then(|d| d.get_interface_mut(config, interface, device_path.alt_setting()))
         } else {
             None
         }
@@ -183,7 +183,14 @@ impl SystemProfile {
             endpoint_path.endpoint(),
         ) {
             self.get_node(endpoint_path.device_path().port_path())
-                .and_then(|d| d.get_endpoint(config, interface, endpoint))
+                .and_then(|d| {
+                    d.get_endpoint(
+                        config,
+                        interface,
+                        endpoint_path.device_path().alt_setting(),
+                        endpoint,
+                    )
+                })
         } else {
             None
         }
@@ -197,7 +204,14 @@ impl SystemProfile {
             endpoint_path.endpoint(),
         ) {
             self.get_node_mut(endpoint_path.device_path().port_path())
-                .and_then(|d| d.get_endpoint_mut(config, interface, endpoint))
+                .and_then(|d| {
+                    d.get_endpoint_mut(
+                        config,
+                        interface,
+                        endpoint_path.device_path().alt_setting(),
+                        endpoint,
+                    )
+                })
         } else {
             None
         }
@@ -494,7 +508,7 @@ impl Bus {
     /// sysfs style path to bus interface
     pub fn interface(&self) -> Option<DevicePath> {
         self.get_bus_number()
-            .map(|n| DevicePath::new(n, vec![0], Some(1), Some(0)))
+            .map(|n| DevicePath::new(n, vec![0], Some(1), Some(0), None))
     }
 
     /// Remove the root_hub if existing in bus
@@ -595,22 +609,19 @@ impl Bus {
             (device_path.configuration(), device_path.interface())
         {
             self.get_node(device_path.port_path())
-                .and_then(|d| d.get_interface(config, interface))
+                .and_then(|d| d.get_interface(config, interface, device_path.alt_setting()))
         } else {
             None
         }
     }
 
     /// Get mutable reference to [`Interface`] at [`DevicePath`] if config and interface are present
-    pub fn get_interface_mut<P: AsRef<Path>>(
-        &mut self,
-        device_path: &DevicePath,
-    ) -> Option<&mut Interface> {
+    pub fn get_interface_mut(&mut self, device_path: &DevicePath) -> Option<&mut Interface> {
         if let (Some(config), Some(interface)) =
             (device_path.configuration(), device_path.interface())
         {
             self.get_node_mut(device_path.port_path())
-                .and_then(|d| d.get_interface_mut(config, interface))
+                .and_then(|d| d.get_interface_mut(config, interface, device_path.alt_setting()))
         } else {
             None
         }
@@ -624,7 +635,14 @@ impl Bus {
             endpoint_path.endpoint(),
         ) {
             self.get_node(endpoint_path.device_path().port_path())
-                .and_then(|d| d.get_endpoint(config, interface, endpoint))
+                .and_then(|d| {
+                    d.get_endpoint(
+                        config,
+                        interface,
+                        endpoint_path.device_path().alt_setting(),
+                        endpoint,
+                    )
+                })
         } else {
             None
         }
@@ -638,7 +656,14 @@ impl Bus {
             endpoint_path.endpoint(),
         ) {
             self.get_node_mut(endpoint_path.device_path().port_path())
-                .and_then(|d| d.get_endpoint_mut(config, interface, endpoint))
+                .and_then(|d| {
+                    d.get_endpoint_mut(
+                        config,
+                        interface,
+                        endpoint_path.device_path().alt_setting(),
+                        endpoint,
+                    )
+                })
         } else {
             None
         }
@@ -1407,15 +1432,26 @@ impl Device {
     }
 
     /// Get the [`Interface`] with number `interface` from the device's extra data
-    pub fn get_interface(&self, config: u8, interface: u8) -> Option<&Interface> {
-        self.get_config(config)
-            .and_then(|c| c.interfaces.iter().find(|i| i.number == interface))
+    pub fn get_interface(&self, config: u8, interface: u8, alt_setting: u8) -> Option<&Interface> {
+        self.get_config(config).and_then(|c| {
+            c.interfaces
+                .iter()
+                .find(|i| i.number == interface && i.alt_setting == alt_setting)
+        })
     }
 
     /// Get the mutable [`Interface`] with number `interface` from the device's extra data
-    pub fn get_interface_mut(&mut self, config: u8, interface: u8) -> Option<&mut Interface> {
-        self.get_config_mut(config)
-            .and_then(|c| c.interfaces.iter_mut().find(|i| i.number == interface))
+    pub fn get_interface_mut(
+        &mut self,
+        config: u8,
+        interface: u8,
+        alt_setting: u8,
+    ) -> Option<&mut Interface> {
+        self.get_config_mut(config).and_then(|c| {
+            c.interfaces
+                .iter_mut()
+                .find(|i| i.number == interface && i.alt_setting == alt_setting)
+        })
     }
 
     /// Get the [`Endpoint`] with number `endpoint` from the device's extra data
@@ -1423,13 +1459,15 @@ impl Device {
         &self,
         config: u8,
         interface: u8,
+        alt_setting: u8,
         endpoint_address: u8,
     ) -> Option<&Endpoint> {
-        self.get_interface(config, interface).and_then(|i| {
-            i.endpoints
-                .iter()
-                .find(|e| e.address.address == endpoint_address)
-        })
+        self.get_interface(config, interface, alt_setting)
+            .and_then(|i| {
+                i.endpoints
+                    .iter()
+                    .find(|e| e.address.address == endpoint_address)
+            })
     }
 
     /// Get the mutable [`Endpoint`] with number `endpoint` from the device's extra data
@@ -1437,13 +1475,15 @@ impl Device {
         &mut self,
         config: u8,
         interface: u8,
+        alt_setting: u8,
         endpoint_address: u8,
     ) -> Option<&mut Endpoint> {
-        self.get_interface_mut(config, interface).and_then(|i| {
-            i.endpoints
-                .iter_mut()
-                .find(|e| e.address.address == endpoint_address)
-        })
+        self.get_interface_mut(config, interface, alt_setting)
+            .and_then(|i| {
+                i.endpoints
+                    .iter_mut()
+                    .find(|e| e.address.address == endpoint_address)
+            })
     }
 
     /// Returns position on branch (parent), which is the last number in `tree_positions` also sometimes referred to as port
