@@ -312,23 +312,26 @@ pub fn watch_usb_devices(
     // manages the display and listens for events
     loop {
         match rx.recv() {
-            // TODO maybe check if selected line off screen and move?
             Ok(WatchEvent::ScrollUp(n)) => {
                 display.scroll_offset = display.scroll_offset.saturating_sub(n);
+                display.scroll_check_selected_visable();
             }
             Ok(WatchEvent::ScrollUpHalf) => {
                 display.scroll_offset = display
                     .scroll_offset
                     .saturating_sub(display.available_rows / 2);
+                display.scroll_check_selected_visable();
             }
             Ok(WatchEvent::ScrollUpPage) => {
                 display.scroll_offset =
                     display.scroll_offset.saturating_sub(display.available_rows);
+                display.scroll_check_selected_visable();
             }
             Ok(WatchEvent::ScrollDown(n)) => {
                 display.scroll_offset = display
                     .max_offset
                     .min(display.scroll_offset.saturating_add(n));
+                display.scroll_check_selected_visable();
             }
             Ok(WatchEvent::ScrollDownHalf) => {
                 display.scroll_offset = display.max_offset.min(
@@ -336,88 +339,31 @@ pub fn watch_usb_devices(
                         .scroll_offset
                         .saturating_add(display.available_rows / 2),
                 );
+                display.scroll_check_selected_visable();
             }
             Ok(WatchEvent::ScrollDownPage) => {
                 display.scroll_offset = display
                     .max_offset
                     .min(display.scroll_offset.saturating_add(display.max_offset));
+                display.scroll_check_selected_visable();
             }
             Ok(WatchEvent::MoveUp(n)) => {
-                match &mut *display.state.lock().unwrap() {
-                    State::BlockEditor { selected_index, .. } => {
-                        *selected_index = selected_index.saturating_sub(n);
-                        display.selected_line = Some(*selected_index);
-                    }
-                    State::Normal => {
-                        let li = display
-                            .line_context
-                            .iter()
-                            .enumerate()
-                            .rev()
-                            .skip(display.line_context.len() - display.selected_line.unwrap_or(n))
-                            .find(|(_, l)| {
-                                !(matches!(l, LineItem::None) || matches!(l, LineItem::Bus(_)))
-                            });
-                        if let Some((i, item)) = li {
-                            display.selected_line = Some(i);
-                            display.selected_item = Some(item.clone());
-                        }
-                    }
-                    _ => (),
-                };
-
-                log::debug!(
-                    "Selected line: {:?} ({:?})",
-                    display.selected_line,
-                    display.selected_item
-                );
-
+                display.move_up(n);
                 if let Some(l) = display.selected_line {
-                    while l < display.scroll_offset {
-                        display.scroll_offset = display.scroll_offset.saturating_sub(1);
+                    if l < display.scroll_offset {
+                        display.scroll_offset = display
+                            .scroll_offset
+                            .saturating_sub(display.scroll_offset - l);
                     }
                 }
             }
             Ok(WatchEvent::MoveDown(n)) => {
-                match &mut *display.state.lock().unwrap() {
-                    State::BlockEditor {
-                        selected_index,
-                        blocks,
-                        ..
-                    } => {
-                        let select_max = blocks.len() - 1;
-                        *selected_index = selected_index.saturating_add(n).min(select_max);
-                        display.selected_line = Some(*selected_index);
-                    }
-                    State::Normal => {
-                        let li = display
-                            .line_context
-                            .iter()
-                            .enumerate()
-                            .skip(display.selected_line.map_or(0, |i| i + n))
-                            .find(|(_, l)| {
-                                !(matches!(l, LineItem::None) || matches!(l, LineItem::Bus(_)))
-                            });
-                        if let Some((i, item)) = li {
-                            display.selected_line = Some(i);
-                            display.selected_item = Some(item.clone());
-                        }
-                    }
-                    _ => (),
-                }
-
-                log::debug!(
-                    "Selected line: {:?} ({:?})",
-                    display.selected_line,
-                    display.selected_item
-                );
-
+                display.move_down(n);
                 if let Some(l) = display.selected_line {
-                    // what could go wrong...
-                    while l >= display.scroll_offset + display.available_rows {
-                        display.scroll_offset = display
-                            .max_offset
-                            .min(display.scroll_offset.saturating_add(1));
+                    if l >= display.scroll_offset + display.available_rows {
+                        display.scroll_offset = display.scroll_offset.saturating_add(
+                            l - (display.scroll_offset + display.available_rows) + 1,
+                        );
                     }
                 }
             }
@@ -946,6 +892,86 @@ impl Display {
         let print_settings = self.print_settings.lock().unwrap();
         let mut spusb = self.spusb.lock().unwrap();
         cyme::display::prepare(&mut spusb, Some(&self.filter), &print_settings);
+    }
+
+    fn move_up(&mut self, n: usize) {
+        match &mut *self.state.lock().unwrap() {
+            State::BlockEditor { selected_index, .. } => {
+                *selected_index = selected_index.saturating_sub(n);
+                self.selected_line = Some(*selected_index);
+            }
+            State::Normal => {
+                let li = self
+                    .line_context
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .skip(
+                        self.line_context.len().saturating_sub(
+                            self.selected_line
+                                .unwrap_or(n)
+                                .saturating_sub(n.saturating_sub(1)),
+                        ),
+                    )
+                    .find(|(_, l)| !(matches!(l, LineItem::None) || matches!(l, LineItem::Bus(_))));
+                if let Some((i, item)) = li {
+                    self.selected_line = Some(i);
+                    self.selected_item = Some(item.clone());
+                }
+            }
+            _ => (),
+        };
+
+        log::debug!(
+            "Selected line: {:?} ({:?})",
+            self.selected_line,
+            self.selected_item
+        );
+    }
+
+    fn move_down(&mut self, n: usize) {
+        match &mut *self.state.lock().unwrap() {
+            State::BlockEditor {
+                selected_index,
+                blocks,
+                ..
+            } => {
+                *selected_index = selected_index
+                    .saturating_add(n)
+                    .min(blocks.len().saturating_sub(1));
+                self.selected_line = Some(*selected_index);
+            }
+            State::Normal => {
+                let li = self
+                    .line_context
+                    .iter()
+                    .enumerate()
+                    .skip(self.selected_line.map_or(n, |i| i.saturating_add(n)))
+                    .find(|(_, l)| !(matches!(l, LineItem::None) || matches!(l, LineItem::Bus(_))));
+                if let Some((i, item)) = li {
+                    self.selected_line = Some(i);
+                    self.selected_item = Some(item.clone());
+                }
+            }
+            _ => (),
+        }
+
+        log::debug!(
+            "Selected line: {:?} ({:?})",
+            self.selected_line,
+            self.selected_item
+        );
+    }
+
+    /// Shifts selected line into view when scrolling
+    fn scroll_check_selected_visable(&mut self) {
+        if let Some(l) = self.selected_line {
+            if l < self.scroll_offset {
+                self.move_down(self.scroll_offset - l);
+            } else if l >= self.scroll_offset + self.available_rows {
+                self.move_up(l - (self.scroll_offset + self.available_rows) + 1);
+            }
+        }
     }
 
     fn draw_devices(&mut self) -> Result<()> {
