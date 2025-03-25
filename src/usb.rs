@@ -1074,10 +1074,14 @@ impl Interface {
     /// Option for legacy json deserialize compatibility - should be present in > 2.1.3. Will attempt to parse from `path` if not present
     pub fn device_path(&self) -> Option<DevicePath> {
         // will be present unless legacy json import
-        if let Some(ref path) = self.device_path {
-            Some(path.to_owned())
+        if let Some(ref dp) = self.device_path {
+            Some(dp.to_owned())
         } else {
-            DevicePath::from_str(&self.path).ok()
+            // try to parse from path
+            let mut dp = DevicePath::from_str(&self.path).ok()?;
+            // set alt setting since not in str path
+            dp.set_alt_setting(self.alt_setting);
+            Some(dp)
         }
     }
 
