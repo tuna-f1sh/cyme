@@ -240,15 +240,12 @@ pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
             }
             // the const len should get compiled to const...
             let indent = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
-            let device_tree_strings: Vec<(String, String, String)> = device.to_lsusb_tree_string();
+            let device_tree_strings = device.to_lsusb_tree_strings(settings.verbosity);
 
             for strings in device_tree_strings {
-                println!("{:>indent$}{}", TREE_LSUSB_DEVICE, strings.0);
-                if settings.verbosity >= 1 {
-                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, strings.1);
-                }
-                if settings.verbosity >= 2 {
-                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, strings.2);
+                println!("{:>indent$}{}", TREE_LSUSB_DEVICE, strings[0]);
+                for s in &strings[1..] {
+                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, s);
                 }
             }
             // print all devices with this device - if hub for example
@@ -260,15 +257,10 @@ pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
     }
 
     for bus in &spusb.buses {
-        let bus_tree_strings: Vec<(String, String, String)> = bus.to_lsusb_tree_string();
-        for strings in bus_tree_strings {
-            println!("{}{}", TREE_LSUSB_BUS, strings.0);
-            if settings.verbosity >= 1 {
-                println!("{}{}", TREE_LSUSB_SPACE, strings.1);
-            }
-            if settings.verbosity >= 2 {
-                println!("{}{}", TREE_LSUSB_SPACE, strings.2);
-            }
+        let bus_tree_strings = bus.to_lsusb_tree_string(settings.verbosity);
+        println!("{}{}", TREE_LSUSB_BUS, bus_tree_strings[0]);
+        for strings in &bus_tree_strings[1..] {
+            println!("{}{}", TREE_LSUSB_SPACE, strings);
         }
 
         // followed by devices if there are some

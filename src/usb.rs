@@ -1130,7 +1130,7 @@ pub struct DeviceExtra {
     pub vendor: Option<String>,
     /// Product name from usb_ids VIDPID lookup
     pub product_name: Option<String>,
-    /// Tuple of indexes to strings (iProduct, iManufacturer, iSerialNumber) - only useful for the lsbusb verbose print
+    /// Tuple of indexes to strings (iProduct, iManufacturer, iSerialNumber) - only useful for the lsusb verbose print
     #[serde(default)]
     pub string_indexes: (u8, u8, u8),
     /// USB devices can be have a number of configurations

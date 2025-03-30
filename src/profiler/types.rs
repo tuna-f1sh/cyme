@@ -343,10 +343,11 @@ impl Bus {
         )
     }
 
-    /// Generate a tuple (String, String, String) of the lsusb tree output at all three verbosity levels
+    /// Generate a Vec of Strings from self in lsusb tree self in order of verbosity
     ///
     /// Only Linux systems with a root_hub will contain accurate data, others are mainly for styling
-    pub fn to_lsusb_tree_string(&self) -> Vec<(String, String, String)> {
+    pub fn to_lsusb_tree_string(&self, verbosity: u8) -> Vec<String> {
+        let mut ret: Vec<String> = Vec::with_capacity(verbosity as usize);
         if let Some(root_device) = self.get_root_hub_device() {
             let speed = match &root_device.device_speed {
                 Some(v) => match v {
@@ -380,47 +381,53 @@ impl Bus {
                 driver
             };
 
-            Vec::from([(
-                format!(
-                    "Bus {:03}.Port 001: Dev 001, Class=root_hub, Driver={}, {}",
-                    self.get_bus_number().unwrap_or(0xff),
-                    driver_string,
-                    speed
-                ),
-                format!(
+            ret.push(format!(
+                "Bus {:03}.Port 001: Dev 001, Class=root_hub, Driver={}, {}",
+                self.get_bus_number().unwrap_or(0xff),
+                driver_string,
+                speed
+            ));
+            if verbosity > 0 {
+                ret.push(format!(
                     "ID {:04x}:{:04x} {} {}",
                     self.pci_vendor.unwrap_or(0xFFFF),
                     self.pci_device.unwrap_or(0xFFFF),
                     vendor,
-                    product,
-                ),
-                format!(
+                    product
+                ));
+            }
+            if verbosity > 1 {
+                ret.push(format!(
                     "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number().unwrap_or(0xff),
                     get_dev_path(self.get_bus_number().unwrap_or(0xff), None)
-                ),
-            )])
+                ));
+            }
         } else {
             log::warn!("Failed to get root_device in bus");
-            Vec::from([(
-                format!(
-                    "Bus {:03}.Port 001: Dev 001, Class=root_hub, Driver=[none],",
-                    self.get_bus_number().unwrap_or(0xff),
-                ),
-                format!(
+            ret.push(format!(
+                "Bus {:03}.Port 001: Dev 001, Class=root_hub, Driver=[none],",
+                self.get_bus_number().unwrap_or(0xff),
+            ));
+            if verbosity > 0 {
+                ret.push(format!(
                     "ID {:04x}:{:04x} {} {}",
                     self.pci_vendor.unwrap_or(0xFFFF),
                     self.pci_device.unwrap_or(0xFFFF),
                     self.host_controller,
                     self.name,
-                ),
-                format!(
+                ));
+            }
+            if verbosity > 1 {
+                ret.push(format!(
                     "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number().unwrap_or(0xff),
                     get_dev_path(self.get_bus_number().unwrap_or(0xff), None)
-                ),
-            )])
+                ));
+            }
         }
+
+        ret
     }
 
     pub(crate) fn fill_host_controller_from_ids(&mut self) {
@@ -488,12 +495,12 @@ impl fmt::Display for Bus {
                 self.pci_revision.unwrap_or(0xffff),
             )?;
         } else if f.sign_plus() {
-            let interface_strs: Vec<String> = self
-                .to_lsusb_tree_string()
-                .iter()
-                .map(|s| format!("{}{}", tree, s.0))
-                .collect();
-            writeln!(f, "{}", interface_strs.join("\n\r"))?
+            writeln!(
+                f,
+                "{}{}",
+                tree,
+                self.to_lsusb_tree_string(0).first().unwrap()
+            )?;
         } else {
             writeln!(f, "{}", self.to_lsusb_string())?
         }
@@ -1125,10 +1132,11 @@ impl Device {
         )
     }
 
-    /// Generate a tuple (String, String, String) of the lsusb tree output at all three verbosity levels
-    pub fn to_lsusb_tree_string(&self) -> Vec<(String, String, String)> {
-        let mut format_strs = Vec::new();
-
+    /// Generate a Vec of Vec<Strings> from self like lsusb tree mode in order of verbosity
+    ///
+    /// Each device contains of Vec<String> of interfaces
+    pub fn to_lsusb_tree_strings(&self, verbosity: u8) -> Vec<Vec<String>> {
+        let mut ret = Vec::new();
         let speed = match &self.device_speed {
             Some(v) => match v {
                 DeviceSpeed::SpeedValue(v) => v.to_lsusb_speed(),
@@ -1153,10 +1161,30 @@ impl Device {
             ),
         };
 
+        let get_istrings = || match (
+            &self.name,
+            self.manufacturer.as_ref(),
+            self.serial_num.as_ref(),
+        ) {
+            (n, Some(m), Some(s)) => {
+                format!("Manufactuer={} Product={} Serial={}", n, m, s)
+            }
+            (n, Some(m), None) => {
+                format!("Manufactuer={} Product={}", n, m)
+            }
+            (n, None, Some(s)) => {
+                format!("Product={} Serial={}", n, s)
+            }
+            (n, None, None) => {
+                format!("Product={}", n)
+            }
+        };
+
         if let Some(extra) = self.extra.as_ref() {
             let ports = extra.hub.as_ref().map(|hub| hub.num_ports);
             for config in &extra.configurations {
                 for interface in &config.interfaces {
+                    let mut device_strings = Vec::with_capacity(verbosity as usize);
                     let interface_driver = interface
                         .driver
                         .as_ref()
@@ -1167,47 +1195,54 @@ impl Device {
                     } else {
                         interface_driver
                     };
-                    format_strs.push((
-                        format!(
-                            "Port {:03}: Dev {:03}, If {}, Class={}, Driver={}, {}",
-                            self.get_branch_position(),
-                            self.location_id.number,
-                            interface.number,
-                            interface.class.to_lsusb_string(),
-                            driver_string,
-                            speed
-                        ),
-                        format!(
+                    device_strings.push(format!(
+                        "Port {:03}: Dev {:03}, If {}, Class={}, Driver={}, {}",
+                        self.get_branch_position(),
+                        self.location_id.number,
+                        interface.number,
+                        interface.class.to_lsusb_string(),
+                        driver_string,
+                        speed
+                    ));
+                    if verbosity > 0 {
+                        device_strings.push(format!(
                             "ID {:04x}:{:04x} {} {}",
                             self.vendor_id.unwrap_or(0xFFFF),
                             self.product_id.unwrap_or(0xFFFF),
                             vendor,
                             product,
-                        ),
-                        format!(
+                        ));
+                    }
+                    if verbosity > 1 {
+                        device_strings.push(format!(
                             "{}/{}  {}",
                             "/sys/bus/usb/devices",
                             self.port_path(),
                             self.dev_path(),
-                        ),
-                    ));
+                        ));
+                    }
+                    if verbosity > 2 {
+                        device_strings.push(get_istrings());
+                    }
+                    ret.push(device_strings);
                 }
             }
         } else {
             log::warn!("Rendering {} lsusb tree without extra data because it is missing. No configurations or interfaces will be shown", self);
-            format_strs.push((
-                format!(
-                    "Port {:03}: Dev {:03}, If {}, Class={}, Driver={}, {}",
-                    self.get_branch_position(),
-                    self.location_id.number,
-                    0,
-                    self.class
-                        .as_ref()
-                        .map_or(String::from("[unknown]"), |c| c.to_lsusb_string()),
-                    driver,
-                    speed
-                ),
-                format!(
+            let mut device_strings = Vec::with_capacity(verbosity as usize);
+            device_strings.push(format!(
+                "Port {:03}: Dev {:03}, If {}, Class={}, Driver={}, {}",
+                self.get_branch_position(),
+                self.location_id.number,
+                0,
+                self.class
+                    .as_ref()
+                    .map_or(String::from("[unknown]"), |c| c.to_lsusb_string()),
+                driver,
+                speed
+            ));
+            if verbosity > 0 {
+                device_strings.push(format!(
                     "ID {:04x}:{:04x} {} {}",
                     self.vendor_id.unwrap_or(0xFFFF),
                     self.product_id.unwrap_or(0xFFFF),
@@ -1216,17 +1251,23 @@ impl Device {
                         .as_ref()
                         .unwrap_or(&String::from("[unknown]")),
                     self.name,
-                ),
-                format!(
+                ));
+            }
+            if verbosity > 1 {
+                device_strings.push(format!(
                     "{}/{}  {}",
                     "/sys/bus/usb/devices",
                     self.port_path(),
                     self.dev_path(),
-                ),
-            ));
+                ));
+            }
+            if verbosity > 2 {
+                device_strings.push(get_istrings());
+            }
+            ret.push(device_strings);
         }
 
-        format_strs
+        ret
     }
 
     /// Gets the base class code byte from [`BaseClass`]
@@ -1351,9 +1392,9 @@ impl fmt::Display for Device {
                     spaces += 3;
                 }
                 let interface_strs: Vec<String> = self
-                    .to_lsusb_tree_string()
+                    .to_lsusb_tree_strings(0)
                     .iter()
-                    .map(|s| format!("{:>spaces$}{}", tree, s.0))
+                    .map(|s| format!("{:>spaces$}{}", tree, s[0]))
                     .collect();
                 write!(f, "{}", interface_strs.join("\n\r"))
             } else {
