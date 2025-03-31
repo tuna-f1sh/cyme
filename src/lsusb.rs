@@ -804,6 +804,9 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                     ClassDescriptor::Midi(md, _) => {
                         dump_midistreaming_endpoint(md, indent + 2);
                     }
+                    ClassDescriptor::Video(vd, _) => {
+                        dump_videocontrol_interrupt_endpoint(vd, indent + 2, LSUSB_DUMP_WIDTH);
+                    }
                     // legacy as context should have been added to the descriptor
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((BaseClass::Audio, 2, p)) => {
