@@ -345,7 +345,9 @@ pub fn print(devices: &Vec<&Device>, verbose: bool) {
                     }
 
                     let has_ssp = if let Some(bos) = &device_extra.binary_object_store {
-                        dump_bos_descriptor(bos, 0);
+                        let lpm_required: bool =
+                            device.bcd_usb.is_some_and(|v| u16::from(v) >= 0x0210);
+                        dump_bos_descriptor(bos, lpm_required, 0);
                         bos.capabilities
                             .iter()
                             .any(|c| matches!(c, bos::BosCapability::SuperSpeedPlus(_)))
