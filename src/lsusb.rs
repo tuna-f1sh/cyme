@@ -886,12 +886,20 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                                 );
                             }
                         }
-                        TransferType::Isochronous => {
+                        TransferType::Isochronous | TransferType::Interrupt => {
                             if ss.attributes & 0x03 != 0 {
                                 println!(
                                     "{:indent$}Mult {:>19}",
                                     "",
                                     ss.attributes & 0x3,
+                                    indent = indent + 2
+                                );
+                            }
+                            if let Some(bi) = ss.bytes_per_interval {
+                                println!(
+                                    "{:indent$}wBytesPerInterval {:>6}",
+                                    "",
+                                    bi,
                                     indent = indent + 2
                                 );
                             }
