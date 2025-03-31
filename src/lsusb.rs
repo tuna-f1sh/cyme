@@ -398,6 +398,18 @@ fn dump_device(device: &Device) {
             _ => unreachable!(),
         };
 
+    // print negotiated speed
+    let speed_str = match device_extra.negotiated_speed {
+        Some(Speed::LowSpeed) => "Low Speed (1Mbps)",
+        Some(Speed::FullSpeed) => "Full Speed (12Mbps)",
+        Some(Speed::HighSpeed) | Some(Speed::HighBandwidth) => "High Speed (480Mbps)",
+        Some(Speed::SuperSpeed) => "SuperSpeed (5Gbps)",
+        Some(Speed::SuperSpeedPlus) => "SuperSpeed+ (10Gbps)",
+        Some(Speed::SuperSpeedPlusX2) => "SuperSpeed++ (20Gbps)",
+        _ => "Unknown",
+    };
+    println!("Negotiated speed :        {}", speed_str);
+
     println!("Device Descriptor:");
     // These are constants - length is 18 bytes for descriptor, type is 1
     dump_value(18, "bLength", 2, LSUSB_DUMP_WIDTH);

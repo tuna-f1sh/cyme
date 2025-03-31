@@ -781,6 +781,8 @@ pub struct Device {
     /// macOS system_profiler only - actually bus current used in mA not power!
     pub bus_power_used: Option<u16>,
     /// Advertised device capable speed
+    ///
+    /// See [`DeviceExtra`] for negotiated speed
     pub device_speed: Option<DeviceSpeed>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     /// macOS system_profiler only - actually bus current used in mA not power!
