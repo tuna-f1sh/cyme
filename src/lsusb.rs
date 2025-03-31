@@ -937,11 +937,11 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    if ccid.version.major() != 1 || ccid.version.minor() != 0 {
+    if ccid.version.major() != 1 || (ccid.version.minor() != 0 && ccid.version.minor() != 1) {
         dump_value_string(
             ccid.version,
             "bcdCCID",
-            "(Warning: Only accurate for version 1.0)",
+            "(Warning: Only accurate for version 1.0/1.1)",
             indent + 2,
             LSUSB_DUMP_WIDTH,
         );
@@ -1067,10 +1067,13 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
             5 => Some("Auto parameter negotiation made by CCID"),
             6 => Some("Auto PPS made by CCID"),
             7 => Some("CCID can set ICC in clock stop mode"),
-            8 => Some("NAD value other than 0x00 accepted"),
+            8 => Some("NAD value other than 0x00 accepted (T=1)"),
             9 => Some("Auto IFSD exchange"),
+            15 => Some("Character level exchange"),
             16 => Some("TPDU level exchange"),
+            // results in same as us & 0x00070000 == 0x02 in lsusb
             17 => Some("Short APDU level exchange"),
+            // results in same as us & 0x00070000 == 0x04 in lsusb
             18 => Some("Short and extended APDU level exchange"),
             _ => None,
         },
