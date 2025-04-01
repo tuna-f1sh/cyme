@@ -175,6 +175,7 @@ struct Args {
     mask_serials: Option<display::MaskSerial>,
 
     /// Generate cli completions and man page
+    #[cfg(feature = "cli_generate")]
     #[arg(long, hide = true, exclusive = true)]
     gen: bool,
 

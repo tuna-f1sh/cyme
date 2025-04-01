@@ -74,11 +74,11 @@ _cyme() {
                     return 0
                     ;;
                 --blocks)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value last-event event-icon" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed negotiated-speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value last-event event-icon" -- "${cur}"))
                     return 0
                     ;;
                 -b)
-                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value last-event event-icon" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bus-number device-number branch-position port-path sys-path driver icon vendor-id product-id name manufacturer product-name vendor-name serial speed negotiated-speed tree-positions bus-power bus-power-used extra-current-used bcd-device bcd-usb base-class sub-class protocol uid-class uid-sub-class uid-protocol class base-value last-event event-icon" -- "${cur}"))
                     return 0
                     ;;
                 --bus-blocks)

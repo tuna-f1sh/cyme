@@ -414,6 +414,7 @@ pub struct SsEndpointCompanionDescriptor {
     pub descriptor_type: u8,
     pub max_burst: u8,
     pub attributes: u8,
+    pub bytes_per_interval: Option<u16>,
 }
 
 impl TryFrom<&[u8]> for SsEndpointCompanionDescriptor {
@@ -433,18 +434,24 @@ impl TryFrom<&[u8]> for SsEndpointCompanionDescriptor {
             descriptor_type: value[1],
             max_burst: value[2],
             attributes: value[3],
+            bytes_per_interval: value.get(4..6).map(|b| u16::from_le_bytes([b[0], b[1]])),
         })
     }
 }
 
 impl From<SsEndpointCompanionDescriptor> for Vec<u8> {
     fn from(sec: SsEndpointCompanionDescriptor) -> Self {
-        vec![
+        let mut ret = vec![
             sec.length,
             sec.descriptor_type,
             sec.max_burst,
             sec.attributes,
-        ]
+        ];
+        if let Some(bpi) = sec.bytes_per_interval {
+            ret.extend(bpi.to_le_bytes());
+        }
+
+        ret
     }
 }
 

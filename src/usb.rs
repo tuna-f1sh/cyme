@@ -648,6 +648,7 @@ pub enum Speed {
     HighBandwidth,
     SuperSpeed,
     SuperSpeedPlus,
+    SuperSpeedPlusX2,
 }
 
 impl FromStr for Speed {
@@ -655,6 +656,7 @@ impl FromStr for Speed {
 
     fn from_str(s: &str) -> error::Result<Self> {
         Ok(match s {
+            "20000" | "20.0 Gb/s" | "super_speed_plus_plus" | "super++" => Speed::SuperSpeedPlusX2,
             "10000" | "10.0 Gb/s" | "super_speed_plus" | "super+" => Speed::SuperSpeedPlus,
             "5000" | "5.0 Gb/s" | "super_speed" | "super" => Speed::SuperSpeed,
             "480" | "480.0 Mb/s" | "high_speed" | "high_bandwidth" | "high" => Speed::HighSpeed,
@@ -669,6 +671,7 @@ impl FromStr for Speed {
 impl From<u8> for Speed {
     fn from(b: u8) -> Self {
         match b {
+            6 => Speed::SuperSpeedPlusX2,
             5 => Speed::SuperSpeedPlus,
             4 => Speed::SuperSpeed,
             3 => Speed::HighSpeed,
@@ -685,6 +688,7 @@ impl fmt::Display for Speed {
             f,
             "{}",
             match self {
+                Speed::SuperSpeedPlusX2 => "super_speed_plus_plus",
                 Speed::SuperSpeedPlus => "super_speed_plus",
                 Speed::SuperSpeed => "super_speed",
                 Speed::HighSpeed | Speed::HighBandwidth => "high_speed",
@@ -700,6 +704,11 @@ impl fmt::Display for Speed {
 impl From<&Speed> for NumericalUnit<f32> {
     fn from(speed: &Speed) -> NumericalUnit<f32> {
         match speed {
+            Speed::SuperSpeedPlusX2 => NumericalUnit {
+                value: 20.0,
+                unit: String::from("Gb/s"),
+                description: Some(speed.to_string()),
+            },
             Speed::SuperSpeedPlus => NumericalUnit {
                 value: 10.0,
                 unit: String::from("Gb/s"),
@@ -1228,7 +1237,7 @@ pub struct DeviceExtra {
     pub vendor: Option<String>,
     /// Product name from usb_ids VIDPID lookup
     pub product_name: Option<String>,
-    /// Tuple of indexes to strings (iProduct, iManufacturer, iSerialNumber) - only useful for the lsbusb verbose print
+    /// Tuple of indexes to strings (iProduct, iManufacturer, iSerialNumber) - only useful for the lsusb verbose print
     #[serde(default)]
     pub string_indexes: (u8, u8, u8),
     /// USB devices can be have a number of configurations
@@ -1243,6 +1252,8 @@ pub struct DeviceExtra {
     pub qualifier: Option<DeviceQualifierDescriptor>,
     /// Hub descriptor if present (is a hub)
     pub hub: Option<HubDescriptor>,
+    /// Speed that the device is operating at
+    pub negotiated_speed: Option<Speed>,
 }
 
 /// Deprecated alias for [`DeviceExtra`]

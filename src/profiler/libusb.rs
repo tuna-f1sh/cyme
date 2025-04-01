@@ -444,6 +444,7 @@ impl LibUsbProfiler {
             binary_object_store: None,
             qualifier: None,
             hub: None,
+            negotiated_speed: Some(usb::Speed::from(device.speed())),
         };
 
         // Get device specific stuff: bos, hub, dualspeed, debug and status
@@ -521,6 +522,8 @@ impl LibUsbProfiler {
         device: &libusb::Device<T>,
         with_extra: bool,
     ) -> Result<Device> {
+        // TODO: this is actually negotiated speed not device speed
+        // need to read from device descriptor
         let speed = match usb::Speed::from(device.speed()) {
             usb::Speed::Unknown => None,
             v => Some(DeviceSpeed::SpeedValue(v)),
@@ -624,6 +627,7 @@ impl LibUsbProfiler {
                     binary_object_store: None,
                     qualifier: None,
                     hub: None,
+                    negotiated_speed: Some(usb::Speed::from(device.speed())),
                 });
             }
         }

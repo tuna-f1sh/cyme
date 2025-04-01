@@ -219,6 +219,44 @@ pub(crate) fn dump_videocontrol_interface(
     }
 }
 
+pub(crate) fn dump_videocontrol_interrupt_endpoint(
+    epd: &video::UvcDescriptor,
+    indent: usize,
+    width: usize,
+) {
+    let subtype_byte = u8::from(epd.descriptor_subtype.to_owned());
+    let subtype_string = match subtype_byte {
+        0x03 => "EP_INTERRUPT",
+        // lowercase in lsusb
+        _ => "invalid",
+    };
+
+    let bytes = Vec::<u8>::from(epd.interface.to_owned());
+
+    if epd.length < 5 {
+        println!("{:indent$}Warning: Descriptor too short", indent);
+    }
+    if epd.descriptor_type != 0x01 {
+        println!("{:indent$}Warning: Invalid descriptor type", indent);
+    }
+
+    dump_string("VideoControl Endpoint Descriptor:", indent);
+    dump_value(epd.length, "bLength", indent + 2, width);
+    dump_value(epd.descriptor_type, "bDescriptorType", indent + 2, width);
+    dump_value_string(
+        subtype_byte,
+        "bDescriptorSubtype",
+        format!("({})", subtype_string),
+        indent + 2,
+        width,
+    );
+    if let (Some(first), Some(second)) = (bytes.first(), bytes.get(1)) {
+        let wmax = u16::from_le_bytes([*first, *second]);
+        dump_value(wmax, "wMaxTransferSize", indent + 2, width);
+    }
+    dump_junk(&bytes, indent + 2, epd.length as usize - 3, 2);
+}
+
 fn dump_video_input_header(ih: &video::InputHeader, indent: usize, width: usize) {
     dump_value(ih.num_formats, "bNumFormats", indent + 2, width);
     dump_hex(ih.total_length, "wTotalLength", indent + 2, width);
