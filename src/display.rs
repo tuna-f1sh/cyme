@@ -17,6 +17,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::colour;
 use crate::icon;
 use crate::profiler::{Bus, Device, Filter, SystemProfile};
+use crate::types::NumericalUnit;
 use crate::usb::DeviceExtra;
 use crate::usb::{ConfigAttributes, Configuration, Direction, Endpoint, Interface};
 
@@ -257,6 +258,8 @@ pub enum DeviceBlocks {
     Serial,
     /// Advertised device capable speed
     Speed,
+    /// Negotiated device speed as connected
+    NegotiatedSpeed,
     /// Position along all branches back to trunk device
     TreePositions,
     /// macOS system_profiler only - actually bus current in mA not power!
@@ -832,6 +835,15 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 Some(v) => format!("{:>10}", v.to_string()),
                 None => format!("{:>10}", "-"),
             }),
+            DeviceBlocks::NegotiatedSpeed => Some(
+                match d.extra.as_ref().and_then(|e| e.negotiated_speed.as_ref()) {
+                    Some(v) => {
+                        let nu = NumericalUnit::<f32>::from(v);
+                        format!("{:>10}", nu.to_string())
+                    }
+                    None => format!("{:>10}", "-"),
+                },
+            ),
             DeviceBlocks::TreePositions => Some(format!(
                 "{:pad$}",
                 format!("{:}", d.location_id.tree_positions.iter().format("-")),
@@ -914,7 +926,9 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 ct.manufacturer.map_or(s.normal(), |c| s.color(c))
             }
             DeviceBlocks::Driver => ct.driver.map_or(s.normal(), |c| s.color(c)),
-            DeviceBlocks::Speed => ct.speed.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::Speed | DeviceBlocks::NegotiatedSpeed => {
+                ct.speed.map_or(s.normal(), |c| s.color(c))
+            }
             DeviceBlocks::BusPower
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => ct.power.map_or(s.normal(), |c| s.color(c)),
@@ -947,6 +961,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::VendorName => "VName",
             DeviceBlocks::Serial => "Serial",
             DeviceBlocks::Speed => "Speed",
+            DeviceBlocks::NegotiatedSpeed => "NgSpd",
             DeviceBlocks::TreePositions => "TPos",
             // will be 000 mA = 6
             DeviceBlocks::BusPower => "PBus",
@@ -983,6 +998,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             }
             DeviceBlocks::VendorId | DeviceBlocks::ProductId => BlockLength::Fixed(6),
             DeviceBlocks::Speed => BlockLength::Fixed(10),
+            DeviceBlocks::NegotiatedSpeed => BlockLength::Fixed(10),
             DeviceBlocks::BusPower
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => BlockLength::Fixed(6),

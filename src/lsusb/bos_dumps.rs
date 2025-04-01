@@ -2,7 +2,10 @@ use crate::usb::descriptors::bos;
 
 use super::*;
 
-fn dump_extension_capability(d: &bos::ExtensionCapability, indent: usize) {
+fn dump_extension_capability(d: &bos::ExtensionCapability, lpm_requred: bool, indent: usize) {
+    const BSEL_US: [u16; 16] = [
+        125, 150, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
+    ];
     dump_string("USB 2.0 Extension Device Capability:", indent);
     dump_value(d.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
@@ -19,20 +22,34 @@ fn dump_extension_capability(d: &bos::ExtensionCapability, indent: usize) {
     );
     dump_hex(d.attributes, "bmAttributes", indent + 2, LSUSB_DUMP_WIDTH);
 
-    if d.attributes & 0x02 == 0 {
+    if (lpm_requred || (d.attributes & 0x04 == 0x04)) && d.attributes & 0x02 == 0 {
         dump_string("(Missing must-be-set LPM bit!)", indent + 4);
+    } else if !lpm_requred && d.attributes & 0x02 == 0 {
+        dump_string("Link Power Management (LPM) not supported", indent + 4);
     } else if d.attributes & 0x04 == 0 {
         dump_string("HIRD Link Power Management (LPM) Supported", indent + 4);
     } else {
         dump_string("BESL Link Power Management (LPM) Supported", indent + 4);
-    }
-    if d.attributes & 0x08 != 0 {
-        let val = d.attributes & 0xf00;
-        dump_value_string(val, "BESL value", "us", indent + 4, LSUSB_DUMP_WIDTH);
-    }
-    if d.attributes & 0x10 != 0 {
-        let val = d.attributes & 0xf000;
-        dump_value_string(val, "Deep BESL value", "us", indent + 4, LSUSB_DUMP_WIDTH);
+        if d.attributes & 0x08 != 0 {
+            let val = ((d.attributes & 0xf00) >> 8) as usize;
+            dump_value_string(
+                BSEL_US[val],
+                "BESL value",
+                "us",
+                indent + 4,
+                LSUSB_DUMP_WIDTH,
+            );
+        }
+        if d.attributes & 0x10 != 0 {
+            let val = ((d.attributes & 0xf000) >> 12) as usize;
+            dump_value_string(
+                BSEL_US[val],
+                "Deep BESL value",
+                "us",
+                indent + 4,
+                LSUSB_DUMP_WIDTH,
+            );
+        }
     }
 }
 
@@ -423,7 +440,11 @@ fn dump_usb3_dc_configuration_summary(d: &bos::ConfigurationSummaryCapability, i
     );
 }
 
-pub(crate) fn dump_bos_descriptor(bosd: &bos::BinaryObjectStoreDescriptor, indent: usize) {
+pub(crate) fn dump_bos_descriptor(
+    bosd: &bos::BinaryObjectStoreDescriptor,
+    lpm_requred: bool,
+    indent: usize,
+) {
     dump_string("Binary Object Store Descriptor:", indent);
     dump_value(bosd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
@@ -448,7 +469,7 @@ pub(crate) fn dump_bos_descriptor(bosd: &bos::BinaryObjectStoreDescriptor, inden
     for cap in &bosd.capabilities {
         match cap {
             bos::BosCapability::Usb2Extension(d) => {
-                dump_extension_capability(d, indent + 2);
+                dump_extension_capability(d, lpm_requred, indent + 2);
             }
             bos::BosCapability::SuperSpeed(d) => {
                 dump_ss_capability(d, indent + 2);

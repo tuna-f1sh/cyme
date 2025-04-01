@@ -572,6 +572,7 @@ impl NusbProfiler {
             binary_object_store: None,
             qualifier: None,
             hub: None,
+            negotiated_speed: device.handle.speed().map(usb::Speed::from),
         };
 
         // Get device specific stuff: bos, hub, dualspeed, debug and status
@@ -631,6 +632,7 @@ impl NusbProfiler {
                 binary_object_store: None,
                 qualifier: None,
                 hub: None,
+                negotiated_speed: None,
             }
         };
 

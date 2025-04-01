@@ -240,15 +240,12 @@ pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
             }
             // the const len should get compiled to const...
             let indent = (device.get_depth() * TREE_LSUSB_DEVICE.len()) + TREE_LSUSB_SPACE.len();
-            let device_tree_strings: Vec<(String, String, String)> = device.to_lsusb_tree_string();
+            let device_tree_strings = device.to_lsusb_tree_strings(settings.verbosity);
 
             for strings in device_tree_strings {
-                println!("{:>indent$}{}", TREE_LSUSB_DEVICE, strings.0);
-                if settings.verbosity >= 1 {
-                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, strings.1);
-                }
-                if settings.verbosity >= 2 {
-                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, strings.2);
+                println!("{:>indent$}{}", TREE_LSUSB_DEVICE, strings[0]);
+                for s in &strings[1..] {
+                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, s);
                 }
             }
             // print all devices with this device - if hub for example
@@ -260,15 +257,10 @@ pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
     }
 
     for bus in &spusb.buses {
-        let bus_tree_strings: Vec<(String, String, String)> = bus.to_lsusb_tree_string();
-        for strings in bus_tree_strings {
-            println!("{}{}", TREE_LSUSB_BUS, strings.0);
-            if settings.verbosity >= 1 {
-                println!("{}{}", TREE_LSUSB_SPACE, strings.1);
-            }
-            if settings.verbosity >= 2 {
-                println!("{}{}", TREE_LSUSB_SPACE, strings.2);
-            }
+        let bus_tree_strings = bus.to_lsusb_tree_string(settings.verbosity);
+        println!("{}{}", TREE_LSUSB_BUS, bus_tree_strings[0]);
+        for strings in &bus_tree_strings[1..] {
+            println!("{}{}", TREE_LSUSB_SPACE, strings);
         }
 
         // followed by devices if there are some
@@ -353,7 +345,9 @@ pub fn print(devices: &Vec<&Device>, verbose: bool) {
                     }
 
                     let has_ssp = if let Some(bos) = &device_extra.binary_object_store {
-                        dump_bos_descriptor(bos, 0);
+                        let lpm_required: bool =
+                            device.bcd_usb.is_some_and(|v| u16::from(v) >= 0x0210);
+                        dump_bos_descriptor(bos, lpm_required, 0);
                         bos.capabilities
                             .iter()
                             .any(|c| matches!(c, bos::BosCapability::SuperSpeedPlus(_)))
@@ -405,6 +399,18 @@ fn dump_device(device: &Device) {
             (None, None, None) => (None, None, None),
             _ => unreachable!(),
         };
+
+    // print negotiated speed
+    let speed_str = match device_extra.negotiated_speed {
+        Some(Speed::LowSpeed) => "Low Speed (1Mbps)",
+        Some(Speed::FullSpeed) => "Full Speed (12Mbps)",
+        Some(Speed::HighSpeed) | Some(Speed::HighBandwidth) => "High Speed (480Mbps)",
+        Some(Speed::SuperSpeed) => "SuperSpeed (5Gbps)",
+        Some(Speed::SuperSpeedPlus) => "SuperSpeed+ (10Gbps)",
+        Some(Speed::SuperSpeedPlusX2) => "SuperSpeed++ (20Gbps)",
+        _ => "Unknown",
+    };
+    println!("Negotiated speed :        {}", speed_str);
 
     println!("Device Descriptor:");
     // These are constants - length is 18 bytes for descriptor, type is 1
@@ -800,6 +806,9 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                     ClassDescriptor::Midi(md, _) => {
                         dump_midistreaming_endpoint(md, indent + 2);
                     }
+                    ClassDescriptor::Video(vd, _) => {
+                        dump_videocontrol_interrupt_endpoint(vd, indent + 2, LSUSB_DUMP_WIDTH);
+                    }
                     // legacy as context should have been added to the descriptor
                     ClassDescriptor::Generic(cc, gd) => match cc {
                         Some((BaseClass::Audio, 2, p)) => {
@@ -894,12 +903,20 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                                 );
                             }
                         }
-                        TransferType::Isochronous => {
+                        TransferType::Isochronous | TransferType::Interrupt => {
                             if ss.attributes & 0x03 != 0 {
                                 println!(
                                     "{:indent$}Mult {:>19}",
                                     "",
                                     ss.attributes & 0x3,
+                                    indent = indent + 2
+                                );
+                            }
+                            if let Some(bi) = ss.bytes_per_interval {
+                                println!(
+                                    "{:indent$}wBytesPerInterval {:>6}",
+                                    "",
+                                    bi,
                                     indent = indent + 2
                                 );
                             }
@@ -925,11 +942,11 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    if ccid.version.major() != 1 || ccid.version.minor() != 0 {
+    if ccid.version.major() != 1 || (ccid.version.minor() != 0 && ccid.version.minor() != 1) {
         dump_value_string(
             ccid.version,
             "bcdCCID",
-            "(Warning: Only accurate for version 1.0)",
+            "(Warning: Only accurate for version 1.0/1.1)",
             indent + 2,
             LSUSB_DUMP_WIDTH,
         );
@@ -1055,10 +1072,13 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
             5 => Some("Auto parameter negotiation made by CCID"),
             6 => Some("Auto PPS made by CCID"),
             7 => Some("CCID can set ICC in clock stop mode"),
-            8 => Some("NAD value other than 0x00 accepted"),
+            8 => Some("NAD value other than 0x00 accepted (T=1)"),
             9 => Some("Auto IFSD exchange"),
+            15 => Some("Character level exchange"),
             16 => Some("TPDU level exchange"),
+            // results in same as us & 0x00070000 == 0x02 in lsusb
             17 => Some("Short APDU level exchange"),
+            // results in same as us & 0x00070000 == 0x04 in lsusb
             18 => Some("Short and extended APDU level exchange"),
             _ => None,
         },
