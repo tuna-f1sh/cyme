@@ -341,9 +341,10 @@ impl LibUsbProfiler {
             if config_desc.remote_wakeup() {
                 attributes.push(usb::ConfigAttributes::RemoteWakeup);
             }
-
             if config_desc.self_powered() {
                 attributes.push(usb::ConfigAttributes::SelfPowered);
+            } else {
+                attributes.push(usb::ConfigAttributes::BusPowered);
             }
 
             // Check if we have a cached iConfiguration string

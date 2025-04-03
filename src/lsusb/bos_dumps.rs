@@ -92,17 +92,28 @@ fn dump_ss_capability(d: &bos::SuperSpeedCapability, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_bitmap_strings(
-        d.functionality_supported,
-        |b| match b {
-            0 => Some("Lowest fully-functional device speed is Low Speed (1Mbps)"),
-            1 => Some("Lowest fully-functional device speed is Full Speed (12Mbps)"),
-            2 => Some("Lowest fully-functional device speed is High Speed (480Mbps)"),
-            3 => Some("Lowest fully-functional device speed is SuperSpeed (5Gbps)"),
-            _ => Some("Lowest fully-functional device speed is at an unknown speed!"),
-        },
-        indent + 4,
-    );
+    match d.functionality_supported {
+        0 => dump_string(
+            "Lowest fully-functional device speed is Low Speed (1Mbps)",
+            indent + 4,
+        ),
+        1 => dump_string(
+            "Lowest fully-functional device speed is Full Speed (12Mbps)",
+            indent + 4,
+        ),
+        2 => dump_string(
+            "Lowest fully-functional device speed is High Speed (480Mbps)",
+            indent + 4,
+        ),
+        3 => dump_string(
+            "Lowest fully-functional device speed is SuperSpeed (5Gbps)",
+            indent + 4,
+        ),
+        _ => dump_string(
+            "Lowest fully-functional device speed is at an unknown speed!",
+            indent + 4,
+        ),
+    }
     dump_value_string(
         d.u1_device_exit_latency,
         "bU1DevExitLat",

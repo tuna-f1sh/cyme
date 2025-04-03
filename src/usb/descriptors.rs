@@ -281,7 +281,24 @@ impl TryFrom<&[u8]> for Descriptor {
             DescriptorType::SsEndpointCompanion => Ok(Descriptor::SsEndpointCompanion(
                 SsEndpointCompanionDescriptor::try_from(v)?,
             )),
-            _ => Ok(Descriptor::Unknown(v.to_vec())),
+            _ => {
+                // try masking off the request type for misplaced descriptors
+                let masked = v[1] & !0x20;
+                match masked.into() {
+                    DescriptorType::Device => Ok(Descriptor::Device(ClassDescriptor::try_from(v)?)),
+                    DescriptorType::Config => Ok(Descriptor::Config(ClassDescriptor::try_from(v)?)),
+                    DescriptorType::String => {
+                        Ok(Descriptor::String(String::from_utf8_lossy(v).to_string()))
+                    }
+                    DescriptorType::Interface => {
+                        Ok(Descriptor::Interface(ClassDescriptor::try_from(v)?))
+                    }
+                    DescriptorType::Endpoint => {
+                        Ok(Descriptor::Endpoint(ClassDescriptor::try_from(v)?))
+                    }
+                    _ => Ok(Descriptor::Unknown(v.to_vec())),
+                }
+            }
         }
     }
 }
