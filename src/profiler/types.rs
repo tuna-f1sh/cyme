@@ -869,7 +869,7 @@ impl Device {
         }
         let node_depth = port_path
             .split('-')
-            .last()
+            .next_back()
             .expect("Invalid port path")
             .split('.')
             .count();
@@ -924,7 +924,7 @@ impl Device {
         }
         let node_depth = port_path
             .split('-')
-            .last()
+            .next_back()
             .expect("Invalid port path")
             .split('.')
             .count();

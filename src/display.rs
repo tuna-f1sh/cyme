@@ -1853,6 +1853,7 @@ fn attributes_to_icons(attributes: &Vec<ConfigAttributes>, settings: &PrintSetti
                 ConfigAttributes::SelfPowered => icon_strs.push("\u{f06a5}"), // 󰚥
                 ConfigAttributes::RemoteWakeup => icon_strs.push("\u{f0155}"), // 󰅕
                 ConfigAttributes::BatteryPowered => icon_strs.push("\u{f244}"), // 
+                ConfigAttributes::BusPowered => icon_strs.push("\u{f11f0}"),  // 󱇰
             }
         }
     }

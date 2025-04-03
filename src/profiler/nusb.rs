@@ -472,6 +472,8 @@ impl NusbProfiler {
             }
             if c.attributes() & 0x40 != 0 {
                 attributes.push(usb::ConfigAttributes::SelfPowered);
+            } else {
+                attributes.push(usb::ConfigAttributes::BusPowered);
             }
 
             let config_desc = c.descriptors().next().unwrap();

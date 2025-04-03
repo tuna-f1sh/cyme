@@ -25,7 +25,7 @@ const TREE_LSUSB_BUS: &str = "/:  ";
 const TREE_LSUSB_DEVICE: &str = "|__ ";
 const TREE_LSUSB_SPACE: &str = "    ";
 
-const LSUSB_DUMP_WIDTH: usize = 24;
+const LSUSB_DUMP_WIDTH: usize = 25;
 const LSUSB_DUMP_INDENT_BASE: usize = 2;
 
 fn get_spaces(value_len: usize, field_len: usize, width: usize) -> String {
@@ -509,7 +509,7 @@ fn dump_device(device: &Device) {
 
     dump_value_string(
         device_extra.string_indexes.2,
-        "iSerialNumber",
+        "iSerial",
         device.serial_num.as_ref().unwrap_or(&String::new()),
         2,
         LSUSB_DUMP_WIDTH,
@@ -560,21 +560,26 @@ fn dump_config(config: &Configuration, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
     // no attributes is bus powered
-    if config.attributes.is_empty() {
+    if config.attributes.contains(&ConfigAttributes::SelfPowered) {
+        dump_string("Self Powered", indent + 4);
+    }
+    if config.attributes.contains(&ConfigAttributes::BusPowered) {
         dump_string("(Bus Powered)", indent + 4);
-    } else {
-        if config.attributes.contains(&ConfigAttributes::SelfPowered) {
-            dump_string("Self Powered", indent + 4);
-        }
-        if config.attributes.contains(&ConfigAttributes::RemoteWakeup) {
-            dump_string("Remote Wakeup", indent + 4);
-        }
+    }
+    if config.attributes.contains(&ConfigAttributes::RemoteWakeup) {
+        dump_string("Remote Wakeup", indent + 4);
+    }
+    if config
+        .attributes
+        .contains(&ConfigAttributes::BatteryPowered)
+    {
+        dump_string("Battery Powered", indent + 4);
     }
     dump_value(
         format!("{}{}", config.max_power.value, config.max_power.unit),
         "MaxPower",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        LSUSB_DUMP_WIDTH + 2,
     );
 
     // dump extra descriptors
@@ -774,7 +779,7 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
         indent = indent + 4
     );
     println!(
-        "{:indent$}Sync Type              {:?}",
+        "{:indent$}Synch Type             {:?}",
         "",
         endpoint.sync_type,
         indent = indent + 4
@@ -1779,7 +1784,7 @@ fn dump_interface_association(iad: &InterfaceAssociationDescriptor, indent: usiz
 }
 
 fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
-    dump_string("HID Descriptor:", indent);
+    dump_string("HID Device Descriptor:", indent);
     dump_value(hidd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
         hidd.descriptor_type,
@@ -1849,7 +1854,7 @@ fn dump_device_qualifier(dqd: &DeviceQualifierDescriptor, indent: usize) {
     dump_value_string(
         class,
         "bDeviceClass",
-        dqd.device_class,
+        names::class(class).unwrap_or(String::from("[unknown]")),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1863,8 +1868,7 @@ fn dump_device_qualifier(dqd: &DeviceQualifierDescriptor, indent: usize) {
     dump_value_string(
         dqd.device_protocol,
         "bDeviceProtocol",
-        names::protocol(class, dqd.device_subclass, dqd.device_protocol)
-            .unwrap_or(String::from("[unknown]")),
+        names::protocol(class, dqd.device_subclass, dqd.device_protocol).unwrap_or_default(),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1968,10 +1972,10 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_value(hd.num_ports, "bNbrPorts", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(hd.num_ports, "nNbrPorts", indent + 2, LSUSB_DUMP_WIDTH);
     dump_hex(
         hd.characteristics,
-        "wHubCharacteristics",
+        "wHubCharacteristic",
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -2009,7 +2013,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
         ),
     }
 
-    if (1..=3).contains(&protocol) {
+    if (1..3).contains(&protocol) {
         let l = (hd.characteristics >> 5) & 0x03;
         dump_string(
             &format!("TT think time {} FS bits", (l + 1) * 8),
@@ -2137,10 +2141,10 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                 });
                 dump_string(
                     &format!(
-                        "{}: {}{}{}",
+                        "{} {}{}{}",
                         port_status_string, s2_string, s1_string, s0_string
                     ),
-                    indent + 4,
+                    indent + 3,
                 );
             } else {
                 let link_state = (((p[0] & 0xe0) >> 5) + ((p[1] & 0x01) << 3)) as usize;
@@ -2172,22 +2176,22 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                 if link_state < LINK_STATE_DESCRIPTIONS.len() {
                     dump_string(
                         &format!(
-                            "{}: {}{}{}{}",
+                            "{} {}{}{}{}",
                             port_status_string,
                             s2_string,
                             s1_string,
                             LINK_STATE_DESCRIPTIONS[link_state],
                             s0_string
                         ),
-                        indent + 4,
+                        indent + 3,
                     );
                 } else {
                     dump_string(
                         &format!(
-                            "{}: {}{}{}",
+                            "{} {}{}{}",
                             port_status_string, s2_string, s1_string, s0_string
                         ),
-                        indent + 4,
+                        indent + 3,
                     );
                 }
             }
@@ -2198,7 +2202,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                         "Ext Status: {:02x}{:02x}{:02x}{:02x}",
                         p[7], p[6], p[5], p[4]
                     ),
-                    indent + 8,
+                    indent + 7,
                 );
                 dump_string(
                     &format!(
@@ -2206,7 +2210,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                         p[4] & 0x0f,
                         (p[5] & 0x0f) + 1
                     ),
-                    indent + 8,
+                    indent + 7,
                 );
                 dump_string(
                     &format!(
@@ -2214,7 +2218,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                         (p[4] >> 4) & 0x0f,
                         ((p[5] >> 4) & 0x0f) + 1
                     ),
-                    indent + 8,
+                    indent + 7,
                 );
             }
         }
@@ -2494,7 +2498,7 @@ mod tests {
 
     #[test]
     fn test_get_spaces() {
-        assert_eq!(get_spaces(4, 10, LSUSB_DUMP_WIDTH), "          ");
+        assert_eq!(get_spaces(4, 10, LSUSB_DUMP_WIDTH), "           ");
         assert_eq!(get_spaces(24, 10, 20), " ");
         assert_eq!(get_spaces(2, 17, 20), " ");
         assert_eq!(get_spaces(17, 2, 20), " ");
