@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.1.3] - 2024-04-03
+
+### Fixed
+
+- lsusb-verbose: hub dump not reading full descriptor for bcd >= 0x0300 so missing hub descriptor ([#63](https://github.com/tuna-f1sh/cyme/pull/63)).
+- lsusb-verbose: verbose white space and some strings.
+
+### Changed
+
+- build: hide `--gen` behind `cli_generate` feature ([#61](https://github.com/tuna-f1sh/cyme/pull/61)).
+- lsusb: brought upto date with v018 releae and some pre-v019 features ([#62](https://github.com/tuna-f1sh/cyme/pull/62)).
+
+### Added
+
+- display: negotiated-speed block to show the actual operating speed of the connected device.
+
 ## [2.1.2] - 2024-02-21
 
 Mostly housekeeping and minor fixes. Did a dependency audit and updated some crates. Working towards a hotplug 'watch' subcommand.
