@@ -410,7 +410,7 @@ fn dump_device(device: &Device) {
         Some(Speed::SuperSpeedPlusX2) => "SuperSpeed++ (20Gbps)",
         _ => "Unknown",
     };
-    println!("Negotiated speed :        {}", speed_str);
+    println!("Negotiated speed: {}", speed_str);
 
     println!("Device Descriptor:");
     // These are constants - length is 18 bytes for descriptor, type is 1
