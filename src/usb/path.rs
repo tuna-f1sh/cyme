@@ -362,9 +362,9 @@ impl fmt::Display for PortPath {
         // root hut
         if self.ports.is_empty() {
             if f.alternate() {
-                write!(f, "{}-0", self.bus)
-            } else {
                 write!(f, "usb{}", self.bus)
+            } else {
+                write!(f, "{}-0", self.bus)
             }
         } else {
             write!(f, "{}-{}", self.bus, self.ports.iter().format("."))
@@ -987,7 +987,7 @@ mod test {
                 ports: vec![]
             }
             .to_string(),
-            "usb1"
+            "1-0"
         );
     }
 }
