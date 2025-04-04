@@ -1126,11 +1126,16 @@ impl Display {
                     (print_settings.verbosity + 1).to_string()
                 };
                 let mut footer = format!(
-                    " [q]-Quit [b]-Edit Blocks [v]-Verbosity-(→{}) [t]-Tree-(→{}) [h]-Headings-(→{}) [o]-Decimal-(→{})",
+                    " [q]-Quit [b]-Edit Blocks [v]-Verbosity-(→{}) [t]-Tree-(→{}) [h]-Headings-(→{}) [o]-Decimal-(→{}) [p]-Sort-(→{})",
                     verbosity,
-                    if print_settings.tree { "Off" } else { "On" },
-                    if print_settings.headings { "Off" } else { "On" },
-                    if print_settings.decimal { "Off" } else { "On" }
+                    if print_settings.tree { "X" } else { "O" },
+                    if print_settings.headings { "X" } else { "O" },
+                    if print_settings.decimal { "X" } else { "O" },
+                    if print_settings.sort_devices == Sort::BranchPosition {
+                        "D#"
+                    } else {
+                        "P#"
+                    }
                 );
                 truncate_string(&mut footer, term_width as usize);
 
