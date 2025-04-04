@@ -14,9 +14,30 @@ env:
   INTERMEDIATES_DIR: intermediates
 
 jobs:
+  format:
+    name: Ensure 'cargo fmt' has been run
+    runs-on: ubuntu-latest
+    steps:
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt
+    - uses: actions/checkout@v4
+    - run: cargo fmt -- --check
+
+  clippy:
+    name: Ensure 'cargo clippy' has no warnings
+    runs-on: ubuntu-latest
+    steps:
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy
+    - uses: actions/checkout@v4
+    - run: cargo clippy --all-targets --all-features -- -Dwarnings
+
   build:
     name: ${{ matrix.job.os }}-${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
+    needs: [format, clippy]
     strategy:
       fail-fast: false
       matrix:
@@ -42,6 +63,7 @@ jobs:
       - name: Install prerequisites
         shell: bash
         run: |
+          # libudev and libusb not required anymore with native
           case ${{ matrix.job.target }} in
             *-linux-*) 
               sudo apt-get -y update;
@@ -49,41 +71,30 @@ jobs:
               sudo apt-get -y install libusb-1.0-0-dev;
               cargo install cargo-deb
               ;;
+            *)
+              ;;
+          esac
+
+      - name: Rustup add target
+        if: matrix.job.use-cross == false
+        shell: bash
+        run: |
+          case ${{ matrix.job.target }} in
             universal-apple-*)
               rustup target add x86_64-apple-darwin
               rustup target add aarch64-apple-darwin
               ;;
             *)
+              rustup target add ${{ matrix.job.target }}
               ;;
           esac
-
-      - name: Set cargo cmd
-        shell: bash
-        run: echo "CARGO_CMD=cargo" >> "$GITHUB_ENV"
-
-      - name: Rustup add target
-        if: matrix.job.use-cross == false && !startsWith(matrix.job.target, 'universal-apple')
-        shell: bash
-        run: rustup target add ${{ matrix.job.target }}
-
-      - name: Set cargo cmd to cross
-        shell: bash
-        if: matrix.job.use-cross == true
-        run: echo "CARGO_CMD=cross" >> "$GITHUB_ENV"
 
       - name: Install cross
         shell: bash
         if: matrix.job.use-cross == true
-        run: cargo install cross
-
-      - name: Format and clippy
-        id: format
-        shell: bash
-        if: matrix.job.use-cross == false
         run: |
-          cargo fmt -- --check
-          cargo clippy --all-targets -- -Dwarnings
-          cargo clippy --all-targets --all-features -- -Dwarnings
+          echo "CARGO_CMD=cross" >> "$GITHUB_ENV"
+          cargo install cross
 
       - name: Test
         id: test
@@ -138,7 +149,7 @@ jobs:
         shell: bash
         if: matrix.job.use-cross == false
         run: |
-          "${{ steps.prepare.outputs.BIN_PATH }}" --gen
+          make generated
           git diff --exit-code
 
       - name: Create tarball
@@ -220,7 +231,7 @@ jobs:
           echo "IS_RELEASE=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Publish archives and packages
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: steps.is-release.outputs.IS_RELEASE
         with:
           files: |
