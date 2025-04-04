@@ -150,6 +150,8 @@ impl From<Version> for u16 {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum ConfigAttributes {
+    /// Device is bus powered
+    BusPowered,
     /// Device powers itself not from bus
     SelfPowered,
     /// Supports remote wake-up
@@ -1183,6 +1185,7 @@ impl Configuration {
                 ConfigAttributes::SelfPowered => ret |= 0x40,
                 ConfigAttributes::RemoteWakeup => ret |= 0x20,
                 ConfigAttributes::BatteryPowered => ret |= 0x10,
+                _ => (),
             }
         }
 

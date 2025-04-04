@@ -134,20 +134,36 @@ where
             value,
             index: 0,
             recipient: Recipient::Device,
-            length: 9,
+            length: 12,
             claim_interface: false,
         };
-        let data = device.get_control_msg(control)?;
+        let data = match device.get_control_msg(control) {
+            Ok(data) => data,
+            Err(_) => {
+                // if failed, try again with at least 9 bytes = min required for one port bitmask
+                let control = ControlRequest {
+                    control_type: ControlType::Class,
+                    request: REQUEST_GET_DESCRIPTOR,
+                    value,
+                    index: 0,
+                    recipient: Recipient::Device,
+                    length: 9,
+                    claim_interface: false,
+                };
+                device.get_control_msg(control)?
+            }
+        };
         let mut hub = usb::HubDescriptor::try_from(data.as_slice())?;
 
         // get port statuses
         let mut port_statues: Vec<[u8; 8]> = Vec::with_capacity(hub.num_ports as usize);
         for p in 0..hub.num_ports {
+            // Request EXT_PORT_STATUS for USB 3.1 SuperSpeedPlus hubs, PORT_STATUS otherwise
             let control = ControlRequest {
                 control_type: ControlType::Class,
                 request: REQUEST_GET_STATUS,
+                value: if is_ext_status { 2 } else { 0 },
                 index: p as u16 + 1,
-                value: 0x23 << 8,
                 recipient: Recipient::Other,
                 length: if is_ext_status { 8 } else { 4 },
                 claim_interface: false,
@@ -556,20 +572,6 @@ where
         // Iterate on chunks of the header length
         while taken < extra_len && extra_len >= 2 {
             let dt_len = raw[0] as usize;
-            if let Some(b) = raw.get_mut(1) {
-                // Mask request type LIBUSB_REQUEST_TYPE_CLASS
-                *b &= !(0x01 << 5);
-                // if not Device or Interface, force it to Interface (like lsusb) but warn
-                if !(*b == 0x01 || *b == 0x04) {
-                    log::warn!(
-                        "{:?} Misplaced descriptor type in interfaces: {:02x}",
-                        device,
-                        *b
-                    );
-                    *b = 0x04;
-                }
-            }
-
             let dt = self.build_descriptor_extra(
                 device,
                 Some(class_code),
@@ -600,13 +602,6 @@ where
         // Iterate on chunks of the header length
         while taken < extra_len && extra_len >= 2 {
             let dt_len = raw[0] as usize;
-            if let Some(b) = raw.get_mut(1) {
-                // Mask request type LIBUSB_REQUEST_TYPE_CLASS for Endpoint: 0x25
-                if *b == 0x25 {
-                    *b &= !(0x01 << 5);
-                }
-            };
-
             let dt = self.build_descriptor_extra(
                 device,
                 Some(class_code),
