@@ -166,6 +166,10 @@ jobs:
         if: contains(matrix.job.target, 'linux')
         run: |
           DPKG_PATH="$(make dpkg | tail -n1)"
+          # replace _ with -
+          DPKG_NAME="$(sed 's/_/-/g' <<< $(basename ${DPKG_PATH}))"
+          mv "${DPKG_PATH}" "$(dirname ${DPKG_PATH})/${DPKG_NAME}"
+          DPKG_PATH="$(dirname ${DPKG_PATH})/${DPKG_NAME}"
           echo "dpkg-${TARGET}=${DPKG_PATH}" >> "$GITHUB_OUTPUT"
           echo "DPKG_NAME=$(basename ${DPKG_PATH})" >> "$GITHUB_OUTPUT"
           echo "DPKG_PATH=${DPKG_PATH}" >> "$GITHUB_OUTPUT"

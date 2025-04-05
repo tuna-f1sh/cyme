@@ -84,7 +84,11 @@ package: $(ARCHIVE)
 
 dpkg: $(RELEASE_BIN)
 	cargo install cargo-deb
+ifeq ($(TARGET),)
 	cargo deb --no-strip --no-build
+else
+	cargo deb --target $(TARGET) --no-strip --no-build
+endif
 
 $(DOCS): Cargo.toml $(RSRCS)
 	@echo "Generating docs for $(PROJECT_NAME) $(VERSION)"
@@ -117,4 +121,8 @@ endif
 	rm -rf $(PACKAGE_DIR)/$(PACKAGE_BASE)
 
 %.deb:
+ifeq ($(TARGET),)
+	cargo deb --no-strip --no-build --output $@
+else
 	cargo deb --target $(TARGET) --no-strip --no-build --output $@
+endif
