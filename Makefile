@@ -10,7 +10,7 @@ DOCS = $(AUTOCOMPLETES) doc/$(PROJECT_NAME).1  doc/cyme_example_config.json
 CARGO_CMD ?= cargo
 CARGO_TARGET_DIR ?= target
 PACKAGE_DIR ?= $(CARGO_TARGET_DIR)/packages
-CARGO_FLAGS += --locked --release
+CARGO_FLAGS += --locked
 
 ifeq ($(TARGET),)
 	PACKAGE_BASE := $(PROJECT_NAME)-v$(VERSION)-$(OS)
@@ -77,7 +77,9 @@ enter_version:
 new_version: test enter_version gen
 
 test:
-	$(CARGO_CMD) test $(CARGO_TEST_FLAGS)
+	$(CARGO_CMD) test $(CARGO_FLAGS) $(CARGO_TEST_FLAGS)
+	# test with libusb profiler
+	$(CARGO_CMD) test $(CARGO_FLAGS) $(CARGO_TEST_FLAGS) --no-default-features -F=ffi
 
 package: $(ARCHIVE)
 	@echo "$(ARCHIVE)"
@@ -96,14 +98,14 @@ $(DOCS): Cargo.toml $(RSRCS)
 
 $(RELEASE_BIN): Cargo.lock $(RSRCS)
 ifeq ($(TARGET),universal-apple-darwin)
-	cargo build --target aarch64-apple-darwin $(CARGO_FLAGS)
-	cargo build --target x86_64-apple-darwin $(CARGO_FLAGS)
+	cargo build --target aarch64-apple-darwin $(CARGO_FLAGS) --release
+	cargo build --target x86_64-apple-darwin $(CARGO_FLAGS) --release
 	mkdir -p $(shell dirname $(RELEASE_BIN))
 	lipo -create -output $(RELEASE_BIN) \
 	  $(CARGO_TARGET_DIR)/aarch64-apple-darwin/release/$(PROJECT_NAME) \
 	  $(CARGO_TARGET_DIR)/x86_64-apple-darwin/release/$(PROJECT_NAME)
 else
-	$(CARGO_CMD) build $(CARGO_FLAGS)
+	$(CARGO_CMD) build $(CARGO_FLAGS) --release
 endif
 
 $(ARCHIVE): $(RELEASE_BIN) README.md LICENSE CHANGELOG.md $(DOCS)
