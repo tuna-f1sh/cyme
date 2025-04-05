@@ -42,7 +42,7 @@ BASH_COMPLETION_PATH ?= $(PREFIX)/share/bash-completion/completions
 ZSH_COMPLETION_PATH ?= $(PREFIX)/share/zsh/site-functions
 MAN_PAGE_PATH ?= $(PREFIX)/share/man/man1
 
-.PHONY: release install clean generated docs gen enter_version new_version test package dpkg
+.PHONY: release install clean generated docs gen enter_version new_version release_version test package dpkg
 
 release: $(RELEASE_BIN)
 	@echo "$(RELEASE_BIN)"
@@ -75,6 +75,9 @@ enter_version:
 	$(CARGO_CMD) update
 
 new_version: test enter_version gen
+
+release_version:
+	@exec scripts/release_version.sh
 
 test:
 	$(CARGO_CMD) test $(CARGO_FLAGS) $(CARGO_TEST_FLAGS)
