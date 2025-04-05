@@ -116,7 +116,7 @@ $(ARCHIVE): $(RELEASE_BIN) README.md LICENSE CHANGELOG.md $(DOCS)
 	mkdir -p $(PACKAGE_DIR)/$(PACKAGE_BASE)/autocomplete
 	cp $(AUTOCOMPLETES) $(PACKAGE_DIR)/$(PACKAGE_BASE)/autocomplete/
 ifeq ($(ARCHIVE_EXT),zip)
-	cd $(PACKAGE_DIR) && zip -r $(PACKAGE_BASE).zip $(PACKAGE_BASE)
+	cd $(PACKAGE_DIR) && 7z -y a $(PACKAGE_BASE).zip $(PACKAGE_BASE)
 else
 	cd $(PACKAGE_DIR) && tar czf $(PACKAGE_BASE).tar.gz $(PACKAGE_BASE)
 endif
