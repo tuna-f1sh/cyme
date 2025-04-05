@@ -17,6 +17,7 @@ jobs:
   crate_metadata:
     name: Extract crate metadata
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
     steps:
     - uses: actions/checkout@v4
     - name: Extract crate information
@@ -76,18 +77,21 @@ jobs:
             ~/.cargo/git/db/
             ~/.cargo/bin/cargo-deb
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.job.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - uses: dtolnay/rust-toolchain@stable
 
+      # Could remove this step if not clippy/testing --all-features as only required for non-native profiler
       - name: Install prerequisites
         shell: bash
         run: |
-          # libudev and libusb not required anymore with native
           case ${{ matrix.job.target }} in
             *-linux-*) 
               sudo apt-get -y update;
-              sudo apt-get -y install libudev-dev;
-              sudo apt-get -y install libusb-1.0-0-dev;
+              sudo apt-get -y install libudev-dev libusb-1.0-0-dev;
+              # install cargo-deb if not cached
+              if ! command -v cargo-deb &> /dev/null; then
+                cargo install cargo-deb
+              fi
               ;;
             *)
               ;;
@@ -129,7 +133,6 @@ jobs:
         run: make test
         env:
           CARGO_FLAGS: ${{ matrix.job.feature-flags }}
-          CARGO_CMD: ${{ env.CARGO_CMD }}
           TARGET: ${{ matrix.job.target }}
 
       - name: Generated files up to date
@@ -141,7 +144,6 @@ jobs:
           git diff --exit-code
         env:
           CARGO_FLAGS: ${{ matrix.job.feature-flags }}
-          CARGO_CMD: ${{ env.CARGO_CMD }}
           TARGET: ${{ matrix.job.target }}
 
       - name: Build release
@@ -150,7 +152,6 @@ jobs:
         run: echo "bin-${TARGET}=$(make release | tail -n1)" >> "$GITHUB_OUTPUT"
         env:
           CARGO_FLAGS: ${{ matrix.job.feature-flags }}
-          CARGO_CMD: ${{ env.CARGO_CMD }}
           TARGET: ${{ matrix.job.target }}
 
       - name: Create tarball
@@ -166,7 +167,6 @@ jobs:
           fi
         env:
           CARGO_FLAGS: ${{ matrix.job.feature-flags }}
-          CARGO_CMD: ${{ env.CARGO_CMD }}
           TARGET: ${{ matrix.job.target }}
 
       - name: Create Debian package
@@ -184,7 +184,6 @@ jobs:
           echo "DPKG_PATH=${DPKG_PATH}" >> "$GITHUB_OUTPUT"
         env:
           CARGO_FLAGS: ${{ matrix.job.feature-flags }}
-          CARGO_CMD: ${{ env.CARGO_CMD }}
           TARGET: ${{ matrix.job.target }}
 
       - name: Upload package artifact

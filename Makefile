@@ -85,7 +85,6 @@ package: $(ARCHIVE)
 	@echo "$(ARCHIVE)"
 
 dpkg: $(RELEASE_BIN)
-	cargo install cargo-deb
 ifeq ($(TARGET),)
 	cargo deb --no-strip --no-build
 else
