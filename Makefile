@@ -2,15 +2,15 @@ PROJECT_NAME := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.pa
 VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
 OS := $(shell uname)
 
-RSRCS += $(wildcard src/*.rs src/**/*.rs)
-DOCS = $(AUTOCOMPLETE_FILES) doc/$(PROJECT_NAME).1  doc/cyme_example_config.json
-AUTOCOMPLETE_FILES = doc/_$(PROJECT_NAME) doc/$(PROJECT_NAME).bash doc/$(PROJECT_NAME).fish doc/_$(PROJECT_NAME).ps1
+RSRCS += $(wildcard src/**/*.rs)
+AUTOCOMPLETES = doc/_$(PROJECT_NAME) doc/$(PROJECT_NAME).bash doc/$(PROJECT_NAME).fish doc/_$(PROJECT_NAME).ps1
+DOCS = $(AUTOCOMPLETES) doc/$(PROJECT_NAME).1  doc/cyme_example_config.json
 
 # ?= allows overriding from command line with 'cross'
 CARGO_CMD ?= cargo
 CARGO_TARGET_DIR ?= target
 PACKAGE_DIR ?= $(CARGO_TARGET_DIR)/packages
-CARGO_RELEASE_FLAGS += --locked --release
+CARGO_FLAGS += --locked --release
 
 ifeq ($(TARGET),)
 	PACKAGE_BASE := $(PROJECT_NAME)-v$(VERSION)-$(OS)
@@ -18,7 +18,7 @@ ifeq ($(TARGET),)
 else
 	PACKAGE_BASE := $(PROJECT_NAME)-v$(VERSION)-$(TARGET)
 	TARGET_DIR := $(CARGO_TARGET_DIR)/$(TARGET)
-	CARGO_RELEASE_FLAGS += --target $(TARGET)
+	CARGO_FLAGS += --target $(TARGET)
 endif
 RELEASE_BIN := $(TARGET_DIR)/release/$(PROJECT_NAME)
 
@@ -40,9 +40,10 @@ BASH_COMPLETION_PATH ?= $(PREFIX)/share/bash-completion/completions
 ZSH_COMPLETION_PATH ?= $(PREFIX)/share/zsh/site-functions
 MAN_PAGE_PATH ?= $(PREFIX)/share/man/man1
 
-.PHONY: release install generated enter_version new_version test package
+.PHONY: release install clean generated docs gen enter_version new_version test package dpkg
 
 release: $(RELEASE_BIN)
+	@echo "$(RELEASE_BIN)"
 
 install: release
 	@echo "Installing $(PROJECT_NAME) $(VERSION)"
@@ -55,7 +56,13 @@ install: release
 		install -vDm0644 ./doc/_$(PROJECT_NAME) "$(DESTDIR)$(ZSH_COMPLETION_PATH)/_$(PROJECT_NAME)"; \
 	fi
 
+clean:
+	$(CARGO_CMD) clean
+
 generated: $(DOCS)
+# I'm lazy to remember what I called it!
+docs: $(DOCS)
+gen: $(DOCS)
 
 enter_version:
 	@echo "Current version: $(VERSION)"
@@ -65,7 +72,7 @@ enter_version:
 	# update because Cargo.lock references self for tests
 	$(CARGO_CMD) update
 
-new_version: enter_version generated
+new_version: test enter_version gen
 
 test:
 	$(CARGO_CMD) test $(CARGO_TEST_FLAGS)
@@ -73,22 +80,25 @@ test:
 package: $(ARCHIVE)
 	@echo "$(ARCHIVE)"
 
+dpkg: $(RELEASE_BIN)
+	cargo install cargo-deb
+	cargo deb --no-strip --no-build
+
 $(DOCS): Cargo.toml $(RSRCS)
 	@echo "Generating docs for $(PROJECT_NAME) $(VERSION)"
 	$(CARGO_CMD) run --locked --release -F=cli_generate -- --gen
 
 $(RELEASE_BIN): Cargo.lock $(RSRCS)
 ifeq ($(TARGET),universal-apple-darwin)
-	cargo build --target aarch64-apple-darwin $(CARGO_RELEASE_FLAGS)
-	cargo build --target x86_64-apple-darwin $(CARGO_RELEASE_FLAGS)
+	cargo build --target aarch64-apple-darwin $(CARGO_FLAGS)
+	cargo build --target x86_64-apple-darwin $(CARGO_FLAGS)
 	mkdir -p $(shell dirname $(RELEASE_BIN))
 	lipo -create -output $(RELEASE_BIN) \
 	  $(CARGO_TARGET_DIR)/aarch64-apple-darwin/release/$(PROJECT_NAME) \
 	  $(CARGO_TARGET_DIR)/x86_64-apple-darwin/release/$(PROJECT_NAME)
 else
-	$(CARGO_CMD) build --target $(TARGET) $(CARGO_RELEASE_FLAGS)
+	$(CARGO_CMD) build $(CARGO_FLAGS)
 endif
-	@echo "$(RELEASE_BIN)"
 
 $(ARCHIVE): $(RELEASE_BIN) README.md LICENSE CHANGELOG.md $(DOCS)
 	mkdir -p $(PACKAGE_DIR)/$(PACKAGE_BASE)
@@ -96,7 +106,7 @@ $(ARCHIVE): $(RELEASE_BIN) README.md LICENSE CHANGELOG.md $(DOCS)
 	cp README.md LICENSE CHANGELOG.md $(PACKAGE_DIR)/$(PACKAGE_BASE)/
 	cp 'doc/$(PROJECT_NAME).1' $(PACKAGE_DIR)/$(PACKAGE_BASE)/
 	mkdir -p $(PACKAGE_DIR)/$(PACKAGE_BASE)/autocomplete
-	cp $(AUTOCOMPLETE_FILES) $(PACKAGE_DIR)/$(PACKAGE_BASE)/autocomplete/
+	cp $(AUTOCOMPLETES) $(PACKAGE_DIR)/$(PACKAGE_BASE)/autocomplete/
 ifeq ($(ARCHIVE_EXT),zip)
 	cd $(PACKAGE_DIR) && zip -r $(PACKAGE_BASE).zip $(PACKAGE_BASE)
 else
