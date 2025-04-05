@@ -246,6 +246,7 @@ impl SystemProfile {
         if let Some(existing) = self.get_node_mut(&new.port_path()) {
             let devices = std::mem::take(&mut existing.devices);
             new.devices = devices;
+            // config, interface and endpoint will loose internal but not worried about that
             new.internal = existing.internal.clone();
             let ret = std::mem::replace(existing, new);
             Ok(ret)

@@ -2130,6 +2130,7 @@ pub fn render_value<B: BlockEnum, T>(
     pad: &HashMap<B, usize>,
     settings: &PrintSettings,
     max_string_length: Option<usize>,
+    dimmed: bool,
 ) -> Vec<String> {
     let mut ret = Vec::new();
     for b in blocks {
@@ -2141,7 +2142,13 @@ pub fn render_value<B: BlockEnum, T>(
                 }
             }
             match &settings.colours {
-                Some(c) => ret.push(format!("{}", b.colour(&string, c))),
+                Some(c) => {
+                    if dimmed {
+                        ret.push(format!("{}", string.dimmed().white()))
+                    } else {
+                        ret.push(format!("{}", b.colour(&string, c)))
+                    }
+                }
                 None => ret.push(string.to_string()),
             };
         }
@@ -2387,6 +2394,7 @@ impl<W: Write> DisplayWriter<W> {
         blocks: &[EndpointBlocks],
         settings: &PrintSettings,
         tree: &TreeData,
+        dimmed: bool,
     ) {
         let endpoints = &interface.endpoints;
         let device_path = interface.device_path();
@@ -2498,8 +2506,15 @@ impl<W: Write> DisplayWriter<W> {
                 // render and print tree if doing it
                 self.print(format!("{}{} ", prefix, terminator)).unwrap();
                 self.println(
-                    render_value(endpoint, blocks, &pad, settings, max_variable_string_len)
-                        .join(" "),
+                    render_value(
+                        endpoint,
+                        blocks,
+                        &pad,
+                        settings,
+                        max_variable_string_len,
+                        dimmed,
+                    )
+                    .join(" "),
                     line_item,
                 )
                 .unwrap();
@@ -2517,8 +2532,15 @@ impl<W: Write> DisplayWriter<W> {
                     format!(
                         "{:spaces$}{}",
                         "",
-                        render_value(endpoint, blocks, &pad, settings, max_variable_string_len)
-                            .join(" "),
+                        render_value(
+                            endpoint,
+                            blocks,
+                            &pad,
+                            settings,
+                            max_variable_string_len,
+                            dimmed
+                        )
+                        .join(" "),
                         spaces = (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
                     ),
                     line_item,
@@ -2535,6 +2557,7 @@ impl<W: Write> DisplayWriter<W> {
         blocks: (&Vec<InterfaceBlocks>, &Vec<EndpointBlocks>),
         settings: &PrintSettings,
         tree: &TreeData,
+        dimmed: bool,
     ) {
         let mut pad = if !settings.no_padding {
             let interfaces: Vec<&Interface> = interfaces.iter().collect();
@@ -2632,8 +2655,15 @@ impl<W: Write> DisplayWriter<W> {
                 self.print(format!("{}{} ", prefix, terminator)).unwrap();
 
                 self.println(
-                    render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
-                        .join(" "),
+                    render_value(
+                        interface,
+                        blocks.0,
+                        &pad,
+                        settings,
+                        max_variable_string_len,
+                        dimmed,
+                    )
+                    .join(" "),
                     line_item,
                 )
                 .unwrap();
@@ -2651,8 +2681,15 @@ impl<W: Write> DisplayWriter<W> {
                     format!(
                         "{:spaces$}{}",
                         "",
-                        render_value(interface, blocks.0, &pad, settings, max_variable_string_len)
-                            .join(" "),
+                        render_value(
+                            interface,
+                            blocks.0,
+                            &pad,
+                            settings,
+                            max_variable_string_len,
+                            dimmed
+                        )
+                        .join(" "),
                         spaces = (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
                     ),
                     line_item,
@@ -2667,6 +2704,7 @@ impl<W: Write> DisplayWriter<W> {
                     blocks.1,
                     settings,
                     &generate_tree_data(tree, interface.endpoints.len(), i, settings),
+                    dimmed,
                 );
             }
         }
@@ -2724,6 +2762,7 @@ impl<W: Write> DisplayWriter<W> {
         log::trace!("Print configs padding {:?}, tree {:?}", pad, tree);
 
         for (i, config) in configs.iter().enumerate() {
+            let line_item = LineItem::Config((device.port_path(), config.number));
             // get current prefix based on if last in tree and whether we are within the tree
             if settings.tree {
                 let mut prefix = if tree.depth > 0 {
@@ -2781,9 +2820,16 @@ impl<W: Write> DisplayWriter<W> {
                 self.print(format!("{}{} ", prefix, terminator)).unwrap();
 
                 self.println(
-                    render_value(config, blocks.0, &pad, settings, max_variable_string_len)
-                        .join(" "),
-                    LineItem::Config((device.port_path(), config.number)),
+                    render_value(
+                        config,
+                        blocks.0,
+                        &pad,
+                        settings,
+                        max_variable_string_len,
+                        device.is_disconnected(),
+                    )
+                    .join(" "),
+                    line_item,
                 )
                 .unwrap();
             } else {
@@ -2800,11 +2846,18 @@ impl<W: Write> DisplayWriter<W> {
                     format!(
                         "{:spaces$}{}",
                         "",
-                        render_value(config, blocks.0, &pad, settings, max_variable_string_len)
-                            .join(" "),
+                        render_value(
+                            config,
+                            blocks.0,
+                            &pad,
+                            settings,
+                            max_variable_string_len,
+                            device.is_disconnected()
+                        )
+                        .join(" "),
                         spaces = (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
                     ),
-                    LineItem::Config((device.port_path(), config.number)),
+                    line_item,
                 )
                 .unwrap();
             }
@@ -2816,6 +2869,7 @@ impl<W: Write> DisplayWriter<W> {
                     ((blocks.1), (blocks.2)),
                     settings,
                     &generate_tree_data(tree, config.interfaces.len(), i, settings),
+                    device.is_disconnected(),
                 );
             }
         }
@@ -2920,11 +2974,15 @@ impl<W: Write> DisplayWriter<W> {
             }
 
             // print the device
-            let mut device_string =
-                render_value(device, db, &pad, settings, max_variable_string_len).join(" ");
-            if device.is_disconnected() {
-                device_string = device_string.dimmed().white().to_string();
-            }
+            let device_string = render_value(
+                device,
+                db,
+                &pad,
+                settings,
+                max_variable_string_len,
+                device.is_disconnected(),
+            )
+            .join(" ");
             self.println(&device_string, LineItem::Device(device.port_path()))
                 .unwrap();
 
@@ -3095,7 +3153,7 @@ impl<W: Write> DisplayWriter<W> {
                     .unwrap();
             }
             self.println(
-                render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" "),
+                render_value(bus, &bb, &pad, settings, max_variable_string_len, false).join(" "),
                 LineItem::Bus(i),
             )
             .unwrap();
@@ -3178,7 +3236,15 @@ impl<W: Write> DisplayWriter<W> {
         for (i, device) in devices.iter().enumerate() {
             println!(
                 "{}",
-                render_value(*device, &db, &pad, settings, max_variable_string_len).join(" ")
+                render_value(
+                    *device,
+                    &db,
+                    &pad,
+                    settings,
+                    max_variable_string_len,
+                    device.is_disconnected()
+                )
+                .join(" ")
             );
             // print the configurations
             if let Some(extra) = device.extra.as_ref() {
@@ -3260,7 +3326,7 @@ impl<W: Write> DisplayWriter<W> {
                     .unwrap();
             }
             self.println(
-                render_value(bus, &bb, &pad, settings, max_variable_string_len).join(" "),
+                render_value(bus, &bb, &pad, settings, max_variable_string_len, false).join(" "),
                 LineItem::Bus(i),
             )
             .unwrap();
