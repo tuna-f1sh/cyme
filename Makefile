@@ -4,7 +4,8 @@ VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.package
 
 RSRCS += $(wildcard src/*.rs src/**/*.rs)
 CARGO_TARGET_DIR ?= target
-DOCS = doc/_$(PROJECT_NAME) doc/$(PROJECT_NAME).1 doc/$(PROJECT_NAME).bash doc/cyme_example_config.json
+CARGO_RELEASE_FLAGS += --locked --release
+DOCS = doc/_$(PROJECT_NAME) doc/$(PROJECT_NAME).1 doc/$(PROJECT_NAME).bash doc/$(PROJECT_NAME).fish doc/$(PROJECT_NAME).ps1 doc/cyme_example_config.json
 
 OS := $(shell uname)
 
@@ -18,7 +19,7 @@ BASH_COMPLETION_PATH ?= $(PREFIX)/share/bash-completion/completions
 ZSH_COMPLETION_PATH ?= $(PREFIX)/share/zsh/site-functions
 MAN_PAGE_PATH ?= $(PREFIX)/share/man/man1
 
-.PHONY: release install generated enter_version new_version
+.PHONY: release install generated enter_version new_version test
 
 release: $(RELEASE_BIN)
 
@@ -45,9 +46,12 @@ enter_version:
 
 new_version: enter_version generated
 
+test:
+	cargo test $(CARGO_TEST_FLAGS)
+
 $(RELEASE_BIN): Cargo.lock $(RSRCS)
 	@echo "Building version $(PROJECT_NAME) $(VERSION)"
-	cargo build --locked --release
+	cargo build $(CARGO_RELEASE_FLAGS)
 
 $(DOCS): Cargo.toml $(RSRCS)
 	@echo "Generating docs for $(PROJECT_NAME) $(VERSION)"

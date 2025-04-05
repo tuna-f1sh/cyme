@@ -23,7 +23,7 @@ use crate::error::{self, Error, ErrorKind};
 /// let nu = NumericalUnit::from_str(s).unwrap();
 /// assert_eq!(nu, NumericalUnit{ value: 59, unit: "mA".into(), description: None });
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
 pub struct NumericalUnit<T> {
     /// Numerical value
     pub value: T,

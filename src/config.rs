@@ -1,7 +1,7 @@
 //! Config for cyme binary
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use crate::colour;
@@ -17,6 +17,8 @@ const CONF_NAME: &str = "cyme.json";
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields, default)]
 pub struct Config {
+    #[serde(skip)]
+    filepath: Option<PathBuf>,
     /// User supplied [`crate::icon::IconTheme`] - will merge with default
     pub icons: icon::IconTheme,
     /// User supplied [`crate::colour::ColourTheme`] - overrides default
@@ -56,12 +58,10 @@ pub struct Config {
     pub decimal: bool,
     /// Disable padding to align blocks
     pub no_padding: bool,
-    // /// Output coloring mode
-    // pub color: display::ColorWhen,
+    /// Disable color
+    pub no_color: bool,
     /// Disables icons and utf-8 characters
     pub ascii: bool,
-    // /// Output character encoding
-    // pub encoding: display::Encoding,
     /// Disables all [`display::Block`] icons
     pub no_icons: bool,
     /// Show block headings
@@ -74,13 +74,13 @@ pub struct Config {
 
 impl Config {
     /// New based on defaults
-    pub fn new() -> Config {
+    pub fn new() -> Self {
         Default::default()
     }
 
     /// From system config if exists else default
     #[cfg(not(debug_assertions))]
-    pub fn sys() -> Result<Config> {
+    pub fn sys() -> Result<Self> {
         if let Some(p) = Self::config_file_path() {
             let path = p.join(CONF_NAME);
             log::info!("Looking for system config {:?}", &path);
@@ -107,13 +107,13 @@ impl Config {
 
     /// Use default if running in debug since the integration tests use this
     #[cfg(debug_assertions)]
-    pub fn sys() -> Result<Config> {
+    pub fn sys() -> Result<Self> {
         log::warn!("Running in debug, not checking for system config");
         Ok(Self::new())
     }
 
     /// Get example [`Config`]
-    pub fn example() -> Config {
+    pub fn example() -> Self {
         Config {
             icons: icon::example_theme(),
             blocks: Some(display::DeviceBlocks::example_blocks()),
@@ -126,13 +126,9 @@ impl Config {
     }
 
     /// Attempt to read from .json format confg at `file_path`
-    pub fn from_file<P: AsRef<Path>>(file_path: P) -> Result<Config> {
+    pub fn from_file<P: AsRef<Path>>(file_path: P) -> Result<Self> {
         let f = File::open(&file_path)?;
-        let mut br = BufReader::new(f);
-        let mut data = String::new();
-
-        br.read_to_string(&mut data)?;
-        serde_json::from_str::<Config>(&data).map_err(|e| {
+        let mut config: Self = serde_json::from_reader(BufReader::new(f)).map_err(|e| {
             Error::new(
                 ErrorKind::Parsing,
                 &format!(
@@ -141,13 +137,111 @@ impl Config {
                     e
                 ),
             )
-        })
+        })?;
+        // set the file path we loaded from for saving
+        config.filepath = Some(file_path.as_ref().to_path_buf());
+        Ok(config)
     }
 
     /// This provides the path for a configuration file, specific to OS
     /// return None if error like PermissionDenied
     pub fn config_file_path() -> Option<PathBuf> {
         dirs::config_dir().map(|x| x.join(CONF_DIR))
+    }
+
+    /// Get the file path for the config
+    pub fn filepath(&self) -> Option<&Path> {
+        self.filepath.as_deref()
+    }
+
+    /// Save the current config to a file
+    pub fn save_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        log::info!("Saving config to {:?}", path.as_ref().display());
+        // create parent folders
+        if let Some(parent) = path.as_ref().parent() {
+            log::debug!("Creating parent folders for {:?}", parent.display());
+            std::fs::create_dir_all(parent)?;
+        }
+        let f = File::create(&path)?;
+        serde_json::to_writer_pretty(f, self).map_err(|e| {
+            Error::new(
+                ErrorKind::Io,
+                &format!("Failed to save config: Error({})", e),
+            )
+        })
+    }
+
+    /// Save the current config to the file it was loaded from or default location if None
+    pub fn save(&self) -> Result<()> {
+        if let Some(p) = self.filepath() {
+            self.save_file(p)
+        } else if let Some(p) = Self::config_file_path() {
+            self.save_file(p.join(CONF_NAME))
+        } else {
+            Err(Error::new(
+                ErrorKind::Io,
+                "Unable to determine config file path",
+            ))
+        }
+    }
+
+    /// Merge the settings from a [`display::PrintSettings`] into the config
+    ///
+    /// Dynamic settings and those loaded from config such as [`icon::IconTheme`] and [`color::ColourTheme`] are not merged
+    pub fn merge_print_settings(&mut self, settings: &display::PrintSettings) {
+        self.blocks = settings.device_blocks.clone();
+        self.bus_blocks = settings.bus_blocks.clone();
+        self.config_blocks = settings.config_blocks.clone();
+        self.interface_blocks = settings.interface_blocks.clone();
+        self.endpoint_blocks = settings.endpoint_blocks.clone();
+        self.more = settings.more;
+        self.decimal = settings.decimal;
+        self.mask_serials = settings.mask_serials.clone();
+        self.no_padding = settings.no_padding;
+        self.headings = settings.headings;
+        self.tree = settings.tree;
+        self.max_variable_string_len = settings.max_variable_string_len;
+        self.no_auto_width = !settings.auto_width;
+        self.no_icons = matches!(settings.icon_when, display::IconWhen::Never);
+        self.verbose = settings.verbosity;
+    }
+
+    /// Returns a [`display::PrintSettings`] based on the config
+    pub fn print_settings(&self) -> display::PrintSettings {
+        let colours = if self.no_color {
+            None
+        } else {
+            Some(self.colours.clone())
+        };
+        let icons = if self.no_icons {
+            None
+        } else {
+            Some(self.icons.clone())
+        };
+        display::PrintSettings {
+            device_blocks: self.blocks.clone(),
+            bus_blocks: self.bus_blocks.clone(),
+            config_blocks: self.config_blocks.clone(),
+            interface_blocks: self.interface_blocks.clone(),
+            endpoint_blocks: self.endpoint_blocks.clone(),
+            more: self.more,
+            decimal: self.decimal,
+            mask_serials: self.mask_serials.clone(),
+            no_padding: self.no_padding,
+            headings: self.headings,
+            tree: self.tree,
+            max_variable_string_len: self.max_variable_string_len,
+            auto_width: !self.no_auto_width,
+            icon_when: if self.no_icons {
+                display::IconWhen::Never
+            } else {
+                display::IconWhen::Auto
+            },
+            icons,
+            colours,
+            verbosity: self.verbose,
+            ..Default::default()
+        }
     }
 }
 
@@ -171,6 +265,15 @@ mod tests {
     #[test]
     fn test_deserialize_config_missing_args() {
         let path = PathBuf::from("./tests/data").join("config_missing_args.json");
+        assert!(Config::from_file(path).is_ok());
+    }
+
+    #[test]
+    fn test_save_config() {
+        // save to temp file
+        let path = PathBuf::from("./tests/data").join("config_save.json");
+        let c = Config::new();
+        assert!(c.save_file(&path).is_ok());
         assert!(Config::from_file(path).is_ok());
     }
 }

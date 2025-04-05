@@ -24,8 +24,8 @@ const REQUEST_GET_DESCRIPTOR: u8 = 0x06;
 const REQUEST_GET_STATUS: u8 = 0x00;
 const REQUEST_WEBUSB_URL: u8 = 0x02;
 
-const SYSFS_USB_PREFIX: &str = "/sys/bus/usb/devices/";
-const SYSFS_PCI_PREFIX: &str = "/sys/bus/pci/devices/";
+pub(crate) const SYSFS_USB_PREFIX: &str = "/sys/bus/usb/devices/";
+pub(crate) const SYSFS_PCI_PREFIX: &str = "/sys/bus/pci/devices/";
 
 // separate module but import all
 pub mod types;
@@ -37,6 +37,8 @@ pub mod libusb;
 pub mod macos;
 #[cfg(feature = "nusb")]
 pub mod nusb;
+#[cfg(all(feature = "nusb", feature = "watch"))]
+pub mod watch;
 
 /// Transfer direction
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -658,17 +660,16 @@ where
             let mut new_bus = buses.remove(&key).unwrap_or(Bus::from(key));
 
             // group into parent groups with parent path as key or trunk devices so they end up in same place
-            let parent_groups = group.group_by(|d| d.parent_path().unwrap_or(d.trunk_path()));
+            let parent_groups =
+                group.group_by(|d| d.parent_port_path().unwrap_or(d.trunk_port_path()));
 
             // now go through parent paths inserting devices owned by that parent
             // this is not perfect...if the sort of devices does not result in order of depth, it will panic because the parent of a device will not exist. But that won't happen, right...
             // sort key - ends_with to ensure root_hubs, which will have same str length as trunk devices will still be ahead
-            for (parent_path, children) in parent_groups
-                .into_iter()
-                .sorted_by_key(|x| x.0.len() - x.0.ends_with("-0") as usize)
+            for (parent_path, children) in parent_groups.into_iter().sorted_by_key(|x| x.0.depth())
             {
                 // if root devices, add them to bus
-                if parent_path.ends_with("-0") {
+                if parent_path.is_root_hub() {
                     // if parent_path == "-" {
                     let devices = std::mem::take(&mut new_bus.devices);
                     if let Some(mut d) = devices {

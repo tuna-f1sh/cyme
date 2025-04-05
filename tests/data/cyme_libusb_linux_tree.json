@@ -65,11 +65,13 @@
                         "usage_type": "Data",
                         "max_packet_size": 4,
                         "interval": 12,
-                        "extra": null
+                        "extra": null,
+                        "endpoint_path": null
                       }
                     ],
                     "length": 9,
-                    "extra": null
+                    "extra": null,
+                    "device_path": null
                   }
                 ],
                 "attributes": [
@@ -147,11 +149,13 @@
                         "usage_type": "Data",
                         "max_packet_size": 64,
                         "interval": 4,
-                        "extra": null
+                        "extra": null,
+                        "endpoint_path": null
                       }
                     ],
                     "length": 9,
-                    "extra": null
+                    "extra": null,
+                    "device_path": null
                   },
                   {
                     "name": "Relative Coordinate Interface",
@@ -177,11 +181,13 @@
                         "usage_type": "Data",
                         "max_packet_size": 64,
                         "interval": 4,
-                        "extra": null
+                        "extra": null,
+                        "endpoint_path": null
                       }
                     ],
                     "length": 9,
-                    "extra": null
+                    "extra": null,
+                    "device_path": null
                   }
                 ],
                 "attributes": [
@@ -258,11 +264,13 @@
                         "usage_type": "Data",
                         "max_packet_size": 512,
                         "interval": 0,
-                        "extra": null
+                        "extra": null,
+                        "endpoint_path": null
                       }
                     ],
                     "length": 9,
-                    "extra": null
+                    "extra": null,
+                    "device_path": null
                   }
                 ],
                 "attributes": [
@@ -347,11 +355,13 @@
                         "usage_type": "Data",
                         "max_packet_size": 2,
                         "interval": 255,
-                        "extra": null
+                        "extra": null,
+                        "endpoint_path": null
                       }
                     ],
                     "length": 9,
-                    "extra": null
+                    "extra": null,
+                    "device_path": null
                   }
                 ],
                 "attributes": [
@@ -447,11 +457,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       },
                       {
                         "name": "CDC DATA interface",
@@ -477,7 +489,8 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           },
                           {
                             "length": 7,
@@ -491,11 +504,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       },
                       {
                         "name": "CDC",
@@ -521,11 +536,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       },
                       {
                         "name": "CDC DATA interface",
@@ -551,7 +568,8 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           },
                           {
                             "length": 7,
@@ -565,11 +583,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       },
                       {
                         "name": "BULK interface",
@@ -595,7 +615,8 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           },
                           {
                             "length": 7,
@@ -609,11 +630,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       }
                     ],
                     "attributes": [],
@@ -690,11 +713,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 16,
                             "interval": 255,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       },
                       {
                         "name": "",
@@ -720,7 +745,8 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           },
                           {
                             "length": 7,
@@ -734,11 +760,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       },
                       {
                         "name": "Black Magic UART Port",
@@ -764,11 +792,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 16,
                             "interval": 255,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       },
                       {
                         "name": "",
@@ -794,7 +824,8 @@
                             "usage_type": "Data",
                             "max_packet_size": 32,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           },
                           {
                             "length": 7,
@@ -808,11 +839,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 1,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       },
                       {
                         "name": "Black Magic DFU",
@@ -827,7 +860,8 @@
                         "syspath": "/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-2/2-2.8/2-2.8:1.4",
                         "endpoints": [],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       },
                       {
                         "name": "Black Magic Trace Capture",
@@ -853,11 +887,13 @@
                             "usage_type": "Data",
                             "max_packet_size": 64,
                             "interval": 0,
-                            "extra": null
+                            "extra": null,
+                            "endpoint_path": null
                           }
                         ],
                         "length": 9,
-                        "extra": null
+                        "extra": null,
+                        "device_path": null
                       }
                     ],
                     "attributes": [],
@@ -917,11 +953,13 @@
                         "usage_type": "Data",
                         "max_packet_size": 4,
                         "interval": 255,
-                        "extra": null
+                        "extra": null,
+                        "endpoint_path": null
                       }
                     ],
                     "length": 9,
-                    "extra": null
+                    "extra": null,
+                    "device_path": null
                   }
                 ],
                 "attributes": [
@@ -1006,11 +1044,13 @@
                         "usage_type": "Data",
                         "max_packet_size": 4,
                         "interval": 12,
-                        "extra": null
+                        "extra": null,
+                        "endpoint_path": null
                       }
                     ],
                     "length": 9,
-                    "extra": null
+                    "extra": null,
+                    "device_path": null
                   }
                 ],
                 "attributes": [
@@ -1096,11 +1136,13 @@
                         "usage_type": "Data",
                         "max_packet_size": 4,
                         "interval": 12,
-                        "extra": null
+                        "extra": null,
+                        "endpoint_path": null
                       }
                     ],
                     "length": 9,
-                    "extra": null
+                    "extra": null,
+                    "device_path": null
                   }
                 ],
                 "attributes": [

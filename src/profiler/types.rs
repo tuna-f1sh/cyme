@@ -9,6 +9,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::fs;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use super::*;
@@ -66,24 +67,235 @@ impl SystemProfile {
             .find(|b| b.usb_bus_number == Some(number))
     }
 
-    /// Search for reference to [`Device`] at `port_path` in all buses
-    pub fn get_node(&self, port_path: &str) -> Option<&Device> {
-        for bus in self.buses.iter() {
+    /// Search for reference to [`Device`] at [`PortPath`] on correct bus number if present else all buses
+    pub fn get_node(&self, port_path: &PortPath) -> Option<&Device> {
+        let bus_no = port_path.bus();
+
+        // the logic of getting bus is required because bus_no is Optional; there may be valid port part on a bus with no number
+        if let Some(bus) = self.get_bus(bus_no) {
             if let Some(node) = bus.get_node(port_path) {
+                return Some(node);
+            }
+        } else {
+            for bus in self.buses.iter() {
+                if let Some(node) = bus.get_node(port_path) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Search for mutable reference to [`Device`] at [`PortPath`] on correct bus number if present else all buses
+    pub fn get_node_mut(&mut self, port_path: &PortPath) -> Option<&mut Device> {
+        let bus_no = port_path.bus();
+
+        if self.buses.iter().any(|b| b.usb_bus_number == Some(bus_no)) {
+            if let Some(bus) = self.get_bus_mut(bus_no) {
+                if let Some(node) = bus.get_node_mut(port_path) {
+                    return Some(node);
+                }
+            }
+        } else {
+            for bus in self.buses.iter_mut() {
+                if let Some(node) = bus.get_node_mut(port_path) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Search for reference to [`Device`] at `port_path` as Path
+    pub fn get_node_by_path<P: AsRef<Path>>(&self, path: P) -> Option<&Device> {
+        UsbPath::from(path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for mutable reference to [`Device`] at `port_path` as Path
+    pub fn get_node_path_by_path_mut<P: AsRef<Path>>(&mut self, path: P) -> Option<&mut Device> {
+        UsbPath::from(path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
+    /// Search for reference to [`Device`] at port path as string
+    pub fn get_node_by_str(&self, path: &str) -> Option<&Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for mutable reference to [`Device`] at port path as string
+    pub fn get_node_str_mut(&mut self, path: &str) -> Option<&mut Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
+    /// Get reference to [`Configuration`] at `port_path` and `config` if present
+    pub fn get_config(&self, port_path: &PortPath, config: u8) -> Option<&Configuration> {
+        self.get_node(port_path).and_then(|d| d.get_config(config))
+    }
+
+    /// Get mutable reference to [`Configuration`] at [`PortPath`] and `config` if present
+    pub fn get_config_mut(
+        &mut self,
+        port_path: &PortPath,
+        config: u8,
+    ) -> Option<&mut Configuration> {
+        self.get_node_mut(port_path)
+            .and_then(|d| d.get_config_mut(config))
+    }
+
+    /// Get reference to [`Interface`] at `port_path`, `config` and `interface` if present in [`DevicePath`]
+    pub fn get_interface(&self, device_path: &DevicePath) -> Option<&Interface> {
+        if let (Some(config), Some(interface)) =
+            (device_path.configuration(), device_path.interface())
+        {
+            self.get_node(device_path.port_path())
+                .and_then(|d| d.get_interface(config, interface, device_path.alt_setting()))
+        } else {
+            None
+        }
+    }
+
+    /// Get mutable reference to [`Interface`] at `port_path`, `config` and `interface` if present in [`DevicePath`]
+    pub fn get_interface_mut(&mut self, device_path: &DevicePath) -> Option<&mut Interface> {
+        if let (Some(config), Some(interface)) =
+            (device_path.configuration(), device_path.interface())
+        {
+            self.get_node_mut(device_path.port_path())
+                .and_then(|d| d.get_interface_mut(config, interface, device_path.alt_setting()))
+        } else {
+            None
+        }
+    }
+
+    /// Get reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
+    pub fn get_endpoint(&self, endpoint_path: &EndpointPath) -> Option<&Endpoint> {
+        if let (Some(config), Some(interface), endpoint) = (
+            endpoint_path.device_path().configuration(),
+            endpoint_path.device_path().interface(),
+            endpoint_path.endpoint(),
+        ) {
+            self.get_node(endpoint_path.device_path().port_path())
+                .and_then(|d| {
+                    d.get_endpoint(
+                        config,
+                        interface,
+                        endpoint_path.device_path().alt_setting(),
+                        endpoint,
+                    )
+                })
+        } else {
+            None
+        }
+    }
+
+    /// Get mutable reference to [`Endpoint`] at `port_path`, `config`, `interface` and `endpoint` if present
+    pub fn get_endpoint_mut(&mut self, endpoint_path: &EndpointPath) -> Option<&mut Endpoint> {
+        if let (Some(config), Some(interface), endpoint) = (
+            endpoint_path.device_path().configuration(),
+            endpoint_path.device_path().interface(),
+            endpoint_path.endpoint(),
+        ) {
+            self.get_node_mut(endpoint_path.device_path().port_path())
+                .and_then(|d| {
+                    d.get_endpoint_mut(
+                        config,
+                        interface,
+                        endpoint_path.device_path().alt_setting(),
+                        endpoint,
+                    )
+                })
+        } else {
+            None
+        }
+    }
+
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and return reference
+    pub fn get_id(&self, id: &::nusb::DeviceId) -> Option<&Device> {
+        for bus in self.buses.iter() {
+            if let Some(node) = bus.get_id(id) {
                 return Some(node);
             }
         }
         None
     }
 
-    /// Search for mutable reference to [`Device`] at `port_path` in all buses
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and returns a mutable reference if found
+    pub fn get_id_mut(&mut self, id: &::nusb::DeviceId) -> Option<&mut Device> {
         for bus in self.buses.iter_mut() {
-            if let Some(node) = bus.get_node_mut(port_path) {
+            if let Some(node) = bus.get_id_mut(id) {
                 return Some(node);
             }
         }
         None
+    }
+
+    /// Replace a [`Device`] in the correct [`Bus`] and parent device based on its location_id
+    ///
+    /// If the device was existing, it will be replaced with the old device and returned as `Ok`, else `Err` if the device was not found.
+    pub fn replace(&mut self, mut new: Device) -> Result<Device> {
+        if let Some(existing) = self.get_node_mut(&new.port_path()) {
+            let devices = std::mem::take(&mut existing.devices);
+            new.devices = devices;
+            new.internal = existing.internal.clone();
+            let ret = std::mem::replace(existing, new);
+            Ok(ret)
+        } else {
+            Err(Error::new(
+                ErrorKind::NotFound,
+                "Device not found to replace",
+            ))
+        }
+    }
+
+    /// Insert a [`Device`] into the correct [`Bus`] and parent device based on its location_id
+    ///
+    /// If the device was existing, it will be replaced with the new device and returned as `Some` (without child devices), else `None`. `None` will also be returned if the device parent is not found.
+    pub fn insert(&mut self, mut new: Device) -> Option<Device> {
+        // check existing device and replace if found
+        if let Some(existing) = self.get_node_mut(&new.port_path()) {
+            let devices = std::mem::take(&mut existing.devices);
+            new.devices = devices;
+            new.internal = existing.internal.clone();
+            let ret = std::mem::replace(existing, new);
+            return Some(ret);
+        // else we have to stick into tree at correct place
+        } else if new.is_trunk_device() {
+            let bus = self.get_bus_mut(new.location_id.bus).unwrap();
+            if let Some(bd) = bus.devices.as_mut() {
+                bd.push(new);
+            } else {
+                bus.devices = Some(vec![new]);
+            }
+        } else if let Some(parent_path) = new.parent_port_path() {
+            if let Some(parent) = self.get_node_mut(&parent_path) {
+                if let Some(bd) = parent.devices.as_mut() {
+                    bd.push(new);
+                } else {
+                    parent.devices = Some(vec![new]);
+                }
+            }
+        }
+
+        None
+    }
+}
+
+impl<'a> IntoIterator for &'a SystemProfile {
+    type Item = &'a Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.flattened_devices().into_iter()
     }
 }
 
@@ -151,6 +363,9 @@ pub struct Bus {
     /// On Linux, the root hub is also included in this list
     #[serde(rename(deserialize = "_items"), alias = "devices")]
     pub devices: Option<Vec<Device>>,
+    /// Internal data for tracking events and other data
+    #[serde(skip)]
+    pub(crate) internal: InternalData,
 }
 
 /// Deprecated alias for [`Bus`]
@@ -198,7 +413,17 @@ impl TryFrom<Device> for Bus {
             pci_revision: pci_revision.filter(|v| *v != 0xffff && *v != 0),
             usb_bus_number: Some(device.location_id.bus),
             devices: device.devices,
+            ..Default::default()
         })
+    }
+}
+
+impl<'a> IntoIterator for &'a Bus {
+    type Item = &'a Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.flattened_devices().into_iter()
     }
 }
 
@@ -253,7 +478,7 @@ impl Bus {
     /// Whether the bus has no [`Device`]s
     pub fn is_empty(&self) -> bool {
         match &self.devices {
-            Some(d) => d.is_empty(),
+            Some(d) => d.is_empty() || d.iter().all(|dd| dd.internal.hidden),
             None => true,
         }
     }
@@ -276,14 +501,14 @@ impl Bus {
     }
 
     /// syspath style path to bus
-    pub fn path(&self) -> Option<String> {
-        self.get_bus_number().map(|n| get_trunk_path(n, &[]))
+    pub fn path(&self) -> Option<PathBuf> {
+        self.get_bus_number().map(|n| get_trunk_path(n, &[]).into())
     }
 
     /// sysfs style path to bus interface
-    pub fn interface(&self) -> Option<String> {
+    pub fn interface(&self) -> Option<DevicePath> {
         self.get_bus_number()
-            .map(|n| get_interface_path(n, &Vec::new(), 1, 0))
+            .map(|n| DevicePath::new(n, vec![0], Some(1), Some(0), None))
     }
 
     /// Remove the root_hub if existing in bus
@@ -295,16 +520,17 @@ impl Bus {
 
     /// Gets the device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device(&self) -> Option<&Device> {
-        self.interface().and_then(|i| self.get_node(&i))
+        self.interface().and_then(|i| self.get_node(i.port_path()))
     }
 
     /// Gets a mutable device that is the root_hub associated with this bus - Linux only but exists in case of using --from-json
     pub fn get_root_hub_device_mut(&mut self) -> Option<&mut Device> {
-        self.interface().and_then(|i| self.get_node_mut(&i))
+        self.interface()
+            .and_then(|i| self.get_node_mut(i.port_path()))
     }
 
     /// Search for [`Device`] in branches of bus and return reference
-    pub fn get_node(&self, port_path: &str) -> Option<&Device> {
+    pub fn get_node(&self, port_path: &PortPath) -> Option<&Device> {
         if let Some(devices) = self.devices.as_ref() {
             for dev in devices {
                 if let Some(node) = dev.get_node(port_path) {
@@ -318,11 +544,151 @@ impl Bus {
     }
 
     /// Search for [`Device`] in branches of bus and return mutable if found
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
+    pub fn get_node_mut(&mut self, port_path: &PortPath) -> Option<&mut Device> {
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {
                 if let Some(node) = dev.get_node_mut(port_path) {
                     log::debug!("Found {}", node);
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Search for [`Device`] in branches of bus by Path and return reference
+    pub fn get_node_by_path<P: AsRef<Path>>(&self, port_path: P) -> Option<&Device> {
+        UsbPath::from(port_path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for [`Device`] in branches of bus by Path and return mutable reference
+    pub fn get_node_path_by_path_mut<P: AsRef<Path>>(
+        &mut self,
+        port_path: P,
+    ) -> Option<&mut Device> {
+        UsbPath::from(port_path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
+    /// Search for reference to [`Device`] at port path as string
+    pub fn get_node_by_str(&self, path: &str) -> Option<&Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for mutable reference to [`Device`] at port path as string
+    pub fn get_node_str_mut(&mut self, path: &str) -> Option<&mut Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
+    /// Get reference to [`Configuration`] at [`PortPath`] and `config` if present
+    pub fn get_config(&self, port_path: &PortPath, config: u8) -> Option<&Configuration> {
+        self.get_node(port_path).and_then(|d| d.get_config(config))
+    }
+
+    /// Get mutable reference to [`Configuration`] at [`PortPath`] and `config` if present
+    pub fn get_config_mut(
+        &mut self,
+        port_path: &PortPath,
+        config: u8,
+    ) -> Option<&mut Configuration> {
+        self.get_node_mut(port_path)
+            .and_then(|d| d.get_config_mut(config))
+    }
+
+    /// Get reference to [`Interface`] at [`DevicePath`] if config and interface are present
+    pub fn get_interface(&self, device_path: &DevicePath) -> Option<&Interface> {
+        if let (Some(config), Some(interface)) =
+            (device_path.configuration(), device_path.interface())
+        {
+            self.get_node(device_path.port_path())
+                .and_then(|d| d.get_interface(config, interface, device_path.alt_setting()))
+        } else {
+            None
+        }
+    }
+
+    /// Get mutable reference to [`Interface`] at [`DevicePath`] if config and interface are present
+    pub fn get_interface_mut(&mut self, device_path: &DevicePath) -> Option<&mut Interface> {
+        if let (Some(config), Some(interface)) =
+            (device_path.configuration(), device_path.interface())
+        {
+            self.get_node_mut(device_path.port_path())
+                .and_then(|d| d.get_interface_mut(config, interface, device_path.alt_setting()))
+        } else {
+            None
+        }
+    }
+
+    /// Get reference to [`Endpoint`] at [`EndpointPath`] if config and interface are present
+    pub fn get_endpoint(&self, endpoint_path: &EndpointPath) -> Option<&Endpoint> {
+        if let (Some(config), Some(interface), endpoint) = (
+            endpoint_path.device_path().configuration(),
+            endpoint_path.device_path().interface(),
+            endpoint_path.endpoint(),
+        ) {
+            self.get_node(endpoint_path.device_path().port_path())
+                .and_then(|d| {
+                    d.get_endpoint(
+                        config,
+                        interface,
+                        endpoint_path.device_path().alt_setting(),
+                        endpoint,
+                    )
+                })
+        } else {
+            None
+        }
+    }
+
+    /// Get mutable reference to [`Endpoint`] at [`EndpointPath`] if config and interface are present
+    pub fn get_endpoint_mut(&mut self, endpoint_path: &EndpointPath) -> Option<&mut Endpoint> {
+        if let (Some(config), Some(interface), endpoint) = (
+            endpoint_path.device_path().configuration(),
+            endpoint_path.device_path().interface(),
+            endpoint_path.endpoint(),
+        ) {
+            self.get_node_mut(endpoint_path.device_path().port_path())
+                .and_then(|d| {
+                    d.get_endpoint_mut(
+                        config,
+                        interface,
+                        endpoint_path.device_path().alt_setting(),
+                        endpoint,
+                    )
+                })
+        } else {
+            None
+        }
+    }
+
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and return reference
+    pub fn get_id(&self, id: &::nusb::DeviceId) -> Option<&Device> {
+        if let Some(devices) = self.devices.as_ref() {
+            for dev in devices {
+                if let Some(node) = dev.get_id(id) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[cfg(feature = "nusb")]
+    /// Search for [`::nusb::DeviceId`] in branches of bus and returns a mutable reference if found
+    pub fn get_id_mut(&mut self, id: &::nusb::DeviceId) -> Option<&mut Device> {
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                if let Some(node) = dev.get_id_mut(id) {
                     return Some(node);
                 }
             }
@@ -400,7 +766,7 @@ impl Bus {
                 ret.push(format!(
                     "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number().unwrap_or(0xff),
-                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None)
+                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None).display()
                 ));
             }
         } else {
@@ -422,7 +788,7 @@ impl Bus {
                 ret.push(format!(
                     "/sys/bus/usb/devices/usb{}  {}",
                     self.get_bus_number().unwrap_or(0xff),
-                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None)
+                    get_dev_path(self.get_bus_number().unwrap_or(0xff), None).display()
                 ));
             }
         }
@@ -435,6 +801,31 @@ impl Bus {
             if let Some(d) = pci_ids::Device::from_vid_pid(v, p) {
                 self.host_controller_vendor = Some(d.vendor().name().to_string());
                 self.host_controller_device = Some(d.name().to_string());
+            }
+        }
+    }
+
+    /// Should the bus be hidden when printing
+    pub fn is_hidden(&self) -> bool {
+        self.internal.hidden
+    }
+
+    /// Should the bus be expanded when printing
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the bus
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+    }
+
+    /// Set the expanded state of the bus and all devices
+    pub fn set_all_expanded(&mut self, expanded: bool) {
+        self.internal.expanded = expanded;
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                dev.set_all_expanded(expanded);
             }
         }
     }
@@ -519,79 +910,78 @@ impl fmt::Display for Bus {
 ///   bb  -- bus number in hexadecimal
 ///   dddddd -- up to six levels for the tree, each digit represents its
 ///             position on that level
-#[derive(Debug, Default, Clone, PartialEq, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Eq)]
 pub struct DeviceLocation {
     /// Number of bus attached too
     pub bus: u8,
-    /// Will be len() depth in tree and position at each branch
+    /// Length is depth in tree and position at each branch, empty is bus controller
     pub tree_positions: Vec<u8>,
-    /// Device number on bus
+    /// Device number on bus, generally not related to tree
     pub number: u8,
 }
 
+/// Converts from macOS system_profiler string to `DeviceLocation`
 impl FromStr for DeviceLocation {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
         let location_split: Vec<&str> = s.split('/').collect();
-        let reg = location_split
-            .first()
-            .unwrap()
-            .trim()
-            .trim_start_matches("0x");
+        match (location_split.first(), location_split.get(1)) {
+            (Some(reg), Some(dev)) => {
+                let reg = reg.trim().trim_start_matches("0x");
+                let tree_positions: Vec<u8> = reg
+                    .get(2..)
+                    .unwrap_or("0")
+                    .trim_end_matches('0')
+                    .chars()
+                    .map(|v| v.to_digit(10).unwrap_or(0) as u8)
+                    .collect();
+                // bus no is msb
+                let bus = (u32::from_str_radix(reg, 16)
+                    .map_err(|v| Error::new(ErrorKind::Parsing, &v.to_string()))?
+                    >> 24) as u8;
+                let number = dev.trim().parse::<u8>().map_err(|v| {
+                    Error::new(
+                        ErrorKind::Parsing,
+                        &format!("Invalid device number: {} {}", dev, v),
+                    )
+                })?;
 
-        // get position in tree based on number of non-zero chars or just 0 if not using tree
-        let tree_positions: Vec<u8> = reg
-            .get(2..)
-            .unwrap_or("0")
-            .trim_end_matches('0')
-            .chars()
-            .map(|v| v.to_digit(10).unwrap_or(0) as u8)
-            .collect();
-        // bus no is msb
-        let bus = (u32::from_str_radix(reg, 16)
-            .map_err(|v| Error::new(ErrorKind::Parsing, &v.to_string()))?
-            >> 24) as u8;
-        // port is after / but not always present
-        let number = match location_split.last().unwrap().trim().parse::<u8>() {
-            Ok(v) => v,
-            // port is not always present for some reason so sum tree positions will be unique
-            Err(_) => tree_positions.iter().sum(),
-        };
-
-        Ok(DeviceLocation {
-            bus,
-            tree_positions,
-            number,
-        })
+                Ok(DeviceLocation {
+                    bus,
+                    tree_positions,
+                    number,
+                })
+            }
+            (Some(reg), None) => {
+                let reg = reg.trim().trim_start_matches("0x");
+                let tree_positions: Vec<u8> = reg
+                    .get(2..)
+                    .unwrap_or("0")
+                    .trim_end_matches('0')
+                    .chars()
+                    .map(|v| v.to_digit(10).unwrap_or(0) as u8)
+                    .collect();
+                // bus no is msb
+                let bus = (u32::from_str_radix(reg, 16)
+                    .map_err(|v| Error::new(ErrorKind::Parsing, &v.to_string()))?
+                    >> 24) as u8;
+                // make it up but unique
+                let number = tree_positions.iter().sum();
+                Ok(DeviceLocation {
+                    bus,
+                    tree_positions,
+                    number,
+                })
+            }
+            _ => Err(Error::new(ErrorKind::Parsing, "Invalid location_id")),
+        }
     }
 }
 
-impl DeviceLocation {
-    /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
-    ///
-    /// A wrapper for [`get_port_path`]
-    pub fn port_path(&self) -> String {
-        get_port_path(self.bus, &self.tree_positions)
-    }
-
-    /// Port path of parent
-    ///
-    /// A wrapper for [`get_parent_path`]
-    pub fn parent_path(&self) -> Result<String> {
-        get_parent_path(self.bus, &self.tree_positions)
-    }
-
-    /// Port path of trunk
-    ///
-    /// A wrapper for [`get_trunk_path`]
-    pub fn trunk_path(&self) -> String {
-        get_trunk_path(self.bus, &self.tree_positions)
-    }
-
-    /// Linux sysfs name of [`Device`] similar to `port_path` but root_hubs use the USB controller name instead of port
-    pub fn sysfs_name(&self) -> String {
-        get_sysfs_name(self.bus, &self.tree_positions)
+impl From<DeviceLocation> for PortPath {
+    fn from(location: DeviceLocation) -> Self {
+        PortPath::new(location.bus, location.tree_positions)
     }
 }
 
@@ -739,6 +1129,58 @@ impl FromStr for DeviceSpeed {
     }
 }
 
+/// Events used by the watch feature
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum DeviceEvent {
+    /// Device profiled at time
+    Profiled(chrono::DateTime<chrono::Local>),
+    /// Device connected at time
+    Connected(chrono::DateTime<chrono::Local>),
+    /// Device disconnected at time
+    Disconnected(chrono::DateTime<chrono::Local>),
+}
+
+impl fmt::Display for DeviceEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DeviceEvent::Profiled(t) => write!(f, "P: {}", t.format("%y-%m-%d %H:%M:%S")),
+            DeviceEvent::Connected(t) => write!(f, "C: {}", t.format("%y-%m-%d %H:%M:%S")),
+            DeviceEvent::Disconnected(t) => {
+                write!(f, "D: {}", t.format("%y-%m-%d %H:%M:%S"))
+            }
+        }
+    }
+}
+
+impl Default for DeviceEvent {
+    fn default() -> Self {
+        DeviceEvent::Profiled(chrono::Local::now())
+    }
+}
+
+impl DeviceEvent {
+    /// Get the time of the event
+    pub fn time(&self) -> chrono::DateTime<chrono::Local> {
+        match self {
+            DeviceEvent::Profiled(t) => *t,
+            DeviceEvent::Connected(t) => *t,
+            DeviceEvent::Disconnected(t) => *t,
+        }
+    }
+
+    /// Format the event time using the provided format string
+    pub fn format(&self, fmt: &str) -> String {
+        self.time().format(fmt).to_string()
+    }
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// Internal data used by cyme for display
+pub struct InternalData {
+    pub(crate) expanded: bool,
+    pub(crate) hidden: bool,
+}
+
 /// USB device data based on JSON object output from system_profiler but now used for other platforms
 ///
 /// Designed to hold static data for the device, obtained from system_profiler Deserializer or cyme::lsusb. Fields should probably be non-pub with getters/setters but treat them as read-only.
@@ -803,17 +1245,33 @@ pub struct Device {
     /// Internal to store any non-critical errors captured whilst profiling, unable to open for example
     #[serde(skip)]
     pub profiler_error: Option<String>,
+    /// Unique ID assigned by system
+    #[serde(skip)]
+    #[cfg(feature = "nusb")]
+    pub id: Option<::nusb::DeviceId>,
+    /// Last event that occurred on device
+    pub last_event: Option<DeviceEvent>,
+    /// Internal data for cyme
+    #[serde(skip)]
+    pub internal: InternalData,
 }
 
 /// Deprecated alias for [`Device`]
 #[deprecated(since = "2.0.0", note = "Use Device instead")]
 pub type USBDevice = Device;
 
+#[cfg(feature = "nusb")]
+impl PartialEq for Device {
+    fn eq(&self, other: &Self) -> bool {
+        (self.id == other.id) && self.id.is_some()
+    }
+}
+
 impl Device {
     /// Does the device have child devices; `devices` is Some and > 0
     pub fn has_devices(&self) -> bool {
         match &self.devices {
-            Some(d) => !d.is_empty(),
+            Some(d) => !d.is_empty() && !d.iter().all(|dd| dd.internal.hidden),
             None => false,
         }
     }
@@ -839,18 +1297,6 @@ impl Device {
     }
 
     /// Gets root_hub [`Device`] if it is one
-    ///
-    /// root_hub returns `Some(Self)`
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
-    /// assert_eq!(d.get_root_hub().is_some(), true);
-    /// ```
-    ///
-    /// Not a root_hub returns `None`
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
-    /// assert_eq!(d.get_root_hub().is_some(), false);
-    /// ```
     pub fn get_root_hub(&self) -> Option<&Device> {
         if self.is_root_hub() {
             Some(self)
@@ -859,38 +1305,37 @@ impl Device {
         }
     }
 
-    /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning reference
-    ///
-    /// Will panic if `port_path` is not a child device or if it sits shallower than self
-    pub fn get_node(&self, port_path: &str) -> Option<&Device> {
-        // special case for root_hub, it ends with :1.0
-        if port_path.ends_with(":1.0") {
+    /// Gets mutable root_hub [`Device`] if it is one
+    pub fn get_root_hub_mut(&mut self) -> Option<&mut Device> {
+        if self.is_root_hub() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    /// Recursively walk all [`Device`] from self, looking for the one with [`PortPath`] and returning reference
+    pub fn get_node(&self, port_path: &PortPath) -> Option<&Device> {
+        if port_path.is_root_hub() {
             return self.get_root_hub();
         }
-        let node_depth = port_path
-            .split('-')
-            .next_back()
-            .expect("Invalid port path")
-            .split('.')
-            .count();
+        let search_depth = port_path.depth();
         let current_depth = self.get_depth();
+        let self_port_path = self.port_path();
         log::debug!(
-            "Get node at {} with {} ({}); depth {}/{}",
+            "Get node @ {}: exploring {} ({}); depth {}/{}",
             port_path,
-            self.port_path(),
+            self_port_path,
             self,
             current_depth,
-            node_depth
+            search_depth
         );
 
         // should not be looking for nodes below us unless root
-        match current_depth.cmp(&node_depth) {
-            Ordering::Greater => panic!(
-                "Trying to find node at {}/{} shallower than current position {}!",
-                &port_path, node_depth, current_depth
-            ),
+        match current_depth.cmp(&search_depth) {
+            Ordering::Greater => return None,
             Ordering::Equal => {
-                if self.port_path() == port_path {
+                if self_port_path == *port_path {
                     return Some(self);
                 } else {
                     return None;
@@ -911,41 +1356,28 @@ impl Device {
         None
     }
 
-    /// Recursively walk all [`Device`] from self, looking for the one with `port_path` and returning mutable
-    ///
-    /// Will panic if `port_path` is not a child device or if it sits shallower than self
-    pub fn get_node_mut(&mut self, port_path: &str) -> Option<&mut Device> {
-        if port_path.ends_with(":1.0") {
-            if self.is_root_hub() {
-                return Some(self);
-            } else {
-                return None;
-            }
+    /// Recursively walk all [`Device`] from self, looking for the one with [`PortPath`] and returning mutable
+    pub fn get_node_mut(&mut self, port_path: &PortPath) -> Option<&mut Device> {
+        if port_path.is_root_hub() {
+            return self.get_root_hub_mut();
         }
-        let node_depth = port_path
-            .split('-')
-            .next_back()
-            .expect("Invalid port path")
-            .split('.')
-            .count();
+        let search_depth = port_path.depth();
         let current_depth = self.get_depth();
+        let self_port_path = self.port_path();
         log::debug!(
-            "Get node at {} with {} ({}); depth {}/{}",
+            "Get node @ {}: exploring {} ({}); depth {}/{}",
             port_path,
-            self.port_path(),
+            self_port_path,
             self,
             current_depth,
-            node_depth
+            search_depth
         );
 
         // should not be looking for nodes below us
-        match current_depth.cmp(&node_depth) {
-            Ordering::Greater => panic!(
-                "Trying to find node at {}/{} shallower than current position {}!",
-                &port_path, node_depth, current_depth
-            ),
+        match current_depth.cmp(&search_depth) {
+            Ordering::Greater => return None,
             Ordering::Equal => {
-                if self.port_path() == port_path {
+                if self_port_path == *port_path {
                     return Some(self);
                 } else {
                     return None;
@@ -966,9 +1398,107 @@ impl Device {
         None
     }
 
+    /// Find the [`Device`] by it's Path
+    pub fn get_node_by_path<P: AsRef<Path>>(&self, path: P) -> Option<&Device> {
+        UsbPath::from(path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Find the mutable [`Device`] by it's Path
+    pub fn get_node_mut_by_path<P: AsRef<Path>>(&mut self, path: P) -> Option<&mut Device> {
+        UsbPath::from(path.as_ref())
+            .port_path()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
+    /// Search for reference to [`Device`] at port path as string
+    pub fn get_node_by_str(&self, path: &str) -> Option<&Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node(&pp))
+    }
+
+    /// Search for mutable reference to [`Device`] at port path as string
+    pub fn get_node_str_mut(&mut self, path: &str) -> Option<&mut Device> {
+        PortPath::try_from(path)
+            .ok()
+            .and_then(|pp| self.get_node_mut(&pp))
+    }
+
+    /// Get the [`Configuration`] with number `config` from the device's extra data
+    pub fn get_config(&self, config: u8) -> Option<&Configuration> {
+        self.extra
+            .as_ref()
+            .and_then(|e| e.configurations.iter().find(|c| c.number == config))
+    }
+
+    /// Get the mutable [`Configuration`] with number `config` from the device's extra data
+    pub fn get_config_mut(&mut self, config: u8) -> Option<&mut Configuration> {
+        self.extra
+            .as_mut()
+            .and_then(|e| e.configurations.iter_mut().find(|c| c.number == config))
+    }
+
+    /// Get the [`Interface`] with number `interface` from the device's extra data
+    pub fn get_interface(&self, config: u8, interface: u8, alt_setting: u8) -> Option<&Interface> {
+        self.get_config(config).and_then(|c| {
+            c.interfaces
+                .iter()
+                .find(|i| i.number == interface && i.alt_setting == alt_setting)
+        })
+    }
+
+    /// Get the mutable [`Interface`] with number `interface` from the device's extra data
+    pub fn get_interface_mut(
+        &mut self,
+        config: u8,
+        interface: u8,
+        alt_setting: u8,
+    ) -> Option<&mut Interface> {
+        self.get_config_mut(config).and_then(|c| {
+            c.interfaces
+                .iter_mut()
+                .find(|i| i.number == interface && i.alt_setting == alt_setting)
+        })
+    }
+
+    /// Get the [`Endpoint`] with number `endpoint` from the device's extra data
+    pub fn get_endpoint(
+        &self,
+        config: u8,
+        interface: u8,
+        alt_setting: u8,
+        endpoint_address: u8,
+    ) -> Option<&Endpoint> {
+        self.get_interface(config, interface, alt_setting)
+            .and_then(|i| {
+                i.endpoints
+                    .iter()
+                    .find(|e| e.address.address == endpoint_address)
+            })
+    }
+
+    /// Get the mutable [`Endpoint`] with number `endpoint` from the device's extra data
+    pub fn get_endpoint_mut(
+        &mut self,
+        config: u8,
+        interface: u8,
+        alt_setting: u8,
+        endpoint_address: u8,
+    ) -> Option<&mut Endpoint> {
+        self.get_interface_mut(config, interface, alt_setting)
+            .and_then(|i| {
+                i.endpoints
+                    .iter_mut()
+                    .find(|e| e.address.address == endpoint_address)
+            })
+    }
+
     /// Returns position on branch (parent), which is the last number in `tree_positions` also sometimes referred to as port
     pub fn get_branch_position(&self) -> u8 {
-        *self.location_id.tree_positions.last().unwrap_or(&0)
+        // root hub could be [] or [0] but we want to return 0
+        self.location_id.tree_positions.last().copied().unwrap_or(0)
     }
 
     /// The number of [`Device`] deep; branch depth
@@ -977,118 +1507,49 @@ impl Device {
     }
 
     /// Returns `true` if device is a hub based on device name - not perfect but most hubs advertise as a hub in name - or class code if it has one
-    ///
-    /// ```
-    /// // hub in name
-    /// let d = cyme::profiler::Device{ name: String::from("My special hub"), ..Default::default() };
-    /// assert_eq!(d.is_hub(), true);
-    ///
-    /// // Class is hub
-    /// let d = cyme::profiler::Device{ name: String::from("Not named but Class"), class: Some(cyme::usb::BaseClass::Hub),  ..Default::default() };
-    /// assert_eq!(d.is_hub(), true);
-    ///
-    /// // not a hub
-    /// let d = cyme::profiler::Device{ name: String::from("My special device"), ..Default::default() };
-    /// assert_eq!(d.is_hub(), false);
-    /// ```
     pub fn is_hub(&self) -> bool {
         self.name.to_lowercase().contains("hub")
             || self.class.as_ref().is_some_and(|c| *c == BaseClass::Hub)
     }
 
+    /// [`PortPath`] of the [`Device`]
+    pub fn port_path(&self) -> PortPath {
+        self.location_id.clone().into()
+    }
+
     /// Linux style port path where it can be found on system device path - normally /sys/bus/usb/devices
-    ///
-    /// Normal device
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
-    /// assert_eq!(d.port_path(), "1-1.2.3");
-    /// ```
-    ///
-    /// Get a root_hub port path
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
-    /// assert_eq!(d.port_path(), "1-0:1.0");
-    /// ```
-    pub fn port_path(&self) -> String {
-        // special case for root_hub, it's the interface 0 on config 1
-        if self.is_root_hub() {
-            get_interface_path(self.location_id.bus, &self.location_id.tree_positions, 1, 0)
-        } else {
-            self.location_id.port_path()
-        }
+    pub fn sysfs_path(&self) -> PathBuf {
+        UsbPath::from(self.port_path()).to_sysfs_path()
     }
 
-    /// Path of parent [`Device`]; one above in tree
-    ///
-    /// Device with parent
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
-    /// assert_eq!(d.parent_path(), Ok(String::from("1-1.2")));
-    /// ```
-    ///
-    /// Trunk device parent is path to bus
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
-    /// assert_eq!(d.parent_path(), Ok(String::from("1-0")));
-    /// ```
-    ///
-    /// Cannot get parent for root_hub
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
-    /// assert_eq!(d.parent_path().is_err(), true);
-    /// ```
-    pub fn parent_path(&self) -> Result<String> {
-        self.location_id.parent_path()
+    /// [`PortPath`] of parent [`Device`]; one above in tree
+    pub fn parent_port_path(&self) -> Option<PortPath> {
+        self.port_path().parent()
     }
 
-    /// Path of trunk [`Device`]; first in tree
-    ///
-    /// ```
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2, 3] }, ..Default::default() };
-    /// assert_eq!(d.trunk_path(), "1-1");
-    /// ```
-    pub fn trunk_path(&self) -> String {
-        self.location_id.trunk_path()
+    /// [`PortPath`] of trunk [`Device`]; first in tree
+    pub fn trunk_port_path(&self) -> PortPath {
+        self.port_path().trunk()
     }
 
     /// Linux devpath to [`Device`]
-    pub fn dev_path(&self) -> String {
+    pub fn dev_path(&self) -> PathBuf {
         get_dev_path(self.location_id.bus, Some(self.location_id.number))
     }
 
     /// Linux sysfs name of [`Device`]
     pub fn sysfs_name(&self) -> String {
-        self.location_id.sysfs_name()
+        get_sysfs_name(self.location_id.bus, &self.location_id.tree_positions)
     }
 
     /// Trunk device is first in tree
-    ///
-    /// ```
-    /// // trunk device only 1 position in tree
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
-    /// assert_eq!(d.is_trunk_device(), true);
-    ///
-    /// // not a trunk device
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1, 2] }, ..Default::default() };
-    /// assert_eq!(d.is_trunk_device(), false);
-    /// ```
     pub fn is_trunk_device(&self) -> bool {
         self.location_id.tree_positions.len() == 1
     }
 
     /// Root hub is a specific device on Linux, essentially the bus but sits in device tree because of system_profiler legacy
-    ///
-    /// ```
-    /// // a root hub no tree positions
-    /// let d = cyme::profiler::Device{ name: String::from("root_hub"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![] }, ..Default::default() };
-    /// assert_eq!(d.is_root_hub(), true);
-    ///
-    /// // not a root hub has tree positions
-    /// let d = cyme::profiler::Device{ name: String::from("Test device"), location_id: cyme::profiler::DeviceLocation { bus: 1, number: 0, tree_positions: vec![1] }, ..Default::default() };
-    /// assert_eq!(d.is_root_hub(), false);
-    /// ```
     pub fn is_root_hub(&self) -> bool {
-        self.location_id.tree_positions.is_empty()
+        self.location_id.tree_positions.is_empty() || self.location_id.tree_positions == [0]
     }
 
     /// From lsusb.c: Attempt to get friendly vendor and product names from the udev hwdb. If either or both are not present, instead populate those from the device's own string descriptors
@@ -1220,7 +1681,7 @@ impl Device {
                             "{}/{}  {}",
                             "/sys/bus/usb/devices",
                             self.port_path(),
-                            self.dev_path(),
+                            self.dev_path().display(),
                         ));
                     }
                     if verbosity > 2 {
@@ -1260,7 +1721,7 @@ impl Device {
                     "{}/{}  {}",
                     "/sys/bus/usb/devices",
                     self.port_path(),
-                    self.dev_path(),
+                    self.dev_path().display(),
                 ));
             }
             if verbosity > 2 {
@@ -1326,6 +1787,17 @@ impl Device {
         ret
     }
 
+    /// Recursively gets all devices in a [`Device`] and flattens them into a Vec of mutable references, **excluding** self
+    pub fn flatten_mut(&mut self) -> Vec<&mut Device> {
+        if let Some(d) = self.devices.as_mut() {
+            d.iter_mut()
+                .flat_map(|d| d.flatten_mut())
+                .collect::<Vec<&mut Device>>()
+        } else {
+            Vec::new()
+        }
+    }
+
     /// Recursively gets all devices in a [`Device`] and flattens them into a Vec, including self
     ///
     /// Similar to `flatten` but flattens in place rather than returning references so is destructive
@@ -1340,6 +1812,77 @@ impl Device {
         ret.insert(0, self);
 
         ret
+    }
+
+    /// Recursively searches for a device with a specific [`::nusb::DeviceId`] and returns a reference
+    #[cfg(feature = "nusb")]
+    pub fn get_id(&self, id: &::nusb::DeviceId) -> Option<&Self> {
+        if self.id == Some(*id) {
+            return Some(self);
+        }
+        if let Some(devices) = self.devices.as_ref() {
+            for dev in devices {
+                if let Some(node) = dev.get_id(id) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Recursively searches for a device with a specific [`::nusb::DeviceId`] and returns a mutable reference
+    #[cfg(feature = "nusb")]
+    pub fn get_id_mut(&mut self, id: &::nusb::DeviceId) -> Option<&mut Self> {
+        if self.id == Some(*id) {
+            return Some(self);
+        }
+        if let Some(devices) = self.devices.as_mut() {
+            for dev in devices {
+                if let Some(node) = dev.get_id_mut(id) {
+                    return Some(node);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Get last event that occurred on device
+    pub fn last_event(&self) -> Option<DeviceEvent> {
+        self.last_event
+    }
+
+    /// Has the device disconnected based last event being disconnected
+    ///
+    /// Logic rather than is_connected since Profiled event is not certain still present
+    pub fn is_disconnected(&self) -> bool {
+        matches!(self.last_event, Some(DeviceEvent::Disconnected(_)))
+    }
+
+    /// Should the device be hidden when printing
+    pub fn is_hidden(&self) -> bool {
+        self.internal.hidden
+    }
+
+    /// Should the device be displayed expanded in a tree
+    pub fn is_expanded(&self) -> bool {
+        self.internal.expanded
+    }
+
+    /// Toggle the expanded state of the device
+    pub fn toggle_expanded(&mut self) {
+        self.internal.expanded = !self.internal.expanded;
+    }
+
+    /// Set the expanded state of the device and all configurations, interfaces and endpoints
+    pub fn set_all_expanded(&mut self, expanded: bool) {
+        self.internal.expanded = expanded;
+        if let Some(extra) = self.extra.as_mut() {
+            for config in &mut extra.configurations {
+                config.set_all_expanded(expanded);
+            }
+        }
     }
 }
 
@@ -1406,6 +1949,31 @@ impl fmt::Display for Device {
     }
 }
 
+impl<'a> IntoIterator for &'a Device {
+    type Item = &'a Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        if let Some(d) = self.devices.as_ref() {
+            d.iter()
+                .flat_map(|d| d.flatten())
+                .collect::<Vec<&Device>>()
+                .into_iter()
+        } else {
+            Vec::new().into_iter()
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Device {
+    type Item = &'a mut Device;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
+        self.flatten_mut().into_iter()
+    }
+}
+
 /// Used to filter devices within buses
 ///
 /// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
@@ -1425,10 +1993,14 @@ pub struct Filter {
     pub serial: Option<String>,
     /// retain only device of BaseClass class
     pub class: Option<BaseClass>,
+    /// Exclude empty buses in the tree
+    pub exclude_empty_bus: bool,
     /// Exclude empty hubs in the tree
     pub exclude_empty_hub: bool,
     /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`Bus`]'s in the tree
     pub no_exclude_root_hub: bool,
+    /// Case sensitive matching for strings. False will be unless capital letter in query
+    pub case_sensitive: bool,
 }
 
 /// Deprecated alias for [`Filter`]
@@ -1450,7 +2022,7 @@ pub type USBFilter = Filter;
 /// // node was on a hub so that will remain with it
 /// assert_eq!(flattened.len(), 2);
 /// // get the node from path known before for purpose of test
-/// let device = spusb.get_node(&"20-3.3");
+/// let device = spusb.get_node_by_str("20-3.3");
 /// assert_eq!(device.unwrap().name, "Black Magic Probe  v1.8.2");
 /// ```
 ///
@@ -1469,7 +2041,7 @@ pub type USBFilter = Filter;
 /// // node was on a hub so that will remain with it
 /// assert_eq!(flattened.len(), 2);
 /// // get the node from path known before for purpose of test
-/// let device = spusb.get_node(&"20-3.3");
+/// let device = spusb.get_node_by_str("20-3.3");
 /// assert_eq!(device.unwrap().vendor_id.unwrap(), 0x1d50);
 /// ```
 ///
@@ -1504,7 +2076,7 @@ pub type USBFilter = Filter;
 /// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // black magic probe has CDCCommunications serial
-/// let device = spusb.get_node(&"20-3.3");
+/// let device = spusb.get_node_by_str("20-3.3");
 /// assert_eq!(device.unwrap().name, "Black Magic Probe  v1.8.2");
 /// ```
 ///
@@ -1514,22 +2086,32 @@ impl Filter {
         Default::default()
     }
 
+    fn string_match(&self, pattern: &Option<String>, query: Option<&String>) -> bool {
+        if let (Some(p), Some(q)) = (pattern, query) {
+            let case_sensitive = if !self.case_sensitive {
+                p.chars().any(|c| c.is_uppercase())
+            } else {
+                self.case_sensitive
+            };
+
+            if !case_sensitive {
+                q.to_lowercase().contains(p.to_lowercase().as_str())
+            } else {
+                q.contains(p.as_str())
+            }
+        } else {
+            true
+        }
+    }
+
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &Device) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
             && (device.product_id == self.pid || self.pid.is_none())
-            && self
-                .name
-                .as_ref()
-                .is_none_or(|n| device.name.contains(n.as_str()))
-            && self.serial.as_ref().is_none_or(|n| {
-                device
-                    .serial_num
-                    .as_ref()
-                    .is_some_and(|s| s.contains(n.as_str()))
-            })
+            && (self.string_match(&self.name, Some(&device.name)))
+            && (self.string_match(&self.serial, device.serial_num.as_ref()))
             && self.class.as_ref().is_none_or(|fc| {
                 device.class.as_ref() == Some(fc) || device.has_interface_class(fc)
             })
@@ -1537,26 +2119,10 @@ impl Filter {
             && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
-    /// Recursively retain only `Bus` in `buses` with `Device` matching filter
-    pub fn retain_buses(&self, buses: &mut Vec<Bus>) {
-        buses.retain(|b| {
-            b.usb_bus_number == self.bus || self.bus.is_none() || b.usb_bus_number.is_none()
-        });
-
-        for bus in buses {
-            bus.devices.iter_mut().for_each(|d| self.retain_devices(d));
-        }
-    }
-
-    /// Recursively retain only `Device` in `devices` matching filter
-    ///
-    /// Note that non-matching parents will still be retained if they have a matching `Device` within their branches
-    pub fn retain_devices(&self, devices: &mut Vec<Device>) {
-        devices.retain(|d| self.exists_in_tree(d));
-
-        for d in devices {
-            d.devices.iter_mut().for_each(|d| self.retain_devices(d));
-        }
+    /// Checks whether `bus` passes through filter
+    pub fn is_bus_match(&self, bus: &Bus) -> bool {
+        (bus.usb_bus_number == self.bus || self.bus.is_none() || bus.usb_bus_number.is_none())
+            && !(self.exclude_empty_bus && bus.is_empty())
     }
 
     /// Recursively looks down tree for any `device` matching filter
@@ -1574,6 +2140,56 @@ impl Filter {
         }
     }
 
+    /// Recursively retain only `Bus` in `buses` with `Device` matching filter
+    pub fn retain_buses(&self, buses: &mut Vec<Bus>) {
+        // filter any empty or number matches
+        buses.retain(|b| self.is_bus_match(b));
+
+        for bus in buses.iter_mut() {
+            bus.devices.iter_mut().for_each(|d| self.retain_devices(d));
+        }
+
+        // check bus match again in case empty after device filter
+        buses.retain(|b| self.is_bus_match(b));
+    }
+
+    /// Recursively hide `Bus` in `buses` with `Device` matching filter
+    pub fn hide_buses(&self, buses: &mut [Bus]) {
+        buses
+            .iter_mut()
+            .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
+
+        for bus in buses.iter_mut() {
+            bus.devices.iter_mut().for_each(|d| self.hide_devices(d));
+        }
+
+        buses
+            .iter_mut()
+            .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
+    }
+
+    /// Recursively retain only `Device` in `devices` matching filter
+    ///
+    /// Note that non-matching parents will still be retained if they have a matching `Device` within their branches
+    pub fn retain_devices(&self, devices: &mut Vec<Device>) {
+        devices.retain(|d| self.exists_in_tree(d));
+
+        for d in devices {
+            d.devices.iter_mut().for_each(|d| self.retain_devices(d));
+        }
+    }
+
+    /// Recursively retain only `Device` in `devices` matching filter
+    pub fn hide_devices(&self, devices: &mut [Device]) {
+        devices
+            .iter_mut()
+            .for_each(|d| d.internal.hidden = !self.exists_in_tree(d));
+
+        for d in devices {
+            d.devices.iter_mut().for_each(|d| self.hide_devices(d));
+        }
+    }
+
     /// Retains only `&Device` in `devices` which match filter
     ///
     /// Does not check down tree so should be used to flattened devices only (`get_all_devices`). Will remove hubs if `hide_hubs` since when flattened they will have no devices
@@ -1585,8 +2201,8 @@ impl Filter {
 /// Reads a json dump at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
 ///
 /// Must be a full tree including buses. Use `read_flat_json_dump` for devices only
-pub fn read_json_dump(file_path: &str) -> Result<SystemProfile> {
-    let mut file = fs::File::options().read(true).open(file_path)?;
+pub fn read_json_dump<P: AsRef<Path>>(file_path: P) -> Result<SystemProfile> {
+    let mut file = fs::File::options().read(true).open(file_path.as_ref())?;
 
     let mut data = String::new();
     file.read_to_string(&mut data)?;
@@ -1594,7 +2210,11 @@ pub fn read_json_dump(file_path: &str) -> Result<SystemProfile> {
     let json_dump: SystemProfile = serde_json::from_str(&data).map_err(|e| {
         Error::new(
             ErrorKind::Parsing,
-            &format!("Failed to parse dump at {:?}; Error({})", file_path, e),
+            &format!(
+                "Failed to parse dump at {:?}; Error({})",
+                file_path.as_ref().display(),
+                e
+            ),
         )
     })?;
 
@@ -1602,8 +2222,8 @@ pub fn read_json_dump(file_path: &str) -> Result<SystemProfile> {
 }
 
 /// Reads a flat json dump (devices no buses) at `file_path` with serde deserializer - either from `system_profiler` or from `cyme --json`
-pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<Device>> {
-    let mut file = fs::File::options().read(true).open(file_path)?;
+pub fn read_flat_json_dump<P: AsRef<Path>>(file_path: P) -> Result<Vec<Device>> {
+    let mut file = fs::File::options().read(true).open(file_path.as_ref())?;
 
     let mut data = String::new();
     file.read_to_string(&mut data)?;
@@ -1611,7 +2231,11 @@ pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<Device>> {
     let json_dump: Vec<Device> = serde_json::from_str(&data).map_err(|e| {
         Error::new(
             ErrorKind::Parsing,
-            &format!("Failed to parse dump at {:?}; Error({})", file_path, e),
+            &format!(
+                "Failed to parse dump at {:?}; Error({})",
+                file_path.as_ref().display(),
+                e
+            ),
         )
     })?;
 
@@ -1621,7 +2245,7 @@ pub fn read_flat_json_dump(file_path: &str) -> Result<Vec<Device>> {
 /// Reads a flat json dump (devices no buses) at `file_path` with serde deserializer from `cyme --json` and converts to `SPUSBDataType`
 ///
 /// This is useful for converting a flat json dump to a full tree for use with `Filter`. Bus information is phony however.
-pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SystemProfile> {
+pub fn read_flat_json_to_phony_bus<P: AsRef<Path>>(file_path: P) -> Result<SystemProfile> {
     let devices = read_flat_json_dump(file_path)?;
     let bus = Bus {
         name: String::from("Phony Flat JSON Import Bus"),
@@ -1633,6 +2257,7 @@ pub fn read_flat_json_to_phony_bus(file_path: &str) -> Result<SystemProfile> {
         pci_revision: None,
         usb_bus_number: None,
         devices: Some(devices),
+        ..Default::default()
     };
 
     Ok(SystemProfile { buses: vec![bus] })

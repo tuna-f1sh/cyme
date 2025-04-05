@@ -5,6 +5,7 @@ description = "List system USB buses and devices. A modern cross-platform lsusb"
 repository = "https://github.com/tuna-f1sh/cyme"
 readme = "README.md"
 license = "GPL-3.0-or-later"
+rust-version = "1.82"
 version = "2.1.3"
 edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
@@ -15,7 +16,8 @@ exclude = [".github"]
 clap = { version = "4.0.22", features = ["derive", "wrap_help"] } # CLI argument parsing
 clap_complete = { version = "4.0.6", optional = true } # CLI completions
 clap_mangen = { version = "0.2.5", optional = true } # for generating man - could manually do this
-colored = "2.0.0" # terminal colouring helper
+colored = "3.0.0" # terminal colouring helper
+cansi = { version = "=2.2.1", optional = true } # ANSI escape code helper; decolored - no dependencies
 itertools = "0.10.5" # iterator methods used for building device tree
 rusb = { version = "0.9.4", optional = true } # libusb bindings
 nusb = { git = "https://github.com/kevinmehall/nusb", rev = "dad53d26", optional = true } # pure Rust USB library
@@ -23,7 +25,7 @@ serde = { version = "1.0", features = ["derive"] } # --json serialisation and --
 serde_json = "1.0.87"
 serde_with = "2.0.1"
 log = "0.4.17"
-simple_logger = { version = "4.0.0", features = ["stderr"] }
+simple_logger = { version = "4.0.0", features = ["stderr"], optional = false } # perhaps make this optional in the future; only required by bin targets
 usb-ids = { version = "1" } # USB ID database
 heck = "0.4.0" # common case conversions - could be internal but simple crate with no dependencies
 dirs = "6.0.0" # cross-platform XDG_CONFIG_HOME - could be internal since only this path
@@ -35,10 +37,14 @@ regex = { version = "1.10.5", optional = true } # icon name lookup with regex
 uuid = { version = "1.9.1", features = ["serde"] } # descriptor UUID field support as type
 pci-ids = "0.2.5" # PCI ID database
 unicode-width = "0.2.0" # ensure USB device table is printed with equal width columns - zero dependencies
+crossterm = { version = "0.28.1", optional = true } # watch: terminal manipulation
+futures-lite = { version = "2.6.0", optional = true } # watch: async helper
+chrono = { version = "0.4.39", features = ["serde"] } # watch: event times as human readable
 
 [dev-dependencies]
 diff = "0.1"
 assert-json-diff = "2.0.2"
+criterion = "0.5.1"
 
 [target.'cfg(target_os="linux")'.dependencies]
 udevrs = { version = "^0.4.0", optional = true }
@@ -59,11 +65,21 @@ regex_icon = ["dep:regex"] # icon name lookup with regex
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
 native = ["nusb", "udev"] # pure Rust USB and udev bindings
 ffi = ["libusb", "udevlib"] # C bindings for libusb and libudev
-default = ["native", "regex_icon"] # default native Rust USB (nusb, udevrs) with regex icon name lookup
+watch = ["crossterm", "futures-lite", "nusb", "cansi"] # watch mode
+bin = []
+default = ["native", "regex_icon", "watch", "bin"] # default native Rust USB (nusb, udevrs) with regex icon name lookup
 
 [[bin]]
 name = "cyme"
 path = "src/main.rs"
+
+[[bench]]
+name = "get"
+harness = false
+
+[[bench]]
+name = "profile"
+harness = false
 
 [profile.release]
 lto = true

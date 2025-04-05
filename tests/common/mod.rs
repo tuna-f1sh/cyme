@@ -267,8 +267,9 @@ impl TestEnv {
         let output = self.assert_success_and_get_output(dump_file, args);
         let actual = String::from_utf8_lossy(&output.stdout).to_string();
         let spdata_out = serde_json::from_str::<cyme::profiler::SystemProfile>(&actual).unwrap();
+        let port_path = cyme::usb::PortPath::try_from(port_path).unwrap();
 
-        assert!(spdata_out.get_node(port_path).is_some());
+        assert!(spdata_out.get_node(&port_path).is_some());
     }
 
     /// Similar to assert_output, but able to handle non-utf8 output

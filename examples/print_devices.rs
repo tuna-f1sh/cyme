@@ -10,7 +10,8 @@ fn main() -> Result<(), String> {
     let devices = sp_usb.flattened_devices();
 
     // print with default [`display::PrintSettings`]
-    display::print_flattened_devices(&devices, &display::PrintSettings::default());
+    display::DisplayWriter::default()
+        .print_flattened_devices(&devices, &display::PrintSettings::default());
 
     // alternatively iterate over devices and do something with them
     for device in devices {

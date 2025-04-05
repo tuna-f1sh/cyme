@@ -57,8 +57,16 @@ pub enum Icon {
     TreeConfigurationTerminator,
     /// Icon printed at end of tree before printing interface
     TreeInterfaceTerminator,
+    /// Icon printed at end of tree before disconnected device
+    TreeDisconnectedTerminator,
     /// Icon for endpoint direction
     Endpoint(Direction),
+    /// Icon for profiled state
+    Profiled,
+    /// Icon for connected state
+    Connected,
+    /// Icon for disconnected state
+    Disconnected,
 }
 
 impl FromStr for Icon {
@@ -81,8 +89,12 @@ impl FromStr for Icon {
                 "tree-device-terminator" => Ok(Icon::TreeDeviceTerminator),
                 "tree-configuration-terminator" => Ok(Icon::TreeConfigurationTerminator),
                 "tree-interface-terminator" => Ok(Icon::TreeInterfaceTerminator),
+                "tree-disconnected-terminator" => Ok(Icon::TreeDisconnectedTerminator),
                 "endpoint_in" => Ok(Icon::Endpoint(Direction::In)),
                 "endpoint_out" => Ok(Icon::Endpoint(Direction::Out)),
+                "profiled" => Ok(Icon::Profiled),
+                "connected" => Ok(Icon::Connected),
+                "disconnected" => Ok(Icon::Disconnected),
                 _ => Err(Error::new(
                     ErrorKind::Parsing,
                     "Invalid Icon enum name or valued enum without value",
@@ -193,7 +205,7 @@ impl fmt::Display for Icon {
 }
 
 /// Allows user supplied icons to replace or add to [`static@DEFAULT_ICONS`] and [`static@DEFAULT_UTF8_TREE`]
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[serde(default)]
@@ -227,6 +239,7 @@ pub static DEFAULT_UTF8_TREE: LazyLock<HashMap<Icon, &'static str>> = LazyLock::
         (Icon::TreeDeviceTerminator, "\u{25CB}"),        // "○"
         (Icon::TreeConfigurationTerminator, "\u{2022}"), // "•"
         (Icon::TreeInterfaceTerminator, "\u{25E6}"),     // "◦"
+        (Icon::TreeDisconnectedTerminator, "\u{2715}"),  // "×"
         (Icon::Endpoint(Direction::In), "\u{2192}"),     // →
         (Icon::Endpoint(Direction::Out), "\u{2190}"),    // ←
     ])
@@ -240,11 +253,12 @@ pub static DEFAULT_ASCII_TREE: LazyLock<HashMap<Icon, &'static str>> = LazyLock:
         (Icon::TreeCorner, "|__"),
         (Icon::TreeBlank, "   "), // inset like line
         (Icon::TreeBusStart, "/: "),
-        (Icon::TreeDeviceTerminator, "O"),        // null
-        (Icon::TreeConfigurationTerminator, "o"), // null
-        (Icon::TreeInterfaceTerminator, "."),     // null
-        (Icon::Endpoint(Direction::In), ">"),     //
-        (Icon::Endpoint(Direction::Out), "<"),    //
+        (Icon::TreeDeviceTerminator, "O"),
+        (Icon::TreeConfigurationTerminator, "o"),
+        (Icon::TreeInterfaceTerminator, "."),
+        (Icon::TreeDisconnectedTerminator, "X"),
+        (Icon::Endpoint(Direction::In), ">"),
+        (Icon::Endpoint(Direction::Out), "<"),
     ])
 });
 
@@ -314,6 +328,9 @@ pub static DEFAULT_ICONS: LazyLock<HashMap<Icon, &'static str>> = LazyLock::new(
         (Icon::Classifier(BaseClass::CdcData), "\u{e795}"), // serial 
         (Icon::Classifier(BaseClass::Hid), "\u{f030c}"), // 󰌌
         (Icon::UndefinedClassifier, "\u{2636}"),       //☶
+        (Icon::Profiled, "\u{f041a}"),                 // 󰐚
+        (Icon::Connected, "\u{f0c53}"),                // 󰱓
+        (Icon::Disconnected, "\u{f015b}"),             // 󰅛
     ])
 });
 
@@ -505,6 +522,47 @@ impl IconTheme {
                 .unwrap_or(String::new())
         } else {
             IconTheme::get_default_name_icon(name)
+        }
+    }
+
+    /// Get icon for event based on [`crate::profiler::DeviceEvent`] type
+    pub fn get_event_icon(&self, event: &crate::profiler::DeviceEvent) -> String {
+        use crate::profiler::DeviceEvent;
+
+        match event {
+            DeviceEvent::Profiled(_) => self
+                .user
+                .as_ref()
+                .and_then(|u| u.get(&Icon::Profiled))
+                .unwrap_or(
+                    &DEFAULT_ICONS
+                        .get(&Icon::Profiled)
+                        .unwrap_or(&"")
+                        .to_string(),
+                )
+                .to_string(),
+            DeviceEvent::Connected(_) => self
+                .user
+                .as_ref()
+                .and_then(|u| u.get(&Icon::Connected))
+                .unwrap_or(
+                    &DEFAULT_ICONS
+                        .get(&Icon::Connected)
+                        .unwrap_or(&"")
+                        .to_string(),
+                )
+                .to_string(),
+            DeviceEvent::Disconnected(_) => self
+                .user
+                .as_ref()
+                .and_then(|u| u.get(&Icon::Disconnected))
+                .unwrap_or(
+                    &DEFAULT_ICONS
+                        .get(&Icon::Disconnected)
+                        .unwrap_or(&"")
+                        .to_string(),
+                )
+                .to_string(),
         }
     }
 }
