@@ -7,6 +7,9 @@ on:
     types:
       - created
 
+env:
+  CARGO_CMD: cargo
+
 name: Test, build and package
 jobs:
   crate_metadata:
@@ -138,6 +141,10 @@ jobs:
         run: |
           make generated
           git diff --exit-code
+        env:
+          CARGO_FLAGS: ${{ matrix.job.feature-flags }}
+          CARGO_CMD: ${{ env.CARGO_CMD }}
+          TARGET: ${{ matrix.job.target }}
 
       - name: Build release
         id: build
