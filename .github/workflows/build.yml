@@ -47,7 +47,7 @@ jobs:
       with:
         components: clippy
     - uses: actions/checkout@v4
-    - run: cargo clippy --all-targets --all-features -- -Dwarnings
+    - run: cargo clippy --all-targets -- -Dwarnings
 
   build:
     name: ${{ matrix.job.os }}-${{ matrix.job.target }}
@@ -114,6 +114,12 @@ jobs:
         run: |
           echo "CARGO_CMD=cross" >> "$GITHUB_ENV"
           cargo install cross
+
+      - name: Clippy
+        id: clippy
+        shell: bash
+        if: matrix.job.use-cross == false
+        run: cargo clippy --all-targets --all-features -- -Dwarnings
 
       - name: Test
         id: test
