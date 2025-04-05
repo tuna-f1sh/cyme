@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+`cyme watch` subcommand to watch for USB device hotplug events and _live_ edit display settings. A simple TUI proof of concept that grew beyond just showing hotplug events into something quite handy for exploring enumerated devices. It can also edit display settings and save them to the cyme config file. 
+
+It's a nice way to customise display blocks: press 'b' to use the editor and 'Ctrl-s' to save. Use '?' for other keybindings. Navigation is mostly Vim-like. Try connecting and disconnecting a device while running `cyme watch` to see the hotplug events.
+
+The interface is simplistic at the moment but could be re-skinned with something like Ratatui in the future.
+
+### Added
+
+- `cyme watch` subcommand to watch for USB device hotplug events and 'live' edit display settings ([#58](https://github.com/tuna-f1sh/cyme/pull/58))
+
 ## [2.1.3] - 2024-04-03
 
 ### Fixed
