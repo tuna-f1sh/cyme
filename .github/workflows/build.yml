@@ -6,9 +6,11 @@ on:
   release:
     types:
       - created
+  workflow_dispatch:
 
 env:
   CARGO_CMD: cargo
+  RUSTFLAGS: "-Dwarnings"
 
 name: Test, build and package
 jobs:
@@ -42,15 +44,7 @@ jobs:
     - uses: actions/checkout@v4
     - run: cargo fmt -- --check
 
-  # clippy:
-  #   name: Ensure 'cargo clippy' has no warnings
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: dtolnay/rust-toolchain@stable
-  #     with:
-  #       components: clippy
-  #   - uses: actions/checkout@v4
-  #   - run: cargo clippy --all-targets -- -Dwarnings
+  # Clippy pre-check would be nice but OS dependant features and libusb deps for all-features requires in matrix
 
   build:
     name: ${{ matrix.job.os }}-${{ matrix.job.target }}
@@ -66,6 +60,7 @@ jobs:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: false, feature-flags: ""  }
           - { os: macos-latest, target: universal-apple-darwin, use-cross: false, feature-flags: ""  }
     outputs:
+      # could use these for release job?
       # pkg-linux-aarch64: ${{ steps.package.outputs.pkg-aarch64-unknown-linux-gnu }}
       # pkg-linux-x86_64: ${{ steps.package.outputs.pkg-x86_64-unknown-linux-gnu }}
       # pkg-windows-x86_64: ${{ steps.package.outputs.pkg-x86_64-pc-windows-gnu }}
@@ -79,6 +74,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            ~/.cargo/bin/cargo-deb
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - uses: dtolnay/rust-toolchain@stable
@@ -118,15 +114,17 @@ jobs:
           echo "CARGO_CMD=cross" >> "$GITHUB_ENV"
           cargo install cross
 
-      - name: Clippy
+      - name: Clippy check no warnings
         id: clippy
         shell: bash
+        # cross targets should be covered
         if: matrix.job.use-cross == false
-        run: cargo clippy --all-targets --all-features -- -Dwarnings
+        run: cargo clippy --all-targets --all-features
 
       - name: Test
         id: test
         shell: bash
+        # cross is buggy with QEMU and slow
         if: matrix.job.use-cross == false
         run: make test
         env:
