@@ -18,7 +18,9 @@ ifeq ($(TARGET),)
 else
 	PACKAGE_BASE := $(PROJECT_NAME)-v$(VERSION)-$(TARGET)
 	TARGET_DIR := $(CARGO_TARGET_DIR)/$(TARGET)
+ifneq ($(TARGET),universal-apple-darwin)
 	CARGO_FLAGS += --target $(TARGET)
+endif
 endif
 RELEASE_BIN := $(TARGET_DIR)/release/$(PROJECT_NAME)
 
@@ -86,7 +88,7 @@ dpkg: $(RELEASE_BIN)
 
 $(DOCS): Cargo.toml $(RSRCS)
 	@echo "Generating docs for $(PROJECT_NAME) $(VERSION)"
-	$(CARGO_CMD) run --locked --release -F=cli_generate -- --gen
+	$(CARGO_CMD) run $(CARGO_FLAGS) -F=cli_generate -- --gen
 
 $(RELEASE_BIN): Cargo.lock $(RSRCS)
 ifeq ($(TARGET),universal-apple-darwin)
