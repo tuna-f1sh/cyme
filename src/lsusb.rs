@@ -274,7 +274,7 @@ pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
 /// Dump a single [`Device`] matching `dev_path` verbosely
 pub fn dump_one_device<P: AsRef<Path>>(devices: &Vec<&Device>, dev_path: P) -> Result<(), Error> {
     for device in devices {
-        if device.dev_path().as_os_str() == dev_path.as_ref().as_os_str() {
+        if device.dev_path() == dev_path.as_ref() {
             // error if extra is none because we need it for vebose
             if device.extra.is_none() {
                 return Err(Error::new(
