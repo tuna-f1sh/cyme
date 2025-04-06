@@ -10,7 +10,7 @@ version = "2.1.3"
 edition = "2021"
 keywords = ["usb", "lsusb", "system_profiler", "macos", "libusb"]
 categories = ["command-line-utilities"]
-exclude = [".github"]
+exclude = [".github", "scripts"]
 
 [dependencies]
 clap = { version = "4.0.22", features = ["derive", "wrap_help"] } # CLI argument parsing

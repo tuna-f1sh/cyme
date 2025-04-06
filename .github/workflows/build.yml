@@ -2,31 +2,71 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
   pull_request:
+  release:
+    types:
+      - created
   workflow_dispatch:
 
-name: Test, build and package
-
 env:
-  PROJECT_NAME: cyme
-  INTERMEDIATES_DIR: intermediates
+  CARGO_CMD: cargo
+  RUSTFLAGS: "-Dwarnings"
 
+name: Test, build and package
 jobs:
+  crate_metadata:
+    name: Extract crate metadata
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+    - uses: actions/checkout@v4
+    - name: Extract crate information
+      id: crate_metadata
+      run: |
+        cargo metadata --no-deps --format-version 1 | jq -r '"name=" + .packages[0].version' | tee -a $GITHUB_OUTPUT
+        cargo metadata --no-deps --format-version 1 | jq -r '"version=" + .packages[0].version' | tee -a $GITHUB_OUTPUT
+        cargo metadata --no-deps --format-version 1 | jq -r '"maintainer=" + .packages[0].authors[0]' | tee -a $GITHUB_OUTPUT
+        cargo metadata --no-deps --format-version 1 | jq -r '"homepage=" + .packages[0].homepage' | tee -a $GITHUB_OUTPUT
+        cargo metadata --no-deps --format-version 1 | jq -r '"msrv=" + .packages[0].rust_version' | tee -a $GITHUB_OUTPUT
+    outputs:
+      name: ${{ steps.crate_metadata.outputs.name }}
+      version: ${{ steps.crate_metadata.outputs.version }}
+      maintainer: ${{ steps.crate_metadata.outputs.maintainer }}
+      homepage: ${{ steps.crate_metadata.outputs.homepage }}
+      msrv: ${{ steps.crate_metadata.outputs.msrv }}
+
+  format:
+    name: Ensure 'cargo fmt' has been run
+    runs-on: ubuntu-latest
+    steps:
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt
+    - uses: actions/checkout@v4
+    - run: cargo fmt -- --check
+
+  # Clippy pre-check would be nice but OS dependant features and libusb deps for all-features requires in matrix
+
   build:
     name: ${{ matrix.job.os }}-${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
+    needs: [format]
     strategy:
       fail-fast: false
       matrix:
         job:
           # default features for all targets
-          - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, use-cross: true, feature-flags: "" }
-          # cli_generate for checking generated files up to date
-          - { os: windows-latest, target: x86_64-pc-windows-gnu, use-cross: false, feature-flags: "-F=cli_generate"  }
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: false, feature-flags: "-F=cli_generate"  }
-          - { os: macos-latest, target: universal-apple-darwin, use-cross: false, feature-flags: "-F=cli_generate"  }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, use-cross: false, feature-flags: "" }
+          - { os: windows-latest, target: x86_64-pc-windows-gnu, use-cross: false, feature-flags: ""  }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: false, feature-flags: ""  }
+          - { os: macos-latest, target: universal-apple-darwin, use-cross: false, feature-flags: ""  }
+    outputs:
+      # could use these for release job?
+      # pkg-linux-aarch64: ${{ steps.package.outputs.pkg-aarch64-unknown-linux-gnu }}
+      # pkg-linux-x86_64: ${{ steps.package.outputs.pkg-x86_64-unknown-linux-gnu }}
+      # pkg-windows-x86_64: ${{ steps.package.outputs.pkg-x86_64-pc-windows-gnu }}
+      # pkg-macos-x86_64: ${{ steps.package.outputs.pkg-universal-apple-darwin }}
+      homebrew-pkg-name: ${{ steps.package.outputs.MACOS_PKG_NAME }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -35,169 +75,116 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            ~/.cargo/bin/cargo-deb
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.job.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - uses: dtolnay/rust-toolchain@stable
 
+      # Could remove this step if not clippy/testing --all-features as only required for non-native profiler
       - name: Install prerequisites
         shell: bash
         run: |
           case ${{ matrix.job.target }} in
             *-linux-*) 
               sudo apt-get -y update;
-              sudo apt-get -y install libudev-dev;
-              sudo apt-get -y install libusb-1.0-0-dev;
-              cargo install cargo-deb
-              ;;
-            universal-apple-*)
-              rustup target add x86_64-apple-darwin
-              rustup target add aarch64-apple-darwin
+              sudo apt-get -y install libudev-dev libusb-1.0-0-dev;
+              # install cargo-deb if not cached
+              if ! command -v cargo-deb &> /dev/null; then
+                cargo install cargo-deb
+              fi
               ;;
             *)
               ;;
           esac
 
-      - name: Set cargo cmd
-        shell: bash
-        run: echo "CARGO_CMD=cargo" >> "$GITHUB_ENV"
-
       - name: Rustup add target
-        if: matrix.job.use-cross == false && !startsWith(matrix.job.target, 'universal-apple')
+        if: matrix.job.use-cross == false
         shell: bash
-        run: rustup target add ${{ matrix.job.target }}
-
-      - name: Set cargo cmd to cross
-        shell: bash
-        if: matrix.job.use-cross == true
-        run: echo "CARGO_CMD=cross" >> "$GITHUB_ENV"
+        run: |
+          case ${{ matrix.job.target }} in
+            universal-apple-*)
+              rustup target add x86_64-apple-darwin
+              rustup target add aarch64-apple-darwin
+              ;;
+            *)
+              rustup target add ${{ matrix.job.target }}
+              ;;
+          esac
 
       - name: Install cross
         shell: bash
         if: matrix.job.use-cross == true
-        run: cargo install cross
-
-      - name: Format and clippy
-        id: format
-        shell: bash
-        if: matrix.job.use-cross == false
         run: |
-          cargo fmt -- --check
-          cargo clippy --all-targets -- -Dwarnings
-          cargo clippy --all-targets --all-features -- -Dwarnings
+          echo "CARGO_CMD=cross" >> "$GITHUB_ENV"
+          cargo install cross
+
+      - name: Clippy check no warnings
+        id: clippy
+        shell: bash
+        # cross targets should be covered
+        if: matrix.job.use-cross == false
+        run: cargo clippy --all-targets --all-features
 
       - name: Test
         id: test
         shell: bash
+        # cross is buggy with QEMU and slow
         if: matrix.job.use-cross == false
-        run: cargo test
-
-      - name: Build release
-        id: build
-        shell: bash
-        run: |
-          case ${{ matrix.job.target }} in
-            universal-apple-*) 
-              cargo build --locked --release ${{ matrix.job.feature-flags }} --target=aarch64-apple-darwin
-              cargo build --locked --release ${{ matrix.job.feature-flags }} --target=x86_64-apple-darwin
-              mkdir -p target/universal-apple-darwin/release
-              # merge into universal
-              lipo -create -output target/universal-apple-darwin/release/cyme target/aarch64-apple-darwin/release/cyme target/x86_64-apple-darwin/release/cyme
-              ;;
-            *) 
-              ${{ env.CARGO_CMD }} build --locked --release ${{ matrix.job.feature-flags }} --target=${{ matrix.job.target }}
-              ;;
-          esac
-
-      - name: Prepare and extract crate information
-        id: prepare
-        shell: bash
-        run: |
-          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> "$GITHUB_ENV"
-          echo "PROJECT_MAINTAINER=$(sed -n 's/^authors = \["\(.*\)"\]/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
-          echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
-
-          # Figure out suffix of binary
-          EXE_SUFFIX=""
-          case ${{ matrix.job.target }} in
-            *-pc-windows-*) EXE_SUFFIX=".exe" ;;
-          esac;
-
-          # Setup paths
-          BIN_DIR="${{ env.INTERMEDIATES_DIR }}/release-bin"
-          mkdir -p "${BIN_DIR}"
-          BIN_NAME="${{ env.PROJECT_NAME }}${EXE_SUFFIX}"
-          BIN_PATH="${BIN_DIR}/${BIN_NAME}"
-
-          # Copy the release build binary to the result location
-          cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
-          echo "BIN_PATH=${BIN_PATH}" >> "$GITHUB_OUTPUT"
-          echo "BIN_NAME=${BIN_NAME}" >> "$GITHUB_OUTPUT"
+        run: make test
+        env:
+          CARGO_FLAGS: ${{ matrix.job.feature-flags }}
+          TARGET: ${{ matrix.job.target }}
 
       - name: Generated files up to date
         id: generate
         shell: bash
         if: matrix.job.use-cross == false
         run: |
-          "${{ steps.prepare.outputs.BIN_PATH }}" --gen
+          make generated
           git diff --exit-code
+        env:
+          CARGO_FLAGS: ${{ matrix.job.feature-flags }}
+          TARGET: ${{ matrix.job.target }}
+
+      - name: Build release
+        id: build
+        shell: bash
+        run: echo "bin-${TARGET}=$(make release | tail -n1)" >> "$GITHUB_OUTPUT"
+        env:
+          CARGO_FLAGS: ${{ matrix.job.feature-flags }}
+          TARGET: ${{ matrix.job.target }}
 
       - name: Create tarball
         id: package
         shell: bash
         run: |
-          PKG_SUFFIX=".tar.gz" ; case ${{ matrix.job.target }} in *-pc-windows-*) PKG_SUFFIX=".zip" ;; esac;
-
-          PKG_BASENAME=${PROJECT_NAME}-v${PROJECT_VERSION}-${{ matrix.job.target }}
-          PKG_NAME=${PKG_BASENAME}${PKG_SUFFIX}
-
-          echo "PKG_NAME=${PKG_NAME}" >> "$GITHUB_OUTPUT"
-
-          PKG_STAGING="${{ env.INTERMEDIATES_DIR }}/package"
-          ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
-          mkdir -p "${ARCHIVE_DIR}"
-
-          # Binary
-          cp "${{ steps.prepare.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
-          # README, LICENSE, CHANGELOG
-          cp "README.md" "LICENSE" "CHANGELOG.md" "$ARCHIVE_DIR"
-          # Man page
-          cp 'doc/${{ env.PROJECT_NAME }}.1' "$ARCHIVE_DIR"
-          # Autocompletion files
-          mkdir -p autocomplete
-          cp 'doc/${{ env.PROJECT_NAME }}.fish' 'doc/${{ env.PROJECT_NAME }}.bash' 'doc/_${{ env.PROJECT_NAME }}' 'doc/_${{ env.PROJECT_NAME }}.ps1' autocomplete
-          cp -r autocomplete "${ARCHIVE_DIR}"
-          # base compressed package
-          pushd "${PKG_STAGING}/" >/dev/null
-          case ${{ matrix.job.target }} in
-            *-pc-windows-*) 7z -y a "${PKG_NAME}" "${PKG_BASENAME}"/* | tail -2 ;;
-            *) tar czf "${PKG_NAME}" "${PKG_BASENAME}"/* ;;
-          esac;
-          popd >/dev/null
-          # Let subsequent steps know where to find the compressed package
-          echo "PKG_PATH=${PKG_STAGING}/${PKG_NAME}" >> "$GITHUB_OUTPUT"
+          PKG_PATH="$(make package | tail -n1)"
+          echo "pkg-${TARGET}=${PKG_PATH}" >> "$GITHUB_OUTPUT"
+          echo "PKG_NAME=$(basename ${PKG_PATH})" >> "$GITHUB_OUTPUT"
+          echo "PKG_PATH=${PKG_PATH}" >> "$GITHUB_OUTPUT"
+          if [[ "${TARGET}" == *"apple"* ]]; then
+            echo "MACOS_PKG_NAME=$(basename ${PKG_PATH})" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          CARGO_FLAGS: ${{ matrix.job.feature-flags }}
+          TARGET: ${{ matrix.job.target }}
 
       - name: Create Debian package
         id: debian-package
         shell: bash
-        if: startsWith(matrix.job.os, 'ubuntu') && !contains(matrix.job.target, 'windows')
+        if: contains(matrix.job.target, 'linux')
         run: |
-          DPKG_STAGING="${{ env.INTERMEDIATES_DIR }}/debian-package"
-          DPKG_DIR="${DPKG_STAGING}/dpkg"
-          case ${{ matrix.job.target }} in
-            aarch64-*-linux-*) DPKG_ARCH=arm64 ;;
-            arm-*-linux-*hf) DPKG_ARCH=armhf ;;
-            i686-*-linux-*) DPKG_ARCH=i686 ;;
-            x86_64-*-linux-*) DPKG_ARCH=amd64 ;;
-          *) DPKG_ARCH=notset ;;
-          esac;
-
-          DPKG_NAME="${PROJECT_NAME}-v${PROJECT_VERSION}-1-${DPKG_ARCH}.deb"
-          echo "DPKG_NAME=${DPKG_NAME}" >> $GITHUB_OUTPUT
-          mkdir -p "${DPKG_DIR}"
-          DPKG_PATH="${DPKG_STAGING}/${DPKG_NAME}"
-          echo "DPKG_PATH=${DPKG_PATH}" >> $GITHUB_OUTPUT
-
-          cargo deb --target=${{ matrix.job.target }} --output "${DPKG_PATH}" --no-build --no-strip
+          DPKG_PATH="$(make dpkg | tail -n1)"
+          # replace _ with -
+          DPKG_NAME="$(sed 's/_/-/g' <<< $(basename ${DPKG_PATH}))"
+          mv "${DPKG_PATH}" "$(dirname ${DPKG_PATH})/${DPKG_NAME}"
+          DPKG_PATH="$(dirname ${DPKG_PATH})/${DPKG_NAME}"
+          echo "dpkg-${TARGET}=${DPKG_PATH}" >> "$GITHUB_OUTPUT"
+          echo "DPKG_NAME=$(basename ${DPKG_PATH})" >> "$GITHUB_OUTPUT"
+          echo "DPKG_PATH=${DPKG_PATH}" >> "$GITHUB_OUTPUT"
+        env:
+          CARGO_FLAGS: ${{ matrix.job.feature-flags }}
+          TARGET: ${{ matrix.job.target }}
 
       - name: Upload package artifact
         uses: actions/upload-artifact@master
@@ -212,35 +199,33 @@ jobs:
           name: ${{ steps.debian-package.outputs.DPKG_NAME }}
           path: ${{ steps.debian-package.outputs.DPKG_PATH }}
 
-      - name: Check for release
-        id: is-release
-        shell: bash
-        run: |
-          unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
-          echo "IS_RELEASE=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [build, crate_metadata]
+    if: github.event_name == 'release'
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-      - name: Publish archives and packages
-        uses: softprops/action-gh-release@v1
-        if: steps.is-release.outputs.IS_RELEASE
+      - name: Upload release artifacts
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${{ steps.package.outputs.PKG_PATH }}
-            ${{ steps.debian-package.outputs.DPKG_PATH }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Wait package uploaded
-        if: steps.is-release.outputs.IS_RELEASE && startsWith(matrix.job.target, 'universal-apple')
-        run: sleep 5 # sleep to ensure package is uploaded before homebrew
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/**/*.deb
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bump Homebrew formula
         uses: mislav/bump-homebrew-formula-action@v3
-        if: steps.is-release.outputs.IS_RELEASE && startsWith(matrix.job.target, 'universal-apple')
         with:
           formula-name: cyme
           formula-path: Formula/cyme.rb
           homebrew-tap: tuna-f1sh/homebrew-taps
-          download-url: https://github.com/tuna-f1sh/cyme/releases/download/v${{ env.PROJECT_VERSION}}/${{ steps.package.outputs.PKG_NAME }}
+          download-url: https://github.com/tuna-f1sh/cyme/releases/download/v${{ needs.crate_metadata.outputs.version }}/${{ needs.build.outputs.homebrew-pkg-name }}
           commit-message: |
             {{formulaName}} {{version}}
 
