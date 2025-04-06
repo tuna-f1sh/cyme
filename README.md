@@ -37,6 +37,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 * `--headers` to show meta data only when asked and not take space otherwise.
 * `--mask-serials` to either '\*' or randomise serial string for sharing dumps with sensitive serial numbers.
 * Auto-scaling to terminal width. Variable length strings such as descriptors will be truncated with a '...' to indicate this. Can be disabled with config option 'no-auto-width' and a fixed max defined with 'max-variable-string-len'.
+* pre-release: `cyme watch` subcommand to watch for USB device hotplug events and also live edit display settings.
 * Targets for Linux, macOS and Windows.
 
 ## Demo
@@ -183,6 +184,8 @@ There are also some examples in 'examples/', these can be run with `cargo run --
 * Windows: "{FOLDERID\_RoamingAppData}/cyme"
 
 One can also be supplied with `--config`. Copy or refer to './doc/cyme\_example\_config.json' for configurables. The file is essentially the default args; supplied args will override these. Use `--debug` to see where it is looking or if it's not loading.
+
+`cyme watch` can also be used to live edit display settings then save the config to the default location with 'Ctrl-s'. It's probably the easiest way to customise display blocks.
 
 ### Custom Icons and Colours
 
