@@ -248,6 +248,11 @@ impl SystemProfile {
             new.devices = devices;
             // config, interface and endpoint will loose internal but not worried about that
             new.internal = existing.internal.clone();
+            // assume all was expanded if manually expanded
+            // could drill down copying each internal above but not sure worth it
+            if new.is_expanded() {
+                new.set_all_expanded(true);
+            }
             let ret = std::mem::replace(existing, new);
             Ok(ret)
         } else {
@@ -261,14 +266,10 @@ impl SystemProfile {
     /// Insert a [`Device`] into the correct [`Bus`] and parent device based on its location_id
     ///
     /// If the device was existing, it will be replaced with the new device and returned as `Some` (without child devices), else `None`. `None` will also be returned if the device parent is not found.
-    pub fn insert(&mut self, mut new: Device) -> Option<Device> {
+    pub fn insert(&mut self, new: Device) -> Option<Device> {
         // check existing device and replace if found
-        if let Some(existing) = self.get_node_mut(&new.port_path()) {
-            let devices = std::mem::take(&mut existing.devices);
-            new.devices = devices;
-            new.internal = existing.internal.clone();
-            let ret = std::mem::replace(existing, new);
-            return Some(ret);
+        if self.get_node_mut(&new.port_path()).is_some() {
+            return self.replace(new).ok();
         // else we have to stick into tree at correct place
         } else if new.is_trunk_device() {
             let bus = self.get_bus_mut(new.location_id.bus).unwrap();
