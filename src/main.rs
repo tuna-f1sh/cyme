@@ -568,12 +568,17 @@ fn cyme() -> Result<()> {
         std::env::set_var("CYME_PRINT_NON_CRITICAL_PROFILER_STDERR", "1");
     }
 
-    merge_config(&mut config, &args);
+    // legacy arg, hidden but still support with new format
+    if args.ascii {
+        args.encoding = display::Encoding::Ascii;
+    }
 
     // legacy arg, hidden but still support with new format
     if args.no_color {
         args.color = display::ColorWhen::Never;
     }
+
+    merge_config(&mut config, &args);
 
     // set the output colouring
     match args.color {
@@ -590,11 +595,6 @@ fn cyme() -> Result<()> {
         }
         _ => (),
     };
-
-    // legacy arg, hidden but still support with new format
-    if args.ascii {
-        args.encoding = display::Encoding::Ascii;
-    }
 
     let mut spusb = if let Some(file_path) = args.from_json {
         match profiler::read_json_dump(&file_path) {
