@@ -2,7 +2,7 @@ PROJECT_NAME := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.pa
 VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
 OS := $(shell uname)
 
-RSRCS += $(wildcard src/**/*.rs)
+RSRCS += $(wildcard src/*.rs) $(wildcard src/**/*.rs)
 AUTOCOMPLETES = doc/_$(PROJECT_NAME) doc/$(PROJECT_NAME).bash doc/$(PROJECT_NAME).fish doc/_$(PROJECT_NAME).ps1
 DOCS = $(AUTOCOMPLETES) doc/$(PROJECT_NAME).1  doc/cyme_example_config.json
 

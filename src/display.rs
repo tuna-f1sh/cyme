@@ -2407,20 +2407,18 @@ impl<W: Write> DisplayWriter<W> {
         pad.retain(|k, _| blocks.contains(k));
 
         let max_variable_string_len: Option<usize> = if settings.auto_width {
-            let mut variable_lens = pad.clone();
             let offset = if settings.tree {
                 tree.depth * 3 + 1
             } else {
                 (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
             };
-            variable_lens.retain(|k, _| k.value_is_variable_length());
-            auto_max_string_len(
-                blocks,
-                offset,
-                &variable_lens.into_values().collect(),
-                settings,
-            )
-            .or(settings.max_variable_string_len)
+            let variable_lens: Vec<usize> = pad
+                .iter()
+                .filter(|(k, _)| k.value_is_variable_length())
+                .map(|(_, v)| (*v))
+                .collect();
+            auto_max_string_len(blocks, offset, &variable_lens, settings)
+                .or(settings.max_variable_string_len)
         } else {
             settings.max_variable_string_len
         };
@@ -2568,20 +2566,18 @@ impl<W: Write> DisplayWriter<W> {
         pad.retain(|k, _| blocks.0.contains(k));
 
         let max_variable_string_len: Option<usize> = if settings.auto_width {
-            let mut variable_lens = pad.clone();
             let offset = if settings.tree {
                 tree.depth * 3 + 1
             } else {
                 (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
             };
-            variable_lens.retain(|k, _| k.value_is_variable_length());
-            auto_max_string_len(
-                blocks.0,
-                offset,
-                &variable_lens.into_values().collect(),
-                settings,
-            )
-            .or(settings.max_variable_string_len)
+            let variable_lens: Vec<usize> = pad
+                .iter()
+                .filter(|(k, _)| k.value_is_variable_length())
+                .map(|(_, v)| (*v))
+                .collect();
+            auto_max_string_len(blocks.0, offset, &variable_lens, settings)
+                .or(settings.max_variable_string_len)
         } else {
             settings.max_variable_string_len
         };
@@ -2732,20 +2728,18 @@ impl<W: Write> DisplayWriter<W> {
         pad.retain(|k, _| blocks.0.contains(k));
 
         let max_variable_string_len: Option<usize> = if settings.auto_width {
-            let mut variable_lens = pad.clone();
             let offset = if settings.tree {
                 tree.depth * 3 + 1
             } else {
                 (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
             };
-            variable_lens.retain(|k, _| k.value_is_variable_length());
-            auto_max_string_len(
-                blocks.0,
-                offset,
-                &variable_lens.into_values().collect(),
-                settings,
-            )
-            .or(settings.max_variable_string_len)
+            let variable_lens: Vec<usize> = pad
+                .iter()
+                .filter(|(k, _)| k.value_is_variable_length())
+                .map(|(_, v)| (*v))
+                .collect();
+            auto_max_string_len(blocks.0, offset, &variable_lens, settings)
+                .or(settings.max_variable_string_len)
         } else {
             settings.max_variable_string_len
         };
@@ -2884,20 +2878,17 @@ impl<W: Write> DisplayWriter<W> {
         db: &Vec<DeviceBlocks>,
         settings: &PrintSettings,
         tree: &TreeData,
+        padding: &HashMap<DeviceBlocks, usize>,
     ) {
-        let mut pad = if !settings.no_padding {
-            let devices: Vec<&Device> = devices.iter().filter(|d| !d.is_hidden()).collect();
-            DeviceBlocks::generate_padding(&devices)
-        } else {
-            HashMap::new()
-        };
-        pad.retain(|k, _| db.contains(k));
-
+        let mut padding = padding.clone();
         let max_variable_string_len: Option<usize> = if settings.auto_width {
-            let mut variable_lens = pad.clone();
             let offset = if settings.tree { tree.depth * 3 + 1 } else { 0 };
-            variable_lens.retain(|k, _| k.value_is_variable_length());
-            auto_max_string_len(db, offset, &variable_lens.into_values().collect(), settings)
+            let variable_lens: Vec<usize> = padding
+                .iter()
+                .filter(|(k, _)| k.value_is_variable_length())
+                .map(|(_, v)| (*v))
+                .collect();
+            auto_max_string_len(db, offset, &variable_lens, settings)
                 .or(settings.max_variable_string_len)
         } else {
             settings.max_variable_string_len
@@ -2905,14 +2896,14 @@ impl<W: Write> DisplayWriter<W> {
 
         // if there is a max variable length, adjust padding to this if current > it
         if let Some(ml) = max_variable_string_len.as_ref() {
-            for (k, v) in pad.iter_mut() {
+            for (k, v) in padding.iter_mut() {
                 if k.value_is_variable_length() {
                     *v = cmp::min(*v, *ml);
                 }
             }
         }
 
-        log::trace!("Print devices padding {:?}, tree {:?}", pad, tree);
+        log::trace!("Print devices padding {:?}, tree {:?}", padding, tree);
 
         for (i, device) in devices.iter().filter(|d| !d.is_hidden()).enumerate() {
             // get current prefix based on if last in tree and whether we are within the tree
@@ -2957,7 +2948,7 @@ impl<W: Write> DisplayWriter<W> {
 
                 // maybe should just do once at start of bus
                 if settings.headings && i == 0 {
-                    let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
+                    let heading = render_heading(db, &padding, max_variable_string_len).join(" ");
                     self.println(
                         format!("{}  {}", prefix, heading.bold().underline()),
                         LineItem::None,
@@ -2968,7 +2959,7 @@ impl<W: Write> DisplayWriter<W> {
                 // render and print tree if doing it
                 self.print(format!("{}{} ", prefix, terminator)).unwrap();
             } else if settings.headings && i == 0 {
-                let heading = render_heading(db, &pad, max_variable_string_len).join(" ");
+                let heading = render_heading(db, &padding, max_variable_string_len).join(" ");
                 self.println(format!("{}", heading.bold().underline()), LineItem::None)
                     .unwrap();
             }
@@ -2977,7 +2968,7 @@ impl<W: Write> DisplayWriter<W> {
             let device_string = render_value(
                 device,
                 db,
-                &pad,
+                &padding,
                 settings,
                 max_variable_string_len,
                 device.is_disconnected(),
@@ -3024,6 +3015,7 @@ impl<W: Write> DisplayWriter<W> {
                         i,
                         settings,
                     ),
+                    &padding,
                 );
             }
         }
@@ -3085,15 +3077,13 @@ impl<W: Write> DisplayWriter<W> {
         pad.retain(|k, _| bb.contains(k));
 
         let max_variable_string_len: Option<usize> = if settings.auto_width {
-            let mut variable_lens = pad.clone();
-            variable_lens.retain(|k, _| k.value_is_variable_length());
-            auto_max_string_len(
-                &bb,
-                base_tree.depth * 3,
-                &variable_lens.into_values().collect(),
-                settings,
-            )
-            .or(settings.max_variable_string_len)
+            let variable_lens: Vec<usize> = pad
+                .iter()
+                .filter(|(k, _)| k.value_is_variable_length())
+                .map(|(_, v)| (*v))
+                .collect();
+            auto_max_string_len(&bb, base_tree.depth * 3, &variable_lens, settings)
+                .or(settings.max_variable_string_len)
         } else {
             settings.max_variable_string_len
         };
@@ -3160,13 +3150,31 @@ impl<W: Write> DisplayWriter<W> {
 
             if let Some(d) = bus.devices.as_ref() {
                 let num = d.iter().filter(|d| !d.is_hidden()).count();
+                let tree = generate_tree_data(&base_tree, num, i, settings);
+                let mut padding = if !settings.no_padding {
+                    // if tree, generate padding for only local devices
+                    // otherwise we need it for all device as flattened
+                    if settings.tree {
+                        let devices = d
+                            .iter()
+                            .filter(|d| !d.is_hidden())
+                            .collect::<Vec<&Device>>();
+                        DeviceBlocks::generate_padding(&devices)
+                    } else {
+                        let devices = bus
+                            .flattened_devices()
+                            .into_iter()
+                            .filter(|d| !d.is_hidden())
+                            .collect::<Vec<&Device>>();
+                        DeviceBlocks::generate_padding(&devices)
+                    }
+                } else {
+                    HashMap::new()
+                };
+                padding.retain(|k, _| db.contains(k));
+
                 // and then walk down devices printing them too
-                self.print_devices(
-                    d,
-                    &db,
-                    settings,
-                    &generate_tree_data(&base_tree, num, i, settings),
-                );
+                self.print_devices(d, &db, settings, &tree, &padding);
             }
 
             // separate bus groups with line
@@ -3211,9 +3219,12 @@ impl<W: Write> DisplayWriter<W> {
         log::trace!("Flattened devices padding {:?}", pad);
 
         let max_variable_string_len: Option<usize> = if settings.auto_width {
-            let mut variable_lens = pad.clone();
-            variable_lens.retain(|k, _| k.value_is_variable_length());
-            auto_max_string_len(&db, 0, &variable_lens.into_values().collect(), settings)
+            let variable_lens: Vec<usize> = pad
+                .iter()
+                .filter(|(k, _)| k.value_is_variable_length())
+                .map(|(_, v)| (*v))
+                .collect();
+            auto_max_string_len(&db, 0, &variable_lens, settings)
                 .or(settings.max_variable_string_len)
         } else {
             settings.max_variable_string_len
