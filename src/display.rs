@@ -755,6 +755,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .unwrap_or(0),
             DeviceBlocks::PortPath => d
                 .iter()
+                // byte len ok as I know it's all ascii
                 .map(|d| d.port_path().to_string().len())
                 .max()
                 .unwrap_or(0),
@@ -846,7 +847,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::BranchPosition => Some(format!("{:3}", d.get_branch_position())),
             DeviceBlocks::PortPath => Some(format!(
                 "{:pad$}",
-                d.port_path(),
+                d.port_path().to_string(),
                 pad = pad.get(self).unwrap_or(&0)
             )),
             DeviceBlocks::SysPath => Some(match d.extra.as_ref() {
