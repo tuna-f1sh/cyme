@@ -10,7 +10,18 @@ The interface is simplistic at the moment but could be re-skinned with something
 
 ### Added
 
-- `cyme watch` subcommand to watch for USB device hotplug events and 'live' edit display settings ([#58](https://github.com/tuna-f1sh/cyme/pull/58))
+- `cyme watch` subcommand to watch for USB device hotplug events and 'live' edit display settings ([#58](https://github.com/tuna-f1sh/cyme/pull/58)).
+- no_color option to config. Clearer parity/merge with CLI args.
+- device event and DeviceBlock::LastEvent, DeviceBlock::EventIcon. Default is profiled time (P: %y-%m-%d %H:%M:%S) but used by `cyme watch` to show connect/disconnect events.
+- benches for profiling.
+- RUST_LOG can be module level eg: `RUST_LOG=nusb=info,cyme=debug`.
+
+### Changed
+
+- build: Makefile targets used in CI ([#64](https://github.com/tuna-f1sh/cyme/pull/64)).
+- custom PortPath type used for get_ methods improves look-up 70-100%. Makes profiler faster as it uses these methods to build the device tree. ([801aa](https://github.com/tuna-f1sh/cyme/commit/801aa3fba28aae7be988d747b1a42bedbc06e496)).
+- simple_logger now logs to stderr so can be redirected without effecting display output: `cyme watch 2> log`.
+- path args String to PathBuf.
 
 ## [2.1.3] - 2024-04-03
 
