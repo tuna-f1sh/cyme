@@ -8,6 +8,8 @@ It's a nice way to customise display blocks: press 'b' to use the editor and 'Ct
 
 The interface is simplistic at the moment but could be re-skinned with something like Ratatui in the future.
 
+Here's a quick demo: https://youtu.be/ohRBrVBRolA?si=OY8zEtqF-8x_Lp7u
+
 ### Added
 
 - `cyme watch` subcommand to watch for USB device hotplug events and 'live' edit display settings ([#58](https://github.com/tuna-f1sh/cyme/pull/58)).
