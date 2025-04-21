@@ -12,6 +12,17 @@ if git rev-parse -q --verify "v$VERSION" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Change to version and date if Unreleased
+if ! grep -qE "^## \\[$VERSION\\]" CHANGELOG.md; then
+  if grep -qE "^## \\[Unreleased\\]" CHANGELOG.md; then
+    echo "Renaming [Unreleased] to [$VERSION] - $DATE"
+    sed -i "s/^## \\[Unreleased\\]/## [$VERSION] - $DATE/" CHANGELOG.md
+  else
+    echo "Error: No '## [Unreleased]' or '## [$VERSION]' heading found in CHANGELOG.md."
+    exit 1
+  fi
+fi
+
 # Extract the changes text for this version
 CHANGELOG_CONTENT="$(
   awk "/^## \\[$VERSION\\]/ {found=1; next} /^## \\[/ {found=0} found" CHANGELOG.md
@@ -24,18 +35,6 @@ fi
 
 echo "Changelog content for version $VERSION:"
 echo "$CHANGELOG_CONTENT"
-
-# Change to version and date if Unreleased
-if ! grep -qE "^## \\[$VERSION\\]" CHANGELOG.md; then
-  if grep -qE "^## \\[Unreleased\\]" CHANGELOG.md; then
-    echo "Renaming [Unreleased] to [$VERSION] - $DATE"
-    sed -i "s/^## \\[Unreleased\\]/## [$VERSION] - $DATE/" CHANGELOG.md
-  else
-    echo "Error: No '## [Unreleased]' or '## [$VERSION]' heading found in CHANGELOG.md."
-    exit 1
-  fi
-fi
-
 
 echo "Creating signed git tag v$VERSION"
 echo "$CHANGELOG_CONTENT" | git tag -a "v$VERSION" -F -
