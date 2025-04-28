@@ -727,7 +727,11 @@ fn cyme() -> Result<()> {
 
     #[cfg(feature = "watch")]
     if matches!(args.command, Some(SubCommand::Watch)) {
-        watch::watch_usb_devices(spusb, filter, settings, config)?;
+        if args.json {
+            watch::watch_usb_devices_json(spusb, filter, settings)?;
+        } else {
+            watch::watch_usb_devices(spusb, filter, settings, config)?;
+        }
         return Ok(());
     }
 
