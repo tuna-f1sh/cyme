@@ -190,6 +190,63 @@ fn strip_ansi_codes(input: &str) -> String {
     construct_text_no_codes(&decolored)
 }
 
+fn print_json(
+    spusb: &mut SystemProfile,
+    filter: Option<&Filter>,
+    print_settings: &PrintSettings,
+) -> Result<()> {
+    cyme::display::prepare(spusb, filter, print_settings);
+    let json = serde_json::to_string(&spusb)?;
+    println!("{}", json);
+    Ok(())
+}
+
+pub fn watch_usb_devices_json(
+    spusb: SystemProfile,
+    filter: Option<Filter>,
+    print_settings: PrintSettings,
+) -> Result<()> {
+    // pass spusb to stream builder, will get Arc<Mutex<SystemProfile>> back below
+    let mut profile_stream = SystemProfileStreamBuilder::new()
+        .with_spusb(spusb)
+        .is_verbose(true) // because print_settings can change verbosity, always capture full device data
+        .build()
+        .map_err(|e| Error::new(ErrorKind::Nusb, &e.to_string()))?;
+
+    let (tx, rx) = mpsc::channel::<WatchEvent>();
+    let print_settings = Arc::new(Mutex::new(print_settings));
+    let spusb = profile_stream.get_profile();
+    // first draw queue event
+    tx.send(WatchEvent::DrawDevices).unwrap();
+
+    // Thread to listen for USB profiling events
+    let tx_clone = tx.clone();
+    thread::spawn(move || {
+        futures_lite::future::block_on(async {
+            while profile_stream.next().await.is_some() {
+                tx_clone.send(WatchEvent::DrawDevices).unwrap();
+            }
+        });
+    });
+
+    loop {
+        match rx.recv() {
+            Ok(WatchEvent::DrawDevices) => {
+                let print_settings = print_settings.lock().unwrap();
+                print_json(&mut spusb.lock().unwrap(), filter.as_ref(), &print_settings)?;
+            }
+            Ok(_) => {
+                // ignore other events
+            }
+            Err(_) => {
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub fn watch_usb_devices(
     spusb: SystemProfile,
     filter: Option<Filter>,

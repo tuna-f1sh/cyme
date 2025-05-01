@@ -1133,6 +1133,7 @@ impl FromStr for DeviceSpeed {
 
 /// Events used by the watch feature
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DeviceEvent {
     /// Device profiled at time
     Profiled(chrono::DateTime<chrono::Local>),
