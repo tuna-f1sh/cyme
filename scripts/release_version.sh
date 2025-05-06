@@ -36,6 +36,12 @@ fi
 echo "Changelog content for version $VERSION:"
 echo "$CHANGELOG_CONTENT"
 
+# Abort if dirty
+if ! git diff-index --quiet HEAD --; then
+  echo "Error: Working directory is dirty! Please commit or stash your changes before proceeding."
+  exit 1
+fi
+
 echo "Creating signed git tag v$VERSION"
 echo "$CHANGELOG_CONTENT" | git tag -a "v$VERSION" -F -
 

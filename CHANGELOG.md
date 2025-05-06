@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.1] - 2025-05-06
+
+### Added
+
+- Support for `--json` with `watch` sub-command ([#66](https://github.com/tuna-f1sh/cyme/pull/66)).
+
 ## [2.2.0] - 2025-04-21
 
 `cyme watch` subcommand to watch for USB device hotplug events and _live_ edit display settings. A simple TUI proof of concept that grew beyond just showing hotplug events into something quite handy for exploring enumerated devices. It can also edit display settings and save them to the cyme config file. 
