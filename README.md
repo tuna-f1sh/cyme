@@ -37,12 +37,13 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 * `--headers` to show meta data only when asked and not take space otherwise.
 * `--mask-serials` to either '\*' or randomise serial string for sharing dumps with sensitive serial numbers.
 * Auto-scaling to terminal width. Variable length strings such as descriptors will be truncated with a '...' to indicate this. Can be disabled with config option 'no-auto-width' and a fixed max defined with 'max-variable-string-len'.
-* pre-release: `cyme watch` subcommand to watch for USB device hotplug events and also live edit display settings.
+* `cyme watch` subcommand to watch for USB device hotplug events and also live edit display settings. Works with all global flags.
 * Targets for Linux, macOS and Windows.
 
 ## Demo
 
-[![asciicast](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM.svg)](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM)
+* [General use asciicast](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM)
+* [Watch sub-command](https://youtu.be/ohRBrVBRolA)
 
 # Install
 
