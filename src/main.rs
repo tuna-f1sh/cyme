@@ -384,7 +384,6 @@ fn get_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
         || args.tree
         || args.device.is_some()
         || args.lsusb
-        || args.json
         || args.more
         || args.filter_class.is_none()
     // class filter requires extra

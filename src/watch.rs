@@ -209,7 +209,7 @@ pub fn watch_usb_devices_json(
     // pass spusb to stream builder, will get Arc<Mutex<SystemProfile>> back below
     let mut profile_stream = SystemProfileStreamBuilder::new()
         .with_spusb(spusb)
-        .is_verbose(true) // because print_settings can change verbosity, always capture full device data
+        .is_verbose(print_settings.verbosity > 0)
         .build()
         .map_err(|e| Error::new(ErrorKind::Nusb, &e.to_string()))?;
 
