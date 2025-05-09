@@ -920,6 +920,7 @@ mod platform {
                 pci_vendor: Some(pci_info.vendor_id),
                 pci_device: Some(pci_info.product_id),
                 pci_revision: Some(pci_info.revision),
+                id: bus.bus_id().to_string(),
                 ..Default::default()
             }
         } else {
@@ -927,6 +928,7 @@ mod platform {
                 usb_bus_number: None,
                 name: bus.system_name().map(|s| s.to_string()).unwrap_or_default(),
                 host_controller: bus.parent_instance_id().to_string_lossy().to_string(),
+                id: bus.bus_id().to_string(),
                 ..Default::default()
             }
         }

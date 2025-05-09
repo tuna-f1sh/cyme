@@ -365,6 +365,10 @@ pub struct Bus {
     /// On Linux, the root hub is also included in this list
     #[serde(rename(deserialize = "_items"), alias = "devices")]
     pub devices: Option<Vec<Device>>,
+    /// Bus ID is a string on Windows and required to match inserted devices after profiling
+    #[cfg(all(target_os = "windows", feature = "nusb"))]
+    #[serde(skip)]
+    pub id: String,
     /// Internal data for tracking events and other data
     #[serde(skip)]
     pub(crate) internal: InternalData,
