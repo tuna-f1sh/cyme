@@ -109,6 +109,33 @@ impl Stream for SystemProfileStream {
                         let mut cyme_device: Device =
                             profiler.build_spdevice(&device, extra).unwrap();
                         cyme_device.last_event = Some(DeviceEvent::Connected(Local::now()));
+                        // Windows bus number is a string ID so we need to find the bus based on this and assign the bus number created during cyme profiling
+                        #[cfg(target_os = "windows")]
+                        {
+                            if let Some(existing_bus) =
+                                spusb.buses.iter().find(|b| b.id == device.bus_id())
+                            {
+                                log::debug!(
+                                    "Win found bus for connected device ({}): {}",
+                                    cyme_device,
+                                    existing_bus.id
+                                );
+                                if let Some(existing_number) = existing_bus.get_bus_number() {
+                                    log::debug!(
+                                        "Assigning bus number {} to device {}",
+                                        existing_number,
+                                        cyme_device
+                                    );
+                                    cyme_device.location_id.bus = existing_number;
+                                }
+                            } else {
+                                log::error!(
+                                    "Win no bus found for connected device, seeking bus_id: {}",
+                                    device.bus_id()
+                                );
+                            }
+                        }
+
                         spusb.insert(cyme_device);
                     }
                     HotplugEvent::Disconnected(id) => {
