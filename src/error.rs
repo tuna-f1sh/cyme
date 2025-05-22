@@ -168,6 +168,6 @@ impl From<std::string::FromUtf8Error> for Error {
 
 impl From<Error> for io::Error {
     fn from(val: Error) -> Self {
-        io::Error::new(io::ErrorKind::Other, val.message)
+        io::Error::other(val.message)
     }
 }

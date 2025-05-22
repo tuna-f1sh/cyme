@@ -42,6 +42,12 @@ if ! git diff-index --quiet HEAD --; then
   exit 1
 fi
 
+# Ensure on main
+if ! git rev-parse --abbrev-ref HEAD | grep -q "main"; then
+  echo "Error: Not on main branch! Please switch to the main branch before proceeding."
+  exit 1
+fi
+
 echo "Creating signed git tag v$VERSION"
 echo "$CHANGELOG_CONTENT" | git tag -a "v$VERSION" -F -
 
@@ -52,6 +58,8 @@ read -r -p "Tag v$VERSION created locally. Push tag to origin? [y/N] " answer
 case "$answer" in
   [Yy]* )
     echo "Pushing tag v$VERSION to origin..."
+    # Ensure the tagged commit is pushed to the remote
+    git push origin
     git push origin "v$VERSION"
     ;;
   * )
