@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.2] - 2025-05-20
+
+### Fixed
+
+- watch: bus assignment based on Windows bus_id ([#68](https://github.com/tuna-f1sh/cyme/pull/68)).
+
 ## [2.2.1] - 2025-05-06
 
 ### Added
