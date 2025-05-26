@@ -20,7 +20,8 @@ colored = "3.0.0" # terminal colouring helper
 cansi = { version = "=2.2.1", optional = true } # ANSI escape code helper; decolored - no dependencies
 itertools = "0.10.5" # iterator methods used for building device tree
 rusb = { version = "0.9.4", optional = true } # libusb bindings
-nusb = { git = "https://github.com/kevinmehall/nusb", rev = "dad53d26", optional = true } # pure Rust USB library
+# nusb = { git = "https://github.com/kevinmehall/nusb", rev = "dad53d26", optional = true } # pure Rust USB library
+nusb = { git = "https://github.com/kevinmehall/nusb", tag = "v0.2.0-beta.1", optional = true } # pure Rust USB library
 serde = { version = "1.0", features = ["derive"] } # --json serialisation and --from-json deserialisation
 serde_json = "1.0.87"
 serde_with = "2.0.1"
