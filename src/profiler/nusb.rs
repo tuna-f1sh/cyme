@@ -30,14 +30,15 @@ impl std::fmt::Debug for UsbDevice {
     }
 }
 
-impl From<ControlRequest> for nusb::transfer::Control {
+impl From<ControlRequest> for nusb::transfer::ControlIn {
     fn from(request: ControlRequest) -> Self {
-        nusb::transfer::Control {
+        nusb::transfer::ControlIn {
             control_type: request.control_type.into(),
             request: request.request,
             value: request.value,
             index: request.index,
             recipient: request.recipient.into(),
+            length: request.length as u16,
         }
     }
 }
@@ -233,13 +234,9 @@ impl From<&nusb::DeviceInfo> for Device {
 }
 
 impl UsbDevice {
-    fn control_in(
-        &self,
-        control_request: &ControlRequest,
-        data: &mut Vec<u8>,
-        clear_halt: bool,
-    ) -> Result<usize> {
-        let nusb_control: nusb::transfer::Control = (*control_request).into();
+    #[allow(unused_variables)]
+    fn control_in(&self, control_request: &ControlRequest, force_claim: bool) -> Result<Vec<u8>> {
+        let nusb_control: nusb::transfer::ControlIn = (*control_request).into();
         // Windows *ALWAYS* needs to claim the interface and self.handle.control_in_blocking isn't defined
         #[cfg(target_os = "windows")]
         let ret = {
@@ -249,28 +246,21 @@ impl UsbDevice {
                 .handle
                 .claim_interface(control_request.index as u8)
                 .wait()?;
-            if clear_halt {
-                interface.clear_halt(0).wait()?;
-            }
-            interface.control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+            interface.control_in(nusb_control, self.timeout).wait()
         };
 
         #[cfg(not(target_os = "windows"))]
         let ret = {
-            if control_request.claim_interface | clear_halt {
+            if control_request.claim_interface | force_claim {
                 // requires detech_and_claim_interface on Linux if mod is loaded
                 // not nice though just for profiling - maybe add a flag to claim or not?
-                let interface = self
+                let interface: nusb::Interface = self
                     .handle
                     .claim_interface(control_request.index as u8)
                     .wait()?;
-                if clear_halt {
-                    interface.clear_halt(0).wait()?;
-                }
-                interface.control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+                interface.control_in(nusb_control, self.timeout).wait()
             } else {
-                self.handle
-                    .control_in_blocking(nusb_control, data.as_mut_slice(), self.timeout)
+                self.handle.control_in(nusb_control, self.timeout).wait()
             }
         };
 
@@ -287,22 +277,16 @@ impl UsbDevice {
     }
 
     /// Retry control request if it fails due to STALL - following a claim interface and clear halt
-    fn control_in_retry(
-        &self,
-        control_request: &ControlRequest,
-        data: &mut Vec<u8>,
-    ) -> Result<usize> {
-        match self.control_in(control_request, data, false) {
+    fn control_in_retry(&self, control_request: &ControlRequest) -> Result<Vec<u8>> {
+        match self.control_in(control_request, false) {
             Ok(n) => Ok(n),
             Err(Error {
                 kind: ErrorKind::TransferStall,
                 ..
-            }) => self
-                .control_in(control_request, data, true)
-                .map_err(|e| Error {
-                    kind: ErrorKind::Nusb,
-                    message: format!("Failed to get control message: {}", e),
-                }),
+            }) => self.control_in(control_request, true).map_err(|e| Error {
+                kind: ErrorKind::Nusb,
+                message: format!("Failed to get control message: {}", e),
+            }),
             Err(e) => Err(Error {
                 kind: ErrorKind::Nusb,
                 message: format!("Failed to get control message: {}", e),
@@ -313,21 +297,27 @@ impl UsbDevice {
 
 impl UsbOperations for UsbDevice {
     fn get_descriptor_string(&self, string_index: u8) -> Option<String> {
+        // 0 is not a valid string index - nusb uses NonZeroU8, we allow for invalid values
         if string_index == 0 {
             return None;
         }
         self.handle
-            .get_string_descriptor(string_index, self.language, self.timeout)
+            .get_string_descriptor(
+                std::num::NonZeroU8::new(string_index).expect("string_index should not be 0"),
+                self.language,
+                self.timeout,
+            )
+            .wait()
             .map(|s| s.chars().filter(|c| !c.is_control()).collect())
             .ok()
     }
 
     fn get_control_msg(&self, control_request: ControlRequest) -> Result<Vec<u8>> {
-        let mut data = vec![0; control_request.length];
-        let n = self.control_in_retry(&control_request, &mut data)?;
+        let data = self.control_in_retry(&control_request)?;
 
+        let n = data.len();
         if n < control_request.length {
-            log::debug!(
+            log::warn!(
                 "{:?} Failed to get full control message: read {} of {} bytes",
                 self,
                 n,
@@ -363,10 +353,9 @@ impl NusbProfiler {
         let mut ret: Vec<usb::Endpoint> = Vec::new();
 
         for endpoint in interface_desc.endpoints() {
-            let endpoint_desc = endpoint.descriptors().next().unwrap();
+            let endpoint_desc = endpoint.as_bytes();
             let endpoint_extra = endpoint
                 .descriptors()
-                .skip(1)
                 // no filter as all _should_ be endpoint descriptors at this point
                 .flat_map(|d| d.to_vec())
                 .collect::<Vec<u8>>();
@@ -421,10 +410,9 @@ impl NusbProfiler {
                 );
                 let path = device_path.to_string();
 
-                let interface_desc = interface_alt.descriptors().next().unwrap();
+                let interface_desc = interface_alt.as_bytes();
                 let interface_extra = interface_alt
                     .descriptors()
-                    .skip(1)
                     // only want device and interface descriptors - nusb has everything trailing including endpoint
                     .take_while(|d| d.descriptor_type() != 0x05)
                     .flat_map(|d| d.to_vec())
@@ -434,9 +422,9 @@ impl NusbProfiler {
                     name: get_sysfs_string(&path, "interface").or_else(|| {
                         interface_alt
                             .string_index()
-                            .and_then(|i| device.get_descriptor_string(i))
+                            .and_then(|i| device.get_descriptor_string(i.into()))
                     }),
-                    string_index: interface_alt.string_index().unwrap_or(0),
+                    string_index: interface_alt.string_index().map(|i| i.into()).unwrap_or(0),
                     number: interface_alt.interface_number(),
                     class: usb::BaseClass::from(interface_alt.class()),
                     sub_class: interface_alt.subclass(),
@@ -488,10 +476,9 @@ impl NusbProfiler {
                 attributes.push(usb::ConfigAttributes::BusPowered);
             }
 
-            let config_desc = c.descriptors().next().unwrap();
+            let config_desc = c.as_bytes();
             let config_extra = c
                 .descriptors()
-                .skip(1)
                 // nusb has everything trailing so take until interfaces
                 .take_while(|d| d.descriptor_type() != 0x04)
                 .flat_map(|d| d.to_vec())
@@ -501,9 +488,9 @@ impl NusbProfiler {
             ret.push(usb::Configuration {
                 name: c
                     .string_index()
-                    .and_then(|i| device.get_descriptor_string(i))
+                    .and_then(|i| device.get_descriptor_string(i.into()))
                     .unwrap_or_default(),
-                string_index: c.string_index().unwrap_or(0),
+                string_index: c.string_index().map(|i| i.into()).unwrap_or(0),
                 number: c.configuration_value(),
                 attributes,
                 max_power: NumericalUnit {
@@ -656,6 +643,7 @@ impl NusbProfiler {
                 // get the first language - probably US English
                 let languages: Vec<u16> = device
                     .get_string_descriptor_supported_languages(std::time::Duration::from_secs(1))
+                    .wait()
                     .map(|i| i.collect())
                     .unwrap_or_default();
                 let language = languages
