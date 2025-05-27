@@ -234,7 +234,8 @@ impl From<&nusb::DeviceInfo> for Device {
 }
 
 impl UsbDevice {
-    fn control_in(&self, control_request: &ControlRequest, clear_halt: bool) -> Result<Vec<u8>> {
+    #[allow(unused_variables)]
+    fn control_in(&self, control_request: &ControlRequest, force_claim: bool) -> Result<Vec<u8>> {
         let nusb_control: nusb::transfer::ControlIn = (*control_request).into();
         // Windows *ALWAYS* needs to claim the interface and self.handle.control_in_blocking isn't defined
         #[cfg(target_os = "windows")]
@@ -245,30 +246,18 @@ impl UsbDevice {
                 .handle
                 .claim_interface(control_request.index as u8)
                 .wait()?;
-            // if clear_halt {
-            //     interface
-            //         .endpoint::<nusb::transfer::Bulk, nusb::transfer::In>(0)
-            //         .expect("Endpoint 0 should always exist for control transfers")
-            //         .clear_halt();
-            // }
             interface.control_in(nusb_control, self.timeout).wait()
         };
 
         #[cfg(not(target_os = "windows"))]
         let ret = {
-            if control_request.claim_interface | clear_halt {
+            if control_request.claim_interface | force_claim {
                 // requires detech_and_claim_interface on Linux if mod is loaded
                 // not nice though just for profiling - maybe add a flag to claim or not?
                 let interface: nusb::Interface = self
                     .handle
                     .claim_interface(control_request.index as u8)
                     .wait()?;
-                // if clear_halt {
-                //     interface
-                //         .endpoint::<nusb::transfer::Bulk, nusb::transfer::In>(0)
-                //         .expect("Endpoint 0 should always exist for control transfers")
-                //         .clear_halt();
-                // }
                 interface.control_in(nusb_control, self.timeout).wait()
             } else {
                 self.handle.control_in(nusb_control, self.timeout).wait()
