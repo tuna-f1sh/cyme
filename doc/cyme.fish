@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_cyme_global_optspecs
-	string join \n l/lsusb t/tree d/vidpid= s/show= D/device= filter-name= filter-serial= filter-class= v/verbose b/blocks= bus-blocks= config-blocks= interface-blocks= endpoint-blocks= m/more sort-devices= sort-buses group-devices= hide-buses hide-hubs list-root-hubs decimal no-padding color= no-color encoding= ascii no-icons icon= headings json from-json= F/force-libusb c/config= z/debug mask-serials= gen system-profiler h/help V/version
+	string join \n l/lsusb t/tree d/vidpid= s/show= D/device= filter-name= filter-serial= filter-class= v/verbose b/blocks= bus-blocks= config-blocks= interface-blocks= endpoint-blocks= block-operation= m/more sort-devices= sort-buses group-devices= hide-buses hide-hubs list-root-hubs decimal no-padding color= no-color encoding= ascii no-icons icon= headings json from-json= F/force-libusb c/config= z/debug mask-serials= gen system-profiler h/help V/version
 end
 
 function __fish_cyme_needs_command
@@ -126,6 +126,11 @@ sync-type\t'Synchronisation type (Iso mode)'
 usage-type\t'Usage type (Iso mode)'
 max-packet-size\t'Maximum packet size in bytes endpoint can send/recieve'
 interval\t'Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints'"
+complete -c cyme -n "__fish_cyme_needs_command" -l block-operation -d 'Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks' -r -f -a "add\t'Add new blocks to the existing blocks, ignoring duplicates'
+append\t'Append new blocks to the end of the existing blocks'
+new\t'Replace all blocks with new ones'
+prepend\t'Prepend new blocks to the start of the existing blocks'
+remove\t'Remove matching blocks from the existing blocks'"
 complete -c cyme -n "__fish_cyme_needs_command" -l sort-devices -d 'Sort devices operation' -r -f -a "device-number\t'Sort by bus device number'
 branch-position\t'Sort by position in parent branch'
 no-sort\t'No sorting; whatever order it was parsed'"

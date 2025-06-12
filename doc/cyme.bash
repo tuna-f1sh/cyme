@@ -35,7 +35,7 @@ _cyme() {
 
     case "${cmd}" in
         cyme)
-            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --system-profiler --help --version watch help"
+            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --block-operation --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --debug --mask-serials --gen --system-profiler --help --version watch help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -99,6 +99,10 @@ _cyme() {
                     ;;
                 --endpoint-blocks)
                     COMPREPLY=($(compgen -W "number direction transfer-type sync-type usage-type max-packet-size interval" -- "${cur}"))
+                    return 0
+                    ;;
+                --block-operation)
+                    COMPREPLY=($(compgen -W "add append new prepend remove" -- "${cur}"))
                     return 0
                     ;;
                 --sort-devices)

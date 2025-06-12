@@ -23,7 +23,6 @@ use crate::usb::{
     ConfigAttributes, Configuration, DeviceExtra, Direction, Endpoint, Interface,
 };
 
-const MAX_VERBOSITY: u8 = 4;
 const ICON_HEADING: &str = "I";
 const DEFAULT_AUTO_WIDTH: u16 = 80; // default terminal width to scale if None returned for size
 const MIN_VARIABLE_STRING_LEN: usize = 5; // minimum variable string length to scale to
@@ -2252,19 +2251,13 @@ fn generate_extra_blocks(
 ) {
     let mut blocks = (
         settings.config_blocks.to_owned().unwrap_or(
-            Block::<ConfigurationBlocks, Configuration>::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ),
+            Block::<ConfigurationBlocks, Configuration>::default_blocks(settings.more),
         ),
         settings.interface_blocks.to_owned().unwrap_or(
-            Block::<InterfaceBlocks, Interface>::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ),
+            Block::<InterfaceBlocks, Interface>::default_blocks(settings.more),
         ),
         settings.endpoint_blocks.to_owned().unwrap_or(
-            Block::<EndpointBlocks, Endpoint>::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ),
+            Block::<EndpointBlocks, Endpoint>::default_blocks(settings.more),
         ),
     );
 
@@ -3046,22 +3039,20 @@ impl<W: Write> DisplayWriter<W> {
 
     /// Print [`SystemProfile`] [`Bus`] and [`Device`] information
     pub fn print_sp_usb(&mut self, sp_usb: &SystemProfile, settings: &PrintSettings) {
-        let mut bb =
-            settings
-                .bus_blocks
-                .to_owned()
-                .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
-                    settings.verbosity >= MAX_VERBOSITY || settings.more,
-                ));
-        let mut db = settings.device_blocks.to_owned().unwrap_or(
-            if settings.verbosity >= MAX_VERBOSITY || settings.more {
+        let mut bb = settings
+            .bus_blocks
+            .to_owned()
+            .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(settings.more));
+        let mut db = settings
+            .device_blocks
+            .to_owned()
+            .unwrap_or(if settings.more {
                 DeviceBlocks::default_blocks(true)
             } else if settings.tree {
                 DeviceBlocks::default_device_tree_blocks()
             } else {
                 DeviceBlocks::default_blocks(false)
-            },
-        );
+            });
 
         // remove icon blocks if not supported by encoding
         match settings.icon_when {
@@ -3212,9 +3203,7 @@ impl<W: Write> DisplayWriter<W> {
         let mut db = settings
             .device_blocks
             .to_owned()
-            .unwrap_or(DeviceBlocks::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ));
+            .unwrap_or(DeviceBlocks::default_blocks(settings.more));
 
         // remove icon blocks if not supported
         match settings.icon_when {
@@ -3323,9 +3312,7 @@ impl<W: Write> DisplayWriter<W> {
         let bb = settings
             .bus_blocks
             .to_owned()
-            .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ));
+            .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(settings.more));
         let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
             let buses: Vec<&Bus> = bus_devices.iter().map(|bd| bd.0).collect();
             BusBlocks::generate_padding(&buses)

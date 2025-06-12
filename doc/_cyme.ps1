@@ -36,6 +36,7 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--config-blocks', '--config-blocks', [CompletionResultType]::ParameterName, 'Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times to specify multiple blocks')
             [CompletionResult]::new('--interface-blocks', '--interface-blocks', [CompletionResultType]::ParameterName, 'Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times to specify multiple blocks')
             [CompletionResult]::new('--endpoint-blocks', '--endpoint-blocks', [CompletionResultType]::ParameterName, 'Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times to specify multiple blocks')
+            [CompletionResult]::new('--block-operation', '--block-operation', [CompletionResultType]::ParameterName, 'Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks')
             [CompletionResult]::new('--sort-devices', '--sort-devices', [CompletionResultType]::ParameterName, 'Sort devices operation')
             [CompletionResult]::new('--group-devices', '--group-devices', [CompletionResultType]::ParameterName, 'Group devices by value when listing')
             [CompletionResult]::new('--color', '--color', [CompletionResultType]::ParameterName, 'Output coloring mode')

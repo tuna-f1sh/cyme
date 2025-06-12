@@ -153,6 +153,11 @@ sync-type\:"Synchronisation type (Iso mode)"
 usage-type\:"Usage type (Iso mode)"
 max-packet-size\:"Maximum packet size in bytes endpoint can send/recieve"
 interval\:"Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints"))' \
+'--block-operation=[Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks]:BLOCK_OPERATION:((add\:"Add new blocks to the existing blocks, ignoring duplicates"
+append\:"Append new blocks to the end of the existing blocks"
+new\:"Replace all blocks with new ones"
+prepend\:"Prepend new blocks to the start of the existing blocks"
+remove\:"Remove matching blocks from the existing blocks"))' \
 '--sort-devices=[Sort devices operation]:SORT_DEVICES:((device-number\:"Sort by bus device number"
 branch-position\:"Sort by position in parent branch"
 no-sort\:"No sorting; whatever order it was parsed"))' \

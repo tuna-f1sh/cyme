@@ -13,7 +13,9 @@ use std::path::{Path, PathBuf};
 use terminal_size::terminal_size;
 
 use cyme::config::Config;
-use cyme::display;
+use cyme::display::{
+    self, Block, BusBlocks, ConfigurationBlocks, DeviceBlocks, EndpointBlocks, InterfaceBlocks,
+};
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::profiler;
@@ -21,6 +23,59 @@ use cyme::usb::BaseClass;
 
 #[cfg(feature = "watch")]
 mod watch;
+
+const MAX_VERBOSITY: u8 = 4;
+
+/// The operation to perform on the blocks when specified by the user
+#[derive(Default, PartialEq, Eq, Debug, clap::ValueEnum, Clone, Copy, Serialize, Deserialize)]
+enum BlockOperation {
+    /// Add new blocks to the existing blocks, ignoring duplicates
+    Add,
+    /// Append new blocks to the end of the existing blocks
+    Append,
+    #[default]
+    /// Replace all blocks with new ones
+    New,
+    /// Prepend new blocks to the start of the existing blocks
+    Prepend,
+    /// Remove matching blocks from the existing blocks
+    Remove,
+}
+
+impl BlockOperation {
+    fn run_operation<T: display::BlockEnum>(
+        &self,
+        blocks: &mut Vec<T>,
+        new_blocks: &[T],
+    ) -> Result<()> {
+        match self {
+            BlockOperation::New => {
+                *blocks = new_blocks.to_vec();
+            }
+            BlockOperation::Append => {
+                blocks.extend(new_blocks.iter().cloned());
+            }
+            BlockOperation::Prepend => {
+                let mut new = new_blocks.to_vec();
+                new.append(blocks);
+                *blocks = new;
+            }
+            BlockOperation::Add => {
+                for b in new_blocks {
+                    if !blocks.contains(b) {
+                        blocks.push(b.clone());
+                    }
+                }
+            }
+            BlockOperation::Remove => {
+                for b in new_blocks {
+                    blocks.retain(|x| x != b);
+                }
+            }
+        }
+        Ok(())
+    }
+}
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -63,24 +118,40 @@ struct Args {
     verbose: u8,
 
     /// Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times to specify multiple blocks.
+    ///
+    /// Default blocks: --blocks bus-number --blocks device-number --blocks icon --blocks vendor-id --blocks product-id --blocks name --blocks serial --blocks speed
     #[arg(short, long, value_enum)]
     blocks: Option<Vec<display::DeviceBlocks>>,
 
     /// Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times to specify multiple blocks.
+    ///
+    /// Default blocks: --bus-blocks port-path --bus-blocks name --bus-blocks host-controller --bus-blocks host-controller-device
     #[arg(long, value_enum)]
     bus_blocks: Option<Vec<display::BusBlocks>>,
 
     /// Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times to specify multiple blocks.
+    ///
+    /// Default blocks: --config-blocks number --config-blocks icon-attributes --config-blocks max-power --config-blocks name
     #[arg(long, value_enum)]
     config_blocks: Option<Vec<display::ConfigurationBlocks>>,
 
     /// Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times to specify multiple blocks.
+    ///
+    /// Default blocks: --interface-blocks port-path --interface-blocks icon --interface-blocks alt-setting --interface-blocks base-class --interface-blocks sub-class --interface
     #[arg(long, value_enum)]
     interface_blocks: Option<Vec<display::InterfaceBlocks>>,
 
     /// Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times to specify multiple blocks.
+    ///
+    /// Default blocks: --endpoint-blocks number --endpoint-blocks direction --endpoint-blocks transfer-type --endpoint-blocks sync-type --endpoint-blocks usage-type --endpoint-blocks max-packet-size
     #[arg(long, value_enum)]
     endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
+
+    /// Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks
+    ///
+    /// Default is 'new' for legacy, 'add' is probably more useful
+    #[arg(long, value_enum, default_value_t = BlockOperation::New)]
+    block_operation: BlockOperation,
 
     /// Print more blocks by default at each verbosity
     #[arg(short, long, default_value_t = false)]
@@ -548,6 +619,68 @@ pub fn set_log_level(debug: u8) -> Result<()> {
     Ok(())
 }
 
+/// Merge with arg blocks with config blocks (or default if None) depending on BlockOperation
+fn merge_blocks(config: &Config, args: &Args, settings: &mut display::PrintSettings) -> Result<()> {
+    settings.device_blocks = Some(config.blocks.to_owned().unwrap_or(if settings.more {
+        DeviceBlocks::default_blocks(true)
+    } else if settings.tree {
+        DeviceBlocks::default_device_tree_blocks()
+    } else {
+        DeviceBlocks::default_blocks(false)
+    }));
+    if let Some(blocks) = &args.blocks {
+        args.block_operation
+            .run_operation(settings.device_blocks.as_mut().unwrap(), blocks)?;
+    }
+
+    settings.bus_blocks = Some(
+        config
+            .bus_blocks
+            .to_owned()
+            .unwrap_or(BusBlocks::default_blocks(settings.more)),
+    );
+    if let Some(blocks) = &args.bus_blocks {
+        args.block_operation
+            .run_operation(settings.bus_blocks.as_mut().unwrap(), blocks)?;
+    }
+
+    settings.config_blocks = Some(
+        config
+            .config_blocks
+            .to_owned()
+            .unwrap_or(ConfigurationBlocks::default_blocks(settings.more)),
+    );
+    if let Some(blocks) = &args.config_blocks {
+        args.block_operation
+            .run_operation(settings.config_blocks.as_mut().unwrap(), blocks)?;
+    }
+
+    settings.interface_blocks = Some(
+        config
+            .interface_blocks
+            .to_owned()
+            .unwrap_or(InterfaceBlocks::default_blocks(settings.more)),
+    );
+    if let Some(blocks) = &args.interface_blocks {
+        args.block_operation
+            .run_operation(settings.interface_blocks.as_mut().unwrap(), blocks)?;
+    }
+
+    settings.endpoint_blocks = Some(
+        config
+            .endpoint_blocks
+            .to_owned()
+            .unwrap_or(EndpointBlocks::default_blocks(settings.more)),
+    );
+
+    if let Some(blocks) = &args.endpoint_blocks {
+        args.block_operation
+            .run_operation(settings.endpoint_blocks.as_mut().unwrap(), blocks)?;
+    }
+
+    Ok(())
+}
+
 fn cyme() -> Result<()> {
     let mut args = Args::parse();
 
@@ -577,6 +710,10 @@ fn cyme() -> Result<()> {
         args.color = display::ColorWhen::Never;
     }
 
+    if args.verbose >= MAX_VERBOSITY {
+        args.more = true;
+    }
+
     merge_config(&mut config, &args);
 
     // set the output colouring
@@ -595,7 +732,7 @@ fn cyme() -> Result<()> {
         _ => (),
     };
 
-    let mut spusb = if let Some(file_path) = args.from_json {
+    let mut spusb = if let Some(file_path) = args.from_json.clone() {
         match profiler::read_json_dump(&file_path) {
             Ok(s) => s,
             Err(e) => {
@@ -665,8 +802,8 @@ fn cyme() -> Result<()> {
         }
 
         // no need to unwrap as these are Option
-        f.name = args.filter_name;
-        f.serial = args.filter_serial;
+        f.name = args.filter_name.clone();
+        f.serial = args.filter_serial.clone();
         f.class = args.filter_class;
         f.exclude_empty_hub = args.hide_hubs;
         f.exclude_empty_bus = args.hide_buses;
@@ -697,21 +834,7 @@ fn cyme() -> Result<()> {
     let mut settings = config.print_settings();
     settings.terminal_size = terminal_size().map(|(w, h)| (w.0, h.0));
     settings.json = args.json;
-    if let Some(blocks) = args.blocks {
-        settings.device_blocks = Some(blocks);
-    }
-    if let Some(blocks) = args.bus_blocks {
-        settings.bus_blocks = Some(blocks);
-    }
-    if let Some(blocks) = args.config_blocks {
-        settings.config_blocks = Some(blocks);
-    }
-    if let Some(blocks) = args.interface_blocks {
-        settings.interface_blocks = Some(blocks);
-    }
-    if let Some(blocks) = args.endpoint_blocks {
-        settings.endpoint_blocks = Some(blocks);
-    }
+    merge_blocks(&config, &args, &mut settings)?;
     if let Some(mask) = args.mask_serials {
         settings.mask_serials = Some(mask);
     }
