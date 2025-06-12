@@ -250,6 +250,8 @@ pub enum DeviceBlocks {
     VendorId,
     /// Vendor unique product identifier
     ProductId,
+    /// Unique vendor identifier and product identifier as a string formatted "vid:pid" like lsusb
+    VidPid,
     /// The device name as reported in descriptor or using usb_ids if None
     Name,
     /// The device manufacturer as provided in descriptor or using usb_ids if None
@@ -568,6 +570,7 @@ pub trait Block<B: BlockEnum, T> {
     /// Formats u16 values like VID as base16 or base10 depending on decimal setting
     fn format_base_u16(v: u16, settings: &PrintSettings) -> String {
         if settings.decimal {
+            // pad 6 not 5 to maintian 0x padding
             format!("{:6}", v)
         } else {
             format!("0x{:04x}", v)
@@ -580,6 +583,20 @@ pub trait Block<B: BlockEnum, T> {
             format!("{:4}", v)
         } else {
             format!("0x{:02x}", v)
+        }
+    }
+
+    /// Formats VID and PID values into a string like "vid:pid" with padding
+    fn format_vidpid(v: Option<u16>, p: Option<u16>, settings: &PrintSettings) -> String {
+        match (v, p) {
+            (Some(v), Some(p)) => {
+                if settings.decimal {
+                    format!("{:>5}:{:<5}", v, p)
+                } else {
+                    format!(" {:04x}:{:04x} ", v, p)
+                }
+            }
+            _ => format!("{:>5}:{:<5}", "-", "-"),
         }
     }
 
@@ -907,6 +924,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
             }),
+            DeviceBlocks::VidPid => Some(Self::format_vidpid(d.vendor_id, d.product_id, settings)),
             DeviceBlocks::Name => Some(format!(
                 "{:pad$}",
                 d.name,
@@ -1016,7 +1034,9 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::PortPath | DeviceBlocks::SysPath => {
                 ct.path.map_or(s.normal(), |c| s.color(c))
             }
-            DeviceBlocks::VendorId => ct.vid.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::VendorId | DeviceBlocks::VidPid => {
+                ct.vid.map_or(s.normal(), |c| s.color(c))
+            }
             DeviceBlocks::ProductId => ct.pid.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::Name | DeviceBlocks::ProductName => {
                 ct.name.map_or(s.normal(), |c| s.color(c))
@@ -1055,6 +1075,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::Driver => "Driver",
             DeviceBlocks::VendorId => "VID",
             DeviceBlocks::ProductId => "PID",
+            DeviceBlocks::VidPid => "VID:PID",
             DeviceBlocks::Name => "Name",
             DeviceBlocks::Manufacturer => "Manfacturer",
             DeviceBlocks::ProductName => "PName",
@@ -1099,6 +1120,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 BlockLength::Fixed(3)
             }
             DeviceBlocks::VendorId | DeviceBlocks::ProductId => BlockLength::Fixed(6),
+            DeviceBlocks::VidPid => BlockLength::Fixed(11),
             DeviceBlocks::Speed => BlockLength::Fixed(10),
             DeviceBlocks::NegotiatedSpeed => BlockLength::Fixed(10),
             DeviceBlocks::BusPower
