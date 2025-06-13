@@ -148,7 +148,7 @@ cyme --lsusb --tree
 
 ### Blocks
 
-See `cyme --help` for blocks available. One can also omit the value to the arg to show options. Specifying multiple blocks requires multiple args.
+See `cyme --help` for blocks available. One can also omit the value to the arg to show options. Specifying multiple blocks requires multiple args. By default the supplied blocks will replace the default blocks. Use `--block-operation` to change this behaviour.
 
 ```bash
 # List USB devices with more display blocks
@@ -157,6 +157,9 @@ cyme --more
 cyme --blocks name --blocks vendor-id --blocks product-id --blocks serial -b speed
 # Customise other blocks - it's probably easier to use Config at this point
 cyme --blocks name --bus-blocks name --config-blocks name --interface-blocks class --endpoint-blocks number
+# Use block-operation to change the default or config blocks with arg blocks
+cyme --block-operation remove --blocks serial
+cyme --block-operation add --blocks base-class --blocks last-event --bus-blocks host-controller-vendor
 ```
 
 ### Filtering

@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_cyme_global_optspecs
-	string join \n l/lsusb t/tree d/vidpid= s/show= D/device= filter-name= filter-serial= filter-class= v/verbose b/blocks= bus-blocks= config-blocks= interface-blocks= endpoint-blocks= m/more sort-devices= sort-buses group-devices= hide-buses hide-hubs list-root-hubs decimal no-padding color= no-color encoding= ascii no-icons icon= headings json from-json= F/force-libusb c/config= z/debug mask-serials= gen system-profiler h/help V/version
+	string join \n l/lsusb t/tree d/vidpid= s/show= D/device= filter-name= filter-serial= filter-class= v/verbose b/blocks= bus-blocks= config-blocks= interface-blocks= endpoint-blocks= block-operation= m/more sort-devices= sort-buses group-devices= hide-buses hide-hubs list-root-hubs decimal no-padding color= no-color encoding= ascii no-icons icon= headings json from-json= F/force-libusb c/config= z/debug mask-serials= gen system-profiler h/help V/version
 end
 
 function __fish_cyme_needs_command
@@ -54,7 +54,7 @@ wireless-controller\t'Wireless controllers: Bluetooth adaptors, Microsoft RNDIS'
 miscellaneous\t'This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website'
 application-specific-interface\t'This base class is defined for devices that conform to several class specifications found on the USB-IF website'
 vendor-specific-class\t'This base class is defined for vendors to use as they please'"
-complete -c cyme -n "__fish_cyme_needs_command" -s b -l blocks -d 'Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times to specify multiple blocks' -r -f -a "bus-number\t'Number of bus device is attached'
+complete -c cyme -n "__fish_cyme_needs_command" -s b -l blocks -d 'Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks' -r -f -a "bus-number\t'Number of bus device is attached'
 device-number\t'Bus issued device number'
 branch-position\t'Position of device in parent branch'
 port-path\t'Linux style port path'
@@ -63,6 +63,7 @@ driver\t'Linux udev reported driver loaded for device'
 icon\t'Icon based on VID/PID'
 vendor-id\t'Unique vendor identifier - purchased from USB IF'
 product-id\t'Vendor unique product identifier'
+vid-pid\t'Unique vendor identifier and product identifier as a string formatted "vid:pid" like lsusb'
 name\t'The device name as reported in descriptor or using usb_ids if None'
 manufacturer\t'The device manufacturer as provided in descriptor or using usb_ids if None'
 product-name\t'The device product name as reported by usb_ids vidpid lookup'
@@ -86,7 +87,7 @@ class\t'Fully defined USB Class Code enum based on BaseClass/SubClass/Protocol t
 base-value\t'Base class as number value rather than enum'
 last-event\t'Last time device was seen'
 event-icon\t'Event icon'"
-complete -c cyme -n "__fish_cyme_needs_command" -l bus-blocks -d 'Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times to specify multiple blocks' -r -f -a "bus-number\t'System bus number identifier'
+complete -c cyme -n "__fish_cyme_needs_command" -l bus-blocks -d 'Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times or csv to specify multiple blocks' -r -f -a "bus-number\t'System bus number identifier'
 icon\t'Icon based on VID/PID'
 name\t'System internal bus name based on Root Hub device name'
 host-controller\t'System internal bus provider name'
@@ -96,13 +97,13 @@ pci-vendor\t'PCI vendor ID (VID)'
 pci-device\t'PCI device ID (PID)'
 pci-revision\t'PCI Revsision ID'
 port-path\t'syspath style port path to bus, applicable to Linux only'"
-complete -c cyme -n "__fish_cyme_needs_command" -l config-blocks -d 'Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times to specify multiple blocks' -r -f -a "name\t'Name from string descriptor'
+complete -c cyme -n "__fish_cyme_needs_command" -l config-blocks -d 'Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times or csv to specify multiple blocks' -r -f -a "name\t'Name from string descriptor'
 number\t'Number of config, bConfigurationValue; value to set to enable to configuration'
 num-interfaces\t'Interfaces available for this configuruation'
 attributes\t'Attributes of configuration, bmAttributes'
 icon-attributes\t'Icon representation of bmAttributes'
 max-power\t'Maximum current consumption in mA'"
-complete -c cyme -n "__fish_cyme_needs_command" -l interface-blocks -d 'Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times to specify multiple blocks' -r -f -a "name\t'Name from string descriptor'
+complete -c cyme -n "__fish_cyme_needs_command" -l interface-blocks -d 'Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times or csv to specify multiple blocks' -r -f -a "name\t'Name from string descriptor'
 number\t'Interface number'
 port-path\t'Interface port path, applicable to Linux'
 base-class\t'Base class enum of interface provided by USB IF'
@@ -118,13 +119,18 @@ uid-sub-class\t'Sub-class name from USB IDs repository'
 uid-protocol\t'Protocol name from USB IDs repository'
 class\t'Fully defined USB Class Code based on BaseClass/SubClass/Protocol triplet'
 base-value\t'Base class as number value rather than enum'"
-complete -c cyme -n "__fish_cyme_needs_command" -l endpoint-blocks -d 'Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times to specify multiple blocks' -r -f -a "number\t'Endpoint number on interface'
+complete -c cyme -n "__fish_cyme_needs_command" -l endpoint-blocks -d 'Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times or csv to specify multiple blocks' -r -f -a "number\t'Endpoint number on interface'
 direction\t'Direction of data into endpoint'
 transfer-type\t'Type of data transfer endpoint accepts'
 sync-type\t'Synchronisation type (Iso mode)'
 usage-type\t'Usage type (Iso mode)'
 max-packet-size\t'Maximum packet size in bytes endpoint can send/recieve'
 interval\t'Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints'"
+complete -c cyme -n "__fish_cyme_needs_command" -l block-operation -d 'Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks' -r -f -a "add\t'Add new blocks to the existing blocks, ignoring duplicates'
+append\t'Append new blocks to the end of the existing blocks'
+new\t'Replace all blocks with new ones'
+prepend\t'Prepend new blocks to the start of the existing blocks'
+remove\t'Remove matching blocks from the existing blocks'"
 complete -c cyme -n "__fish_cyme_needs_command" -l sort-devices -d 'Sort devices operation' -r -f -a "device-number\t'Sort by bus device number'
 branch-position\t'Sort by position in parent branch'
 no-sort\t'No sorting; whatever order it was parsed'"

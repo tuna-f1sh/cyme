@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use terminal_size::terminal_size;
 
 use cyme::config::Config;
-use cyme::display;
+use cyme::display::{self, Block, DeviceBlocks};
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::profiler;
@@ -21,6 +21,8 @@ use cyme::usb::BaseClass;
 
 #[cfg(feature = "watch")]
 mod watch;
+
+const MAX_VERBOSITY: u8 = 4;
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -62,25 +64,41 @@ struct Args {
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
     verbose: u8,
 
-    /// Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times to specify multiple blocks.
-    #[arg(short, long, value_enum)]
+    /// Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks.
+    ///
+    /// Default blocks: --blocks bus-number,device-number,icon,vendor-id,product-id,name,serial,speed
+    #[arg(short, long, value_enum, value_delimiter = ',', num_args = 1..)]
     blocks: Option<Vec<display::DeviceBlocks>>,
 
-    /// Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times to specify multiple blocks.
-    #[arg(long, value_enum)]
+    /// Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times or csv to specify multiple blocks.
+    ///
+    /// Default blocks: --bus-blocks port-path,name,host-controller,host-controller-device
+    #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     bus_blocks: Option<Vec<display::BusBlocks>>,
 
-    /// Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times to specify multiple blocks.
-    #[arg(long, value_enum)]
+    /// Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times or csv to specify multiple blocks.
+    ///
+    /// Default blocks: --config-blocks number,icon-attributes,max-power,name
+    #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     config_blocks: Option<Vec<display::ConfigurationBlocks>>,
 
-    /// Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times to specify multiple blocks.
-    #[arg(long, value_enum)]
+    /// Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times or csv to specify multiple blocks.
+    ///
+    /// Default blocks: --interface-blocks port-path,icon,alt-setting,base-class,sub-class --interface
+    #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     interface_blocks: Option<Vec<display::InterfaceBlocks>>,
 
-    /// Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times to specify multiple blocks.
-    #[arg(long, value_enum)]
+    /// Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times or csv to specify multiple blocks.
+    ///
+    /// Default blocks: --endpoint-blocks number,direction,transfer-type,sync-type,usage-type,max-packet-size
+    #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
+
+    /// Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks
+    ///
+    /// Default is 'new' for legacy, 'add' is probably more useful
+    #[arg(long, value_enum, default_value_t = display::BlockOperation::New)]
+    block_operation: display::BlockOperation,
 
     /// Print more blocks by default at each verbosity
     #[arg(short, long, default_value_t = false)]
@@ -548,6 +566,55 @@ pub fn set_log_level(debug: u8) -> Result<()> {
     Ok(())
 }
 
+/// Merge with arg blocks with config blocks (or default if None) depending on BlockOperation
+fn merge_blocks(config: &Config, args: &Args, settings: &mut display::PrintSettings) -> Result<()> {
+    if let Some(blocks) = &args.blocks {
+        let mut device_blocks = config.blocks.to_owned().unwrap_or(if settings.more {
+            DeviceBlocks::default_blocks(true)
+        } else if settings.tree {
+            DeviceBlocks::default_device_tree_blocks()
+        } else {
+            DeviceBlocks::default_blocks(false)
+        });
+        args.block_operation.run(&mut device_blocks, blocks)?;
+        settings.device_blocks = Some(device_blocks);
+    }
+
+    if let Some(blocks) = &args.bus_blocks {
+        settings.bus_blocks = Some(args.block_operation.new_or_op(
+            config.bus_blocks.to_owned(),
+            blocks,
+            settings.more,
+        )?);
+    }
+
+    if let Some(blocks) = &args.config_blocks {
+        settings.config_blocks = Some(args.block_operation.new_or_op(
+            settings.config_blocks.to_owned(),
+            blocks,
+            settings.more,
+        )?);
+    }
+
+    if let Some(blocks) = &args.interface_blocks {
+        settings.interface_blocks = Some(args.block_operation.new_or_op(
+            settings.interface_blocks.to_owned(),
+            blocks,
+            settings.more,
+        )?);
+    }
+
+    if let Some(blocks) = &args.endpoint_blocks {
+        settings.endpoint_blocks = Some(args.block_operation.new_or_op(
+            settings.endpoint_blocks.to_owned(),
+            blocks,
+            settings.more,
+        )?);
+    }
+
+    Ok(())
+}
+
 fn cyme() -> Result<()> {
     let mut args = Args::parse();
 
@@ -577,6 +644,10 @@ fn cyme() -> Result<()> {
         args.color = display::ColorWhen::Never;
     }
 
+    if args.verbose >= MAX_VERBOSITY {
+        args.more = true;
+    }
+
     merge_config(&mut config, &args);
 
     // set the output colouring
@@ -595,7 +666,7 @@ fn cyme() -> Result<()> {
         _ => (),
     };
 
-    let mut spusb = if let Some(file_path) = args.from_json {
+    let mut spusb = if let Some(file_path) = args.from_json.clone() {
         match profiler::read_json_dump(&file_path) {
             Ok(s) => s,
             Err(e) => {
@@ -665,8 +736,8 @@ fn cyme() -> Result<()> {
         }
 
         // no need to unwrap as these are Option
-        f.name = args.filter_name;
-        f.serial = args.filter_serial;
+        f.name = args.filter_name.clone();
+        f.serial = args.filter_serial.clone();
         f.class = args.filter_class;
         f.exclude_empty_hub = args.hide_hubs;
         f.exclude_empty_bus = args.hide_buses;
@@ -697,21 +768,7 @@ fn cyme() -> Result<()> {
     let mut settings = config.print_settings();
     settings.terminal_size = terminal_size().map(|(w, h)| (w.0, h.0));
     settings.json = args.json;
-    if let Some(blocks) = args.blocks {
-        settings.device_blocks = Some(blocks);
-    }
-    if let Some(blocks) = args.bus_blocks {
-        settings.bus_blocks = Some(blocks);
-    }
-    if let Some(blocks) = args.config_blocks {
-        settings.config_blocks = Some(blocks);
-    }
-    if let Some(blocks) = args.interface_blocks {
-        settings.interface_blocks = Some(blocks);
-    }
-    if let Some(blocks) = args.endpoint_blocks {
-        settings.endpoint_blocks = Some(blocks);
-    }
+    merge_blocks(&config, &args, &mut settings)?;
     if let Some(mask) = args.mask_serials {
         settings.mask_serials = Some(mask);
     }

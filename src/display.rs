@@ -15,6 +15,7 @@ use strum_macros::{Display, EnumIter, VariantArray};
 use unicode_width::UnicodeWidthStr;
 
 use crate::colour;
+use crate::error::Result;
 use crate::icon;
 use crate::profiler::{Bus, Device, Filter, SystemProfile};
 use crate::types::NumericalUnit;
@@ -23,7 +24,6 @@ use crate::usb::{
     ConfigAttributes, Configuration, DeviceExtra, Direction, Endpoint, Interface,
 };
 
-const MAX_VERBOSITY: u8 = 4;
 const ICON_HEADING: &str = "I";
 const DEFAULT_AUTO_WIDTH: u16 = 80; // default terminal width to scale if None returned for size
 const MIN_VARIABLE_STRING_LEN: usize = 5; // minimum variable string length to scale to
@@ -250,6 +250,8 @@ pub enum DeviceBlocks {
     VendorId,
     /// Vendor unique product identifier
     ProductId,
+    /// Unique vendor identifier and product identifier as a string formatted "vid:pid" like lsusb
+    VidPid,
     /// The device name as reported in descriptor or using usb_ids if None
     Name,
     /// The device manufacturer as provided in descriptor or using usb_ids if None
@@ -568,6 +570,7 @@ pub trait Block<B: BlockEnum, T> {
     /// Formats u16 values like VID as base16 or base10 depending on decimal setting
     fn format_base_u16(v: u16, settings: &PrintSettings) -> String {
         if settings.decimal {
+            // pad 6 not 5 to maintian 0x padding
             format!("{:6}", v)
         } else {
             format!("0x{:04x}", v)
@@ -580,6 +583,20 @@ pub trait Block<B: BlockEnum, T> {
             format!("{:4}", v)
         } else {
             format!("0x{:02x}", v)
+        }
+    }
+
+    /// Formats VID and PID values into a string like "vid:pid" with padding
+    fn format_vidpid(v: Option<u16>, p: Option<u16>, settings: &PrintSettings) -> String {
+        match (v, p) {
+            (Some(v), Some(p)) => {
+                if settings.decimal {
+                    format!("{:>5}:{:<5}", v, p)
+                } else {
+                    format!(" {:04x}:{:04x} ", v, p)
+                }
+            }
+            _ => format!("{:>5}:{:<5}", "-", "-"),
         }
     }
 
@@ -907,6 +924,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 Some(v) => Self::format_base_u16(v, settings),
                 None => format!("{:>6}", "-"),
             }),
+            DeviceBlocks::VidPid => Some(Self::format_vidpid(d.vendor_id, d.product_id, settings)),
             DeviceBlocks::Name => Some(format!(
                 "{:pad$}",
                 d.name,
@@ -1016,7 +1034,9 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::PortPath | DeviceBlocks::SysPath => {
                 ct.path.map_or(s.normal(), |c| s.color(c))
             }
-            DeviceBlocks::VendorId => ct.vid.map_or(s.normal(), |c| s.color(c)),
+            DeviceBlocks::VendorId | DeviceBlocks::VidPid => {
+                ct.vid.map_or(s.normal(), |c| s.color(c))
+            }
             DeviceBlocks::ProductId => ct.pid.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::Name | DeviceBlocks::ProductName => {
                 ct.name.map_or(s.normal(), |c| s.color(c))
@@ -1055,6 +1075,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::Driver => "Driver",
             DeviceBlocks::VendorId => "VID",
             DeviceBlocks::ProductId => "PID",
+            DeviceBlocks::VidPid => "VID:PID",
             DeviceBlocks::Name => "Name",
             DeviceBlocks::Manufacturer => "Manfacturer",
             DeviceBlocks::ProductName => "PName",
@@ -1099,6 +1120,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 BlockLength::Fixed(3)
             }
             DeviceBlocks::VendorId | DeviceBlocks::ProductId => BlockLength::Fixed(6),
+            DeviceBlocks::VidPid => BlockLength::Fixed(11),
             DeviceBlocks::Speed => BlockLength::Fixed(10),
             DeviceBlocks::NegotiatedSpeed => BlockLength::Fixed(10),
             DeviceBlocks::BusPower
@@ -2230,19 +2252,13 @@ fn generate_extra_blocks(
 ) {
     let mut blocks = (
         settings.config_blocks.to_owned().unwrap_or(
-            Block::<ConfigurationBlocks, Configuration>::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ),
+            Block::<ConfigurationBlocks, Configuration>::default_blocks(settings.more),
         ),
         settings.interface_blocks.to_owned().unwrap_or(
-            Block::<InterfaceBlocks, Interface>::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ),
+            Block::<InterfaceBlocks, Interface>::default_blocks(settings.more),
         ),
         settings.endpoint_blocks.to_owned().unwrap_or(
-            Block::<EndpointBlocks, Endpoint>::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ),
+            Block::<EndpointBlocks, Endpoint>::default_blocks(settings.more),
         ),
     );
 
@@ -2298,6 +2314,70 @@ pub struct TreeData {
     depth: usize,
     /// Prefix to apply, builds up as depth increases
     prefix: String,
+}
+
+/// The operation to perform on the blocks when specified by the user
+#[derive(Default, PartialEq, Eq, Debug, ValueEnum, Clone, Copy, Serialize, Deserialize)]
+pub enum BlockOperation {
+    /// Add new blocks to the existing blocks, ignoring duplicates
+    Add,
+    /// Append new blocks to the end of the existing blocks
+    Append,
+    /// Replace all blocks with new ones
+    #[default]
+    New,
+    /// Prepend new blocks to the start of the existing blocks
+    Prepend,
+    /// Remove matching blocks from the existing blocks
+    Remove,
+}
+
+impl BlockOperation {
+    /// Create a new or run the operation on the blocks, returning the new blocks
+    pub fn new_or_op<B: BlockEnum + Block<B, T>, T>(
+        &self,
+        blocks: Option<Vec<B>>,
+        new: &[B],
+        verbose: bool,
+    ) -> Result<Vec<B>> {
+        if matches!(self, BlockOperation::New) {
+            return Ok(new.to_vec());
+        }
+
+        let mut current = blocks.unwrap_or_else(|| B::default_blocks(verbose));
+        self.run(&mut current, new)?;
+        Ok(current)
+    }
+
+    /// Run the operation on the blocks, modifying them in place
+    pub fn run<T: BlockEnum>(&self, blocks: &mut Vec<T>, new: &[T]) -> Result<()> {
+        match self {
+            BlockOperation::New => {
+                *blocks = new.to_vec();
+            }
+            BlockOperation::Append => {
+                blocks.extend(new.iter().cloned());
+            }
+            BlockOperation::Prepend => {
+                let mut new = new.to_vec();
+                new.append(blocks);
+                *blocks = new;
+            }
+            BlockOperation::Add => {
+                for b in new {
+                    if !blocks.contains(b) {
+                        blocks.push(b.clone());
+                    }
+                }
+            }
+            BlockOperation::Remove => {
+                for b in new {
+                    blocks.retain(|x| x != b);
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Used to describe the item being printed
@@ -3024,22 +3104,20 @@ impl<W: Write> DisplayWriter<W> {
 
     /// Print [`SystemProfile`] [`Bus`] and [`Device`] information
     pub fn print_sp_usb(&mut self, sp_usb: &SystemProfile, settings: &PrintSettings) {
-        let mut bb =
-            settings
-                .bus_blocks
-                .to_owned()
-                .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
-                    settings.verbosity >= MAX_VERBOSITY || settings.more,
-                ));
-        let mut db = settings.device_blocks.to_owned().unwrap_or(
-            if settings.verbosity >= MAX_VERBOSITY || settings.more {
+        let mut bb = settings
+            .bus_blocks
+            .to_owned()
+            .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(settings.more));
+        let mut db = settings
+            .device_blocks
+            .to_owned()
+            .unwrap_or(if settings.more {
                 DeviceBlocks::default_blocks(true)
             } else if settings.tree {
                 DeviceBlocks::default_device_tree_blocks()
             } else {
                 DeviceBlocks::default_blocks(false)
-            },
-        );
+            });
 
         // remove icon blocks if not supported by encoding
         match settings.icon_when {
@@ -3190,9 +3268,7 @@ impl<W: Write> DisplayWriter<W> {
         let mut db = settings
             .device_blocks
             .to_owned()
-            .unwrap_or(DeviceBlocks::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ));
+            .unwrap_or(DeviceBlocks::default_blocks(settings.more));
 
         // remove icon blocks if not supported
         match settings.icon_when {
@@ -3301,9 +3377,7 @@ impl<W: Write> DisplayWriter<W> {
         let bb = settings
             .bus_blocks
             .to_owned()
-            .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(
-                settings.verbosity >= MAX_VERBOSITY || settings.more,
-            ));
+            .unwrap_or(Block::<BusBlocks, Bus>::default_blocks(settings.more));
         let mut pad: HashMap<BusBlocks, usize> = if !settings.no_padding {
             let buses: Vec<&Bus> = bus_devices.iter().map(|bd| bd.0).collect();
             BusBlocks::generate_padding(&buses)

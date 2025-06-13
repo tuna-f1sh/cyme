@@ -4,7 +4,7 @@
 .SH NAME
 cyme \- List system USB buses and devices. A modern cross\-platform lsusb
 .SH SYNOPSIS
-\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-\-filter\-class\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-m\fR|\fB\-\-more\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-list\-root\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-color\fR] [\fB\-\-encoding\fR] [\fB\-\-icon\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-from\-json\fR] [\fB\-F\fR|\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-z\fR|\fB\-\-debug\fR]... [\fB\-\-mask\-serials\fR] [\fB\-\-system\-profiler\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fIsubcommands\fR]
+\fBcyme\fR [\fB\-l\fR|\fB\-\-lsusb\fR] [\fB\-t\fR|\fB\-\-tree\fR] [\fB\-d\fR|\fB\-\-vidpid\fR] [\fB\-s\fR|\fB\-\-show\fR] [\fB\-D\fR|\fB\-\-device\fR] [\fB\-\-filter\-name\fR] [\fB\-\-filter\-serial\fR] [\fB\-\-filter\-class\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-b\fR|\fB\-\-blocks\fR] [\fB\-\-bus\-blocks\fR] [\fB\-\-config\-blocks\fR] [\fB\-\-interface\-blocks\fR] [\fB\-\-endpoint\-blocks\fR] [\fB\-\-block\-operation\fR] [\fB\-m\fR|\fB\-\-more\fR] [\fB\-\-sort\-devices\fR] [\fB\-\-sort\-buses\fR] [\fB\-\-group\-devices\fR] [\fB\-\-hide\-buses\fR] [\fB\-\-hide\-hubs\fR] [\fB\-\-list\-root\-hubs\fR] [\fB\-\-decimal\fR] [\fB\-\-no\-padding\fR] [\fB\-\-color\fR] [\fB\-\-encoding\fR] [\fB\-\-icon\fR] [\fB\-\-headings\fR] [\fB\-\-json\fR] [\fB\-\-from\-json\fR] [\fB\-F\fR|\fB\-\-force\-libusb\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-z\fR|\fB\-\-debug\fR]... [\fB\-\-mask\-serials\fR] [\fB\-\-system\-profiler\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
 List system USB buses and devices. A modern cross\-platform lsusb
 .SH OPTIONS
@@ -93,7 +93,9 @@ vendor\-specific\-class: This base class is defined for vendors to use as they p
 Verbosity level (repeat provides count): 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and more blocks
 .TP
 \fB\-b\fR, \fB\-\-blocks\fR=\fIBLOCKS\fR
-Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times to specify multiple blocks
+Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks.
+
+Default blocks: \-\-blocks bus\-number,device\-number,icon,vendor\-id,product\-id,name,serial,speed
 .br
 
 .br
@@ -117,6 +119,8 @@ icon: Icon based on VID/PID
 vendor\-id: Unique vendor identifier \- purchased from USB IF
 .IP \(bu 2
 product\-id: Vendor unique product identifier
+.IP \(bu 2
+vid\-pid: Unique vendor identifier and product identifier as a string formatted "vid:pid" like lsusb
 .IP \(bu 2
 name: The device name as reported in descriptor or using usb_ids if None
 .IP \(bu 2
@@ -166,7 +170,9 @@ event\-icon: Event icon
 .RE
 .TP
 \fB\-\-bus\-blocks\fR=\fIBUS_BLOCKS\fR
-Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times to specify multiple blocks
+Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times or csv to specify multiple blocks.
+
+Default blocks: \-\-bus\-blocks port\-path,name,host\-controller,host\-controller\-device
 .br
 
 .br
@@ -195,7 +201,9 @@ port\-path: syspath style port path to bus, applicable to Linux only
 .RE
 .TP
 \fB\-\-config\-blocks\fR=\fICONFIG_BLOCKS\fR
-Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times to specify multiple blocks
+Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times or csv to specify multiple blocks.
+
+Default blocks: \-\-config\-blocks number,icon\-attributes,max\-power,name
 .br
 
 .br
@@ -216,7 +224,9 @@ max\-power: Maximum current consumption in mA
 .RE
 .TP
 \fB\-\-interface\-blocks\fR=\fIINTERFACE_BLOCKS\fR
-Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times to specify multiple blocks
+Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times or csv to specify multiple blocks.
+
+Default blocks: \-\-interface\-blocks port\-path,icon,alt\-setting,base\-class,sub\-class \-\-interface
 .br
 
 .br
@@ -257,7 +267,9 @@ base\-value: Base class as number value rather than enum
 .RE
 .TP
 \fB\-\-endpoint\-blocks\fR=\fIENDPOINT_BLOCKS\fR
-Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times to specify multiple blocks
+Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times or csv to specify multiple blocks.
+
+Default blocks: \-\-endpoint\-blocks number,direction,transfer\-type,sync\-type,usage\-type,max\-packet\-size
 .br
 
 .br
@@ -277,6 +289,27 @@ usage\-type: Usage type (Iso mode)
 max\-packet\-size: Maximum packet size in bytes endpoint can send/recieve
 .IP \(bu 2
 interval: Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints
+.RE
+.TP
+\fB\-\-block\-operation\fR=\fIBLOCK_OPERATION\fR [default: new]
+Operation to perform on the blocks supplied via \-\-blocks, \-\-bus\-blocks, \-\-config\-blocks, \-\-interface\-blocks and \-\-endpoint\-blocks
+
+Default is \*(Aqnew\*(Aq for legacy, \*(Aqadd\*(Aq is probably more useful
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+add: Add new blocks to the existing blocks, ignoring duplicates
+.IP \(bu 2
+append: Append new blocks to the end of the existing blocks
+.IP \(bu 2
+new: Replace all blocks with new ones
+.IP \(bu 2
+prepend: Prepend new blocks to the start of the existing blocks
+.IP \(bu 2
+remove: Remove matching blocks from the existing blocks
 .RE
 .TP
 \fB\-m\fR, \fB\-\-more\fR
