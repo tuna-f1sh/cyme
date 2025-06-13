@@ -64,34 +64,34 @@ struct Args {
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
     verbose: u8,
 
-    /// Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times to specify multiple blocks.
+    /// Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --blocks bus-number --blocks device-number --blocks icon --blocks vendor-id --blocks product-id --blocks name --blocks serial --blocks speed
-    #[arg(short, long, value_enum)]
+    /// Default blocks: --blocks bus-number,device-number,icon,vendor-id,product-id,name,serial,speed
+    #[arg(short, long, value_enum, value_delimiter = ',', num_args = 1..)]
     blocks: Option<Vec<display::DeviceBlocks>>,
 
-    /// Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times to specify multiple blocks.
+    /// Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --bus-blocks port-path --bus-blocks name --bus-blocks host-controller --bus-blocks host-controller-device
-    #[arg(long, value_enum)]
+    /// Default blocks: --bus-blocks port-path,name,host-controller,host-controller-device
+    #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     bus_blocks: Option<Vec<display::BusBlocks>>,
 
-    /// Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times to specify multiple blocks.
+    /// Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --config-blocks number --config-blocks icon-attributes --config-blocks max-power --config-blocks name
-    #[arg(long, value_enum)]
+    /// Default blocks: --config-blocks number,icon-attributes,max-power,name
+    #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     config_blocks: Option<Vec<display::ConfigurationBlocks>>,
 
-    /// Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times to specify multiple blocks.
+    /// Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --interface-blocks port-path --interface-blocks icon --interface-blocks alt-setting --interface-blocks base-class --interface-blocks sub-class --interface
-    #[arg(long, value_enum)]
+    /// Default blocks: --interface-blocks port-path,icon,alt-setting,base-class,sub-class --interface
+    #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     interface_blocks: Option<Vec<display::InterfaceBlocks>>,
 
-    /// Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times to specify multiple blocks.
+    /// Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --endpoint-blocks number --endpoint-blocks direction --endpoint-blocks transfer-type --endpoint-blocks sync-type --endpoint-blocks usage-type --endpoint-blocks max-packet-size
-    #[arg(long, value_enum)]
+    /// Default blocks: --endpoint-blocks number,direction,transfer-type,sync-type,usage-type,max-packet-size
+    #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
 
     /// Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks
