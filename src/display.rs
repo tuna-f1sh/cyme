@@ -15,6 +15,7 @@ use strum_macros::{Display, EnumIter, VariantArray};
 use unicode_width::UnicodeWidthStr;
 
 use crate::colour;
+use crate::error::Result;
 use crate::icon;
 use crate::profiler::{Bus, Device, Filter, SystemProfile};
 use crate::types::NumericalUnit;
@@ -2313,6 +2314,70 @@ pub struct TreeData {
     depth: usize,
     /// Prefix to apply, builds up as depth increases
     prefix: String,
+}
+
+/// The operation to perform on the blocks when specified by the user
+#[derive(Default, PartialEq, Eq, Debug, ValueEnum, Clone, Copy, Serialize, Deserialize)]
+pub enum BlockOperation {
+    /// Add new blocks to the existing blocks, ignoring duplicates
+    Add,
+    /// Append new blocks to the end of the existing blocks
+    Append,
+    /// Replace all blocks with new ones
+    #[default]
+    New,
+    /// Prepend new blocks to the start of the existing blocks
+    Prepend,
+    /// Remove matching blocks from the existing blocks
+    Remove,
+}
+
+impl BlockOperation {
+    /// Create a new or run the operation on the blocks, returning the new blocks
+    pub fn new_or_op<B: BlockEnum + Block<B, T>, T>(
+        &self,
+        blocks: Option<Vec<B>>,
+        new: &[B],
+        verbose: bool,
+    ) -> Result<Vec<B>> {
+        if matches!(self, BlockOperation::New) {
+            return Ok(new.to_vec());
+        }
+
+        let mut current = blocks.unwrap_or_else(|| B::default_blocks(verbose));
+        self.run(&mut current, new)?;
+        Ok(current)
+    }
+
+    /// Run the operation on the blocks, modifying them in place
+    pub fn run<T: BlockEnum>(&self, blocks: &mut Vec<T>, new: &[T]) -> Result<()> {
+        match self {
+            BlockOperation::New => {
+                *blocks = new.to_vec();
+            }
+            BlockOperation::Append => {
+                blocks.extend(new.iter().cloned());
+            }
+            BlockOperation::Prepend => {
+                let mut new = new.to_vec();
+                new.append(blocks);
+                *blocks = new;
+            }
+            BlockOperation::Add => {
+                for b in new {
+                    if !blocks.contains(b) {
+                        blocks.push(b.clone());
+                    }
+                }
+            }
+            BlockOperation::Remove => {
+                for b in new {
+                    blocks.retain(|x| x != b);
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Used to describe the item being printed

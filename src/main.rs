@@ -13,9 +13,7 @@ use std::path::{Path, PathBuf};
 use terminal_size::terminal_size;
 
 use cyme::config::Config;
-use cyme::display::{
-    self, Block, BusBlocks, ConfigurationBlocks, DeviceBlocks, EndpointBlocks, InterfaceBlocks,
-};
+use cyme::display::{self, Block, DeviceBlocks};
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::profiler;
@@ -25,57 +23,6 @@ use cyme::usb::BaseClass;
 mod watch;
 
 const MAX_VERBOSITY: u8 = 4;
-
-/// The operation to perform on the blocks when specified by the user
-#[derive(Default, PartialEq, Eq, Debug, clap::ValueEnum, Clone, Copy, Serialize, Deserialize)]
-enum BlockOperation {
-    /// Add new blocks to the existing blocks, ignoring duplicates
-    Add,
-    /// Append new blocks to the end of the existing blocks
-    Append,
-    #[default]
-    /// Replace all blocks with new ones
-    New,
-    /// Prepend new blocks to the start of the existing blocks
-    Prepend,
-    /// Remove matching blocks from the existing blocks
-    Remove,
-}
-
-impl BlockOperation {
-    fn run_operation<T: display::BlockEnum>(
-        &self,
-        blocks: &mut Vec<T>,
-        new_blocks: &[T],
-    ) -> Result<()> {
-        match self {
-            BlockOperation::New => {
-                *blocks = new_blocks.to_vec();
-            }
-            BlockOperation::Append => {
-                blocks.extend(new_blocks.iter().cloned());
-            }
-            BlockOperation::Prepend => {
-                let mut new = new_blocks.to_vec();
-                new.append(blocks);
-                *blocks = new;
-            }
-            BlockOperation::Add => {
-                for b in new_blocks {
-                    if !blocks.contains(b) {
-                        blocks.push(b.clone());
-                    }
-                }
-            }
-            BlockOperation::Remove => {
-                for b in new_blocks {
-                    blocks.retain(|x| x != b);
-                }
-            }
-        }
-        Ok(())
-    }
-}
 
 #[derive(Parser, Debug, Default, Serialize, Deserialize)]
 #[skip_serializing_none]
@@ -150,8 +97,8 @@ struct Args {
     /// Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks
     ///
     /// Default is 'new' for legacy, 'add' is probably more useful
-    #[arg(long, value_enum, default_value_t = BlockOperation::New)]
-    block_operation: BlockOperation,
+    #[arg(long, value_enum, default_value_t = display::BlockOperation::New)]
+    block_operation: display::BlockOperation,
 
     /// Print more blocks by default at each verbosity
     #[arg(short, long, default_value_t = false)]
@@ -621,61 +568,48 @@ pub fn set_log_level(debug: u8) -> Result<()> {
 
 /// Merge with arg blocks with config blocks (or default if None) depending on BlockOperation
 fn merge_blocks(config: &Config, args: &Args, settings: &mut display::PrintSettings) -> Result<()> {
-    settings.device_blocks = Some(config.blocks.to_owned().unwrap_or(if settings.more {
-        DeviceBlocks::default_blocks(true)
-    } else if settings.tree {
-        DeviceBlocks::default_device_tree_blocks()
-    } else {
-        DeviceBlocks::default_blocks(false)
-    }));
     if let Some(blocks) = &args.blocks {
-        args.block_operation
-            .run_operation(settings.device_blocks.as_mut().unwrap(), blocks)?;
+        let mut device_blocks = config.blocks.to_owned().unwrap_or(if settings.more {
+            DeviceBlocks::default_blocks(true)
+        } else if settings.tree {
+            DeviceBlocks::default_device_tree_blocks()
+        } else {
+            DeviceBlocks::default_blocks(false)
+        });
+        args.block_operation.run(&mut device_blocks, blocks)?;
+        settings.device_blocks = Some(device_blocks);
     }
 
-    settings.bus_blocks = Some(
-        config
-            .bus_blocks
-            .to_owned()
-            .unwrap_or(BusBlocks::default_blocks(settings.more)),
-    );
     if let Some(blocks) = &args.bus_blocks {
-        args.block_operation
-            .run_operation(settings.bus_blocks.as_mut().unwrap(), blocks)?;
+        settings.bus_blocks = Some(args.block_operation.new_or_op(
+            config.bus_blocks.to_owned(),
+            blocks,
+            settings.more,
+        )?);
     }
 
-    settings.config_blocks = Some(
-        config
-            .config_blocks
-            .to_owned()
-            .unwrap_or(ConfigurationBlocks::default_blocks(settings.more)),
-    );
     if let Some(blocks) = &args.config_blocks {
-        args.block_operation
-            .run_operation(settings.config_blocks.as_mut().unwrap(), blocks)?;
+        settings.config_blocks = Some(args.block_operation.new_or_op(
+            settings.config_blocks.to_owned(),
+            blocks,
+            settings.more,
+        )?);
     }
 
-    settings.interface_blocks = Some(
-        config
-            .interface_blocks
-            .to_owned()
-            .unwrap_or(InterfaceBlocks::default_blocks(settings.more)),
-    );
     if let Some(blocks) = &args.interface_blocks {
-        args.block_operation
-            .run_operation(settings.interface_blocks.as_mut().unwrap(), blocks)?;
+        settings.interface_blocks = Some(args.block_operation.new_or_op(
+            settings.interface_blocks.to_owned(),
+            blocks,
+            settings.more,
+        )?);
     }
-
-    settings.endpoint_blocks = Some(
-        config
-            .endpoint_blocks
-            .to_owned()
-            .unwrap_or(EndpointBlocks::default_blocks(settings.more)),
-    );
 
     if let Some(blocks) = &args.endpoint_blocks {
-        args.block_operation
-            .run_operation(settings.endpoint_blocks.as_mut().unwrap(), blocks)?;
+        settings.endpoint_blocks = Some(args.block_operation.new_or_op(
+            settings.endpoint_blocks.to_owned(),
+            blocks,
+            settings.more,
+        )?);
     }
 
     Ok(())
