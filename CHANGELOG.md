@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `--block-operation` add to control how block args are processed: new, add, append, prepend or remove from config/defaults.
+- Block args can take comma separated values.
+- Default block args in `--help`.
+
 ## [2.2.2] - 2025-05-20
 
 ### Fixed
