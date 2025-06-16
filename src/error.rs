@@ -171,3 +171,13 @@ impl From<Error> for io::Error {
         io::Error::other(val.message)
     }
 }
+
+#[cfg(feature = "nusb")]
+impl From<nusb::Error> for Error {
+    fn from(error: nusb::Error) -> Self {
+        Error {
+            kind: ErrorKind::Nusb,
+            message: error.to_string(),
+        }
+    }
+}

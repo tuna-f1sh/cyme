@@ -21,7 +21,7 @@ cansi = { version = "=2.2.1", optional = true } # ANSI escape code helper; decol
 itertools = "0.10.5" # iterator methods used for building device tree
 rusb = { version = "0.9.4", optional = true } # libusb bindings
 # nusb = { git = "https://github.com/kevinmehall/nusb", rev = "dad53d26", optional = true } # pure Rust USB library
-nusb = { git = "https://github.com/kevinmehall/nusb", tag = "v0.2.0-beta.1", optional = true } # pure Rust USB library
+nusb = { git = "https://github.com/kevinmehall/nusb", tag = "v0.2.0-beta.2", optional = true } # pure Rust USB library
 serde = { version = "1.0", features = ["derive"] } # --json serialisation and --from-json deserialisation
 serde_json = "1.0.87"
 serde_with = "2.0.1"
@@ -52,7 +52,7 @@ udevrs = { version = "^0.4.0", optional = true }
 udevlib = { package = "udev", version = "^0.8.0", optional = true }
 
 [target.'cfg(target_os="macos")'.dependencies]
-core-foundation = "0.9.3"
+core-foundation = "0.10.1"
 core-foundation-sys = "0.8.4"
 io-kit-sys = "0.4.0"
 
