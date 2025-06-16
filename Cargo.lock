@@ -93,12 +93,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "atomic-waker"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
-
-[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -296,9 +290,9 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
-version = "0.9.4"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91e195e091a93c46f7102ec7818a2aa394e1e1771c3ab4825963fa03e45afb8f"
+checksum = "b2a6cd9ae233e7f62ba4e9353e81a88df7fc8a5987b8d445b4d90c879bd156f6"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -913,10 +907,9 @@ dependencies = [
 
 [[package]]
 name = "nusb"
-version = "0.2.0-beta.1"
-source = "git+https://github.com/kevinmehall/nusb?tag=v0.2.0-beta.1#4edb4a47ca84dc627ebbf3e26e1e0b2c1d72cc80"
+version = "0.2.0-beta.2"
+source = "git+https://github.com/kevinmehall/nusb?tag=v0.2.0-beta.2#0fd3db60893ce7e49a217d1c868c2a3cab822249"
 dependencies = [
- "atomic-waker",
  "core-foundation",
  "core-foundation-sys",
  "futures-core",

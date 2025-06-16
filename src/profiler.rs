@@ -1081,8 +1081,12 @@ mod platform {
 
     #[cfg(feature = "nusb")]
     pub(crate) fn pci_info_from_bus(bus_info: &::nusb::BusInfo) -> Option<PciInfo> {
-        let pci_path =
-            SysfsPath::from(PathBuf::from(SYSFS_PCI_PREFIX).join(bus_info.parent_sysfs_path()));
+        let path = bus_info.sysfs_path();
+        let parent_path = path
+            .parent()
+            .and_then(|p| p.to_str())
+            .map(|s| s.to_string())?;
+        let pci_path = SysfsPath::from(PathBuf::from(SYSFS_PCI_PREFIX).join(parent_path));
         log::debug!("Probing bus parent device {:?}", pci_path);
         pci_info_from_parent(&pci_path)
     }

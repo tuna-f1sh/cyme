@@ -4,9 +4,13 @@
 
 ### Added
 
-- `--block-operation` add to control how block args are processed: new, add, append, prepend or remove from config/defaults.
-- Block args can take comma separated values.
-- Default block args in `--help`.
+- `--block-operation` add to control how block args are processed: new, add, append, prepend or remove from config/defaults ([#72](https://github.com/tuna-f1sh/cyme/pull/72)).
+- Block args can take comma separated values ([#72](https://github.com/tuna-f1sh/cyme/pull/72)).
+- Default block args in `--help` ([#71](https://github.com/tuna-f1sh/cyme/issues/71)).
+
+### Changed
+
+- nusb v0.2.0-beta.2.
 
 ## [2.2.2] - 2025-05-20
 
