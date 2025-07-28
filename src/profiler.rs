@@ -729,7 +729,7 @@ where
 fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
     log::trace!("Getting sysfs string at {sysfs_name}/{attr}");
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    return std::fs::read_to_string(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
+    return std::fs::read_to_string(format!("{SYSFS_USB_PREFIX}{sysfs_name}/{attr}"))
         .ok()
         .map(|s| s.trim().to_string());
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -743,12 +743,12 @@ fn get_sysfs_readlink(sysfs_name: &str, attr: &str) -> Option<String> {
         // switch based on root_hub - if it is a root hub, we need to go up a directory to get the pci driver
         // https://github.com/gregkh/usbutils/blob/cda6883cade6ec67671d0c7de61e70eb992509a9/lsusb-t.c#L434
         let path = if sysfs_name.starts_with("usb") && attr == "driver" {
-            format!("{}{}/../{}", SYSFS_USB_PREFIX, sysfs_name, attr)
+            format!("{SYSFS_USB_PREFIX}{sysfs_name}/../{attr}")
         } else {
-            format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr)
+            format!("{SYSFS_USB_PREFIX}{sysfs_name}/{attr}")
         };
 
-        log::trace!("readlink at {}", path);
+        log::trace!("readlink at {path}");
         std::fs::read_link(path)
             .ok()
             .and_then(|s| s.file_name().map(|f| f.to_string_lossy().to_string()))
@@ -779,7 +779,7 @@ fn get_udev_syspath(port_path: &str) -> Result<Option<String>> {
 #[allow(unused_variables)]
 fn get_syspath(port_path: &str) -> Option<String> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    return Some(format!("{}{}", SYSFS_USB_PREFIX, port_path));
+    return Some(format!("{SYSFS_USB_PREFIX}{port_path}"));
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     return None;
 }
@@ -974,10 +974,7 @@ mod platform {
         pub(crate) fn read_attr<T: FromStr>(&self, attr: &str) -> Result<T> {
             self.parse_attr(attr, |s| {
                 s.parse().map_err(|_| {
-                    Error::new(
-                        ErrorKind::Parsing,
-                        &format!("Failed to parse attr: {}", attr),
-                    )
+                    Error::new(ErrorKind::Parsing, &format!("Failed to parse attr: {attr}"))
                 })
             })
         }
@@ -1062,7 +1059,7 @@ mod platform {
     pub(crate) fn pci_info_from_device(device: &Device) -> Option<PciInfo> {
         device.serial_num.as_ref().and_then(|s| {
             let pci_path = SysfsPath::from(PathBuf::from(SYSFS_PCI_PREFIX).join(s));
-            log::debug!("Probing device {:?}", pci_path);
+            log::debug!("Probing device {pci_path:?}");
             pci_info_from_parent(&pci_path)
         })
     }
@@ -1075,7 +1072,7 @@ mod platform {
             .and_then(|p| p.to_str())
             .map(|s| s.to_string())?;
         let pci_path = SysfsPath::from(PathBuf::from(SYSFS_PCI_PREFIX).join(parent_path));
-        log::debug!("Probing bus parent device {:?}", pci_path);
+        log::debug!("Probing bus parent device {pci_path:?}");
         pci_info_from_parent(&pci_path)
     }
 

@@ -738,8 +738,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
                         return Err(Error::new(
                             ErrorKind::InvalidDevice,
                             &format!(
-                                "Device {} returned by nusb::list_root_hubs is not a root hub!",
-                                sp_device
+                                "Device {sp_device} returned by nusb::list_root_hubs is not a root hub!"
                             ),
                         ));
                     }
@@ -749,15 +748,15 @@ impl Profiler<UsbDevice> for NusbProfiler {
                     // print any non-critical error during extra capture
                     sp_device.profiler_error.iter().for_each(|e| {
                         if print_stderr {
-                            eprintln!("{}", e);
+                            eprintln!("{e}");
                         } else {
-                            log::warn!("Non-critical error during profile of {}: {}", sp_device, e);
+                            log::warn!("Non-critical error during profile of {sp_device}: {e}");
                         }
                     });
 
                     root_hubs.insert(sp_device.location_id.bus, sp_device);
                 }
-                Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e),
+                Err(e) => eprintln!("Failed to get data for {device:?}: {e}"),
             }
         }
 

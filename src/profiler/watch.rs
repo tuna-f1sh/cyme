@@ -116,15 +116,12 @@ impl Stream for SystemProfileStream {
                                 spusb.buses.iter().find(|b| b.id == device.bus_id())
                             {
                                 log::debug!(
-                                    "Win found bus for connected device ({}): {}",
-                                    cyme_device,
+                                    "Win found bus for connected device ({cyme_device}): {0}",
                                     existing_bus.id
                                 );
                                 if let Some(existing_number) = existing_bus.get_bus_number() {
                                     log::debug!(
-                                        "Assigning bus number {} to device {}",
-                                        existing_number,
-                                        cyme_device
+                                        "Assigning bus number {existing_number} to device {cyme_device}",
                                     );
                                     cyme_device.location_id.bus = existing_number;
                                 }
