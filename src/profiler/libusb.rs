@@ -199,7 +199,7 @@ impl<T: libusb::UsbContext> UsbOperations for UsbDevice<T> {
             )
             .map_err(|e| Error {
                 kind: ErrorKind::LibUSB,
-                message: format!("Failed to get control message: {}", e),
+                message: format!("Failed to get control message: {e}"),
             })?;
         if n < control_request.length {
             log::warn!(
@@ -484,8 +484,7 @@ impl LibUsbProfiler {
                     return Err(Error {
                         kind: ErrorKind::LibUSB,
                         message: format!(
-                            "Languages for {:?} are empty, will be unable to obtain all data",
-                            device
+                            "Languages for {device:?} are empty, will be unable to obtain all data"
                         ),
                     });
                 }
@@ -495,8 +494,7 @@ impl LibUsbProfiler {
                 return Err(Error {
                     kind: ErrorKind::LibUSB,
                     message: format!(
-                        "Could not read languages for {:?}, will be unable to obtain all data: {}",
-                        device, e
+                        "Could not read languages for {device:?}, will be unable to obtain all data: {e}"
                     ),
                 });
             }
@@ -589,14 +587,13 @@ impl LibUsbProfiler {
                         }
                         Err(e) => {
                             Some(format!(
-                                "Failed to get some extra data for {}, probably requires elevated permissions: {}",
-                                sp_device, e
+                                "Failed to get some extra data for {sp_device}, probably requires elevated permissions: {e}"
                             ))
                         }
                     }
                 }
             } else {
-                log::warn!("Failed to open device {:?} for extra data", device);
+                log::warn!("Failed to open device {device:?} for extra data");
                 let sysfs_name = sp_device.sysfs_name();
                 sp_device.profiler_error = Some("Failed to open device for extra data".to_string());
                 sp_device.extra = Some(usb::DeviceExtra {
@@ -654,13 +651,13 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
                     // print any non-critical error during extra capture
                     sp_device.profiler_error.iter().for_each(|e| {
                         if print_stderr {
-                            eprintln!("{}", e);
+                            eprintln!("{e}");
                         } else {
-                            log::warn!("Non-critical error during profile: {}", e);
+                            log::warn!("Non-critical error during profile: {e}");
                         }
                     });
                 }
-                Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e),
+                Err(e) => eprintln!("Failed to get data for {device:?}: {e}"),
             }
         }
 

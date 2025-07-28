@@ -29,10 +29,10 @@ impl std::fmt::Display for ControlSubtype {
         if f.alternate() {
             match self {
                 ControlSubtype::Undefined => write!(f, "unknown"),
-                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self))),
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{self:?}"))),
             }
         } else {
-            write!(f, "{:?}", self)
+            write!(f, "{self:?}")
         }
     }
 }
@@ -80,10 +80,10 @@ impl std::fmt::Display for StreamingSubtype {
         if f.alternate() {
             match self {
                 StreamingSubtype::Undefined => write!(f, "unknown"),
-                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self))),
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{self:?}"))),
             }
         } else {
-            write!(f, "{:?}", self)
+            write!(f, "{self:?}")
         }
     }
 }
@@ -123,13 +123,13 @@ impl std::fmt::Display for UvcType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             match self {
-                UvcType::Control(c) => write!(f, "{:#}", c),
-                UvcType::Streaming(s) => write!(f, "{:#}", s),
+                UvcType::Control(c) => write!(f, "{c:#}"),
+                UvcType::Streaming(s) => write!(f, "{s:#}"),
             }
         } else {
             match self {
-                UvcType::Control(c) => write!(f, "{}", c),
-                UvcType::Streaming(s) => write!(f, "{}", s),
+                UvcType::Control(c) => write!(f, "{c}"),
+                UvcType::Streaming(s) => write!(f, "{s}"),
             }
         }
     }
@@ -243,7 +243,7 @@ impl UvcType {
             Some(data) => match self.get_uvc_descriptor(_protocol, &data) {
                 Ok(v) => Ok(v),
                 Err(e) => {
-                    log::warn!("Error parsing UVC descriptor: {}", e);
+                    log::warn!("Error parsing UVC descriptor: {e}");
                     Ok(UvcInterfaceDescriptor::Invalid(data))
                 }
             },
@@ -637,7 +637,7 @@ impl TryFrom<&[u8]> for ExtensionUnit {
         let guid_extension_code = Uuid::from_slice_le(&value[1..17]).map_err(|e| {
             Error::new(
                 ErrorKind::InvalidDescriptor,
-                &format!("Invalid GUID Extension Code: {}", e),
+                &format!("Invalid GUID Extension Code: {e}"),
             )
         })?;
         let num_controls = value[17];
@@ -1054,7 +1054,7 @@ impl TryFrom<&[u8]> for FormatStreamBased {
         let guid_format = Uuid::from_slice_le(&value[1..17]).map_err(|e| {
             Error::new(
                 ErrorKind::InvalidDescriptor,
-                &format!("Invalid GUID Format: {}", e),
+                &format!("Invalid GUID Format: {e}"),
             )
         })?;
         let packet_length = value[17];
@@ -1218,7 +1218,7 @@ impl TryFrom<&[u8]> for FormatFrame {
         let guid_format = Uuid::from_slice_le(&value[2..18]).map_err(|e| {
             Error::new(
                 ErrorKind::InvalidDescriptor,
-                &format!("Invalid GUID Format: {}", e),
+                &format!("Invalid GUID Format: {e}"),
             )
         })?;
         let bits_per_pixel = value[18];

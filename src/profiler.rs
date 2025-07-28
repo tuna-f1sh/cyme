@@ -239,15 +239,11 @@ where
         };
         let data = device.get_control_msg(control)?;
         let total_length = u16::from_le_bytes([data[2], data[3]]);
-        log::debug!(
-            "{:?} Attempt read BOS descriptor total length: {}",
-            device,
-            total_length
-        );
+        log::debug!("{device:?} Attempt read BOS descriptor total length: {total_length}");
         // now get full descriptor
         control.length = total_length as usize;
         let data = device.get_control_msg(control)?;
-        log::debug!("{:?} BOS descriptor data: {:?}", device, data);
+        log::debug!("{device:?} BOS descriptor data: {data:?}");
         let mut bos =
             usb::descriptors::bos::BinaryObjectStoreDescriptor::try_from(data.as_slice())?;
 
@@ -285,7 +281,7 @@ where
             claim_interface: false,
         };
         let data = device.get_control_msg(control)?;
-        log::debug!("{:?} Qualifier descriptor data: {:?}", device, data);
+        log::debug!("{device:?} Qualifier descriptor data: {data:?}");
         usb::DeviceQualifierDescriptor::try_from(data.as_slice())
     }
 
@@ -303,7 +299,7 @@ where
             claim_interface: false,
         };
         let data = device.get_control_msg(control)?;
-        log::trace!("WebUSB URL descriptor data: {:?}", data);
+        log::trace!("WebUSB URL descriptor data: {data:?}");
         let len = data[0] as usize;
 
         if data[1] != u8::from(usb::DescriptorType::String) {
@@ -322,12 +318,12 @@ where
 
         let url = String::from_utf8(data[3..len].to_vec()).map_err(|e| Error {
             kind: ErrorKind::Parsing,
-            message: format!("Failed to parse WebUSB URL: {}", e),
+            message: format!("Failed to parse WebUSB URL: {e}"),
         })?;
 
         match data[2] {
-            0x00 => Ok(format!("http://{}", url)),
-            0x01 => Ok(format!("https://{}", url)),
+            0x00 => Ok(format!("http://{url}")),
+            0x01 => Ok(format!("https://{url}")),
             0xFF => Ok(url),
             _ => Err(Error {
                 kind: ErrorKind::Parsing,
@@ -350,11 +346,7 @@ where
         let mut dt = match usb::Descriptor::try_from(extra_bytes) {
             Ok(d) => d,
             Err(e) => {
-                log::debug!(
-                    "{:?} Failed to convert extra descriptor bytes: {}",
-                    device,
-                    e
-                );
+                log::debug!("{device:?} Failed to convert extra descriptor bytes: {e}");
                 return Err(e);
             }
         };
@@ -362,11 +354,7 @@ where
         // Assign class context to interface since descriptor did not know it
         if let Some(interface_desc) = class_code {
             if let Err(e) = dt.update_with_class_context(interface_desc) {
-                log::debug!(
-                    "{:?} Failed to update extra descriptor with class context: {}",
-                    device,
-                    e
-                );
+                log::debug!("{device:?} Failed to update extra descriptor with class context: {e}");
             }
         }
 
@@ -549,7 +537,7 @@ where
                 None,
                 &raw.drain(..dt_len).collect::<Vec<u8>>(),
             )?;
-            log::debug!("{:?} Config descriptor extra: {:?}", device, dt);
+            log::debug!("{device:?} Config descriptor extra: {dt:?}");
             ret.push(dt);
             taken += dt_len;
         }
@@ -579,7 +567,7 @@ where
                 &raw.drain(..dt_len).collect::<Vec<u8>>(),
             )?;
 
-            log::debug!("{:?} Interface descriptor extra: {:?}", device, dt);
+            log::debug!("{device:?} Interface descriptor extra: {dt:?}");
             ret.push(dt);
             taken += dt_len;
         }
@@ -609,7 +597,7 @@ where
                 &raw.drain(..dt_len).collect::<Vec<u8>>(),
             )?;
 
-            log::debug!("{:?} Endpoint descriptor extra: {:?}", device, dt);
+            log::debug!("{device:?} Endpoint descriptor extra: {dt:?}");
             ret.push(dt);
             taken += dt_len;
         }
@@ -633,7 +621,7 @@ where
         root_hub
             .map(|rh| {
                 rh.try_into().unwrap_or_else(|e| {
-                    log::warn!("Failed to convert root hub to Bus: {:?}", e);
+                    log::warn!("Failed to convert root hub to Bus: {e:?}");
                     Bus::from(bus_number)
                 })
             })
@@ -644,15 +632,15 @@ where
     fn get_spusb(&mut self, with_extra: bool) -> Result<SystemProfile> {
         let mut spusb = SystemProfile { buses: Vec::new() };
 
-        log::info!("Building SystemProfile with {:?}", self);
+        log::info!("Building SystemProfile with {self:?}");
 
         // temporary store of devices created when iterating through DeviceList
         let mut cache = self.get_devices(with_extra)?;
         cache.sort_by_key(|d| d.location_id.bus);
-        log::trace!("Sorted devices {:#?}", cache);
+        log::trace!("Sorted devices {cache:#?}");
         // get system buses
         let mut buses = self.get_buses()?;
-        log::trace!("Buses {:#?}", buses);
+        log::trace!("Buses {buses:#?}");
 
         // group by bus number and then stick them into a bus in the returned SystemProfile
         for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
@@ -739,9 +727,9 @@ where
 /// Get a USB device attribute String from sysfs on Linux
 #[allow(unused_variables)]
 fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
-    log::trace!("Getting sysfs string at {}/{}", sysfs_name, attr);
+    log::trace!("Getting sysfs string at {sysfs_name}/{attr}");
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    return std::fs::read_to_string(format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr))
+    return std::fs::read_to_string(format!("{SYSFS_USB_PREFIX}{sysfs_name}/{attr}"))
         .ok()
         .map(|s| s.trim().to_string());
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -755,12 +743,12 @@ fn get_sysfs_readlink(sysfs_name: &str, attr: &str) -> Option<String> {
         // switch based on root_hub - if it is a root hub, we need to go up a directory to get the pci driver
         // https://github.com/gregkh/usbutils/blob/cda6883cade6ec67671d0c7de61e70eb992509a9/lsusb-t.c#L434
         let path = if sysfs_name.starts_with("usb") && attr == "driver" {
-            format!("{}{}/../{}", SYSFS_USB_PREFIX, sysfs_name, attr)
+            format!("{SYSFS_USB_PREFIX}{sysfs_name}/../{attr}")
         } else {
-            format!("{}{}/{}", SYSFS_USB_PREFIX, sysfs_name, attr)
+            format!("{SYSFS_USB_PREFIX}{sysfs_name}/{attr}")
         };
 
-        log::trace!("readlink at {}", path);
+        log::trace!("readlink at {path}");
         std::fs::read_link(path)
             .ok()
             .and_then(|s| s.file_name().map(|f| f.to_string_lossy().to_string()))
@@ -791,7 +779,7 @@ fn get_udev_syspath(port_path: &str) -> Result<Option<String>> {
 #[allow(unused_variables)]
 fn get_syspath(port_path: &str) -> Option<String> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    return Some(format!("{}{}", SYSFS_USB_PREFIX, port_path));
+    return Some(format!("{SYSFS_USB_PREFIX}{port_path}"));
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     return None;
 }
@@ -986,10 +974,7 @@ mod platform {
         pub(crate) fn read_attr<T: FromStr>(&self, attr: &str) -> Result<T> {
             self.parse_attr(attr, |s| {
                 s.parse().map_err(|_| {
-                    Error::new(
-                        ErrorKind::Parsing,
-                        &format!("Failed to parse attr: {}", attr),
-                    )
+                    Error::new(ErrorKind::Parsing, &format!("Failed to parse attr: {attr}"))
                 })
             })
         }
@@ -1074,7 +1059,7 @@ mod platform {
     pub(crate) fn pci_info_from_device(device: &Device) -> Option<PciInfo> {
         device.serial_num.as_ref().and_then(|s| {
             let pci_path = SysfsPath::from(PathBuf::from(SYSFS_PCI_PREFIX).join(s));
-            log::debug!("Probing device {:?}", pci_path);
+            log::debug!("Probing device {pci_path:?}");
             pci_info_from_parent(&pci_path)
         })
     }
@@ -1087,7 +1072,7 @@ mod platform {
             .and_then(|p| p.to_str())
             .map(|s| s.to_string())?;
         let pci_path = SysfsPath::from(PathBuf::from(SYSFS_PCI_PREFIX).join(parent_path));
-        log::debug!("Probing bus parent device {:?}", pci_path);
+        log::debug!("Probing bus parent device {pci_path:?}");
         pci_info_from_parent(&pci_path)
     }
 

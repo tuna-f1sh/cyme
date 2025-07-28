@@ -40,7 +40,7 @@ fn get_spaces(value_len: usize, field_len: usize, width: usize) -> String {
 /// Dump an array of value like lsusb
 fn dump_array<T: std::fmt::Display>(array: &[T], field_name: &str, indent: usize, width: usize) {
     for (i, b) in array.iter().enumerate() {
-        dump_value(b, &format!("{}({:2})", field_name, i), indent, width);
+        dump_value(b, &format!("{field_name}({i:2})"), indent, width);
     }
 }
 
@@ -52,7 +52,7 @@ fn dump_bitmap_array<T: std::fmt::LowerHex + Into<u64> + Copy>(
     width: usize,
 ) {
     for (i, b) in array.iter().enumerate() {
-        dump_hex(*b, &format!("{}({:2})", field_name, i), indent, width);
+        dump_hex(*b, &format!("{field_name}({i:2})"), indent, width);
     }
 }
 
@@ -96,7 +96,7 @@ fn dump_name<T: std::fmt::Display>(
     let spaces = get_spaces(value_string.len(), field_name.len(), width);
     let dump = format!("{:indent$}{}{}{}", "", field_name, spaces, value_string,);
     if let Some(name) = names_f(value) {
-        println!("{} {}", dump, name);
+        println!("{dump} {name}");
     }
 }
 
@@ -136,7 +136,7 @@ fn dump_junk(extra: &[u8], indent: usize, reported_len: usize, expected_len: usi
             "",
             extra[expected_len..reported_len]
                 .iter()
-                .map(|b| format!("{:02x}", b))
+                .map(|b| format!("{b:02x}"))
                 .collect::<Vec<String>>()
                 .join(" ")
         )
@@ -150,7 +150,7 @@ fn dump_unrecognised(extra: &[u8], indent: usize) {
         "",
         extra
             .iter()
-            .map(|b| format!("{:02x}", b))
+            .map(|b| format!("{b:02x}"))
             .collect::<Vec<String>>()
             .join(" ")
     )
@@ -211,7 +211,7 @@ fn dump_bitmap_strings_inline<T, V>(
     for index in 0..num_bits {
         if (bitmap_u64 >> index) & 0x1 != 0 {
             if let Some(string) = strings_f(index) {
-                print!(" {}", string);
+                print!(" {string}");
             }
         }
     }
@@ -236,7 +236,7 @@ pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
     fn print_tree_devices(devices: &Vec<Device>, settings: &PrintSettings) {
         for device in devices {
             if device.is_root_hub() {
-                log::debug!("lsusb tree skipping root_hub {}", device);
+                log::debug!("lsusb tree skipping root_hub {device}");
                 continue;
             }
             // the const len should get compiled to const...
@@ -246,7 +246,7 @@ pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
             for strings in device_tree_strings {
                 println!("{:>indent$}{}", TREE_LSUSB_DEVICE, strings[0]);
                 for s in &strings[1..] {
-                    println!("{:>indent$}{}", TREE_LSUSB_SPACE, s);
+                    println!("{TREE_LSUSB_SPACE:>indent$}{s}");
                 }
             }
             // print all devices with this device - if hub for example
@@ -261,7 +261,7 @@ pub fn print_tree(spusb: &SystemProfile, settings: &PrintSettings) {
         let bus_tree_strings = bus.to_lsusb_tree_string(settings.verbosity);
         println!("{}{}", TREE_LSUSB_BUS, bus_tree_strings[0]);
         for strings in &bus_tree_strings[1..] {
-            println!("{}{}", TREE_LSUSB_SPACE, strings);
+            println!("{TREE_LSUSB_SPACE}{strings}");
         }
 
         // followed by devices if there are some
@@ -297,7 +297,7 @@ pub fn dump_one_device<P: AsRef<Path>>(devices: &Vec<&Device>, dev_path: P) -> R
 fn find_otg(extra: &[Descriptor]) -> Option<&OnTheGoDescriptor> {
     extra.iter().find_map(|d| match d {
         Descriptor::Otg(otg) => {
-            log::debug!("Found OTG descriptor: {:?}", otg);
+            log::debug!("Found OTG descriptor: {otg:?}");
             dump_otg(otg, LSUSB_DUMP_INDENT_BASE);
             Some(otg)
         }
@@ -323,8 +323,7 @@ pub fn print(devices: &Vec<&Device>, verbose: bool) {
             }
             match device.extra.as_ref() {
                 None => log::warn!(
-                    "Device {} does not contain extra data required for verbose print",
-                    device
+                    "Device {device} does not contain extra data required for verbose print"
                 ),
                 Some(device_extra) => {
                     dump_device(device);
@@ -411,7 +410,7 @@ fn dump_device(device: &Device) {
         Some(Speed::SuperSpeedPlusX2) => "SuperSpeed++ (20Gbps)",
         _ => "Unknown",
     };
-    println!("Negotiated speed: {}", speed_str);
+    println!("Negotiated speed: {speed_str}");
 
     println!("Device Descriptor:");
     // These are constants - length is 18 bytes for descriptor, type is 1
@@ -843,7 +842,7 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                             "",
                             Vec::<u8>::from(cd.to_owned())
                                 .iter()
-                                .map(|b| format!("{:02x}", b))
+                                .map(|b| format!("{b:02x}"))
                                 .collect::<Vec<String>>()
                                 .join(" "),
                             indent = indent + 2
@@ -867,7 +866,7 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                                 "",
                                 Vec::<u8>::from(cd.to_owned())
                                     .iter()
-                                    .map(|b| format!("{:02x}", b))
+                                    .map(|b| format!("{b:02x}"))
                                     .collect::<Vec<String>>()
                                     .join(" "),
                                 indent = indent + 2
@@ -881,7 +880,7 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                             "",
                             Vec::<u8>::from(cd.to_owned())
                                 .iter()
-                                .map(|b| format!("{:02x}", b))
+                                .map(|b| format!("{b:02x}"))
                                 .collect::<Vec<String>>()
                                 .join(" "),
                             indent = indent + 2
@@ -1257,7 +1256,7 @@ fn dump_bad_comm(cd: &cdc::CommunicationDescriptor, indent: usize) {
         "",
         cd.descriptor_subtype,
         data.iter()
-            .map(|b| format!("{:02x}", b))
+            .map(|b| format!("{b:02x}"))
             .collect::<Vec<String>>()
             .join(" ")
     );
@@ -1320,7 +1319,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 "",
                 cd.slave_interface
                     .iter()
-                    .map(|b| format!("{:3}", b))
+                    .map(|b| format!("{b:3}"))
                     .collect::<Vec<String>>()
                     .join(" "),
                 indent = indent + 2
@@ -1339,7 +1338,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
             );
             for d in &cd.country_codes {
                 dump_value(
-                    format!("{:04x}", d),
+                    format!("{d:04x}"),
                     "wCountryCode",
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
@@ -1444,7 +1443,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 "",
                 d.detail_data
                     .iter()
-                    .map(|b| format!("{:02x}", b))
+                    .map(|b| format!("{b:02x}"))
                     .collect::<Vec<String>>()
                     .join(" "),
                 indent = indent + 2
@@ -1564,7 +1563,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 "",
                 Vec::<u8>::from(cd.to_owned())
                     .iter()
-                    .map(|b| format!("{:02x}", b))
+                    .map(|b| format!("{b:02x}"))
                     .collect::<Vec<String>>()
                     .join(" "),
                 indent = indent
@@ -1659,7 +1658,7 @@ fn dump_pipe_desc(gd: &GenericDescriptor, indent: usize) {
             "",
             Vec::<u8>::from(gd.to_owned())
                 .iter()
-                .map(|b| format!("{:02x}", b))
+                .map(|b| format!("{b:02x}"))
                 .collect::<Vec<String>>()
                 .join(" "),
             indent = indent
@@ -2080,7 +2079,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
             .iter()
             .skip(offset)
             .take(l)
-            .map(|b| format!("0x{:02x}", b))
+            .map(|b| format!("0x{b:02x}"))
             .collect::<Vec<String>>()
             .join(" "),
         "DeviceRemovable",
@@ -2093,7 +2092,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                 .iter()
                 .skip(offset + l)
                 .take(l)
-                .map(|b| format!("0x{:02x}", b))
+                .map(|b| format!("0x{b:02x}"))
                 .collect::<Vec<String>>()
                 .join(" "),
             "PortPwrCtrlMask",
@@ -2141,10 +2140,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     _ => None,
                 });
                 dump_string(
-                    &format!(
-                        "{} {}{}{}",
-                        port_status_string, s2_string, s1_string, s0_string
-                    ),
+                    &format!("{port_status_string} {s2_string}{s1_string}{s0_string}"),
                     indent + 3,
                 );
             } else {
@@ -2188,10 +2184,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     );
                 } else {
                     dump_string(
-                        &format!(
-                            "{} {}{}{}",
-                            port_status_string, s2_string, s1_string, s0_string
-                        ),
+                        &format!("{port_status_string} {s2_string}{s1_string}{s0_string}"),
                         indent + 3,
                     );
                 }
@@ -2326,7 +2319,7 @@ fn dump_unit(mut data: u16, len: usize, indent: usize) {
                 if nibble & 0x08 != 0x00 {
                     val = -((0x7 & !val) + 1);
                 }
-                print!("^{}", val);
+                print!("^{val}");
             }
         }
     }
@@ -2387,7 +2380,7 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
                 data |= (desc[i + 1 + j] as u32) << (j * 8);
                 print!("{:02x} ", desc[i + 1 + j]);
             }
-            println!("] {}", data);
+            println!("] {data}");
         } else {
             println!("none");
         }
@@ -2484,8 +2477,8 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
                     },
                     indent = REPORT_INDENT
                 );
-                println!("{}", attributes_1);
-                println!("{}", attributes_2);
+                println!("{attributes_1}");
+                println!("{attributes_2}");
             }
             _ => (),
         }
@@ -2511,7 +2504,7 @@ mod tests {
         let bytes = [0x01; 32];
         let bytes_string = bytes
             .iter()
-            .map(|b| format!("{:02x}", b))
+            .map(|b| format!("{b:02x}"))
             .collect::<Vec<String>>()
             .join(" ");
         // test no panic since is to stdout

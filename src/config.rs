@@ -163,12 +163,8 @@ impl Config {
             std::fs::create_dir_all(parent)?;
         }
         let f = File::create(&path)?;
-        serde_json::to_writer_pretty(f, self).map_err(|e| {
-            Error::new(
-                ErrorKind::Io,
-                &format!("Failed to save config: Error({})", e),
-            )
-        })
+        serde_json::to_writer_pretty(f, self)
+            .map_err(|e| Error::new(ErrorKind::Io, &format!("Failed to save config: Error({e})")))
     }
 
     /// Save the current config to the file it was loaded from or default location if None

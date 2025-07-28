@@ -39,7 +39,7 @@ pub fn read_dump_to_string(file_name: &str) -> String {
     let mut ret = String::new();
     let mut br = read_dump(file_name);
     br.read_to_string(&mut ret)
-        .unwrap_or_else(|_| panic!("Failed to read {}", file_name));
+        .unwrap_or_else(|_| panic!("Failed to read {file_name}"));
     ret
 }
 
@@ -101,9 +101,9 @@ fn format_output_error(args: &[&str], expected: &str, actual: &str) -> String {
     let diff_text = diff::lines(expected, actual)
         .into_iter()
         .map(|diff| match diff {
-            diff::Result::Left(l) => format!("-{}", l),
-            diff::Result::Both(l, _) => format!(" {}", l),
-            diff::Result::Right(r) => format!("+{}", r),
+            diff::Result::Left(l) => format!("-{l}"),
+            diff::Result::Both(l, _) => format!(" {l}"),
+            diff::Result::Right(r) => format!("+{r}"),
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -290,7 +290,7 @@ impl TestEnv {
     ) {
         let status = self.assert_error(dump_file, args, Some(expected));
         if status.success() {
-            panic!("error '{}' did not occur.", expected);
+            panic!("error '{expected}' did not occur.");
         }
     }
 

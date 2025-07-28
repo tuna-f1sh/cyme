@@ -14,17 +14,10 @@ pub struct UdevInfo {
 
 fn get_device(port_path: &str) -> Result<UdevDevice, Error> {
     UdevDevice::new_from_subsystem_sysname(udev_new(), "usb", port_path).map_err(|e| {
-        log::error!(
-            "Failed to get udev info for device at {}: Error({})",
-            port_path,
-            e
-        );
+        log::error!("Failed to get udev info for device at {port_path}: Error({e})");
         Error::new(
             ErrorKind::Udev,
-            &format!(
-                "Failed to get udev info for device at {}: Error({})",
-                port_path, e
-            ),
+            &format!("Failed to get udev info for device at {port_path}: Error({e})"),
         )
     })
 }
@@ -123,11 +116,8 @@ pub mod hwdb {
     /// ```
     pub fn get(modalias: &str, key: &'static str) -> Result<Option<String>, Error> {
         let mut hwdb = UdevHwdb::new(udev_new()).map_err(|e| {
-            log::error!("Failed to get hwdb: Error({})", e);
-            Error::new(
-                ErrorKind::Udev,
-                &format!("Failed to get hwdb: Error({})", e),
-            )
+            log::error!("Failed to get hwdb: Error({e})");
+            Error::new(ErrorKind::Udev, &format!("Failed to get hwdb: Error({e})"))
         })?;
 
         Ok(udevrs::udev_hwdb_query_one(&mut hwdb, modalias, key).map(|s| s.trim().to_string()))

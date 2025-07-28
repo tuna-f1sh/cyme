@@ -30,10 +30,10 @@ impl fmt::Display for MidiSubtype {
                 MidiSubtype::Undefined => write!(f, "Invalid"),
                 MidiSubtype::InputJack => write!(f, "MIDI_IN_JACK"),
                 MidiSubtype::OutputJack => write!(f, "MIDI_OUT_JACK"),
-                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self))),
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{self:?}"))),
             }
         } else {
-            write!(f, "{:?}", self)
+            write!(f, "{self:?}")
         }
     }
 }
@@ -815,8 +815,8 @@ pub enum ChannelNames {
 impl fmt::Display for ChannelNames {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ChannelNames::Uac1(c) => write!(f, "{}", c),
-            ChannelNames::Uac2(c) => write!(f, "{}", c),
+            ChannelNames::Uac1(c) => write!(f, "{c}"),
+            ChannelNames::Uac2(c) => write!(f, "{c}"),
         }
     }
 }
@@ -1255,15 +1255,15 @@ impl fmt::Display for UacType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             match self {
-                UacType::Control(aci) => write!(f, "{:#}", aci),
-                UacType::Streaming(asi) => write!(f, "{:#}", asi),
-                UacType::Midi(mi) => write!(f, "{:#}", mi),
+                UacType::Control(aci) => write!(f, "{aci:#}"),
+                UacType::Streaming(asi) => write!(f, "{asi:#}"),
+                UacType::Midi(mi) => write!(f, "{mi:#}"),
             }
         } else {
             match self {
-                UacType::Control(aci) => write!(f, "{}", aci),
-                UacType::Streaming(asi) => write!(f, "{}", asi),
-                UacType::Midi(mi) => write!(f, "{}", mi),
+                UacType::Control(aci) => write!(f, "{aci}"),
+                UacType::Streaming(asi) => write!(f, "{asi}"),
+                UacType::Midi(mi) => write!(f, "{mi}"),
             }
         }
     }
@@ -1296,7 +1296,7 @@ impl UacType {
             Some(data) => match self.get_uac_descriptor(protocol, &data) {
                 Ok(d) => Ok(d),
                 Err(e) => {
-                    log::warn!("Error parsing UVC descriptor: {}", e);
+                    log::warn!("Error parsing UVC descriptor: {e}");
                     Ok(UacInterfaceDescriptor::Invalid(data))
                 }
             },
@@ -1339,10 +1339,10 @@ impl std::fmt::Display for ControlSubtype {
             // uppercase with _ instead of space for lsusb dump
             match self {
                 ControlSubtype::Undefined => write!(f, "unknown"),
-                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self))),
+                _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{self:?}"))),
             }
         } else {
-            write!(f, "{:?}", self)
+            write!(f, "{self:?}")
         }
     }
 }
@@ -1443,9 +1443,9 @@ impl fmt::Display for StreamingSubtype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             // uppercase with _ instead of space for lsusb dump
-            write!(f, "{}", heck::AsShoutySnakeCase(format!("{:?}", self)))
+            write!(f, "{}", heck::AsShoutySnakeCase(format!("{self:?}")))
         } else {
-            write!(f, "{:?}", self)
+            write!(f, "{self:?}")
         }
     }
 }
@@ -1508,7 +1508,7 @@ impl fmt::Display for StreamingFormatType {
                 StreamingFormatType::Undefined(_) => write!(f, "invalid"),
             }
         } else {
-            write!(f, "{:?}", self)
+            write!(f, "{self:?}")
         }
     }
 }

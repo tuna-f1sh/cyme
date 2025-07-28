@@ -350,7 +350,7 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     } else {
         Err(Error::new(
             ErrorKind::InvalidArg,
-            &format!("Invalid device path {}", s),
+            &format!("Invalid device path {s}"),
         ))
     }
 }
@@ -369,7 +369,7 @@ fn get_system_profile_macos(args: &Args) -> Result<profiler::SystemProfile> {
                 .map_or_else(|e| {
                     // For non-zero return, report but continue in this case
                     if e.kind() == ErrorKind::SystemProfiler {
-                        eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({})", e);
+                        eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({e})");
                         get_system_profile(args)
                     } else {
                         Err(e)
@@ -382,7 +382,7 @@ fn get_system_profile_macos(args: &Args) -> Result<profiler::SystemProfile> {
             profiler::macos::get_spusb_with_extra().map_or_else(|e| {
                 // For non-zero return, report but continue in this case
                 if e.kind() == ErrorKind::SystemProfiler {
-                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({})", e);
+                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({e})");
                     get_system_profile(args)
                 } else {
                     Err(e)
@@ -457,7 +457,7 @@ fn print_man() -> Result<()> {
         .or_else(|| std::env::var_os("OUT_DIR"))
         .unwrap_or_else(|| "./doc".into());
     fs::create_dir_all(&outdir)?;
-    println!("Generating CLI info to {:?}", outdir);
+    println!("Generating CLI info to {outdir:?}");
 
     let mut app = Args::command();
 
@@ -488,7 +488,7 @@ fn print_man() -> Result<()> {
 fn load_config<P: AsRef<Path>>(path: Option<P>) -> Result<Config> {
     if let Some(p) = path {
         let config = Config::from_file(p);
-        log::info!("Using user config {:?}", config);
+        log::info!("Using user config {config:?}");
         config
     } else {
         Config::sys()
@@ -556,7 +556,7 @@ pub fn set_log_level(debug: u8) -> Result<()> {
         .map_err(|e| {
             Error::new(
                 ErrorKind::Other("logger"),
-                &format!("Failed to set log level: {}", e),
+                &format!("Failed to set log level: {e}"),
             )
         })?;
 
@@ -671,8 +671,7 @@ fn cyme() -> Result<()> {
             Ok(s) => s,
             Err(e) => {
                 log::warn!(
-                    "Failed to read json dump, attempting as flattened with phony bus: Error({})",
-                    e
+                    "Failed to read json dump, attempting as flattened with phony bus: Error({e})"
                 );
                 profiler::read_flat_json_to_phony_bus(&file_path)?
             }
@@ -704,7 +703,7 @@ fn cyme() -> Result<()> {
             let (vid, pid) = parse_vidpid(vidpid.as_str()).map_err(|e| {
                 Error::new(
                     ErrorKind::InvalidArg,
-                    &format!("Failed to parse vidpid '{}'; Error({})", vidpid, e),
+                    &format!("Failed to parse vidpid '{vidpid}'; Error({e})"),
                 )
             })?;
             f.vid = vid;
@@ -717,8 +716,7 @@ fn cyme() -> Result<()> {
                 Error::new(
                     ErrorKind::InvalidArg,
                     &format!(
-                        "Failed to parse devpath '{}', should end with 'BUS/DEVNO'; Error({})",
-                        devpath, e
+                        "Failed to parse devpath '{devpath}', should end with 'BUS/DEVNO'; Error({e})"
                     ),
                 )
             })?;
@@ -728,7 +726,7 @@ fn cyme() -> Result<()> {
             let (bus, number) = parse_show(show.as_str()).map_err(|e| {
                 Error::new(
                     ErrorKind::InvalidArg,
-                    &format!("Failed to parse show parameter '{}'; Error({})", show, e),
+                    &format!("Failed to parse show parameter '{show}'; Error({e})"),
                 )
             })?;
             f.bus = bus;
@@ -779,7 +777,7 @@ fn cyme() -> Result<()> {
         args.group_devices
     };
 
-    log::trace!("Returned system_profiler data\n\r{:#?}", spusb);
+    log::trace!("Returned system_profiler data\n\r{spusb:#?}");
 
     #[cfg(feature = "watch")]
     if matches!(args.command, Some(SubCommand::Watch)) {

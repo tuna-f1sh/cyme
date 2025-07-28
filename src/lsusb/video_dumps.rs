@@ -132,18 +132,13 @@ fn dump_extension_unit(eu: &video::ExtensionUnit, indent: usize, width: usize) {
     dump_value(eu.num_input_pins, "bNrInPins", indent + 2, width);
 
     for (i, source_id) in eu.source_ids.iter().enumerate() {
-        dump_value(
-            *source_id,
-            &format!("baSourceID({:2})", i),
-            indent + 2,
-            width,
-        );
+        dump_value(*source_id, &format!("baSourceID({i:2})"), indent + 2, width);
     }
 
     dump_value(eu.control_size, "bControlSize", indent + 2, width);
 
     for (i, control) in eu.controls.iter().enumerate() {
-        dump_hex(*control, &format!("bmControls({:2})", i), indent + 2, width);
+        dump_hex(*control, &format!("bmControls({i:2})"), indent + 2, width);
     }
 
     dump_value_string(
@@ -200,7 +195,7 @@ pub(crate) fn dump_videocontrol_interface(
     dump_value_string(
         vct.to_owned() as u8,
         "bDescriptorSubtype",
-        format!("({:#})", vct),
+        format!("({vct:#})"),
         indent + 2,
         DUMP_WIDTH,
     );
@@ -234,10 +229,10 @@ pub(crate) fn dump_videocontrol_interrupt_endpoint(
     let bytes = Vec::<u8>::from(epd.interface.to_owned());
 
     if epd.length < 5 {
-        println!("{:indent$}Warning: Descriptor too short", indent);
+        println!("{indent:indent$}Warning: Descriptor too short");
     }
     if epd.descriptor_type != 0x01 {
-        println!("{:indent$}Warning: Invalid descriptor type", indent);
+        println!("{indent:indent$}Warning: Invalid descriptor type");
     }
 
     dump_string("VideoControl Endpoint Descriptor:", indent);
@@ -246,7 +241,7 @@ pub(crate) fn dump_videocontrol_interrupt_endpoint(
     dump_value_string(
         subtype_byte,
         "bDescriptorSubtype",
-        format!("({})", subtype_string),
+        format!("({subtype_string})"),
         indent + 2,
         width,
     );
@@ -280,7 +275,7 @@ fn dump_video_input_header(ih: &video::InputHeader, indent: usize, width: usize)
     dump_value(ih.control_size, "bControlSize", indent + 2, width);
 
     for (i, b) in ih.controls.chunks(ih.control_size as usize).enumerate() {
-        dump_value(b[0], &format!("bmaControls({:2})", i), indent + 2, width);
+        dump_value(b[0], &format!("bmaControls({i:2})"), indent + 2, width);
     }
 }
 
@@ -298,7 +293,7 @@ fn dump_video_output_header(oh: &video::OutputHeader, indent: usize, width: usiz
     dump_value(oh.control_size, "bControlSize", indent + 2, width);
 
     for (i, b) in oh.controls.chunks(oh.control_size as usize).enumerate() {
-        dump_value(b[0], &format!("bmaControls({:2})", i), indent + 2, width);
+        dump_value(b[0], &format!("bmaControls({i:2})"), indent + 2, width);
     }
 }
 
@@ -476,8 +471,8 @@ fn dump_still_image_frame(sif: &video::StillImageFrame, indent: usize, width: us
     );
 
     for (i, (w, h)) in sif.image_size_patterns.iter().enumerate() {
-        dump_value(*w, &format!("wWidth({:2})", i), indent + 2, width);
-        dump_value(*h, &format!("wHeight({:2})", i), indent + 2, width);
+        dump_value(*w, &format!("wWidth({i:2})"), indent + 2, width);
+        dump_value(*h, &format!("wHeight({i:2})"), indent + 2, width);
     }
 
     dump_value(
@@ -488,7 +483,7 @@ fn dump_still_image_frame(sif: &video::StillImageFrame, indent: usize, width: us
     );
 
     for (i, b) in sif.compression_patterns.iter().enumerate() {
-        dump_value(*b, &format!("bCompression({:2})", i), indent + 2, width);
+        dump_value(*b, &format!("bCompression({i:2})"), indent + 2, width);
     }
 }
 
@@ -578,7 +573,7 @@ fn dump_frame_uncompressed(frame: &video::FrameUncompressed, indent: usize, dump
         for (i, interval) in frame.frame_intervals.iter().enumerate() {
             dump_value(
                 *interval,
-                &format!("dwFrameInterval({:2})", i),
+                &format!("dwFrameInterval({i:2})"),
                 indent + 2,
                 dump_width,
             );
@@ -629,7 +624,7 @@ fn dump_frame_framebased(frame: &video::FrameFrameBased, indent: usize, dump_wid
         for (i, interval) in frame.frame_intervals.iter().enumerate() {
             dump_value(
                 *interval,
-                &format!("dwFrameInterval({:2})", i),
+                &format!("dwFrameInterval({i:2})"),
                 indent + 2,
                 dump_width,
             );
@@ -768,14 +763,14 @@ fn dump_video_subtype(
                 "{:indent$}Invalid desc subtype: {}",
                 "",
                 data.iter()
-                    .map(|b| format!("{:02x}", b))
+                    .map(|b| format!("{b:02x}"))
                     .collect::<Vec<String>>()
                     .join(" "),
                 indent = indent + 2,
             );
         }
         _ => {
-            log::warn!("Unhandled UVC interface descriptor: {:?}", uvcid);
+            log::warn!("Unhandled UVC interface descriptor: {uvcid:?}");
         }
     }
 }
@@ -798,7 +793,7 @@ pub(crate) fn dump_videostreaming_interface(
     dump_value_string(
         vst.to_owned() as u8,
         "bDescriptorSubtype",
-        format!("({:#})", vst),
+        format!("({vst:#})"),
         indent + 2,
         DUMP_WIDTH,
     );

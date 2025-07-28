@@ -86,7 +86,7 @@ impl std::fmt::Display for CdcType {
                 CdcType::Unknown => write!(f, ""),
             }
         } else {
-            write!(f, "{:?}", self)
+            write!(f, "{self:?}")
         }
     }
 }
@@ -425,12 +425,8 @@ impl TryFrom<&[u8]> for MobileDirectLineModelFunctional {
         }
 
         let version = Version::from_bcd(u16::from_le_bytes([value[0], value[1]]));
-        let guid = Uuid::from_slice_le(&value[2..18]).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidDescriptor,
-                &format!("Invalid GUID: {}", e),
-            )
-        })?;
+        let guid = Uuid::from_slice_le(&value[2..18])
+            .map_err(|e| Error::new(ErrorKind::InvalidDescriptor, &format!("Invalid GUID: {e}")))?;
 
         Ok(MobileDirectLineModelFunctional { version, guid })
     }
@@ -537,12 +533,8 @@ impl TryFrom<&[u8]> for CommandSet {
 
         let version = Version::from_bcd(u16::from_le_bytes([value[0], value[1]]));
         let command_set_string_index = value[2];
-        let guid = Uuid::from_slice_le(&value[3..19]).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidDescriptor,
-                &format!("Invalid GUID: {}", e),
-            )
-        })?;
+        let guid = Uuid::from_slice_le(&value[3..19])
+            .map_err(|e| Error::new(ErrorKind::InvalidDescriptor, &format!("Invalid GUID: {e}")))?;
 
         Ok(CommandSet {
             version,
@@ -821,9 +813,7 @@ impl TryFrom<&[u8]> for CommunicationDescriptor {
         )
         .unwrap_or_else(|e| {
             log::warn!(
-                "Failed to parse CDC interface descriptor for {:?}: {:?}",
-                communication_type,
-                e
+                "Failed to parse CDC interface descriptor for {communication_type:?}: {e:?}"
             );
             CdcInterfaceDescriptor::Invalid(value[3..].to_vec())
         });
