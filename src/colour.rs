@@ -283,7 +283,7 @@ fn color_to_string(color: Color) -> String {
         Color::BrightMagenta => "bright magenta".into(),
         Color::BrightCyan => "bright cyan".into(),
         Color::BrightWhite => "bright white".into(),
-        Color::TrueColor { r, g, b } => format!("[{}, {}, {}]", r, g, b),
+        Color::TrueColor { r, g, b } => format!("[{r}, {g}, {b}]"),
     }
 }
 

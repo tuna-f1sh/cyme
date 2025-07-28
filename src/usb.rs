@@ -111,7 +111,7 @@ impl FromStr for Version {
             Some(slice) => Ok(Version(slice[0], (slice[1] & 0xF0) >> 4, slice[1] & 0x0F)),
             None => Err(Error::new(
                 ErrorKind::Decoding,
-                &format!("No two base16 encoded versions in {}", s),
+                &format!("No two base16 encoded versions in {s}"),
             )),
         }
     }
@@ -122,7 +122,7 @@ impl TryFrom<f32> for Version {
     type Error = Error;
 
     fn try_from(f: f32) -> error::Result<Self> {
-        let s = format!("{:2.2}", f);
+        let s = format!("{f:2.2}");
         let (parse_ints, _): (Vec<Result<u8, _>>, Vec<_>) = s
             .split('.')
             .map(|vs| vs.parse::<u8>())
@@ -133,7 +133,7 @@ impl TryFrom<f32> for Version {
             Some(slice) => Ok(Version(slice[0], (slice[1] & 0xF0) >> 4, slice[1] & 0x0F)),
             None => Err(Error::new(
                 ErrorKind::Decoding,
-                &format!("Failed to parse float into MM.mP {}", f),
+                &format!("Failed to parse float into MM.mP {f}"),
             )),
         }
     }
@@ -162,7 +162,7 @@ pub enum ConfigAttributes {
 
 impl fmt::Display for ConfigAttributes {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -261,7 +261,7 @@ pub enum BaseClass {
 
 impl fmt::Display for BaseClass {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -617,7 +617,7 @@ where
 
 impl fmt::Display for ClassCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -782,7 +782,7 @@ impl fmt::Display for Direction {
                 Direction::In => write!(f, "IN"),
             }
         } else {
-            write!(f, "{:?}", self)
+            write!(f, "{self:?}")
         }
     }
 }
@@ -803,7 +803,7 @@ pub enum TransferType {
 
 impl fmt::Display for TransferType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -835,7 +835,7 @@ pub enum SyncType {
 
 impl fmt::Display for SyncType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -868,7 +868,7 @@ pub enum UsageType {
 
 impl fmt::Display for UsageType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 

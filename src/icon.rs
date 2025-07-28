@@ -182,9 +182,9 @@ impl fmt::Display for Icon {
     ///
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Icon::Vid(v) => write!(f, "vid#{:04x}", v),
-            Icon::VidPid((v, p)) => write!(f, "vid-pid#{:04x}:{:04x}", v, p),
-            Icon::VidPidMsb((v, p)) => write!(f, "vid-pid-msb#{:04x}:{:02x}", v, p),
+            Icon::Vid(v) => write!(f, "vid#{v:04x}"),
+            Icon::VidPid((v, p)) => write!(f, "vid-pid#{v:04x}:{p:04x}"),
+            Icon::VidPidMsb((v, p)) => write!(f, "vid-pid-msb#{v:04x}:{p:02x}"),
             Icon::Classifier(c) => write!(f, "classifier#{:02x}", u8::from(c.to_owned())),
             Icon::ClassifierSubProtocol(c) => write!(
                 f,
@@ -193,11 +193,11 @@ impl fmt::Display for Icon {
                 c.1,
                 c.2
             ),
-            Icon::Name(s) => write!(f, "name#{}", s),
+            Icon::Name(s) => write!(f, "name#{s}"),
             Icon::Endpoint(Direction::In) => write!(f, "endpoint_in"),
             Icon::Endpoint(Direction::Out) => write!(f, "endpoint_out"),
             _ => {
-                let dbg_str = format!("{:?}", self);
+                let dbg_str = format!("{self:?}");
                 write!(f, "{}", heck::AsKebabCase(dbg_str))
             }
         }

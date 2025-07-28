@@ -166,7 +166,7 @@ impl Config {
         serde_json::to_writer_pretty(f, self).map_err(|e| {
             Error::new(
                 ErrorKind::Io,
-                &format!("Failed to save config: Error({})", e),
+                &format!("Failed to save config: Error({e})"),
             )
         })
     }

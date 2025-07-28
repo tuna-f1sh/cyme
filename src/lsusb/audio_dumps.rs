@@ -104,7 +104,7 @@ fn dump_bitmap_controls_array<T: Into<u32> + std::fmt::Display + Copy>(
     for (i, control) in controls.iter().enumerate() {
         let control = control.to_owned();
         let control: u32 = control.into();
-        dump_value(control, &format!("{}({:2})", field_name, i), indent, width);
+        dump_value(control, &format!("{field_name}({i:2})"), indent, width);
         dump_bitmap_controls(control, control_descriptions, desc_type, indent + 2);
     }
 }
@@ -1125,7 +1125,7 @@ fn dump_audio_streaming_format(af: &audio::StreamingFormat, indent: usize, width
                 "{:indent$}invalid desc format type: {}",
                 "",
                 data.iter()
-                    .map(|b| format!("{:02x}", b))
+                    .map(|b| format!("{b:02x}"))
                     .collect::<Vec<String>>()
                     .join(""),
                 indent = indent
@@ -1155,7 +1155,7 @@ fn dump_audio_streaming_format_specific(
                 "{:indent$}Invalid desc format type: {}",
                 "",
                 data.iter()
-                    .map(|b| format!("{:02x}", b))
+                    .map(|b| format!("{b:02x}"))
                     .collect::<Vec<String>>()
                     .join(""),
                 indent = indent
@@ -1304,13 +1304,13 @@ fn dump_audio_subtype(uacid: &audio::UacInterfaceDescriptor, indent: usize) {
                 "{:indent$}Invalid desc subtype: {}",
                 "",
                 data.iter()
-                    .map(|b| format!("{:02x}", b))
+                    .map(|b| format!("{b:02x}"))
                     .collect::<Vec<String>>()
                     .join(" "),
             );
         }
         _ => {
-            log::warn!("Unsupported UAC interface descriptor: {:?}", uacid);
+            log::warn!("Unsupported UAC interface descriptor: {uacid:?}");
         }
     }
 }
@@ -1332,7 +1332,7 @@ pub(crate) fn dump_audiocontrol_interface(
     dump_value_string(
         uaci.to_owned() as u8,
         "bDescriptorSubtype",
-        format!("({:#})", uaci),
+        format!("({uaci:#})"),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1409,7 +1409,7 @@ fn dump_format_type_i(ft: &audio::FormatTypeI1, indent: usize, width: usize) {
             for i in 0..n {
                 dump_value(
                     ft.sample_frequencies[i as usize],
-                    &format!("tSamFreq[{}]", i),
+                    &format!("tSamFreq[{i}]"),
                     indent,
                     width,
                 );
@@ -1447,7 +1447,7 @@ fn dump_format_type_ii(ft: &audio::FormatTypeII1, indent: usize, width: usize) {
             for i in 0..n {
                 dump_value(
                     ft.sample_frequencies[i as usize],
-                    &format!("tSamFreq[{}]", i),
+                    &format!("tSamFreq[{i}]"),
                     indent,
                     width,
                 );
@@ -1486,7 +1486,7 @@ fn dump_format_type_iii(ft: &audio::FormatTypeIII1, indent: usize, width: usize)
             for i in 0..n {
                 dump_value(
                     ft.sample_frequencies[i as usize],
-                    &format!("tSamFreq[{}]", i),
+                    &format!("tSamFreq[{i}]"),
                     indent,
                     width,
                 );
@@ -1596,7 +1596,7 @@ pub(crate) fn dump_audiostreaming_interface(
     dump_value_string(
         uasi.to_owned() as u8,
         "bDescriptorSubtype",
-        format!("({:#})", uasi),
+        format!("({uasi:#})"),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1633,7 +1633,7 @@ pub(crate) fn dump_audiostreaming_endpoint(ad: &audio::UacDescriptor, indent: us
     dump_value_string(
         u8::from(ad.descriptor_subtype.to_owned()),
         "bDescriptorSubtype",
-        format!("({:#})", subtype_string),
+        format!("({subtype_string:#})"),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1711,13 +1711,13 @@ pub(crate) fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: u
             for (i, p) in d.source_ids.iter() {
                 dump_value(
                     i,
-                    &format!("baSourceID({:2})", i),
+                    &format!("baSourceID({i:2})"),
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
                 );
                 dump_value(
                     p,
-                    &format!("baSourcePin({:2})", i),
+                    &format!("baSourcePin({i:2})"),
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
                 );
@@ -1742,13 +1742,13 @@ pub(crate) fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: u
             for (i, p) in d.source_ids.iter() {
                 dump_value(
                     i,
-                    &format!("baSourceID({:2})", i),
+                    &format!("baSourceID({i:2})"),
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
                 );
                 dump_value(
                     p,
-                    &format!("baSourcePin({:2})", i),
+                    &format!("baSourcePin({i:2})"),
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
                 );
@@ -1814,7 +1814,7 @@ pub(crate) fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: u
                 "{:indent$}Invalid desc subtype: {}",
                 "",
                 data.iter()
-                    .map(|b| format!("{:02x}", b))
+                    .map(|b| format!("{b:02x}"))
                     .collect::<Vec<String>>()
                     .join(" "),
                 indent = indent + 2,

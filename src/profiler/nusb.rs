@@ -271,7 +271,7 @@ impl UsbDevice {
             },
             _ => Error {
                 kind: ErrorKind::Nusb,
-                message: format!("Failed to get control message: {}", e),
+                message: format!("Failed to get control message: {e}"),
             },
         })
     }
@@ -285,11 +285,11 @@ impl UsbDevice {
                 ..
             }) => self.control_in(control_request, true).map_err(|e| Error {
                 kind: ErrorKind::Nusb,
-                message: format!("Failed to get control message: {}", e),
+                message: format!("Failed to get control message: {e}"),
             }),
             Err(e) => Err(Error {
                 kind: ErrorKind::Nusb,
-                message: format!("Failed to get control message: {}", e),
+                message: format!("Failed to get control message: {e}"),
             }),
         }
     }
@@ -667,7 +667,7 @@ impl NusbProfiler {
                         }
                         Err(e) => {
                             sp_device.extra = Some(generic_extra(&sp_device.sysfs_name()));
-                            Some(format!("Failed to get some extra data for {}, probably requires elevated permissions: {}", sp_device, e))
+                            Some(format!("Failed to get some extra data for {sp_device}, probably requires elevated permissions: {e}"))
                         }
                     }
                 };
@@ -712,13 +712,13 @@ impl Profiler<UsbDevice> for NusbProfiler {
                     // print any non-critical error during extra capture
                     sp_device.profiler_error.iter().for_each(|e| {
                         if print_stderr {
-                            eprintln!("{}", e);
+                            eprintln!("{e}");
                         } else {
-                            log::warn!("Non-critical error during profile of {:?}: {}", device, e);
+                            log::warn!("Non-critical error during profile of {device:?}: {e}");
                         }
                     });
                 }
-                Err(e) => eprintln!("Failed to get data for {:?}: {}", device, e),
+                Err(e) => eprintln!("Failed to get data for {device:?}: {e}"),
             }
         }
 

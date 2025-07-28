@@ -184,7 +184,7 @@ fn dump_ss_plus_capability(d: &bos::SuperSpeedPlusCapability, indent: usize) {
     for (i, &ss_attr) in d.sublink_attributes.iter().enumerate() {
         dump_hex(
             ss_attr,
-            &format!("bmSublinkSpeedAttr[{}]", i),
+            &format!("bmSublinkSpeedAttr[{i}]"),
             indent,
             LSUSB_DUMP_WIDTH,
         );
@@ -269,7 +269,7 @@ fn dump_billboard_capability(d: &bos::BillboardCapability, indent: usize) {
     let bytes_string = d
         .configured
         .iter()
-        .map(|b| format!("{:02x}", b))
+        .map(|b| format!("{b:02x}"))
         .collect::<Vec<String>>()
         .join(" ");
     dump_value(bytes_string, "bmConfigured", indent + 2, LSUSB_DUMP_WIDTH);
@@ -292,19 +292,19 @@ fn dump_billboard_capability(d: &bos::BillboardCapability, indent: usize) {
         );
         dump_hex(
             am.svid,
-            &format!("wSVID[{}]", alt_mode),
+            &format!("wSVID[{alt_mode}]"),
             indent + 4,
             LSUSB_DUMP_WIDTH,
         );
         dump_value(
             am.alternate_mode,
-            &format!("bAlternateMode[{}]", alt_mode),
+            &format!("bAlternateMode[{alt_mode}]"),
             indent + 4,
             LSUSB_DUMP_WIDTH,
         );
         dump_value_string(
             am.alternate_mode_string_index,
-            &format!("iAlternateModeString[{}]", alt_mode),
+            &format!("iAlternateModeString[{alt_mode}]"),
             am.alternate_mode_string.as_ref().unwrap_or(&String::new()),
             indent + 4,
             LSUSB_DUMP_WIDTH,
@@ -368,7 +368,7 @@ fn dump_platform_device_capability(
         for (i, b) in d.data.iter().enumerate() {
             dump_hex(
                 *b,
-                &format!("CapabilityData[{}]", i),
+                &format!("CapabilityData[{i}]"),
                 indent + 2,
                 LSUSB_DUMP_WIDTH,
             );
@@ -392,7 +392,7 @@ fn dump_webusb_platform_capability(d: &bos::WebUsbPlatformCapability, indent: us
     for (i, b) in d.platform.data.iter().enumerate() {
         dump_hex(
             *b,
-            &format!("CapabilityData[{}]", i),
+            &format!("CapabilityData[{i}]"),
             indent + 2,
             LSUSB_DUMP_WIDTH,
         );

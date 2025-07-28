@@ -222,7 +222,7 @@ pub(crate) fn get_controller(name: &str) -> Result<HostControllerInfo> {
             .and_then(probe_controller)
             .ok_or(Error::new(
                 ErrorKind::IoKit,
-                &format!("No controller found for {}", name),
+                &format!("No controller found for {name}"),
             ))
     }
 }
@@ -241,8 +241,7 @@ pub fn get_spusb() -> Result<SystemProfile> {
                 Error::new(
                     ErrorKind::Parsing,
                     &format!(
-                        "Failed to parse 'system_profiler -json SPUSBDataType'; Error({})",
-                        e
+                        "Failed to parse 'system_profiler -json SPUSBDataType'; Error({e})"
                     ),
                 )
                 // map to get pci.ids host controller data

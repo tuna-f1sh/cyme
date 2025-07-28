@@ -327,7 +327,7 @@ impl FromStr for PortPath {
         // root hub
         if let Some(s) = s.strip_prefix("usb") {
             let num = s.parse::<u8>().map_err(|_| {
-                Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {}", s))
+                Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {s}"))
             })?;
             Ok(Self {
                 bus: num,
@@ -338,19 +338,19 @@ impl FromStr for PortPath {
             let mut parts = s.split(':').next().unwrap_or(s).split('-');
             let bus = parts
                 .next()
-                .ok_or_else(|| Error::new(ErrorKind::Parsing, &format!("No bus number: {}", s)))?
+                .ok_or_else(|| Error::new(ErrorKind::Parsing, &format!("No bus number: {s}")))?
                 .parse()
                 .map_err(|_| {
-                    Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {}", s))
+                    Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {s}"))
                 })?;
             let ports = parts
                 .next()
-                .ok_or_else(|| Error::new(ErrorKind::Parsing, &format!("No port number: {}", s)))?
+                .ok_or_else(|| Error::new(ErrorKind::Parsing, &format!("No port number: {s}")))?
                 .split('.')
                 .map(|p| p.parse())
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| {
-                    Error::new(ErrorKind::Parsing, &format!("Invalid port number: {}", s))
+                    Error::new(ErrorKind::Parsing, &format!("Invalid port number: {s}"))
                 })?;
             Ok(Self { bus, ports })
         }
@@ -526,8 +526,8 @@ impl fmt::Display for DevicePath {
         // only write config.interface if both are present
         // one does not get path with just config or interface
         if let (Some(config), Some(interface)) = (self.config, self.interface) {
-            write!(f, ":{}", config)?;
-            write!(f, ".{}", interface)?;
+            write!(f, ":{config}")?;
+            write!(f, ".{interface}")?;
         }
         Ok(())
     }
@@ -656,7 +656,7 @@ impl FromStr for EndpointPath {
             //}
             let endpoint = e
                 .parse()
-                .map_err(|_| Error::new(ErrorKind::Parsing, &format!("Invalid endpoint: {}", e)))?;
+                .map_err(|_| Error::new(ErrorKind::Parsing, &format!("Invalid endpoint: {e}")))?;
             Ok(Self {
                 device_path,
                 endpoint,
@@ -664,7 +664,7 @@ impl FromStr for EndpointPath {
         } else {
             Err(Error::new(
                 ErrorKind::Parsing,
-                &format!("Invalid endpoint path: {}", s),
+                &format!("Invalid endpoint path: {s}"),
             ))
         }
     }
@@ -779,7 +779,7 @@ impl EndpointPath {
 pub fn get_port_path(bus: u8, ports: &[u8]) -> String {
     if ports.is_empty() {
         // special case for root_hub
-        format!("{:}-0", bus)
+        format!("{bus:}-0")
     } else {
         format!("{:}-{}", bus, ports.iter().format("."))
     }
@@ -810,7 +810,7 @@ pub fn get_parent_path(bus: u8, ports: &[u8]) -> Option<String> {
 pub fn get_trunk_path(bus: u8, ports: &[u8]) -> String {
     if ports.is_empty() {
         // special case for root_hub
-        format!("{:}-0", bus)
+        format!("{bus:}-0")
     } else {
         format!("{:}-{}", bus, ports[0])
     }
@@ -869,9 +869,9 @@ pub fn get_endpoint_path(
 /// ```
 pub fn get_dev_path(bus: u8, device_no: Option<u8>) -> PathBuf {
     if let Some(devno) = device_no {
-        format!("/dev/bus/usb/{:03}/{:03}", bus, devno).into()
+        format!("/dev/bus/usb/{bus:03}/{devno:03}").into()
     } else {
-        format!("/dev/bus/usb/{:03}/001", bus).into()
+        format!("/dev/bus/usb/{bus:03}/001").into()
     }
 }
 
@@ -890,7 +890,7 @@ pub fn get_dev_path(bus: u8, device_no: Option<u8>) -> PathBuf {
 pub fn get_sysfs_name(bus: u8, ports: &[u8]) -> String {
     if ports.is_empty() {
         // special case for root_hub
-        format!("usb{}", bus)
+        format!("usb{bus}")
     } else {
         get_port_path(bus, ports)
     }

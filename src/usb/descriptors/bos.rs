@@ -198,7 +198,7 @@ impl TryFrom<&[u8]> for BinaryObjectStoreDescriptor {
             match BosCapability::try_from(&value[offset..offset + cd_len]) {
                 Ok(c) => capabilities.push(c),
                 // allow to continue parsing even if one fails
-                Err(e) => log::warn!("Failed to parse BOS capability: {:?}", e),
+                Err(e) => log::warn!("Failed to parse BOS capability: {e:?}"),
             }
             offset += cd_len;
         }

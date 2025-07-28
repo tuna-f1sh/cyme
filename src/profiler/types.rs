@@ -306,14 +306,14 @@ impl fmt::Display for SystemProfile {
         for v in &self.buses {
             if f.alternate() {
                 if f.sign_plus() {
-                    writeln!(f, "{:+#}", v)?;
+                    writeln!(f, "{v:+#}")?;
                 } else {
-                    writeln!(f, "{:#}", v)?;
+                    writeln!(f, "{v:#}")?;
                 }
             } else if f.sign_plus() {
-                write!(f, "{:+}", v)?;
+                write!(f, "{v:+}")?;
             } else {
-                write!(f, "{:}", v)?;
+                write!(f, "{v:}")?;
             }
         }
         Ok(())
@@ -397,7 +397,7 @@ impl TryFrom<Device> for Bus {
 
         let (host_controller_vendor, host_controller_device) =
             if let (Some(v), Some(p)) = (pci_vendor, pci_device) {
-                log::debug!("looking up PCI IDs: {:04x}:{:04x}", v, p);
+                log::debug!("looking up PCI IDs: {v:04x}:{p:04x}");
                 match pci_ids::Device::from_vid_pid(v, p) {
                     Some(d) => (
                         Some(d.vendor().name().to_string()),
@@ -437,7 +437,7 @@ impl<'a> IntoIterator for &'a Bus {
 impl From<u8> for Bus {
     fn from(bus: u8) -> Self {
         Bus {
-            name: format!("USB Bus {:03}", bus),
+            name: format!("USB Bus {bus:03}"),
             host_controller: String::from("USB Host Controller"),
             usb_bus_number: Some(bus),
             ..Default::default()
@@ -540,7 +540,7 @@ impl Bus {
         if let Some(devices) = self.devices.as_ref() {
             for dev in devices {
                 if let Some(node) = dev.get_node(port_path) {
-                    log::debug!("Found {}", node);
+                    log::debug!("Found {node}");
                     return Some(node);
                 }
             }
@@ -554,7 +554,7 @@ impl Bus {
         if let Some(devices) = self.devices.as_mut() {
             for dev in devices {
                 if let Some(node) = dev.get_node_mut(port_path) {
-                    log::debug!("Found {}", node);
+                    log::debug!("Found {node}");
                     return Some(node);
                 }
             }
@@ -748,7 +748,7 @@ impl Bus {
             };
 
             let driver_string = if let Some(ports) = ports {
-                format!("{}/{}p", driver, ports)
+                format!("{driver}/{ports}p")
             } else {
                 driver
             };
@@ -847,14 +847,14 @@ pub fn write_devices_recursive(f: &mut fmt::Formatter, devices: &Vec<Device>) ->
         // print the device details
         if f.alternate() {
             if f.sign_plus() {
-                writeln!(f, "{:+#}", device)?;
+                writeln!(f, "{device:+#}")?;
             } else {
-                writeln!(f, "{:#}", device)?;
+                writeln!(f, "{device:#}")?;
             }
         } else if f.sign_plus() {
-            writeln!(f, "{:+}", device)?;
+            writeln!(f, "{device:+}")?;
         } else {
-            writeln!(f, "{}", device)?;
+            writeln!(f, "{device}")?;
         }
 
         // print all devices with this device - if hub for example
@@ -949,7 +949,7 @@ impl FromStr for DeviceLocation {
                 let number = dev.trim().parse::<u8>().map_err(|v| {
                     Error::new(
                         ErrorKind::Parsing,
-                        &format!("Invalid device number: {} {}", dev, v),
+                        &format!("Invalid device number: {dev} {v}"),
                     )
                 })?;
 
@@ -1108,13 +1108,13 @@ impl fmt::Display for DeviceSpeed {
                 if f.alternate() && dv.description.is_some() {
                     write!(f, "{}", dv.description.unwrap())
                 } else {
-                    write!(f, "{:.1}", dv)
+                    write!(f, "{dv:.1}")
                 }
             }
             DeviceSpeed::Description(v) => {
                 // don't print the description unless alt so it still fits in block
                 if f.alternate() {
-                    write!(f, "{}", v)
+                    write!(f, "{v}")
                 } else {
                     write!(f, "{:5} {:4}", "-", "-")
                 }
@@ -1330,12 +1330,7 @@ impl Device {
         let current_depth = self.get_depth();
         let self_port_path = self.port_path();
         log::debug!(
-            "Get node @ {}: exploring {} ({}); depth {}/{}",
-            port_path,
-            self_port_path,
-            self,
-            current_depth,
-            search_depth
+            "Get node @ {port_path}: exploring {self_port_path} ({self}); depth {current_depth}/{search_depth}"
         );
 
         // should not be looking for nodes below us unless root
@@ -1372,12 +1367,7 @@ impl Device {
         let current_depth = self.get_depth();
         let self_port_path = self.port_path();
         log::debug!(
-            "Get node @ {}: exploring {} ({}); depth {}/{}",
-            port_path,
-            self_port_path,
-            self,
-            current_depth,
-            search_depth
+            "Get node @ {port_path}: exploring {self_port_path} ({self}); depth {current_depth}/{search_depth}"
         );
 
         // should not be looking for nodes below us
@@ -1637,16 +1627,16 @@ impl Device {
             self.serial_num.as_ref(),
         ) {
             (n, Some(m), Some(s)) => {
-                format!("Manufactuer={} Product={} Serial={}", n, m, s)
+                format!("Manufactuer={n} Product={m} Serial={s}")
             }
             (n, Some(m), None) => {
-                format!("Manufactuer={} Product={}", n, m)
+                format!("Manufactuer={n} Product={m}")
             }
             (n, None, Some(s)) => {
-                format!("Product={} Serial={}", n, s)
+                format!("Product={n} Serial={s}")
             }
             (n, None, None) => {
-                format!("Product={}", n)
+                format!("Product={n}")
             }
         };
 
@@ -1661,7 +1651,7 @@ impl Device {
                         .map_or(String::from("[none]"), |d| d.to_string());
                     // if there are ports (device is hub), add them to the driver string
                     let driver_string = if let Some(p) = ports {
-                        format!("{}/{}p", interface_driver, p)
+                        format!("{interface_driver}/{p}p")
                     } else {
                         interface_driver
                     };
@@ -1698,7 +1688,7 @@ impl Device {
                 }
             }
         } else {
-            log::warn!("Rendering {} lsusb tree without extra data because it is missing. No configurations or interfaces will be shown", self);
+            log::warn!("Rendering {self} lsusb tree without extra data because it is missing. No configurations or interfaces will be shown");
             let mut device_strings = Vec::with_capacity(verbosity as usize);
             device_strings.push(format!(
                 "Port {:03}: Dev {:03}, If {}, Class={}, Driver={}, {}",

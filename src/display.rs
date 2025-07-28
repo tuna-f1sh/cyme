@@ -44,7 +44,7 @@ pub enum ColorWhen {
 
 impl std::fmt::Display for ColorWhen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -63,7 +63,7 @@ pub enum IconWhen {
 
 impl std::fmt::Display for IconWhen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -146,7 +146,7 @@ pub enum Encoding {
 
 impl std::fmt::Display for Encoding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -571,18 +571,18 @@ pub trait Block<B: BlockEnum, T> {
     fn format_base_u16(v: u16, settings: &PrintSettings) -> String {
         if settings.decimal {
             // pad 6 not 5 to maintian 0x padding
-            format!("{:6}", v)
+            format!("{v:6}")
         } else {
-            format!("0x{:04x}", v)
+            format!("0x{v:04x}")
         }
     }
 
     /// Formats u8 values like codes as base16 or base10 depending on decimal setting
     fn format_base_u8(v: u8, settings: &PrintSettings) -> String {
         if settings.decimal {
-            format!("{:4}", v)
+            format!("{v:4}")
         } else {
-            format!("0x{:02x}", v)
+            format!("0x{v:02x}")
         }
     }
 
@@ -591,9 +591,9 @@ pub trait Block<B: BlockEnum, T> {
         match (v, p) {
             (Some(v), Some(p)) => {
                 if settings.decimal {
-                    format!("{:>5}:{:<5}", v, p)
+                    format!("{v:>5}:{p:<5}")
                 } else {
-                    format!(" {:04x}:{:04x} ", v, p)
+                    format!(" {v:04x}:{p:04x} ")
                 }
             }
             _ => format!("{:>5}:{:<5}", "-", "-"),
@@ -957,15 +957,15 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 pad = pad.get(self).unwrap_or(&0)
             )),
             DeviceBlocks::BusPower => Some(match d.bus_power {
-                Some(v) => format!("{:3} mA", v),
+                Some(v) => format!("{v:3} mA"),
                 None => format!("{:>6}", "-"),
             }),
             DeviceBlocks::BusPowerUsed => Some(match d.bus_power_used {
-                Some(v) => format!("{:3} mA", v),
+                Some(v) => format!("{v:3} mA"),
                 None => format!("{:>6}", "-"),
             }),
             DeviceBlocks::ExtraCurrentUsed => Some(match d.extra_current_used {
-                Some(v) => format!("{:3} mA", v),
+                Some(v) => format!("{v:3} mA"),
                 None => format!("{:>6}", "-"),
             }),
             DeviceBlocks::BcdDevice => Some(match d.bcd_device {
@@ -1220,7 +1220,7 @@ impl Block<BusBlocks, Bus> for BusBlocks {
         match self {
             BusBlocks::BusNumber => bus
                 .get_bus_number()
-                .map(|v| format!("{:3}", v))
+                .map(|v| format!("{v:3}"))
                 .or(Some("---".to_string())),
             BusBlocks::Icon => settings
                 .icons
@@ -2060,11 +2060,7 @@ pub fn auto_max_string_len<B: BlockEnum, T>(
     let total_len: usize = total_fixed + total_variable + (blocks.len() * 2);
     let (width, height) = settings.terminal_size.unwrap_or((DEFAULT_AUTO_WIDTH, 0));
     log::trace!(
-        "Auto scaling running for max length {:?} of which fixed {:?}, to terminal size {:?} {:?}",
-        total_len,
-        total_fixed,
-        width,
-        height
+        "Auto scaling running for max length {total_len:?} of which fixed {total_fixed:?}, to terminal size {width:?} {height:?}"
     );
     let w = width as usize;
 
@@ -2086,9 +2082,7 @@ pub fn auto_max_string_len<B: BlockEnum, T>(
             .map(|v| auto_max_string - v)
             .sum();
         log::trace!(
-            "Auto max string calculated {:?}, remaining {:?}",
-            auto_max_string,
-            remaining_chars
+            "Auto max string calculated {auto_max_string:?}, remaining {remaining_chars:?}"
         );
 
         // equally divide remaining chars between variable > auto_max_string - not perfect as could be shared per how much longer each is but this would require unique max for each block
@@ -2103,13 +2097,11 @@ pub fn auto_max_string_len<B: BlockEnum, T>(
 
         if auto_max_string < MIN_VARIABLE_STRING_LEN {
             log::trace!(
-                "Ignoring auto max string {:?}! Clamped to MIN_VARIABLE_STRING_LEN {:?}",
-                auto_max_string,
-                MIN_VARIABLE_STRING_LEN
+                "Ignoring auto max string {auto_max_string:?}! Clamped to MIN_VARIABLE_STRING_LEN {MIN_VARIABLE_STRING_LEN:?}"
             );
             Some(MIN_VARIABLE_STRING_LEN)
         } else {
-            log::trace!("Final auto max string {:?}", auto_max_string);
+            log::trace!("Final auto max string {auto_max_string:?}");
             Some(auto_max_string)
         }
     } else {
@@ -2504,7 +2496,7 @@ impl<W: Write> DisplayWriter<W> {
             settings.max_variable_string_len
         };
 
-        log::trace!("Print endpoints padding {:?}, tree {:?}", pad, tree);
+        log::trace!("Print endpoints padding {pad:?}, tree {tree:?}");
 
         // if there is a max variable length, adjust padding to this if current > it and is variable
         if let Some(ml) = max_variable_string_len.as_ref() {
@@ -2583,7 +2575,7 @@ impl<W: Write> DisplayWriter<W> {
                 }
 
                 // render and print tree if doing it
-                self.print(format!("{}{} ", prefix, terminator)).unwrap();
+                self.print(format!("{prefix}{terminator} ")).unwrap();
                 self.println(
                     render_value(
                         endpoint,
@@ -2672,7 +2664,7 @@ impl<W: Write> DisplayWriter<W> {
             }
         }
 
-        log::trace!("Print interfaces padding {:?}, tree {:?}", pad, tree);
+        log::trace!("Print interfaces padding {pad:?}, tree {tree:?}");
 
         for (i, interface) in interfaces.iter().enumerate() {
             let line_item = if let Some(dp) = interface.device_path() {
@@ -2729,7 +2721,7 @@ impl<W: Write> DisplayWriter<W> {
                 }
 
                 // render and print tree if doing it
-                self.print(format!("{}{} ", prefix, terminator)).unwrap();
+                self.print(format!("{prefix}{terminator} ")).unwrap();
 
                 self.println(
                     render_value(
@@ -2834,7 +2826,7 @@ impl<W: Write> DisplayWriter<W> {
             }
         }
 
-        log::trace!("Print configs padding {:?}, tree {:?}", pad, tree);
+        log::trace!("Print configs padding {pad:?}, tree {tree:?}");
 
         for (i, config) in configs.iter().enumerate() {
             let line_item = LineItem::Config((device.port_path(), config.number));
@@ -2892,7 +2884,7 @@ impl<W: Write> DisplayWriter<W> {
                 }
 
                 // render and print tree if doing it
-                self.print(format!("{}{} ", prefix, terminator)).unwrap();
+                self.print(format!("{prefix}{terminator} ")).unwrap();
 
                 self.println(
                     render_value(
@@ -2984,7 +2976,7 @@ impl<W: Write> DisplayWriter<W> {
             }
         }
 
-        log::trace!("Print devices padding {:?}, tree {:?}", padding, tree);
+        log::trace!("Print devices padding {padding:?}, tree {tree:?}");
 
         for (i, device) in devices.iter().filter(|d| !d.is_hidden()).enumerate() {
             // get current prefix based on if last in tree and whether we are within the tree
@@ -3038,7 +3030,7 @@ impl<W: Write> DisplayWriter<W> {
                 }
 
                 // render and print tree if doing it
-                self.print(format!("{}{} ", prefix, terminator)).unwrap();
+                self.print(format!("{prefix}{terminator} ")).unwrap();
             } else if settings.headings && i == 0 {
                 let heading = render_heading(db, &padding, max_variable_string_len).join(" ");
                 self.println(format!("{}", heading.bold().underline()), LineItem::None)
@@ -3079,8 +3071,7 @@ impl<W: Write> DisplayWriter<W> {
                 }
             } else if settings.verbosity >= 1 {
                 log::warn!(
-                    "Unable to print verbose information for {} because libusb extra data is missing",
-                    device
+                    "Unable to print verbose information for {device} because libusb extra data is missing"
                 )
             }
 
@@ -3177,10 +3168,7 @@ impl<W: Write> DisplayWriter<W> {
         }
 
         log::trace!(
-            "print system profile with settings: {:?}; padding: {:?}; tree {:?}",
-            settings,
-            pad,
-            base_tree
+            "print system profile with settings: {settings:?}; padding: {pad:?}; tree {base_tree:?}"
         );
 
         let len = sp_usb.buses.iter().filter(|b| !b.is_hidden()).count();
@@ -3214,7 +3202,7 @@ impl<W: Write> DisplayWriter<W> {
                     .unwrap();
                 }
 
-                self.print(format!("{}{} ", prefix, start)).unwrap()
+                self.print(format!("{prefix}{start} ")).unwrap()
             } else if settings.headings {
                 let heading = render_heading(&bb, &pad, max_variable_string_len).join(" ");
                 // 2 spaces for bus start icon and space to info
@@ -3293,7 +3281,7 @@ impl<W: Write> DisplayWriter<W> {
             HashMap::new()
         };
         pad.retain(|k, _| db.contains(k));
-        log::trace!("Flattened devices padding {:?}", pad);
+        log::trace!("Flattened devices padding {pad:?}");
 
         let max_variable_string_len: Option<usize> = if settings.auto_width {
             let variable_lens: Vec<usize> = pad
@@ -3359,8 +3347,7 @@ impl<W: Write> DisplayWriter<W> {
                 }
             } else if settings.verbosity >= 1 {
                 log::warn!(
-                    "Unable to print verbose information for {} because libusb extra data is missing",
-                    device
+                    "Unable to print verbose information for {device} because libusb extra data is missing"
                 )
             }
         }
@@ -3466,7 +3453,7 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<&Filter>, settings: &P
     }
 
     // do the filter if present; will keep parents of matched devices even if they do not match
-    log::debug!("Filtering with {:?}", filter);
+    log::debug!("Filtering with {filter:?}");
     if let Some(filter) = filter {
         if matches!(settings.print_mode, PrintMode::Dynamic) {
             filter.hide_buses(&mut sp_usb.buses);
@@ -3487,7 +3474,7 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<&Filter>, settings: &P
 
     // hide serials Recursively
     if let Some(hide) = settings.mask_serials.as_ref() {
-        log::debug!("Masking serials with {:?}", hide);
+        log::debug!("Masking serials with {hide:?}");
         for bus in &mut sp_usb.buses {
             bus.devices.iter_mut().for_each(|devices| {
                 for device in devices {
@@ -3497,12 +3484,12 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<&Filter>, settings: &P
         }
     }
 
-    log::trace!("sp_usb data post filter and bus sort\n\r{:#}", sp_usb);
+    log::trace!("sp_usb data post filter and bus sort\n\r{sp_usb:#}");
 }
 
 /// Main cyme bin print function
 pub fn print(sp_usb: &SystemProfile, settings: &PrintSettings) {
-    log::trace!("Printing with {:?}", settings);
+    log::trace!("Printing with {settings:?}");
     let mut dw = DisplayWriter::default();
 
     if settings.tree || settings.group_devices == Group::Bus {

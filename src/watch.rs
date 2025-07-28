@@ -197,7 +197,7 @@ fn print_json(
 ) -> Result<()> {
     cyme::display::prepare(spusb, filter, print_settings);
     let json = serde_json::to_string(&spusb)?;
-    println!("{}", json);
+    println!("{json}");
     Ok(())
 }
 
@@ -433,8 +433,8 @@ pub fn watch_usb_devices(
                     FilterField::Name => display.filter.name.clone(),
                     FilterField::Serial => display.filter.serial.clone(),
                     FilterField::VidPid => match (display.filter.vid, display.filter.pid) {
-                        (Some(vid), Some(pid)) => Some(format!("{:04x}:{:04x}", vid, pid)),
-                        (Some(vid), None) => Some(format!("{:04x}", vid)),
+                        (Some(vid), Some(pid)) => Some(format!("{vid:04x}:{pid:04x}")),
+                        (Some(vid), None) => Some(format!("{vid:04x}")),
                         _ => None,
                     },
                     FilterField::Class => display.filter.class.map(|c| c.to_string()),
@@ -1115,10 +1115,10 @@ impl Display {
                     self.filter.serial,
                     self.filter
                         .vid
-                        .map_or("".to_string(), |v| format!("{:04x}", v)),
+                        .map_or("".to_string(), |v| format!("{v:04x}")),
                     self.filter
                         .pid
-                        .map_or("".to_string(), |p| format!("{:04x}", p)),
+                        .map_or("".to_string(), |p| format!("{p:04x}")),
                     self.filter.class
                 )
             }
@@ -1421,9 +1421,9 @@ impl Display {
                     block.to_string()
                 };
                 if *enabled {
-                    writeln!(self.buffer, " [x] {}", block_string)?;
+                    writeln!(self.buffer, " [x] {block_string}")?;
                 } else {
-                    writeln!(self.buffer, " [ ] {}", block_string)?;
+                    writeln!(self.buffer, " [ ] {block_string}")?;
                 }
             }
         }
@@ -1478,7 +1478,7 @@ impl Display {
                     write!(stdout, "{}\n\r", stripped_line.bold().on_bright_purple())?;
                 }
             } else {
-                write!(stdout, "{}\n\r", line)?;
+                write!(stdout, "{line}\n\r")?;
             }
         }
 

@@ -110,8 +110,7 @@ impl Error {
         Error {
             kind: ErrorKind::DescriptorLength(error_arg),
             message: format!(
-                "Invalid descriptor length for {}. Expected: {}, Got {}",
-                name, expected, got
+                "Invalid descriptor length for {name}. Expected: {expected}, Got {got}"
             ),
         }
     }
