@@ -457,7 +457,7 @@ fn print_man() -> Result<()> {
         .or_else(|| std::env::var_os("OUT_DIR"))
         .unwrap_or_else(|| "./doc".into());
     fs::create_dir_all(&outdir)?;
-    println!("Generating CLI info to {:?}", outdir);
+    println!("Generating CLI info to {outdir:?}");
 
     let mut app = Args::command();
 

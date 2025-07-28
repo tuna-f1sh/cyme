@@ -326,9 +326,9 @@ impl FromStr for PortPath {
     fn from_str(s: &str) -> error::Result<Self> {
         // root hub
         if let Some(s) = s.strip_prefix("usb") {
-            let num = s.parse::<u8>().map_err(|_| {
-                Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {s}"))
-            })?;
+            let num = s
+                .parse::<u8>()
+                .map_err(|_| Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {s}")))?;
             Ok(Self {
                 bus: num,
                 ports: vec![],
@@ -340,9 +340,7 @@ impl FromStr for PortPath {
                 .next()
                 .ok_or_else(|| Error::new(ErrorKind::Parsing, &format!("No bus number: {s}")))?
                 .parse()
-                .map_err(|_| {
-                    Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {s}"))
-                })?;
+                .map_err(|_| Error::new(ErrorKind::Parsing, &format!("Invalid bus number: {s}")))?;
             let ports = parts
                 .next()
                 .ok_or_else(|| Error::new(ErrorKind::Parsing, &format!("No port number: {s}")))?

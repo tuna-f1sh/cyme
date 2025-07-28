@@ -132,12 +132,7 @@ fn dump_extension_unit(eu: &video::ExtensionUnit, indent: usize, width: usize) {
     dump_value(eu.num_input_pins, "bNrInPins", indent + 2, width);
 
     for (i, source_id) in eu.source_ids.iter().enumerate() {
-        dump_value(
-            *source_id,
-            &format!("baSourceID({i:2})"),
-            indent + 2,
-            width,
-        );
+        dump_value(*source_id, &format!("baSourceID({i:2})"), indent + 2, width);
     }
 
     dump_value(eu.control_size, "bControlSize", indent + 2, width);

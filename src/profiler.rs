@@ -239,9 +239,7 @@ where
         };
         let data = device.get_control_msg(control)?;
         let total_length = u16::from_le_bytes([data[2], data[3]]);
-        log::debug!(
-            "{device:?} Attempt read BOS descriptor total length: {total_length}"
-        );
+        log::debug!("{device:?} Attempt read BOS descriptor total length: {total_length}");
         // now get full descriptor
         control.length = total_length as usize;
         let data = device.get_control_msg(control)?;
@@ -348,9 +346,7 @@ where
         let mut dt = match usb::Descriptor::try_from(extra_bytes) {
             Ok(d) => d,
             Err(e) => {
-                log::debug!(
-                    "{device:?} Failed to convert extra descriptor bytes: {e}"
-                );
+                log::debug!("{device:?} Failed to convert extra descriptor bytes: {e}");
                 return Err(e);
             }
         };
@@ -358,9 +354,7 @@ where
         // Assign class context to interface since descriptor did not know it
         if let Some(interface_desc) = class_code {
             if let Err(e) = dt.update_with_class_context(interface_desc) {
-                log::debug!(
-                    "{device:?} Failed to update extra descriptor with class context: {e}"
-                );
+                log::debug!("{device:?} Failed to update extra descriptor with class context: {e}");
             }
         }
 

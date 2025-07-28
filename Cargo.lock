@@ -907,8 +907,9 @@ dependencies = [
 
 [[package]]
 name = "nusb"
-version = "0.2.0-beta.2"
-source = "git+https://github.com/kevinmehall/nusb?tag=v0.2.0-beta.2#0fd3db60893ce7e49a217d1c868c2a3cab822249"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "701a6a7ed08d280343b136da239b8d62d2f0733866541dff3a0d6bfa9be50139"
 dependencies = [
  "core-foundation",
  "core-foundation-sys",
@@ -919,7 +920,7 @@ dependencies = [
  "once_cell",
  "rustix 1.0.8",
  "slab",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

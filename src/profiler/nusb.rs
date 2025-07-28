@@ -610,7 +610,7 @@ impl NusbProfiler {
 
         let generic_extra = |sysfs_name: &str| {
             usb::DeviceExtra {
-                max_packet_size: device_info.max_packet_size_0(),
+                max_packet_size: 0, // ...extra will update with actual
                 // nusb doesn't have these cached
                 string_indexes: (0, 0, 0),
                 driver: get_sysfs_readlink(sysfs_name, "driver")

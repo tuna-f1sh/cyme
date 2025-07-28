@@ -2140,9 +2140,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     _ => None,
                 });
                 dump_string(
-                    &format!(
-                        "{port_status_string} {s2_string}{s1_string}{s0_string}"
-                    ),
+                    &format!("{port_status_string} {s2_string}{s1_string}{s0_string}"),
                     indent + 3,
                 );
             } else {
@@ -2186,9 +2184,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     );
                 } else {
                     dump_string(
-                        &format!(
-                            "{port_status_string} {s2_string}{s1_string}{s0_string}"
-                        ),
+                        &format!("{port_status_string} {s2_string}{s1_string}{s0_string}"),
                         indent + 3,
                     );
                 }
