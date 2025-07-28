@@ -51,7 +51,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 For pre-compiled binaries, see the [releases](https://github.com/tuna-f1sh/cyme/releases). Pre-compiled builds use native profiling backends and should require no extra dependencies.
 
-From crates.io with a Rust tool-chain installed: `cargo install cyme --git https://github.com/tuna-f1sh/cyme` (from GitHub as crates.io pinned at the moment). To do it from within a local clone: `cargo install --path .`.
+From crates.io with a Rust tool-chain installed: `cargo install cyme`. To do it from within a local clone: `cargo install --locked --path .`.
 
 ### Package Managers
 

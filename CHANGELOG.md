@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.4] - 2025-07-28
+
+### Changed
+
+- Update to use release v0.2.0 of nusb.
+
 ## [2.2.3] - 2025-06-18
 
 ### Added
