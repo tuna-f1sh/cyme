@@ -389,7 +389,7 @@ fn get_system_profile_macos(args: &Args) -> Result<profiler::SystemProfile> {
                 }
             }, Ok)
         } else {
-            return get_system_profile(args);
+            get_system_profile(args)
         }
     } else {
         get_system_profile(args)
