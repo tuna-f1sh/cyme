@@ -198,12 +198,14 @@ impl Config {
         self.tree = settings.tree;
         self.max_variable_string_len = settings.max_variable_string_len;
         self.no_auto_width = !settings.auto_width;
-        self.no_icons = matches!(settings.icon_when, display::IconWhen::Never);
+        self.no_icons = matches!(settings.icon_when, display::IconWhen::Never)
+            || !matches!(settings.encoding, display::Encoding::Glyphs);
+        self.ascii = matches!(settings.encoding, display::Encoding::Ascii);
         self.verbose = settings.verbosity;
     }
 
     /// Returns a [`display::PrintSettings`] based on the config
-    pub fn print_settings(&self) -> display::PrintSettings {
+    pub fn print_settings(&self, encoding: Option<display::Encoding>) -> display::PrintSettings {
         let colours = if self.no_color {
             None
         } else {
@@ -214,6 +216,15 @@ impl Config {
         } else {
             Some(self.icons.clone())
         };
+        let encoding = encoding.unwrap_or({
+            if self.ascii {
+                display::Encoding::Ascii
+            } else if self.no_icons {
+                display::Encoding::Utf8
+            } else {
+                display::Encoding::Glyphs
+            }
+        });
         display::PrintSettings {
             device_blocks: self.blocks.clone(),
             bus_blocks: self.bus_blocks.clone(),
@@ -233,6 +244,7 @@ impl Config {
             } else {
                 display::IconWhen::Auto
             },
+            encoding,
             icons,
             colours,
             verbosity: self.verbose,
