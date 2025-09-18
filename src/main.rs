@@ -763,7 +763,7 @@ fn cyme() -> Result<()> {
 
     // create print settings from config - merged with arg flags above
     // then override with any clone args
-    let mut settings = config.print_settings();
+    let mut settings = config.print_settings(Some(args.encoding));
     settings.terminal_size = terminal_size().map(|(w, h)| (w.0, h.0));
     settings.json = args.json;
     merge_blocks(&config, &args, &mut settings)?;
