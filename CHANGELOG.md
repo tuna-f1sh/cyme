@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.5] - 2025-09-18
+
+### Fixed
+
+- config: encoding arg not being passed to print settings ([#77](https://github.com/tuna-f1sh/cyme/pull/77)).
+
 ## [2.2.4] - 2025-07-28
 
 ### Changed
