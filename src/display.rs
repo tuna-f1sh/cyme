@@ -2488,7 +2488,7 @@ impl<W: Write> DisplayWriter<W> {
             let variable_lens: Vec<usize> = pad
                 .iter()
                 .filter(|(k, _)| k.value_is_variable_length())
-                .map(|(_, v)| (*v))
+                .map(|(_, v)| *v)
                 .collect();
             auto_max_string_len(blocks, offset, &variable_lens, settings)
                 .or(settings.max_variable_string_len)
@@ -2647,7 +2647,7 @@ impl<W: Write> DisplayWriter<W> {
             let variable_lens: Vec<usize> = pad
                 .iter()
                 .filter(|(k, _)| k.value_is_variable_length())
-                .map(|(_, v)| (*v))
+                .map(|(_, v)| *v)
                 .collect();
             auto_max_string_len(blocks.0, offset, &variable_lens, settings)
                 .or(settings.max_variable_string_len)
@@ -2809,7 +2809,7 @@ impl<W: Write> DisplayWriter<W> {
             let variable_lens: Vec<usize> = pad
                 .iter()
                 .filter(|(k, _)| k.value_is_variable_length())
-                .map(|(_, v)| (*v))
+                .map(|(_, v)| *v)
                 .collect();
             auto_max_string_len(blocks.0, offset, &variable_lens, settings)
                 .or(settings.max_variable_string_len)
@@ -2959,7 +2959,7 @@ impl<W: Write> DisplayWriter<W> {
             let variable_lens: Vec<usize> = padding
                 .iter()
                 .filter(|(k, _)| k.value_is_variable_length())
-                .map(|(_, v)| (*v))
+                .map(|(_, v)| *v)
                 .collect();
             auto_max_string_len(db, offset, &variable_lens, settings)
                 .or(settings.max_variable_string_len)
@@ -3150,7 +3150,7 @@ impl<W: Write> DisplayWriter<W> {
             let variable_lens: Vec<usize> = pad
                 .iter()
                 .filter(|(k, _)| k.value_is_variable_length())
-                .map(|(_, v)| (*v))
+                .map(|(_, v)| *v)
                 .collect();
             auto_max_string_len(&bb, base_tree.depth * 3, &variable_lens, settings)
                 .or(settings.max_variable_string_len)
@@ -3287,7 +3287,7 @@ impl<W: Write> DisplayWriter<W> {
             let variable_lens: Vec<usize> = pad
                 .iter()
                 .filter(|(k, _)| k.value_is_variable_length())
-                .map(|(_, v)| (*v))
+                .map(|(_, v)| *v)
                 .collect();
             auto_max_string_len(&db, 0, &variable_lens, settings)
                 .or(settings.max_variable_string_len)
