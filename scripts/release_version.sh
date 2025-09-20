@@ -78,3 +78,14 @@ case "$answer" in
     echo "Skipping GitHub release creation."
     ;;
 esac
+
+read -r -p "Publish version $VERSION to crates.io? [y/N] " answer
+case "$answer" in
+  [Yy]* )
+    echo "Publishing to crates.io..."
+    cargo publish
+    ;;
+  * )
+    echo "Skipping crates.io publish."
+    ;;
+esac
