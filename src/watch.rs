@@ -330,31 +330,55 @@ pub fn watch_usb_devices(
 
     // Thread to listen for USB profiling events
     let tx_clone = tx.clone();
+    // Flag to stop threads when exiting main loop and prevent sending on closed channel
+    let stop_flag = Arc::new(Mutex::new(false));
+    let stop_clone = stop_flag.clone();
     thread::spawn(move || {
         futures_lite::future::block_on(async {
             while profile_stream.next().await.is_some() {
                 // local spusb Arc<Mutex<SystemProfile>> is updated since we have a reference to it
+                if *stop_clone.lock().unwrap() {
+                    break;
+                }
                 tx_clone.send(WatchEvent::DrawDevices).unwrap();
             }
         });
     });
 
     // Thread to listen for terminal events
+    let stop_clone = stop_flag.clone();
     thread::spawn(move || loop {
+        let send_wrapper = |e: WatchEvent| {
+            if *stop_clone.lock().unwrap() {
+                return true;
+            }
+            tx.send(e).unwrap();
+            false
+        };
+
         match event::read().unwrap() {
             Event::Resize(_, _) => {
-                tx.send(WatchEvent::Resize).unwrap();
+                if send_wrapper(WatchEvent::Resize) {
+                    break;
+                }
             }
             Event::Mouse(MouseEvent { kind, .. }) => match kind {
                 MouseEventKind::ScrollUp => {
-                    tx.send(WatchEvent::ScrollUp(1)).unwrap();
+                    if send_wrapper(WatchEvent::ScrollUp(1)) {
+                        break;
+                    }
                 }
                 MouseEventKind::ScrollDown => {
-                    tx.send(WatchEvent::ScrollDown(1)).unwrap();
+                    if send_wrapper(WatchEvent::ScrollDown(1)) {
+                        break;
+                    }
                 }
                 _ => (),
             },
             Event::Key(key_event) => {
+                if *stop_clone.lock().unwrap() {
+                    break;
+                }
                 input_mode.lock().unwrap().process_key_event(
                     key_event,
                     tx.clone(),
@@ -362,6 +386,10 @@ pub fn watch_usb_devices(
                 );
             }
             _ => (),
+        }
+
+        if *stop_clone.lock().unwrap() {
+            break;
         }
     });
 
@@ -618,6 +646,7 @@ pub fn watch_usb_devices(
                 display.draw_devices()?;
             }
             Ok(WatchEvent::Quit) => {
+                *stop_flag.lock().unwrap() = true;
                 break;
             }
             Err(_) => {
@@ -898,7 +927,8 @@ impl State {
                     }
                 },
                 // others (error etc.) exit current on any key
-                _ => {
+                e => {
+                    log::debug!("Exiting state {:?} on other key event", e);
                     tx.send(WatchEvent::Quit).unwrap();
                 }
             },
