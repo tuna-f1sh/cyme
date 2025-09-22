@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.6] - 2025-09-22
+
+### Fixed
+
+- watch: panic exiting due to potential dropped channel send ([#79](https://github.com/tuna-f1sh/cyme/pull/79)).
+
 ## [2.2.5] - 2025-09-18
 
 ### Fixed
