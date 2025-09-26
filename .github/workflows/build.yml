@@ -42,6 +42,7 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt
+        toolchain: stable
     - uses: actions/checkout@v4
     - run: cargo fmt -- --check
 
@@ -79,6 +80,9 @@ jobs:
             target/
           key: ${{ matrix.job.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          toolchain: stable
 
       # Could remove this step if not clippy/testing --all-features as only required for non-native profiler
       - name: Install prerequisites
