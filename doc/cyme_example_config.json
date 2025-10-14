@@ -93,6 +93,7 @@
     "max-packet-size"
   ],
   "mask-serials": null,
+  "group-devices": null,
   "max-variable-string-len": null,
   "no-auto-width": false,
   "lsusb": false,
@@ -109,5 +110,6 @@
   "no-icons": false,
   "headings": false,
   "force-libusb": false,
+  "json": false,
   "print-non-critical-profiler-stderr": false
 }
