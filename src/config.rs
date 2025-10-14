@@ -35,6 +35,8 @@ pub struct Config {
     pub endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
     /// Whether to hide device serial numbers by default
     pub mask_serials: Option<display::MaskSerial>,
+    /// How to group devices during display
+    pub group_devices: Option<display::Group>,
     /// Max variable string length to display before truncating - descriptors and classes for example
     pub max_variable_string_len: Option<usize>,
     /// Disable auto generation of max_variable_string_len based on terminal width
@@ -68,6 +70,8 @@ pub struct Config {
     pub headings: bool,
     /// Force nusb/libusb profiler on macOS rather than using/combining system_profiler output
     pub force_libusb: bool,
+    /// Output in JSON format
+    pub json: bool,
     /// Print non-critical errors (normally due to permissions) during USB profiler to stderr
     pub print_non_critical_profiler_stderr: bool,
 }
@@ -193,6 +197,7 @@ impl Config {
         self.more = settings.more;
         self.decimal = settings.decimal;
         self.mask_serials = settings.mask_serials.clone();
+        self.group_devices = Some(settings.group_devices.clone());
         self.no_padding = settings.no_padding;
         self.headings = settings.headings;
         self.tree = settings.tree;
@@ -202,6 +207,7 @@ impl Config {
             || !matches!(settings.encoding, display::Encoding::Glyphs);
         self.ascii = matches!(settings.encoding, display::Encoding::Ascii);
         self.verbose = settings.verbosity;
+        self.json = settings.json;
     }
 
     /// Returns a [`display::PrintSettings`] based on the config
@@ -225,6 +231,14 @@ impl Config {
                 display::Encoding::Glyphs
             }
         });
+        let group_devices = if self.group_devices == Some(display::Group::Bus) && self.tree {
+            log::warn!("--group-devices with --tree is ignored; will print as tree");
+            display::Group::NoGroup
+        } else {
+            self.group_devices
+                .clone()
+                .unwrap_or(display::Group::NoGroup)
+        };
         display::PrintSettings {
             device_blocks: self.blocks.clone(),
             bus_blocks: self.bus_blocks.clone(),
@@ -234,6 +248,7 @@ impl Config {
             more: self.more,
             decimal: self.decimal,
             mask_serials: self.mask_serials.clone(),
+            group_devices,
             no_padding: self.no_padding,
             headings: self.headings,
             tree: self.tree,
@@ -248,6 +263,7 @@ impl Config {
             icons,
             colours,
             verbosity: self.verbose,
+            json: self.json,
             ..Default::default()
         }
     }
