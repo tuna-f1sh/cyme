@@ -285,6 +285,20 @@ impl Config {
     }
 }
 
+impl From<&display::PrintSettings> for Config {
+    fn from(settings: &display::PrintSettings) -> Self {
+        let mut c = Config::new();
+        c.merge_print_settings(settings);
+        c
+    }
+}
+
+impl From<&Config> for display::PrintSettings {
+    fn from(c: &Config) -> Self {
+        c.print_settings()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
