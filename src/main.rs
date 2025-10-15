@@ -66,37 +66,37 @@ struct Args {
 
     /// Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --blocks bus-number,device-number,icon,vendor-id,product-id,name,serial,speed
+    /// [default: bus-number,device-number,icon,vendor-id,product-id,name,serial,speed]
     #[arg(short, long, value_enum, value_delimiter = ',', num_args = 1..)]
     blocks: Option<Vec<display::DeviceBlocks>>,
 
     /// Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --bus-blocks port-path,name,host-controller,host-controller-device
+    /// [default: port-path,name,host-controller,host-controller-device]
     #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     bus_blocks: Option<Vec<display::BusBlocks>>,
 
     /// Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --config-blocks number,icon-attributes,max-power,name
+    /// [default: number,icon-attributes,max-power,name]
     #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     config_blocks: Option<Vec<display::ConfigurationBlocks>>,
 
     /// Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --interface-blocks port-path,icon,alt-setting,base-class,sub-class --interface
+    /// [default: port-path,icon,alt-setting,base-class,sub-class]
     #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     interface_blocks: Option<Vec<display::InterfaceBlocks>>,
 
     /// Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --endpoint-blocks number,direction,transfer-type,sync-type,usage-type,max-packet-size
+    /// [default: number,direction,transfer-type,sync-type,usage-type,max-packet-size]
     #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
 
     /// Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks
     ///
-    /// Default is 'new' for legacy, 'add' is probably more useful
+    /// Default is 'new' for legacy reasons but 'add' is probably more useful
     #[arg(long, value_enum, default_value_t = display::BlockOperation::New)]
     block_operation: display::BlockOperation,
 
@@ -105,16 +105,20 @@ struct Args {
     more: bool,
 
     /// Sort devices operation
-    #[arg(long, value_enum, default_value_t = display::Sort::DeviceNumber)]
-    sort_devices: display::Sort,
+    ///
+    /// [default: no-sort]
+    #[arg(long, value_enum)]
+    sort_devices: Option<display::Sort>,
 
     /// Sort devices by bus number. If using any sort-devices other than no-sort, this happens automatically
     #[arg(long, default_value_t = false)]
     sort_buses: bool,
 
     /// Group devices by value when listing
-    #[arg(long, value_enum, default_value_t = Default::default())]
-    group_devices: display::Group,
+    ///
+    /// [default: no-group]
+    #[arg(long, value_enum)]
+    group_devices: Option<display::Group>,
 
     /// Hide empty buses when printing tree; those with no devices.
     // these are a bit confusing, could make value enum with hide_empty, hide...
@@ -138,16 +142,20 @@ struct Args {
     no_padding: bool,
 
     /// Output coloring mode
-    #[arg(long, value_enum, default_value_t = display::ColorWhen::Always, aliases = &["colour"])]
-    color: display::ColorWhen,
+    ///
+    /// [default: auto]
+    #[arg(long, value_enum, aliases = &["colour"])]
+    color: Option<display::ColorWhen>,
 
     /// Disable coloured output, can also use NO_COLOR environment variable
     #[arg(long, default_value_t = false, hide = true, aliases = &["no_colour"])]
     no_color: bool,
 
     /// Output character encoding
-    #[arg(long, value_enum, default_value_t = display::Encoding::Glyphs)]
-    encoding: display::Encoding,
+    ///
+    /// [default: glyphs]
+    #[arg(long, value_enum)]
+    encoding: Option<display::Encoding>,
 
     /// Disables icons and utf-8 characters
     #[arg(long, default_value_t = false, hide = true)]
@@ -158,8 +166,10 @@ struct Args {
     no_icons: bool,
 
     /// When to print icon blocks
-    #[arg(long, value_enum, default_value_t = display::IconWhen::Auto)]
-    icon: display::IconWhen,
+    ///
+    /// [default: auto]
+    #[arg(long, value_enum, aliases = &["icon_when"])]
+    icon: Option<display::IconWhen>,
 
     /// Show block headings
     #[arg(long, default_value_t = false)]
@@ -257,10 +267,23 @@ fn merge_config(c: &mut Config, a: &Args) {
     c.no_icons |= a.no_icons;
     c.no_color |= a.no_color;
     c.json |= a.json;
-    // override group devices if not default
-    if a.group_devices != display::Group::default() {
-        c.group_devices = Some(a.group_devices.clone());
+    // override group devices if passed
+    if a.group_devices.is_some() {
+        c.group_devices = a.group_devices;
     }
+    if a.encoding.is_some() {
+        c.encoding = a.encoding;
+    }
+    if a.sort_devices.is_some() {
+        c.sort_devices = a.sort_devices;
+    }
+    if a.icon.is_some() {
+        c.icon_when = a.icon;
+    }
+    if a.color.is_some() {
+        c.color_when = a.color;
+    }
+    c.sort_buses |= a.sort_buses;
     // take larger debug level
     c.verbose = c.verbose.max(a.verbose);
 }
@@ -640,12 +663,12 @@ fn cyme() -> Result<()> {
 
     // legacy arg, hidden but still support with new format
     if args.ascii {
-        args.encoding = display::Encoding::Ascii;
+        args.encoding = Some(display::Encoding::Ascii);
     }
 
     // legacy arg, hidden but still support with new format
     if args.no_color {
-        args.color = display::ColorWhen::Never;
+        args.color = Some(display::ColorWhen::Never);
     }
 
     if args.verbose >= MAX_VERBOSITY {
@@ -654,14 +677,15 @@ fn cyme() -> Result<()> {
 
     merge_config(&mut config, &args);
 
-    // set the output colouring
-    match args.color {
-        display::ColorWhen::Always => {
+    // set the output colouring mode
+    // display::print will check based on print settings but let's ensure
+    match config.color_when {
+        Some(display::ColorWhen::Always) => {
             env::set_var("NO_COLOR", "0");
             colored::control::set_override(true);
             config.no_color = false;
         }
-        display::ColorWhen::Never => {
+        Some(display::ColorWhen::Never) => {
             // set env to be sure too
             env::set_var("NO_COLOR", "1");
             colored::control::set_override(false);
@@ -766,7 +790,7 @@ fn cyme() -> Result<()> {
     };
 
     // create print settings from config - merged with arg flags above
-    let mut settings = config.print_settings(Some(args.encoding));
+    let mut settings = config.print_settings();
     settings.terminal_size = terminal_size().map(|(w, h)| (w.0, h.0));
     merge_blocks(&config, &args, &mut settings)?;
 

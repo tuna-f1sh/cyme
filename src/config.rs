@@ -37,6 +37,16 @@ pub struct Config {
     pub mask_serials: Option<display::MaskSerial>,
     /// How to group devices during display
     pub group_devices: Option<display::Group>,
+    /// Encoding to use for output text
+    pub encoding: Option<display::Encoding>,
+    /// When to show icons
+    pub icon_when: Option<display::IconWhen>,
+    /// When to use color
+    pub color_when: Option<display::ColorWhen>,
+    /// How to sort devices when listing
+    pub sort_devices: Option<display::Sort>,
+    /// Sort devices by bus number - irrelevant unless sort_devices is NoSort
+    pub sort_buses: bool,
     /// Max variable string length to display before truncating - descriptors and classes for example
     pub max_variable_string_len: Option<usize>,
     /// Disable auto generation of max_variable_string_len based on terminal width
@@ -60,11 +70,14 @@ pub struct Config {
     pub decimal: bool,
     /// Disable padding to align blocks
     pub no_padding: bool,
-    /// Disable color
+    /// Disable color - depreciated use color_when
+    #[serde(skip_serializing)]
     pub no_color: bool,
-    /// Disables icons and utf-8 characters
+    /// Disables icons and utf-8 characters - depreciated use encoding
+    #[serde(skip_serializing)]
     pub ascii: bool,
-    /// Disables all [`display::Block`] icons
+    /// Disables all [`display::Block`] icons - depreciated use icon_when
+    #[serde(skip_serializing)]
     pub no_icons: bool,
     /// Show block headings
     pub headings: bool,
@@ -196,8 +209,14 @@ impl Config {
         self.endpoint_blocks = settings.endpoint_blocks.clone();
         self.more = settings.more;
         self.decimal = settings.decimal;
-        self.mask_serials = settings.mask_serials.clone();
-        self.group_devices = Some(settings.group_devices.clone());
+        self.mask_serials = settings.mask_serials;
+        self.group_devices = Some(settings.group_devices);
+        self.encoding = Some(settings.encoding);
+        self.icon_when = Some(settings.icon_when);
+        self.color_when = Some(settings.color_when);
+        self.sort_devices = Some(settings.sort_devices);
+        self.sort_buses = settings.sort_buses;
+        self.no_color = settings.colours.is_none();
         self.no_padding = settings.no_padding;
         self.headings = settings.headings;
         self.tree = settings.tree;
@@ -211,7 +230,7 @@ impl Config {
     }
 
     /// Returns a [`display::PrintSettings`] based on the config
-    pub fn print_settings(&self, encoding: Option<display::Encoding>) -> display::PrintSettings {
+    pub fn print_settings(&self) -> display::PrintSettings {
         let colours = if self.no_color {
             None
         } else {
@@ -222,7 +241,7 @@ impl Config {
         } else {
             Some(self.icons.clone())
         };
-        let encoding = encoding.unwrap_or({
+        let encoding = self.encoding.unwrap_or({
             if self.ascii {
                 display::Encoding::Ascii
             } else if self.no_icons {
@@ -235,9 +254,7 @@ impl Config {
             log::warn!("--group-devices with --tree is ignored; will print as tree");
             display::Group::NoGroup
         } else {
-            self.group_devices
-                .clone()
-                .unwrap_or(display::Group::NoGroup)
+            self.group_devices.unwrap_or(display::Group::NoGroup)
         };
         display::PrintSettings {
             device_blocks: self.blocks.clone(),
@@ -247,18 +264,17 @@ impl Config {
             endpoint_blocks: self.endpoint_blocks.clone(),
             more: self.more,
             decimal: self.decimal,
-            mask_serials: self.mask_serials.clone(),
+            mask_serials: self.mask_serials,
             group_devices,
+            sort_devices: self.sort_devices.unwrap_or_default(),
+            sort_buses: self.sort_buses,
             no_padding: self.no_padding,
             headings: self.headings,
             tree: self.tree,
             max_variable_string_len: self.max_variable_string_len,
             auto_width: !self.no_auto_width,
-            icon_when: if self.no_icons {
-                display::IconWhen::Never
-            } else {
-                display::IconWhen::Auto
-            },
+            icon_when: self.icon_when.unwrap_or_default(),
+            color_when: self.color_when.unwrap_or_default(),
             encoding,
             icons,
             colours,

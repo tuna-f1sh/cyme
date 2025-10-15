@@ -1892,7 +1892,7 @@ impl Sort {
 }
 
 /// Value to group [`Device`]
-#[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, ValueEnum, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Group {
     #[default]
@@ -1903,7 +1903,7 @@ pub enum Group {
 }
 
 /// Options for [`PrintSettings`] mask_serials
-#[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, ValueEnum, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum MaskSerial {
     /// Hide with '*' char
@@ -1916,7 +1916,7 @@ pub enum MaskSerial {
 }
 
 /// Mode being used for printing
-#[derive(Default, Debug, ValueEnum, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, ValueEnum, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PrintMode {
     /// Normal printing to static output
     #[default]
@@ -1974,6 +1974,8 @@ pub struct PrintSettings {
     pub terminal_size: Option<(u16, u16)>,
     /// When to print icon blocks
     pub icon_when: IconWhen,
+    /// When to print colour
+    pub color_when: ColorWhen,
     /// Printing in watch mode
     pub print_mode: PrintMode,
 }
@@ -3491,6 +3493,12 @@ pub fn prepare(sp_usb: &mut SystemProfile, filter: Option<&Filter>, settings: &P
 pub fn print(sp_usb: &SystemProfile, settings: &PrintSettings) {
     log::trace!("Printing with {settings:?}");
     let mut dw = DisplayWriter::default();
+
+    match settings.color_when {
+        ColorWhen::Always => colored::control::set_override(true),
+        ColorWhen::Never => colored::control::set_override(false),
+        ColorWhen::Auto => colored::control::unset_override(),
+    }
 
     if settings.tree || settings.group_devices == Group::Bus {
         if settings.json {
