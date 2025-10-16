@@ -175,7 +175,8 @@ never\:"Never print icon blocks"))' \
 '--from-json=[Read from json output rather than profiling system]:FROM_JSON:_files' \
 '-c+[Path to user config file to use for custom icons, colours and default settings]:CONFIG:_files' \
 '--config=[Path to user config file to use for custom icons, colours and default settings]:CONFIG:_files' \
-'--mask-serials=[Mask serial numbers with '\''*'\'' or random chars]:MASK_SERIALS:((hide\:"Hide with '\''*'\'' char"
+'--mask-serials=[Mask serial numbers with '\''*'\'' or random chars]:MASK_SERIALS:((no-mask\:"No masking"
+hide\:"Hide with '\''*'\'' char"
 scramble\:"Mask by randomising existing chars"
 replace\:"Mask by replacing length with random chars"))' \
 '-l[Attempt to maintain compatibility with lsusb output]' \

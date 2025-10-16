@@ -138,7 +138,7 @@ _cyme() {
                     return 0
                     ;;
                 --mask-serials)
-                    COMPREPLY=($(compgen -W "hide scramble replace" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "no-mask hide scramble replace" -- "${cur}"))
                     return 0
                     ;;
                 *)

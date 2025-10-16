@@ -95,7 +95,7 @@ Verbosity level (repeat provides count): 1 prints device configurations; 2 print
 \fB\-b\fR, \fB\-\-blocks\fR \fI<BLOCKS>...\fR
 Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks.
 
-Default blocks: \-\-blocks bus\-number,device\-number,icon,vendor\-id,product\-id,name,serial,speed
+[default: bus\-number,device\-number,icon,vendor\-id,product\-id,name,serial,speed]
 .br
 
 .br
@@ -172,7 +172,7 @@ event\-icon: Event icon
 \fB\-\-bus\-blocks\fR \fI<BUS_BLOCKS>...\fR
 Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times or csv to specify multiple blocks.
 
-Default blocks: \-\-bus\-blocks port\-path,name,host\-controller,host\-controller\-device
+[default: port\-path,name,host\-controller,host\-controller\-device]
 .br
 
 .br
@@ -203,7 +203,7 @@ port\-path: syspath style port path to bus, applicable to Linux only
 \fB\-\-config\-blocks\fR \fI<CONFIG_BLOCKS>...\fR
 Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times or csv to specify multiple blocks.
 
-Default blocks: \-\-config\-blocks number,icon\-attributes,max\-power,name
+[default: number,icon\-attributes,max\-power,name]
 .br
 
 .br
@@ -226,7 +226,7 @@ max\-power: Maximum current consumption in mA
 \fB\-\-interface\-blocks\fR \fI<INTERFACE_BLOCKS>...\fR
 Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times or csv to specify multiple blocks.
 
-Default blocks: \-\-interface\-blocks port\-path,icon,alt\-setting,base\-class,sub\-class \-\-interface
+[default: port\-path,icon,alt\-setting,base\-class,sub\-class]
 .br
 
 .br
@@ -269,7 +269,7 @@ base\-value: Base class as number value rather than enum
 \fB\-\-endpoint\-blocks\fR \fI<ENDPOINT_BLOCKS>...\fR
 Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times or csv to specify multiple blocks.
 
-Default blocks: \-\-endpoint\-blocks number,direction,transfer\-type,sync\-type,usage\-type,max\-packet\-size
+[default: number,direction,transfer\-type,sync\-type,usage\-type,max\-packet\-size]
 .br
 
 .br
@@ -294,7 +294,7 @@ interval: Interval for polling endpoint data transfers. Value in frame counts. I
 \fB\-\-block\-operation\fR \fI<BLOCK_OPERATION>\fR [default: new]
 Operation to perform on the blocks supplied via \-\-blocks, \-\-bus\-blocks, \-\-config\-blocks, \-\-interface\-blocks and \-\-endpoint\-blocks
 
-Default is \*(Aqnew\*(Aq for legacy, \*(Aqadd\*(Aq is probably more useful
+Default is \*(Aqnew\*(Aq for legacy reasons but \*(Aqadd\*(Aq is probably more useful
 .br
 
 .br
@@ -314,9 +314,13 @@ remove: Remove matching blocks from the existing blocks
 .TP
 \fB\-m\fR, \fB\-\-more\fR
 Print more blocks by default at each verbosity
+
+Only works if \-\-blocks,\-\-x\-\-blocks not supplied as args or in config
 .TP
-\fB\-\-sort\-devices\fR \fI<SORT_DEVICES>\fR [default: device\-number]
+\fB\-\-sort\-devices\fR \fI<SORT_DEVICES>\fR
 Sort devices operation
+
+[default: device\-number]
 .br
 
 .br
@@ -333,8 +337,10 @@ no\-sort: No sorting; whatever order it was parsed
 \fB\-\-sort\-buses\fR
 Sort devices by bus number. If using any sort\-devices other than no\-sort, this happens automatically
 .TP
-\fB\-\-group\-devices\fR \fI<GROUP_DEVICES>\fR [default: no\-group]
+\fB\-\-group\-devices\fR \fI<GROUP_DEVICES>\fR
 Group devices by value when listing
+
+[default: no\-group]
 .br
 
 .br
@@ -361,8 +367,10 @@ Show base16 values as base10 decimal instead
 \fB\-\-no\-padding\fR
 Disable padding to align blocks \- will cause \-\-headings to become maligned
 .TP
-\fB\-\-color\fR \fI<COLOR>\fR [default: always]
+\fB\-\-color\fR \fI<COLOR>\fR
 Output coloring mode
+
+[default: auto]
 .br
 
 .br
@@ -376,8 +384,10 @@ always: Always apply colouring to the output
 never: Never apply colouring to the output
 .RE
 .TP
-\fB\-\-encoding\fR \fI<ENCODING>\fR [default: glyphs]
+\fB\-\-encoding\fR \fI<ENCODING>\fR
 Output character encoding
+
+[default: glyphs]
 .br
 
 .br
@@ -391,8 +401,10 @@ utf8: Use only standard UTF\-8 characters for the output; no private use area gl
 ascii: Use only ASCII characters for the output; 0x00 \- 0x7F (127 chars)
 .RE
 .TP
-\fB\-\-icon\fR \fI<ICON>\fR [default: auto]
+\fB\-\-icon\fR \fI<ICON>\fR
 When to print icon blocks
+
+[default: auto]
 .br
 
 .br
@@ -433,6 +445,8 @@ Mask serial numbers with \*(Aq*\*(Aq or random chars
 .br
 \fIPossible values:\fR
 .RS 14
+.IP \(bu 2
+no\-mask: No masking
 .IP \(bu 2
 hide: Hide with \*(Aq*\*(Aq char
 .IP \(bu 2

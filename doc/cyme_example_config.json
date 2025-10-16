@@ -93,6 +93,12 @@
     "max-packet-size"
   ],
   "mask-serials": null,
+  "group-devices": "no-group",
+  "encoding": "glyphs",
+  "icon-when": "auto",
+  "color-when": "auto",
+  "sort-devices": "device-number",
+  "sort-buses": false,
   "max-variable-string-len": null,
   "no-auto-width": false,
   "lsusb": false,
@@ -104,10 +110,8 @@
   "list-root-hubs": false,
   "decimal": false,
   "no-padding": false,
-  "no-color": false,
-  "ascii": false,
-  "no-icons": false,
   "headings": false,
   "force-libusb": false,
+  "json": false,
   "print-non-critical-profiler-stderr": false
 }

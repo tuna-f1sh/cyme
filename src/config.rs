@@ -35,6 +35,18 @@ pub struct Config {
     pub endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
     /// Whether to hide device serial numbers by default
     pub mask_serials: Option<display::MaskSerial>,
+    /// How to group devices during display
+    pub group_devices: Option<display::Group>,
+    /// Encoding to use for output text
+    pub encoding: Option<display::Encoding>,
+    /// When to show icons
+    pub icon_when: Option<display::IconWhen>,
+    /// When to use color
+    pub color_when: Option<display::ColorWhen>,
+    /// How to sort devices when listing
+    pub sort_devices: Option<display::Sort>,
+    /// Sort devices by bus number - irrelevant unless sort_devices is NoSort
+    pub sort_buses: bool,
     /// Max variable string length to display before truncating - descriptors and classes for example
     pub max_variable_string_len: Option<usize>,
     /// Disable auto generation of max_variable_string_len based on terminal width
@@ -58,16 +70,21 @@ pub struct Config {
     pub decimal: bool,
     /// Disable padding to align blocks
     pub no_padding: bool,
-    /// Disable color
+    /// Disable color - depreciated use color_when
+    #[serde(skip_serializing)]
     pub no_color: bool,
-    /// Disables icons and utf-8 characters
+    /// Disables icons and utf-8 characters - depreciated use encoding
+    #[serde(skip_serializing)]
     pub ascii: bool,
-    /// Disables all [`display::Block`] icons
+    /// Disables all [`display::Block`] icons - depreciated use icon_when
+    #[serde(skip_serializing)]
     pub no_icons: bool,
     /// Show block headings
     pub headings: bool,
     /// Force nusb/libusb profiler on macOS rather than using/combining system_profiler output
     pub force_libusb: bool,
+    /// Output in JSON format
+    pub json: bool,
     /// Print non-critical errors (normally due to permissions) during USB profiler to stderr
     pub print_non_critical_profiler_stderr: bool,
 }
@@ -121,6 +138,12 @@ impl Config {
             config_blocks: Some(display::ConfigurationBlocks::example_blocks()),
             interface_blocks: Some(display::InterfaceBlocks::example_blocks()),
             endpoint_blocks: Some(display::EndpointBlocks::example_blocks()),
+            mask_serials: None,
+            group_devices: Some(display::Group::default()),
+            encoding: Some(display::Encoding::default()),
+            icon_when: Some(display::IconWhen::default()),
+            color_when: Some(display::ColorWhen::default()),
+            sort_devices: Some(display::Sort::default()),
             ..Default::default()
         }
     }
@@ -192,7 +215,14 @@ impl Config {
         self.endpoint_blocks = settings.endpoint_blocks.clone();
         self.more = settings.more;
         self.decimal = settings.decimal;
-        self.mask_serials = settings.mask_serials.clone();
+        self.mask_serials = settings.mask_serials;
+        self.group_devices = Some(settings.group_devices);
+        self.encoding = Some(settings.encoding);
+        self.icon_when = Some(settings.icon_when);
+        self.color_when = Some(settings.color_when);
+        self.sort_devices = Some(settings.sort_devices);
+        self.sort_buses = settings.sort_buses;
+        self.no_color = settings.colours.is_none();
         self.no_padding = settings.no_padding;
         self.headings = settings.headings;
         self.tree = settings.tree;
@@ -202,10 +232,11 @@ impl Config {
             || !matches!(settings.encoding, display::Encoding::Glyphs);
         self.ascii = matches!(settings.encoding, display::Encoding::Ascii);
         self.verbose = settings.verbosity;
+        self.json = settings.json;
     }
 
     /// Returns a [`display::PrintSettings`] based on the config
-    pub fn print_settings(&self, encoding: Option<display::Encoding>) -> display::PrintSettings {
+    pub fn print_settings(&self) -> display::PrintSettings {
         let colours = if self.no_color {
             None
         } else {
@@ -216,7 +247,7 @@ impl Config {
         } else {
             Some(self.icons.clone())
         };
-        let encoding = encoding.unwrap_or({
+        let encoding = self.encoding.unwrap_or({
             if self.ascii {
                 display::Encoding::Ascii
             } else if self.no_icons {
@@ -225,6 +256,12 @@ impl Config {
                 display::Encoding::Glyphs
             }
         });
+        let group_devices = if self.group_devices == Some(display::Group::Bus) && self.tree {
+            log::warn!("--group-devices with --tree is ignored; will print as tree");
+            display::Group::NoGroup
+        } else {
+            self.group_devices.unwrap_or(display::Group::NoGroup)
+        };
         display::PrintSettings {
             device_blocks: self.blocks.clone(),
             bus_blocks: self.bus_blocks.clone(),
@@ -233,23 +270,38 @@ impl Config {
             endpoint_blocks: self.endpoint_blocks.clone(),
             more: self.more,
             decimal: self.decimal,
-            mask_serials: self.mask_serials.clone(),
+            mask_serials: self.mask_serials,
+            group_devices,
+            sort_devices: self.sort_devices.unwrap_or_default(),
+            sort_buses: self.sort_buses,
             no_padding: self.no_padding,
             headings: self.headings,
             tree: self.tree,
             max_variable_string_len: self.max_variable_string_len,
             auto_width: !self.no_auto_width,
-            icon_when: if self.no_icons {
-                display::IconWhen::Never
-            } else {
-                display::IconWhen::Auto
-            },
+            icon_when: self.icon_when.unwrap_or_default(),
+            color_when: self.color_when.unwrap_or_default(),
             encoding,
             icons,
             colours,
             verbosity: self.verbose,
+            json: self.json,
             ..Default::default()
         }
+    }
+}
+
+impl From<&display::PrintSettings> for Config {
+    fn from(settings: &display::PrintSettings) -> Self {
+        let mut c = Config::new();
+        c.merge_print_settings(settings);
+        c
+    }
+}
+
+impl From<&Config> for display::PrintSettings {
+    fn from(c: &Config) -> Self {
+        c.print_settings()
     }
 }
 

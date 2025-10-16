@@ -66,55 +66,61 @@ struct Args {
 
     /// Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --blocks bus-number,device-number,icon,vendor-id,product-id,name,serial,speed
+    /// [default: bus-number,device-number,icon,vendor-id,product-id,name,serial,speed]
     #[arg(short, long, value_enum, value_delimiter = ',', num_args = 1..)]
     blocks: Option<Vec<display::DeviceBlocks>>,
 
     /// Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --bus-blocks port-path,name,host-controller,host-controller-device
+    /// [default: port-path,name,host-controller,host-controller-device]
     #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     bus_blocks: Option<Vec<display::BusBlocks>>,
 
     /// Specify the blocks which will be displayed for each configuration and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --config-blocks number,icon-attributes,max-power,name
+    /// [default: number,icon-attributes,max-power,name]
     #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     config_blocks: Option<Vec<display::ConfigurationBlocks>>,
 
     /// Specify the blocks which will be displayed for each interface and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --interface-blocks port-path,icon,alt-setting,base-class,sub-class --interface
+    /// [default: port-path,icon,alt-setting,base-class,sub-class]
     #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     interface_blocks: Option<Vec<display::InterfaceBlocks>>,
 
     /// Specify the blocks which will be displayed for each endpoint and in what order. Supply arg multiple times or csv to specify multiple blocks.
     ///
-    /// Default blocks: --endpoint-blocks number,direction,transfer-type,sync-type,usage-type,max-packet-size
+    /// [default: number,direction,transfer-type,sync-type,usage-type,max-packet-size]
     #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     endpoint_blocks: Option<Vec<display::EndpointBlocks>>,
 
     /// Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks
     ///
-    /// Default is 'new' for legacy, 'add' is probably more useful
+    /// Default is 'new' for legacy reasons but 'add' is probably more useful
     #[arg(long, value_enum, default_value_t = display::BlockOperation::New)]
     block_operation: display::BlockOperation,
 
     /// Print more blocks by default at each verbosity
+    ///
+    /// Only works if --blocks,--x--blocks not supplied as args or in config
     #[arg(short, long, default_value_t = false)]
     more: bool,
 
     /// Sort devices operation
-    #[arg(long, value_enum, default_value_t = display::Sort::DeviceNumber)]
-    sort_devices: display::Sort,
+    ///
+    /// [default: device-number]
+    #[arg(long, value_enum)]
+    sort_devices: Option<display::Sort>,
 
     /// Sort devices by bus number. If using any sort-devices other than no-sort, this happens automatically
     #[arg(long, default_value_t = false)]
     sort_buses: bool,
 
     /// Group devices by value when listing
-    #[arg(long, value_enum, default_value_t = Default::default())]
-    group_devices: display::Group,
+    ///
+    /// [default: no-group]
+    #[arg(long, value_enum)]
+    group_devices: Option<display::Group>,
 
     /// Hide empty buses when printing tree; those with no devices.
     // these are a bit confusing, could make value enum with hide_empty, hide...
@@ -138,16 +144,20 @@ struct Args {
     no_padding: bool,
 
     /// Output coloring mode
-    #[arg(long, value_enum, default_value_t = display::ColorWhen::Always, aliases = &["colour"])]
-    color: display::ColorWhen,
+    ///
+    /// [default: auto]
+    #[arg(long, value_enum, aliases = &["colour"])]
+    color: Option<display::ColorWhen>,
 
     /// Disable coloured output, can also use NO_COLOR environment variable
     #[arg(long, default_value_t = false, hide = true, aliases = &["no_colour"])]
     no_color: bool,
 
     /// Output character encoding
-    #[arg(long, value_enum, default_value_t = display::Encoding::Glyphs)]
-    encoding: display::Encoding,
+    ///
+    /// [default: glyphs]
+    #[arg(long, value_enum)]
+    encoding: Option<display::Encoding>,
 
     /// Disables icons and utf-8 characters
     #[arg(long, default_value_t = false, hide = true)]
@@ -158,8 +168,10 @@ struct Args {
     no_icons: bool,
 
     /// When to print icon blocks
-    #[arg(long, value_enum, default_value_t = display::IconWhen::Auto)]
-    icon: display::IconWhen,
+    ///
+    /// [default: auto]
+    #[arg(long, value_enum, aliases = &["icon_when"])]
+    icon: Option<display::IconWhen>,
 
     /// Show block headings
     #[arg(long, default_value_t = false)]
@@ -256,9 +268,29 @@ fn merge_config(c: &mut Config, a: &Args) {
     c.force_libusb |= a.force_libusb;
     c.no_icons |= a.no_icons;
     c.no_color |= a.no_color;
-    if c.verbose == 0 {
-        c.verbose = a.verbose;
+    c.json |= a.json;
+    // override group devices if passed
+    if a.group_devices.is_some() {
+        c.group_devices = a.group_devices;
     }
+    if a.encoding.is_some() {
+        c.encoding = a.encoding;
+    }
+    if a.sort_devices.is_some() {
+        c.sort_devices = a.sort_devices;
+    }
+    if a.icon.is_some() {
+        c.icon_when = a.icon;
+    }
+    if a.color.is_some() {
+        c.color_when = a.color;
+    }
+    if a.mask_serials.is_some() {
+        c.mask_serials = a.mask_serials;
+    }
+    c.sort_buses |= a.sort_buses;
+    // take larger debug level
+    c.verbose = c.verbose.max(a.verbose);
 }
 
 /// Parse the vidpid filter lsusb format: vid:Option<pid>
@@ -357,25 +389,25 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
 
 /// macOS can use system_profiler to get USB data and merge with libusb so separate function
 #[cfg(target_os = "macos")]
-fn get_system_profile_macos(args: &Args) -> Result<profiler::SystemProfile> {
+fn get_system_profile_macos(config: &Config, args: &Args) -> Result<profiler::SystemProfile> {
     // if requested or only have libusb, use system_profiler and merge with libusb
     if args.system_profiler || !cfg!(feature = "nusb") {
-        if !args.force_libusb
+        if !config.force_libusb
             && args.device.is_none() // device path requires extra
                 && args.filter_class.is_none() // class filter requires extra
-                && !((args.tree && args.lsusb) || args.verbose > 0 || args.more)
+                && !((config.tree && config.lsusb) || config.verbose > 0 || config.more)
         {
             profiler::macos::get_spusb()
                 .map_or_else(|e| {
                     // For non-zero return, report but continue in this case
                     if e.kind() == ErrorKind::SystemProfiler {
                         eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({e})");
-                        get_system_profile(args)
+                        get_system_profile(config, args)
                     } else {
                         Err(e)
                     }
                 }, Ok)
-        } else if !args.force_libusb {
+        } else if !config.force_libusb {
             if cfg!(feature = "libusb") {
                 log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
             }
@@ -383,26 +415,26 @@ fn get_system_profile_macos(args: &Args) -> Result<profiler::SystemProfile> {
                 // For non-zero return, report but continue in this case
                 if e.kind() == ErrorKind::SystemProfiler {
                     eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({e})");
-                    get_system_profile(args)
+                    get_system_profile(config, args)
                 } else {
                     Err(e)
                 }
             }, Ok)
         } else {
-            get_system_profile(args)
+            get_system_profile(config, args)
         }
     } else {
-        get_system_profile(args)
+        get_system_profile(config, args)
     }
 }
 
 /// Detects and switches between verbose profiler (extra) and normal profiler
-fn get_system_profile(args: &Args) -> Result<profiler::SystemProfile> {
-    if args.verbose > 0
-        || args.tree
+fn get_system_profile(config: &Config, args: &Args) -> Result<profiler::SystemProfile> {
+    if config.verbose > 0
+        || config.tree
         || args.device.is_some()
-        || args.lsusb
-        || args.more
+        || config.lsusb
+        || config.more
         || args.filter_class.is_none()
     // class filter requires extra
     {
@@ -636,12 +668,12 @@ fn cyme() -> Result<()> {
 
     // legacy arg, hidden but still support with new format
     if args.ascii {
-        args.encoding = display::Encoding::Ascii;
+        args.encoding = Some(display::Encoding::Ascii);
     }
 
     // legacy arg, hidden but still support with new format
     if args.no_color {
-        args.color = display::ColorWhen::Never;
+        args.color = Some(display::ColorWhen::Never);
     }
 
     if args.verbose >= MAX_VERBOSITY {
@@ -650,14 +682,15 @@ fn cyme() -> Result<()> {
 
     merge_config(&mut config, &args);
 
-    // set the output colouring
-    match args.color {
-        display::ColorWhen::Always => {
+    // set the output colouring mode
+    // display::print will check based on print settings but let's ensure
+    match config.color_when {
+        Some(display::ColorWhen::Always) => {
             env::set_var("NO_COLOR", "0");
             colored::control::set_override(true);
             config.no_color = false;
         }
-        display::ColorWhen::Never => {
+        Some(display::ColorWhen::Never) => {
             // set env to be sure too
             env::set_var("NO_COLOR", "1");
             colored::control::set_override(false);
@@ -679,17 +712,17 @@ fn cyme() -> Result<()> {
     } else {
         #[cfg(target_os = "macos")]
         {
-            get_system_profile_macos(&args)?
+            get_system_profile_macos(&config, &args)?
         }
 
         #[cfg(not(target_os = "macos"))]
         {
-            get_system_profile(&args)?
+            get_system_profile(&config, &args)?
         }
     };
 
-    let filter = if args.hide_hubs
-        || args.hide_buses
+    let filter = if config.hide_hubs
+        || config.hide_buses
         || args.vidpid.is_some()
         || args.show.is_some()
         || args.device.is_some()
@@ -737,13 +770,13 @@ fn cyme() -> Result<()> {
         f.name = args.filter_name.clone();
         f.serial = args.filter_serial.clone();
         f.class = args.filter_class;
-        f.exclude_empty_hub = args.hide_hubs;
-        f.exclude_empty_bus = args.hide_buses;
+        f.exclude_empty_hub = config.hide_hubs;
+        f.exclude_empty_bus = config.hide_buses;
         // exclude root hubs unless:
         // * lsusb compat (shows root_hubs)
         // * json - for --from-json support
         // * list_root_hubs - user wants to see root hubs in list
-        f.no_exclude_root_hub = args.lsusb || args.json || args.list_root_hubs;
+        f.no_exclude_root_hub = config.lsusb || config.json || config.list_root_hubs;
 
         Some(f)
     } else {
@@ -753,7 +786,7 @@ fn cyme() -> Result<()> {
         // * list_root_hubs - user wants to see root hubs in list
         if cfg!(target_os = "linux") {
             Some(profiler::Filter {
-                no_exclude_root_hub: (args.lsusb || args.json || args.list_root_hubs),
+                no_exclude_root_hub: (config.lsusb || config.json || config.list_root_hubs),
                 ..Default::default()
             })
         } else {
@@ -762,26 +795,15 @@ fn cyme() -> Result<()> {
     };
 
     // create print settings from config - merged with arg flags above
-    // then override with any clone args
-    let mut settings = config.print_settings(Some(args.encoding));
+    let mut settings = config.print_settings();
     settings.terminal_size = terminal_size().map(|(w, h)| (w.0, h.0));
-    settings.json = args.json;
     merge_blocks(&config, &args, &mut settings)?;
-    if let Some(mask) = args.mask_serials {
-        settings.mask_serials = Some(mask);
-    }
-    settings.group_devices = if args.group_devices == display::Group::Bus && args.tree {
-        eprintln!("--group-devices with --tree is ignored; will print as tree");
-        display::Group::NoGroup
-    } else {
-        args.group_devices
-    };
 
     log::trace!("Returned system_profiler data\n\r{spusb:#?}");
 
     #[cfg(feature = "watch")]
     if matches!(args.command, Some(SubCommand::Watch)) {
-        if args.json {
+        if settings.json {
             watch::watch_usb_devices_json(spusb, filter, settings)?;
         } else {
             watch::watch_usb_devices(spusb, filter, settings, config)?;
@@ -791,7 +813,7 @@ fn cyme() -> Result<()> {
 
     display::prepare(&mut spusb, filter.as_ref(), &settings);
 
-    if args.lsusb {
+    if config.lsusb {
         print_lsusb(&spusb, &args.device, &settings)?;
     } else {
         // check and report if was looking for args.device
