@@ -314,6 +314,8 @@ remove: Remove matching blocks from the existing blocks
 .TP
 \fB\-m\fR, \fB\-\-more\fR
 Print more blocks by default at each verbosity
+
+Only works if \-\-blocks,\-\-x\-\-blocks not supplied as args or in config
 .TP
 \fB\-\-sort\-devices\fR \fI<SORT_DEVICES>\fR
 Sort devices operation
@@ -443,6 +445,8 @@ Mask serial numbers with \*(Aq*\*(Aq or random chars
 .br
 \fIPossible values:\fR
 .RS 14
+.IP \(bu 2
+no\-mask: No masking
 .IP \(bu 2
 hide: Hide with \*(Aq*\*(Aq char
 .IP \(bu 2

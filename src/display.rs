@@ -1907,6 +1907,8 @@ pub enum Group {
 #[derive(Default, Debug, ValueEnum, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum MaskSerial {
+    /// No masking
+    NoMask,
     /// Hide with '*' char
     #[default]
     Hide,
@@ -3434,6 +3436,7 @@ pub fn mask_serial(device: &mut Device, hide: &MaskSerial, recursive: bool) {
                 .map(|_| fastrand::alphanumeric())
                 .collect::<String>()
                 .to_uppercase(),
+            _ => serial.to_string(),
         };
     }
 

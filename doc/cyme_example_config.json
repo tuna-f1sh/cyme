@@ -92,7 +92,7 @@
     "usage-type",
     "max-packet-size"
   ],
-  "mask-serials": "hide",
+  "mask-serials": null,
   "group-devices": "no-group",
   "encoding": "glyphs",
   "icon-when": "auto",

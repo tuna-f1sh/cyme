@@ -101,6 +101,8 @@ struct Args {
     block_operation: display::BlockOperation,
 
     /// Print more blocks by default at each verbosity
+    ///
+    /// Only works if --blocks,--x--blocks not supplied as args or in config
     #[arg(short, long, default_value_t = false)]
     more: bool,
 
@@ -282,6 +284,9 @@ fn merge_config(c: &mut Config, a: &Args) {
     }
     if a.color.is_some() {
         c.color_when = a.color;
+    }
+    if a.mask_serials.is_some() {
+        c.mask_serials = a.mask_serials;
     }
     c.sort_buses |= a.sort_buses;
     // take larger debug level
