@@ -138,6 +138,12 @@ impl Config {
             config_blocks: Some(display::ConfigurationBlocks::example_blocks()),
             interface_blocks: Some(display::InterfaceBlocks::example_blocks()),
             endpoint_blocks: Some(display::EndpointBlocks::example_blocks()),
+            mask_serials: None,
+            group_devices: Some(display::Group::default()),
+            encoding: Some(display::Encoding::default()),
+            icon_when: Some(display::IconWhen::default()),
+            color_when: Some(display::ColorWhen::default()),
+            sort_devices: Some(display::Sort::default()),
             ..Default::default()
         }
     }

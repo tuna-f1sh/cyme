@@ -106,7 +106,7 @@ struct Args {
 
     /// Sort devices operation
     ///
-    /// [default: no-sort]
+    /// [default: device-number]
     #[arg(long, value_enum)]
     sort_devices: Option<display::Sort>,
 

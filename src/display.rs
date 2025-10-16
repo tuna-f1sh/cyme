@@ -1825,6 +1825,7 @@ impl Block<EndpointBlocks, Endpoint> for EndpointBlocks {
 
 /// Value to sort [`Device`]
 #[derive(Default, PartialEq, Eq, Debug, ValueEnum, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Sort {
     #[default]
     /// Sort by bus device number
