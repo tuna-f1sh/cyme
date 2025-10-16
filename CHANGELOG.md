@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- config: some settings not being applied from config file ([#82](https://github.com/tuna-f1sh/cyme/pull/82)).
+- args: sort args not being applied ([#82](https://github.com/tuna-f1sh/cyme/pull/82)).
+
 ## [2.2.6] - 2025-09-22
 
 ### Fixed
