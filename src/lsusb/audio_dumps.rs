@@ -808,7 +808,7 @@ fn dump_audio_input_terminal1(ait: &audio::InputTerminal1, indent: usize, width:
         "{:indent$}wTerminalType      {:5} {}",
         "",
         ait.terminal_type,
-        names::videoterminal(ait.terminal_type).unwrap_or_default(),
+        names::audioterminal(ait.terminal_type).unwrap_or_default(),
         indent = indent
     );
     dump_value(ait.assoc_terminal, "bAssocTerminal", indent, width);
@@ -841,7 +841,7 @@ fn dump_audio_input_terminal2(ait: &audio::InputTerminal2, indent: usize, width:
     dump_value(ait.terminal_id, "bTerminalID", indent, width);
     dump_name(
         ait.terminal_type,
-        names::videoterminal,
+        names::audioterminal,
         "wTerminalType",
         indent,
         width,
@@ -884,7 +884,7 @@ fn dump_audio_input_terminal3(ait: &audio::InputTerminal3, indent: usize, width:
     dump_value(ait.terminal_id, "bTerminalID", indent, width);
     dump_name(
         ait.terminal_type,
-        names::videoterminal,
+        names::audioterminal,
         "wTerminalType",
         indent,
         width,
@@ -913,7 +913,7 @@ pub(crate) fn dump_audio_output_terminal1(a: &audio::OutputTerminal1, indent: us
     dump_value(a.terminal_id, "bTerminalID", indent, width);
     dump_name(
         a.terminal_type,
-        names::videoterminal,
+        names::audioterminal,
         "wTerminalType",
         indent,
         width,
@@ -933,7 +933,7 @@ fn dump_audio_output_terminal2(a: &audio::OutputTerminal2, indent: usize, width:
     dump_value(a.terminal_id, "bTerminalID", indent, width);
     dump_name(
         a.terminal_type,
-        names::videoterminal,
+        names::audioterminal,
         "wTerminalType",
         indent,
         width,
@@ -960,7 +960,7 @@ fn dump_audio_output_terminal3(a: &audio::OutputTerminal3, indent: usize, width:
     dump_value(a.terminal_id, "bTerminalID", indent, width);
     dump_name(
         a.terminal_type,
-        names::videoterminal,
+        names::audioterminal,
         "wTerminalType",
         indent,
         width,
