@@ -711,7 +711,7 @@ fn dump_video_subtype(
             }
         }
         video::UvcInterfaceDescriptor::OutputTerminal(ot) => {
-            dump_audio_output_terminal1(ot, indent, width);
+            dump_audio_output_terminal1(ot, indent + 2, width);
         }
         video::UvcInterfaceDescriptor::SelectorUnit(su) => {
             dump_audio_selector_unit1(su, indent, width);
