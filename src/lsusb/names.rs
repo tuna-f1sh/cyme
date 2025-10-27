@@ -121,6 +121,11 @@ pub fn videoterminal(id: u16) -> Option<String> {
     usb_ids::VideoTerminal::from_id(id).map(|v| v.name().to_owned())
 }
 
+/// Get name of [`usb_ids::AudioTerminal`] from id
+pub fn audioterminal(id: u16) -> Option<String> {
+    usb_ids::AudioTerminal::from_id(id).map(|v| v.name().to_owned())
+}
+
 /// Wrapper around [`crate::udev::hwdb_get`] so that it can be 'used' without feature
 ///
 /// Returns `Err` not `None` if feature is not enabled so that with unwrap_or hwdb can still return `None` if no match in db
