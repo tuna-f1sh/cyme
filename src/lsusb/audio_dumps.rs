@@ -848,7 +848,7 @@ fn dump_audio_input_terminal2(ait: &audio::InputTerminal2, indent: usize, width:
     );
     dump_value(ait.assoc_terminal, "bAssocTerminal", indent, width);
     dump_value(ait.nr_channels, "bNrChannels", indent, width);
-    dump_hex(ait.channel_config, "wChannelConfig", indent, width);
+    dump_hex(ait.channel_config, "bmChannelConfig", indent, width);
     let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
         &audio::UacProtocol::Uac2,
         ait.channel_config,
@@ -870,7 +870,6 @@ fn dump_audio_input_terminal2(ait: &audio::InputTerminal2, indent: usize, width:
         &audio::ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(ait.terminal_index, "iTerminal", indent, width);
     dump_value_string(
         ait.terminal_index,
         "iTerminal",
