@@ -964,7 +964,7 @@ pub struct Endpoint {
     pub sync_type: SyncType,
     /// Usage type (Iso mode)
     pub usage_type: UsageType,
-    /// Maximum packet size in bytes endpoint can send/receive - encoded with multiplier, use `max_packet_string` for packet information
+    /// Raw maximum packet size value of endpoint 'wMaxPacketSize' field - encoded with multiplier, use `max_packet_string` for packet information
     pub max_packet_size: u16,
     /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     pub interval: u8,
@@ -988,9 +988,20 @@ impl Endpoint {
     pub fn max_packet_string(&self) -> String {
         format!(
             "{}x {}",
-            ((self.max_packet_size >> 11) & 3) + 1,
+            // packets per microframe
+            self.packets_per_microframe(),
             self.max_packet_size & 0x7ff
         )
+    }
+
+    /// Returns the maximum packet size in bytes for the endpoint
+    pub fn max_packet_size(&self) -> usize {
+        (self.max_packet_size & ((1 << 11) - 1)) as usize
+    }
+
+    /// For isochronous endpoints at high speed, get the number of packets per microframe (1, 2, or 3).
+    pub fn packets_per_microframe(&self) -> u8 {
+        ((self.max_packet_size >> 11) & 0b11) as u8 + 1
     }
 
     /// Returns the attributes byte for the endpoint

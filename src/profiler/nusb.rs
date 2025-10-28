@@ -369,7 +369,7 @@ impl NusbProfiler {
                 transfer_type: usb::TransferType::from(endpoint.attributes()),
                 sync_type: usb::SyncType::from(endpoint.attributes()),
                 usage_type: usb::UsageType::from(endpoint.attributes()),
-                max_packet_size: endpoint.max_packet_size() as u16,
+                max_packet_size: endpoint.max_packet_size_raw(),
                 interval: endpoint.interval(),
                 length: endpoint_desc[0],
                 extra: self
