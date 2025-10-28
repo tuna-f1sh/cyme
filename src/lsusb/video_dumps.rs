@@ -657,10 +657,10 @@ fn dump_video_subtype(
         }
         video::UvcInterfaceDescriptor::InputTerminal(d) => {
             dump_value(d.terminal_id, "bTerminalID", indent + 2, width);
-            dump_value_string(
-                format!("0x{:04x}", d.terminal_type),
+            dump_name_hex(
+                d.terminal_type,
+                names::videoterminal,
                 "wTerminalType",
-                names::videoterminal(d.terminal_type).unwrap_or_default(),
                 indent + 2,
                 width,
             );

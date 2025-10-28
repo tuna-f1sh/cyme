@@ -804,12 +804,12 @@ fn dump_audio_header3(header: &audio::Header3, indent: usize, width: usize) {
 
 fn dump_audio_input_terminal1(ait: &audio::InputTerminal1, indent: usize, width: usize) {
     dump_value(ait.terminal_id, "bTerminalID", indent, width);
-    println!(
-        "{:indent$}wTerminalType      {:5} {}",
-        "",
+    dump_name_hex(
         ait.terminal_type,
-        names::audioterminal(ait.terminal_type).unwrap_or_default(),
-        indent = indent
+        names::audioterminal,
+        "wTerminalType",
+        indent,
+        width,
     );
     dump_value(ait.assoc_terminal, "bAssocTerminal", indent, width);
     dump_value(ait.nr_channels, "bNrChannels", indent, width);
@@ -839,7 +839,7 @@ fn dump_audio_input_terminal1(ait: &audio::InputTerminal1, indent: usize, width:
 
 fn dump_audio_input_terminal2(ait: &audio::InputTerminal2, indent: usize, width: usize) {
     dump_value(ait.terminal_id, "bTerminalID", indent, width);
-    dump_name(
+    dump_name_hex(
         ait.terminal_type,
         names::audioterminal,
         "wTerminalType",
@@ -881,7 +881,7 @@ fn dump_audio_input_terminal2(ait: &audio::InputTerminal2, indent: usize, width:
 
 fn dump_audio_input_terminal3(ait: &audio::InputTerminal3, indent: usize, width: usize) {
     dump_value(ait.terminal_id, "bTerminalID", indent, width);
-    dump_name(
+    dump_name_hex(
         ait.terminal_type,
         names::audioterminal,
         "wTerminalType",
@@ -910,7 +910,7 @@ fn dump_audio_input_terminal3(ait: &audio::InputTerminal3, indent: usize, width:
 
 pub(crate) fn dump_audio_output_terminal1(a: &audio::OutputTerminal1, indent: usize, width: usize) {
     dump_value(a.terminal_id, "bTerminalID", indent, width);
-    dump_name(
+    dump_name_hex(
         a.terminal_type,
         names::audioterminal,
         "wTerminalType",
@@ -930,7 +930,7 @@ pub(crate) fn dump_audio_output_terminal1(a: &audio::OutputTerminal1, indent: us
 
 fn dump_audio_output_terminal2(a: &audio::OutputTerminal2, indent: usize, width: usize) {
     dump_value(a.terminal_id, "bTerminalID", indent, width);
-    dump_name(
+    dump_name_hex(
         a.terminal_type,
         names::audioterminal,
         "wTerminalType",
@@ -957,7 +957,7 @@ fn dump_audio_output_terminal2(a: &audio::OutputTerminal2, indent: usize, width:
 
 fn dump_audio_output_terminal3(a: &audio::OutputTerminal3, indent: usize, width: usize) {
     dump_value(a.terminal_id, "bTerminalID", indent, width);
-    dump_name(
+    dump_name_hex(
         a.terminal_type,
         names::audioterminal,
         "wTerminalType",
