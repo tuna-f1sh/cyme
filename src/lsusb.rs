@@ -100,6 +100,22 @@ fn dump_name<T: std::fmt::Display>(
     }
 }
 
+/// Lookup the name of the value from passed function and dump it as hex
+fn dump_name_hex<T: std::fmt::LowerHex>(
+    value: T,
+    names_f: fn(T) -> Option<String>,
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    let value_string = format!("{:#04x}", value);
+    let spaces = get_spaces(value_string.len(), field_name.len(), width);
+    let dump = format!("{:indent$}{}{}{}", "", field_name, spaces, value_string,);
+    if let Some(name) = names_f(value) {
+        println!("{dump} {name}");
+    }
+}
+
 /// Dumps the value and the string representation of the value to the right of width
 fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
     value: T,
