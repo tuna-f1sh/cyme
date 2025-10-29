@@ -367,6 +367,14 @@ impl LibUsbProfiler {
                 None
             };
 
+            // The rusb crate multiplies the raw MaxPower value by 2, which is not correct
+            // for USB3 and later, so we need to multiply by 4 to get the correct number.
+            let power_mult = if device_desc.usb_version().0 >= 3 {
+                4
+            } else {
+                1
+            };
+
             ret.push(usb::Configuration {
                 name: config_desc
                     .description_string_index()
@@ -377,7 +385,7 @@ impl LibUsbProfiler {
                 number: config_desc.number(),
                 attributes,
                 max_power: NumericalUnit {
-                    value: config_desc.max_power() as u32,
+                    value: config_desc.max_power() as u32 * power_mult,
                     unit: String::from("mA"),
                     description: None,
                 },
