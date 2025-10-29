@@ -499,7 +499,7 @@ impl NusbProfiler {
                     unit: String::from("mA"),
                     description: None,
                 },
-                length: config_desc.len() as u8,
+                length: config_desc[0],
                 total_length,
                 interfaces: self.build_interfaces(device, &c)?,
                 extra: self
