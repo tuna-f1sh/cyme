@@ -459,7 +459,11 @@ impl NusbProfiler {
         Ok(ret)
     }
 
-    fn build_configurations(&self, device: &UsbDevice) -> Result<Vec<usb::Configuration>> {
+    fn build_configurations(
+        &self,
+        device: &UsbDevice,
+        device_desc: &usb::DeviceDescriptor,
+    ) -> Result<Vec<usb::Configuration>> {
         let mut ret: Vec<usb::Configuration> = Vec::new();
 
         for c in device.handle.configurations() {
@@ -485,6 +489,14 @@ impl NusbProfiler {
                 .collect::<Vec<u8>>();
             let total_length = u16::from_le_bytes(config_desc[2..4].try_into().unwrap());
 
+            // nusb returns MaxPower as the raw descriptor value.
+            // Raw MaxPower number is supplied in 8mA units for USB >= 3, otherwise 2mA.
+            let power_mult = if device_desc.usb_version.major() >= 3 {
+                8
+            } else {
+                2
+            };
+
             ret.push(usb::Configuration {
                 name: c
                     .string_index()
@@ -494,8 +506,7 @@ impl NusbProfiler {
                 number: c.configuration_value(),
                 attributes,
                 max_power: NumericalUnit {
-                    // *2 because nusb returns in 2mA units
-                    value: (c.max_power() as u32 * 2),
+                    value: (c.max_power() as u32 * power_mult),
                     unit: String::from("mA"),
                     description: None,
                 },
@@ -568,7 +579,7 @@ impl NusbProfiler {
                         .map(|v| v.name().to_owned())
                 },
             ),
-            configurations: self.build_configurations(device)?,
+            configurations: self.build_configurations(device, &device_desc)?,
             status: Self::get_device_status(device).ok(),
             debug: Self::get_debug_descriptor(device).ok(),
             binary_object_store: None,
