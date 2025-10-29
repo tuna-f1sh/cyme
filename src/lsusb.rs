@@ -694,19 +694,19 @@ fn dump_interface(interface: &Interface, indent: usize) {
                     ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md, indent + 4),
                     ClassDescriptor::Audio(uacd, uacp) => match &uacd.descriptor_subtype {
                         audio::UacType::Control(cs) => {
-                            dump_audiocontrol_interface(uacd, cs, uacp, indent + 4)
+                            dump_audiocontrol_interface(uacd, cs, uacp, indent + 2)
                         }
                         audio::UacType::Streaming(ss) => {
-                            dump_audiostreaming_interface(uacd, ss, uacp, indent + 4)
+                            dump_audiostreaming_interface(uacd, ss, uacp, indent + 2)
                         }
                         _ => (),
                     },
                     ClassDescriptor::Video(vcd, p) => match &vcd.descriptor_subtype {
                         video::UvcType::Control(cs) => {
-                            dump_videocontrol_interface(vcd, cs, *p, indent + 4)
+                            dump_videocontrol_interface(vcd, cs, *p, indent + 2)
                         }
                         video::UvcType::Streaming(ss) => {
-                            dump_videostreaming_interface(vcd, ss, *p, indent + 4);
+                            dump_videostreaming_interface(vcd, ss, *p, indent + 2);
                         }
                     },
                     ClassDescriptor::Generic(cc, gd) => match cc {
@@ -722,10 +722,10 @@ fn dump_interface(interface: &Interface, indent: usize) {
                                 let uacp = audio::UacProtocol::from(*p);
                                 match &uacd.descriptor_subtype {
                                     audio::UacType::Control(cs) => {
-                                        dump_audiocontrol_interface(&uacd, cs, &uacp, indent + 4)
+                                        dump_audiocontrol_interface(&uacd, cs, &uacp, indent + 2)
                                     }
                                     audio::UacType::Streaming(ss) => {
-                                        dump_audiostreaming_interface(&uacd, ss, &uacp, indent + 4)
+                                        dump_audiostreaming_interface(&uacd, ss, &uacp, indent + 2)
                                     }
                                     _ => (),
                                 }
@@ -737,10 +737,10 @@ fn dump_interface(interface: &Interface, indent: usize) {
                             {
                                 match &uvcd.descriptor_subtype {
                                     video::UvcType::Control(cs) => {
-                                        dump_videocontrol_interface(&uvcd, cs, *p, indent + 4);
+                                        dump_videocontrol_interface(&uvcd, cs, *p, indent + 2);
                                     }
                                     video::UvcType::Streaming(ss) => {
-                                        dump_videostreaming_interface(&uvcd, ss, *p, indent + 4);
+                                        dump_videostreaming_interface(&uvcd, ss, *p, indent + 2);
                                     }
                                 }
                             }
