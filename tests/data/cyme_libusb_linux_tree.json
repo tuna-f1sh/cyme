@@ -40,6 +40,7 @@
                 "name": "",
                 "string_index": 0,
                 "number": 1,
+                "num_interfaces": null,
                 "interfaces": [
                   {
                     "name": "",
@@ -124,6 +125,7 @@
                 "name": "Parallels",
                 "string_index": 1,
                 "number": 1,
+                "num_interfaces": null,
                 "interfaces": [
                   {
                     "name": "Absolute Coordinate Interface",
@@ -239,6 +241,7 @@
                 "name": "Parallels",
                 "string_index": 1,
                 "number": 1,
+                "num_interfaces": null,
                 "interfaces": [
                   {
                     "name": "Virtual USB Printer Interface",
@@ -330,6 +333,7 @@
                 "name": "",
                 "string_index": 0,
                 "number": 1,
+                "num_interfaces": null,
                 "interfaces": [
                   {
                     "name": "",
@@ -432,6 +436,7 @@
                     "name": "Configuration",
                     "string_index": 4,
                     "number": 1,
+                    "num_interfaces": null,
                     "interfaces": [
                       {
                         "name": "CDC",
@@ -688,6 +693,7 @@
                     "name": "",
                     "string_index": 0,
                     "number": 1,
+                    "num_interfaces": null,
                     "interfaces": [
                       {
                         "name": "Black Magic GDB Server",
@@ -928,6 +934,7 @@
                 "name": "",
                 "string_index": 0,
                 "number": 1,
+                "num_interfaces": null,
                 "interfaces": [
                   {
                     "name": "",
@@ -1019,6 +1026,7 @@
                 "name": "",
                 "string_index": 0,
                 "number": 1,
+                "num_interfaces": null,
                 "interfaces": [
                   {
                     "name": "",
@@ -1111,6 +1119,7 @@
                 "name": "",
                 "string_index": 0,
                 "number": 1,
+                "num_interfaces": null,
                 "interfaces": [
                   {
                     "name": "",

@@ -7,6 +7,7 @@ use clap::ValueEnum;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::fmt;
 use std::path::PathBuf;
@@ -1160,8 +1161,10 @@ pub struct Configuration {
     /// Number of config, bConfigurationValue; value to set to enable to configuration
     pub number: u8,
     /// Number of interfaces available for this configuruation
-    #[serde(skip)]
-    pub num_interfaces: u8,
+    ///
+    /// Option for legacy json de compatibility. Will count unique interface numbers in self.interfaces if None
+    #[serde(default)]
+    pub num_interfaces: Option<u8>,
     /// Interfaces available for this configuruation, including alt settings
     pub interfaces: Vec<Interface>,
     /// Attributes of configuration, bmAttributes - was a HashSet since attributes should be unique but caused issues printing out of order
@@ -1237,6 +1240,20 @@ impl Configuration {
     /// Gets the [`ConfigurationPath`] for the configuration based on [`Self::parent_port_path`] and configuration number
     pub fn configuration_path(&self) -> Option<ConfigurationPath> {
         self.parent_port_path().map(|p| (p, self.number))
+    }
+
+    /// Returns the number of unique interfaces for the configuration; without alt settings
+    pub fn number_of_interfaces(&self) -> u8 {
+        if let Some(num) = self.num_interfaces {
+            num
+        } else {
+            // count unique interface numbers
+            self.interfaces
+                .iter()
+                .map(|interface| interface.number)
+                .collect::<HashSet<_>>()
+                .len() as u8
+        }
     }
 }
 

@@ -512,7 +512,7 @@ impl NusbProfiler {
                 },
                 length: config_desc[0],
                 total_length,
-                num_interfaces: c.num_interfaces(),
+                num_interfaces: Some(c.num_interfaces()),
                 interfaces: self.build_interfaces(device, &c)?,
                 extra: self
                     .build_config_descriptor_extra(device, config_extra)

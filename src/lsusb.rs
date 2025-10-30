@@ -551,7 +551,7 @@ fn dump_config(config: &Configuration, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
     dump_value(
-        config.num_interfaces,
+        config.number_of_interfaces(),
         "bNumInterfaces",
         indent + 2,
         LSUSB_DUMP_WIDTH,
