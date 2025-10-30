@@ -1159,7 +1159,10 @@ pub struct Configuration {
     pub string_index: u8,
     /// Number of config, bConfigurationValue; value to set to enable to configuration
     pub number: u8,
-    /// Interfaces available for this configuruation
+    /// Number of interfaces available for this configuruation
+    #[serde(skip)]
+    pub num_interfaces: u8,
+    /// Interfaces available for this configuruation, including alt settings
     pub interfaces: Vec<Interface>,
     /// Attributes of configuration, bmAttributes - was a HashSet since attributes should be unique but caused issues printing out of order
     pub attributes: Vec<ConfigAttributes>,

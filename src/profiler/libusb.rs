@@ -391,6 +391,7 @@ impl LibUsbProfiler {
                 },
                 length: config_desc.length(),
                 total_length: config_desc.total_length(),
+                num_interfaces: config_desc.num_interfaces(),
                 interfaces: self.build_interfaces(handle, &config_desc)?,
                 extra: self
                     .build_config_descriptor_extra(handle, config_desc.extra().to_vec())
