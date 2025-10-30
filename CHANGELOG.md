@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+* nusb profiler: use descriptor byte for bLength not cast wTotalLength ([#87](https://github.com/tuna-f1sh/cyme/pull/87)).
+* profiling: fix max power multiplier for USB 3+ devices ([#86](https://github.com/tuna-f1sh/cyme/pull/86)).
+- lsusb: fix UAC/UVC terminal printing inconsistencies and missing values ([#82](https://github.com/tuna-f1sh/cyme/pull/83)), ([#85](https://github.com/tuna-f1sh/cyme/pull/85)).
+- lsusb: nusb profiler: fix wMaxPacketSize showing processed value not raw ([#82](https://github.com/tuna-f1sh/cyme/pull/83))
+
 ## [2.2.7] - 2025-10-17
 
 ### Fixed
