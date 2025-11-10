@@ -94,7 +94,7 @@ _cyme() {
                     return 0
                     ;;
                 --interface-blocks)
-                    COMPREPLY=($(compgen -W "name number port-path base-class sub-class protocol alt-setting driver sys-path num-endpoints icon uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "name number port-path base-class sub-class protocol alt-setting driver sys-path dev-path mount-paths num-endpoints icon uid-class uid-sub-class uid-protocol class base-value" -- "${cur}"))
                     return 0
                     ;;
                 --endpoint-blocks)
