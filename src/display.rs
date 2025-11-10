@@ -398,7 +398,7 @@ pub enum InterfaceBlocks {
     Name,
     /// Interface number
     Number,
-    /// Interface port path, applicable to Linux
+    /// Interface port path (only applicable on Linux)
     PortPath,
     /// Base class enum of interface provided by USB IF
     #[serde(alias = "class-code")] // was called ClassCode in previous versions
@@ -409,10 +409,16 @@ pub enum InterfaceBlocks {
     Protocol,
     /// Interfaces can have the same number but an alternate settings defined here
     AltSetting,
-    /// Driver obtained from udev on Linux only
+    /// Driver obtained from udev (Linux only)
     Driver,
-    /// syspath obtained from udev on Linux only
+    /// syspath obtained from udev (Linux only)
     SysPath,
+    /// The /dev/ device path for the interface if it exists (Linux only)
+    ///
+    /// For example a CDC ACM device may have `/dev/ttyACM0`, MSD devices may have `/dev/sdX` paths
+    DevPath,
+    /// Mount paths for MSD interfaces (Linux only)
+    MountPaths,
     /// An interface can have many endpoints
     NumEndpoints,
     /// Icon based on BaseClass/SubCode/Protocol
@@ -1438,6 +1444,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 InterfaceBlocks::NumEndpoints,
                 InterfaceBlocks::Driver,
                 InterfaceBlocks::SysPath,
+                InterfaceBlocks::DevPath,
             ]
         } else {
             vec![
@@ -1518,6 +1525,16 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 .flat_map(|d| d.driver.as_ref().map(|v| v.len()))
                 .max()
                 .unwrap_or(0),
+            InterfaceBlocks::DevPath => d
+                .iter()
+                .flat_map(|d| d.dev_path().map(|v| v.as_os_str().len()))
+                .max()
+                .unwrap_or(0),
+            InterfaceBlocks::MountPaths => d
+                .iter()
+                .flat_map(|d| d.block_mount_paths().map(|v| v.len()))
+                .max()
+                .unwrap_or(0),
             InterfaceBlocks::UidClass => d
                 .iter()
                 .flat_map(|d| d.class_name().map(|s| s.len()))
@@ -1552,9 +1569,10 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
         match self {
             InterfaceBlocks::Number => ct.number.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::Name => ct.name.map_or(s.normal(), |c| s.color(c)),
-            InterfaceBlocks::PortPath | InterfaceBlocks::SysPath => {
-                ct.path.map_or(s.normal(), |c| s.color(c))
-            }
+            InterfaceBlocks::PortPath
+            | InterfaceBlocks::SysPath
+            | InterfaceBlocks::DevPath
+            | InterfaceBlocks::MountPaths => ct.path.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::Icon => ct.icon.map_or(s.normal(), |c| s.color(c)),
             InterfaceBlocks::BaseClass
             | InterfaceBlocks::UidClass
@@ -1596,6 +1614,14 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
             InterfaceBlocks::Driver => Some(match interface.driver.as_ref() {
+                Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            InterfaceBlocks::DevPath => Some(match interface.dev_path() {
+                Some(v) => format!("{:pad$}", v.display(), pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            InterfaceBlocks::MountPaths => Some(match interface.block_mount_paths() {
                 Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
@@ -1643,6 +1669,8 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
             InterfaceBlocks::PortPath => "PPath",
             InterfaceBlocks::SysPath => "SPath",
             InterfaceBlocks::Driver => "Driver",
+            InterfaceBlocks::DevPath => "DPath",
+            InterfaceBlocks::MountPaths => "MPaths",
             InterfaceBlocks::BaseClass => "BaseC",
             InterfaceBlocks::SubClass => "SubC",
             InterfaceBlocks::Protocol => "Pcol",

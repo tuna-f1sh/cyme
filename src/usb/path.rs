@@ -3,6 +3,8 @@
 //! Used for Linux sysfs but also cyme retrieval of USB device information within the [`crate::profiler`] module and [`crate::usb`] module
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use super::*;
@@ -891,6 +893,52 @@ pub fn get_sysfs_name(bus: u8, ports: &[u8]) -> String {
         format!("usb{bus}")
     } else {
         get_port_path(bus, ports)
+    }
+}
+
+/// Gets Vec of dev:mount points from /proc/mounts for a given /dev/sdX dev block path
+///
+/// Eg [("/dev/sdb1", "/media/usb")] for a UsbPath representing a USB storage device
+pub fn get_usb_mounts(block_path: &Path) -> error::Result<Option<Vec<(PathBuf, PathBuf)>>> {
+    let mut mounts = Vec::new();
+    let file = File::open("/proc/mounts")?;
+
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+        let line = line?;
+        let block_str = block_path.to_str().ok_or_else(|| {
+            Error::new(ErrorKind::InvalidPath, "Invalid block device path string")
+        })?;
+
+        // /proc/mounts is space-separated.
+        // Columns are: <device> <mount_point> <type> <options> ...
+        let parts: Vec<&str> = line.split_whitespace().collect();
+
+        if parts.len() < 2 {
+            continue; // Not a valid mount line
+        }
+
+        let device = parts[0];
+        let mount_point = parts[1];
+
+        // full device block with no partition number mounted
+        if device == block_str {
+            mounts.push((PathBuf::from(device), PathBuf::from(mount_point)));
+        // partitioned device mounted
+        } else if device.starts_with(block_str) {
+            // check next char is digit (partition number)
+            if let Some(num) = device.strip_prefix(block_str) {
+                if num.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+                    mounts.push((PathBuf::from(device), PathBuf::from(mount_point)));
+                }
+            }
+        }
+    }
+
+    if mounts.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(mounts))
     }
 }
 

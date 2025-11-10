@@ -409,6 +409,7 @@ dependencies = [
  "dirs",
  "fastrand",
  "futures-lite",
+ "glob",
  "heck 0.4.1",
  "io-kit-sys",
  "itertools",

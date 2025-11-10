@@ -4,6 +4,8 @@
 //!
 //! There are some repeated/copied Enum defines from rusb in order to control Serialize/Deserialize and add impl
 use clap::ValueEnum;
+#[cfg(target_os = "linux")]
+use glob::glob;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -1146,6 +1148,100 @@ impl Interface {
         self.internal.expanded = expanded;
         for endpoint in self.endpoints.iter_mut() {
             endpoint.set_expanded(expanded);
+        }
+    }
+
+    /// Gets the CDC serial device path for the interface on Linux if is a CDC device and exists
+    pub fn serial_device_path(&self) -> Option<PathBuf> {
+        if !matches!(
+            self.class,
+            BaseClass::CdcData | BaseClass::CdcCommunications
+        ) || !cfg!(target_os = "linux")
+        {
+            return None;
+        }
+
+        self.sysfs_path()
+            .and_then(|sp| {
+                let tty_dir = sp.join("tty");
+                if tty_dir.is_dir() {
+                    std::fs::read_dir(tty_dir).ok()
+                } else {
+                    None
+                }
+            })
+            .and_then(|mut entries| {
+                entries.next().and_then(|entry| {
+                    entry.ok().map(|e| {
+                        let dev_name = e.file_name().to_string_lossy().to_string();
+                        std::path::Path::new("/dev").join(dev_name)
+                    })
+                })
+            })
+    }
+
+    /// Gets the block device path for the interface on Linux if is a Mass Storage device and exists
+    pub fn block_device_path(&self) -> Option<PathBuf> {
+        #[cfg(target_os = "linux")]
+        {
+            if self.class != BaseClass::MassStorage {
+                return None;
+            }
+
+            self.sysfs_path()
+                .and_then(|sp| {
+                    // search for dirs in 'host*/target*:*:*/*:*:*:*/block/*' under interface syspath
+                    let glob_pattern = sp.join("host*/target*:*:*/*:*:*:*/block/*");
+                    glob(glob_pattern.to_str()?).ok()
+                })
+                .and_then(|mut entries| {
+                    entries.find_map(|entry| match entry {
+                        Ok(path) => path
+                            .file_name()
+                            .map(|name| std::path::Path::new("/dev").join(name)),
+                        Err(_) => None,
+                    })
+                })
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            None
+        }
+    }
+
+    /// Gets the mount paths for the block device if applicable
+    ///
+    /// Returns a comma separated list of mount points in the form 'device:mountpoint'
+    pub fn block_mount_paths(&self) -> Option<String> {
+        #[cfg(target_os = "linux")]
+        {
+            get_usb_mounts(&self.block_device_path()?)
+                .ok()?
+                .map(|mounts| {
+                    mounts
+                        .iter()
+                        .map(|mounts| format!("{}:{}", mounts.0.display(), mounts.1.display()))
+                        .join(",")
+                })
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            None
+        }
+    }
+
+    /// Gets the /dev/ device path for the interface if applicable
+    ///
+    /// For example CDC serial devices or Mass Storage block devices on Linux should have a /dev/tty* or /dev/sd* path
+    ///
+    /// Returns None if not a known device type with a /dev/ path
+    pub fn dev_path(&self) -> Option<PathBuf> {
+        match self.class {
+            BaseClass::CdcData | BaseClass::CdcCommunications => self.serial_device_path(),
+            BaseClass::MassStorage => self.block_device_path(),
+            _ => None,
         }
     }
 }
