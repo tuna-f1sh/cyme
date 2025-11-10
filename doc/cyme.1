@@ -237,7 +237,7 @@ name: Name from string descriptor
 .IP \(bu 2
 number: Interface number
 .IP \(bu 2
-port\-path: Interface port path, applicable to Linux
+port\-path: Interface port path (only applicable on Linux)
 .IP \(bu 2
 base\-class: Base class enum of interface provided by USB IF
 .IP \(bu 2
@@ -247,9 +247,13 @@ protocol: Prototol value for interface provided by USB IF
 .IP \(bu 2
 alt\-setting: Interfaces can have the same number but an alternate settings defined here
 .IP \(bu 2
-driver: Driver obtained from udev on Linux only
+driver: Driver obtained from udev (Linux only)
 .IP \(bu 2
-sys\-path: syspath obtained from udev on Linux only
+sys\-path: syspath obtained from udev (Linux only)
+.IP \(bu 2
+dev\-path: The /dev/ device path for the interface if it exists (Linux only)
+.IP \(bu 2
+mount\-paths: Mount paths for MSD interfaces (Linux only)
 .IP \(bu 2
 num\-endpoints: An interface can have many endpoints
 .IP \(bu 2
