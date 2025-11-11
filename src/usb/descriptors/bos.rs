@@ -13,6 +13,7 @@ const WEBUSB_GUID: Uuid = uuid!("{3408b638-09a9-47a0-8bfd-a0768815b665}");
 #[repr(u8)]
 #[allow(missing_docs)]
 #[non_exhaustive]
+#[serde(rename_all = "kebab-case")]
 pub enum BosType {
     WirelessUsb = 0x01,
     Usb2Extension = 0x02,
@@ -62,6 +63,7 @@ impl From<BosType> for u8 {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(rename_all = "kebab-case")]
 pub enum BosCapability {
     Generic(GenericCapability),
     Usb2Extension(ExtensionCapability),
