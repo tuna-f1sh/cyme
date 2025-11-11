@@ -896,6 +896,51 @@ pub fn get_sysfs_name(bus: u8, ports: &[u8]) -> String {
     }
 }
 
+/// Gets the CDC serial device path for the interface on Linux if is a CDC device and exists
+pub fn get_serial_device_path(sysfs_path: &Path) -> Option<PathBuf> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+
+    let tty_dir = sysfs_path.join("tty");
+    if tty_dir.is_dir() {
+        std::fs::read_dir(tty_dir).ok()
+    } else {
+        None
+    }
+    .and_then(|mut entries| {
+        entries.next().and_then(|entry| {
+            entry.ok().map(|e| {
+                let dev_name = e.file_name().to_string_lossy().to_string();
+                std::path::Path::new("/dev").join(dev_name)
+            })
+        })
+    })
+}
+
+/// Gets the block device path for the interface on Linux if is a Mass Storage device and exists
+#[allow(unused_variables)]
+pub fn get_block_device_path(sysfs_path: &Path) -> Option<PathBuf> {
+    #[cfg(target_os = "linux")]
+    {
+        // search for dirs in 'host*/target*:*:*/*:*:*:*/block/*' under interface syspath
+        let glob_pattern = sysfs_path.join("host*/target*:*:*/*:*:*:*/block/*");
+        glob(glob_pattern.to_str()?).ok().and_then(|mut entries| {
+            entries.find_map(|entry| match entry {
+                Ok(path) => path
+                    .file_name()
+                    .map(|name| std::path::Path::new("/dev").join(name)),
+                Err(_) => None,
+            })
+        })
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
 /// Gets Vec of dev:mount points from /proc/mounts for a given /dev/sdX dev block path
 ///
 /// Eg [("/dev/sdb1", "/media/usb")] for a UsbPath representing a USB storage device

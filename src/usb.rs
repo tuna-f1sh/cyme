@@ -1055,9 +1055,9 @@ pub struct Interface {
     pub protocol: u8,
     /// Interfaces can have the same number/path but an alternate setting defined here
     pub alt_setting: u8,
-    /// Driver obtained from udev on Linux only
+    /// Driver obtained from udev (Linux only)
     pub driver: Option<String>,
-    /// syspath obtained from udev on Linux only
+    /// syspath obtained from udev (Linux only)
     pub syspath: Option<String>,
     /// An interface can have many endpoints
     pub endpoints: Vec<Endpoint>,
@@ -1073,6 +1073,12 @@ pub struct Interface {
     ///
     /// This is option for legacy json de compatibility. In hindsight this would have been used and syspath, path derived from it
     pub(crate) device_path: Option<DevicePath>,
+    /// The /dev/ device path for the interface if it exists (Linux only)
+    ///
+    /// For example a CDC ACM device may have `/dev/ttyACM0`, MSD devices may have `/dev/sdX` paths
+    pub(crate) devpath: Option<PathBuf>,
+    /// Mount paths USB MSD block devices are mounted to (Linux only)
+    pub(crate) mount_paths: Option<Vec<(PathBuf, PathBuf)>>,
 }
 
 /// Deprecated alias for [`Interface`]
@@ -1151,97 +1157,46 @@ impl Interface {
         }
     }
 
-    /// Gets the CDC serial device path for the interface on Linux if is a CDC device and exists
-    pub fn serial_device_path(&self) -> Option<PathBuf> {
-        if !matches!(
-            self.class,
-            BaseClass::CdcData | BaseClass::CdcCommunications
-        ) || !cfg!(target_os = "linux")
-        {
-            return None;
-        }
-
-        self.sysfs_path()
-            .and_then(|sp| {
-                let tty_dir = sp.join("tty");
-                if tty_dir.is_dir() {
-                    std::fs::read_dir(tty_dir).ok()
-                } else {
-                    None
-                }
-            })
-            .and_then(|mut entries| {
-                entries.next().and_then(|entry| {
-                    entry.ok().map(|e| {
-                        let dev_name = e.file_name().to_string_lossy().to_string();
-                        std::path::Path::new("/dev").join(dev_name)
-                    })
-                })
-            })
-    }
-
-    /// Gets the block device path for the interface on Linux if is a Mass Storage device and exists
-    pub fn block_device_path(&self) -> Option<PathBuf> {
-        #[cfg(target_os = "linux")]
-        {
-            if self.class != BaseClass::MassStorage {
-                return None;
-            }
-
-            self.sysfs_path()
-                .and_then(|sp| {
-                    // search for dirs in 'host*/target*:*:*/*:*:*:*/block/*' under interface syspath
-                    let glob_pattern = sp.join("host*/target*:*:*/*:*:*:*/block/*");
-                    glob(glob_pattern.to_str()?).ok()
-                })
-                .and_then(|mut entries| {
-                    entries.find_map(|entry| match entry {
-                        Ok(path) => path
-                            .file_name()
-                            .map(|name| std::path::Path::new("/dev").join(name)),
-                        Err(_) => None,
-                    })
-                })
-        }
-
-        #[cfg(not(target_os = "linux"))]
-        {
-            None
-        }
-    }
-
-    /// Gets the mount paths for the block device if applicable
-    ///
-    /// Returns a comma separated list of mount points in the form 'device:mountpoint'
-    pub fn block_mount_paths(&self) -> Option<String> {
-        #[cfg(target_os = "linux")]
-        {
-            get_usb_mounts(&self.block_device_path()?)
-                .ok()?
-                .map(|mounts| {
-                    mounts
-                        .iter()
-                        .map(|mounts| format!("{}:{}", mounts.0.display(), mounts.1.display()))
-                        .join(",")
-                })
-        }
-
-        #[cfg(not(target_os = "linux"))]
-        {
-            None
-        }
-    }
-
     /// Gets the /dev/ device path for the interface if applicable
     ///
     /// For example CDC serial devices or Mass Storage block devices on Linux should have a /dev/tty* or /dev/sd* path
     ///
     /// Returns None if not a known device type with a /dev/ path
     pub fn dev_path(&self) -> Option<PathBuf> {
+        if self.devpath.is_some() {
+            return self.devpath.to_owned();
+        }
+
         match self.class {
-            BaseClass::CdcData | BaseClass::CdcCommunications => self.serial_device_path(),
-            BaseClass::MassStorage => self.block_device_path(),
+            BaseClass::CdcData | BaseClass::CdcCommunications => {
+                self.sysfs_path().and_then(|p| get_serial_device_path(&p))
+            }
+            BaseClass::MassStorage => self.sysfs_path().and_then(|p| get_block_device_path(&p)),
             _ => None,
+        }
+    }
+
+    /// Gets the mount paths for the block device if applicable
+    ///
+    /// Returns a comma separated list of mount points in the form 'device:mountpoint'
+    pub fn block_mount_paths(&self) -> Option<Vec<(PathBuf, PathBuf)>> {
+        if self.mount_paths.is_some() {
+            return self.mount_paths.as_ref().map(|paths| {
+                paths
+                    .iter()
+                    .map(|(dev, mnt)| (PathBuf::from(dev), PathBuf::from(mnt)))
+                    .collect()
+            });
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            get_usb_mounts(&self.dev_path()?).ok()?
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            None
         }
     }
 }

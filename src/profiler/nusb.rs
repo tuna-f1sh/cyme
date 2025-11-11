@@ -409,6 +409,7 @@ impl NusbProfiler {
                     Some(interface_alt.alternate_setting()),
                 );
                 let path = device_path.to_string();
+                let syspath = get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten());
 
                 let interface_desc = interface_alt.as_bytes();
                 let interface_extra = interface_alt
@@ -418,7 +419,7 @@ impl NusbProfiler {
                     .flat_map(|d| d.to_vec())
                     .collect::<Vec<u8>>();
 
-                let interface = usb::Interface {
+                let mut interface = usb::Interface {
                     name: get_sysfs_string(&path, "interface").or_else(|| {
                         interface_alt
                             .string_index()
@@ -432,7 +433,9 @@ impl NusbProfiler {
                     alt_setting: interface_alt.alternate_setting(),
                     driver: get_sysfs_readlink(&path, "driver")
                         .or_else(|| get_udev_driver_name(&path).ok().flatten()),
-                    syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
+                    syspath,
+                    devpath: None,
+                    mount_paths: None,
                     length: interface_desc[0],
                     endpoints: self.build_endpoints(device, &device_path, &interface_alt),
                     extra: self
@@ -451,6 +454,9 @@ impl NusbProfiler {
                     device_path: Some(device_path),
                     internal: InternalData::default(),
                 };
+
+                interface.devpath = interface.dev_path();
+                interface.mount_paths = interface.block_mount_paths();
 
                 ret.push(interface);
             }

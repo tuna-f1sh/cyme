@@ -113,7 +113,7 @@ alt-setting\t'Interfaces can have the same number but an alternate settings defi
 driver\t'Driver obtained from udev (Linux only)'
 sys-path\t'syspath obtained from udev (Linux only)'
 dev-path\t'The /dev/ device path for the interface if it exists (Linux only)'
-mount-paths\t'Mount paths for MSD interfaces (Linux only)'
+mount-paths\t'Mount paths for MSD interfaces in CSV partition_no:mount_path format (Linux only)'
 num-endpoints\t'An interface can have many endpoints'
 icon\t'Icon based on BaseClass/SubCode/Protocol'
 uid-class\t'Class name from USB IDs repository'
