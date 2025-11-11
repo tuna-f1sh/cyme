@@ -434,7 +434,7 @@ impl NusbProfiler {
                     driver: get_sysfs_readlink(&path, "driver")
                         .or_else(|| get_udev_driver_name(&path).ok().flatten()),
                     syspath,
-                    devpath: None,
+                    devpaths: None,
                     mount_paths: None,
                     length: interface_desc[0],
                     endpoints: self.build_endpoints(device, &device_path, &interface_alt),
@@ -455,7 +455,7 @@ impl NusbProfiler {
                     internal: InternalData::default(),
                 };
 
-                interface.devpath = interface.dev_path();
+                interface.devpaths = interface.dev_paths();
                 interface.mount_paths = interface.block_mount_paths();
 
                 ret.push(interface);

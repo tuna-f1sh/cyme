@@ -4,8 +4,6 @@
 //!
 //! There are some repeated/copied Enum defines from rusb in order to control Serialize/Deserialize and add impl
 use clap::ValueEnum;
-#[cfg(target_os = "linux")]
-use glob::glob;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -1073,10 +1071,10 @@ pub struct Interface {
     ///
     /// This is option for legacy json de compatibility. In hindsight this would have been used and syspath, path derived from it
     pub(crate) device_path: Option<DevicePath>,
-    /// The /dev/ device path for the interface if it exists (Linux only)
+    /// The /dev/ device paths for the interface if any exist (Linux only)
     ///
-    /// For example a CDC ACM device may have `/dev/ttyACM0`, MSD devices may have `/dev/sdX` paths
-    pub(crate) devpath: Option<PathBuf>,
+    /// For example a CDC ACM device may have `/dev/ttyACM0`, MSD devices may have `/dev/sdX` block device path(s)
+    pub(crate) devpaths: Option<Vec<PathBuf>>,
     /// Mount paths USB MSD block devices are mounted to (Linux only)
     pub(crate) mount_paths: Option<Vec<(PathBuf, PathBuf)>>,
 }
@@ -1157,41 +1155,47 @@ impl Interface {
         }
     }
 
-    /// Gets the /dev/ device path for the interface if applicable
+    /// Gets the /dev/ device paths for the interface if applicable
     ///
-    /// For example CDC serial devices or Mass Storage block devices on Linux should have a /dev/tty* or /dev/sd* path
+    /// For example CDC serial devices or Mass Storage block devices on Linux should have a /dev/tty* or /dev/sd* path(s)
     ///
     /// Returns None if not a known device type with a /dev/ path
-    pub fn dev_path(&self) -> Option<PathBuf> {
-        if self.devpath.is_some() {
-            return self.devpath.to_owned();
+    pub fn dev_paths(&self) -> Option<Vec<PathBuf>> {
+        if self.devpaths.is_some() {
+            return self.devpaths.to_owned();
         }
 
         match self.class {
-            BaseClass::CdcData | BaseClass::CdcCommunications => {
-                self.sysfs_path().and_then(|p| get_serial_device_path(&p))
-            }
+            BaseClass::CdcData | BaseClass::CdcCommunications => self
+                .sysfs_path()
+                .and_then(|p| get_serial_device_path(&p).map(|dp| vec![dp])),
             BaseClass::MassStorage => self.sysfs_path().and_then(|p| get_block_device_path(&p)),
             _ => None,
         }
     }
 
-    /// Gets the mount paths for the block device if applicable
+    /// Gets the mount paths for the block devices if applicable
     ///
     /// Returns a comma separated list of mount points in the form 'device:mountpoint'
     pub fn block_mount_paths(&self) -> Option<Vec<(PathBuf, PathBuf)>> {
         if self.mount_paths.is_some() {
-            return self.mount_paths.as_ref().map(|paths| {
-                paths
-                    .iter()
-                    .map(|(dev, mnt)| (PathBuf::from(dev), PathBuf::from(mnt)))
-                    .collect()
-            });
+            return self.mount_paths.to_owned();
         }
 
         #[cfg(target_os = "linux")]
         {
-            get_usb_mounts(&self.dev_path()?).ok()?
+            let dev_paths = self.dev_paths()?;
+            let mut all_mounts = Vec::new();
+            for dev_path in dev_paths {
+                if let Ok(Some(mounts)) = get_usb_mounts(&dev_path) {
+                    all_mounts.extend(mounts);
+                }
+            }
+            if all_mounts.is_empty() {
+                None
+            } else {
+                Some(all_mounts)
+            }
         }
 
         #[cfg(not(target_os = "linux"))]
