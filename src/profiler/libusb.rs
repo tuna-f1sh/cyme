@@ -302,7 +302,7 @@ impl LibUsbProfiler {
                     driver: get_sysfs_readlink(&path, "driver")
                         .or_else(|| get_udev_driver_name(&path).ok().flatten()),
                     syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
-                    devpath: None,
+                    devpaths: None,
                     mount_paths: None,
                     path,
                     length: interface_desc.length(),
@@ -323,7 +323,7 @@ impl LibUsbProfiler {
                     device_path: Some(device_path),
                 };
 
-                interface.devpath = interface.dev_path();
+                interface.devpaths = interface.dev_paths();
                 interface.mount_paths = interface.block_mount_paths();
 
                 ret.push(interface);

@@ -1,6 +1,8 @@
 //! Helper functions for USB sysfs style paths
 //!
 //! Used for Linux sysfs but also cyme retrieval of USB device information within the [`crate::profiler`] module and [`crate::usb`] module
+#[cfg(target_os = "linux")]
+use glob::glob;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs::File;
@@ -920,19 +922,26 @@ pub fn get_serial_device_path(sysfs_path: &Path) -> Option<PathBuf> {
 
 /// Gets the block device path for the interface on Linux if is a Mass Storage device and exists
 #[allow(unused_variables)]
-pub fn get_block_device_path(sysfs_path: &Path) -> Option<PathBuf> {
+pub fn get_block_device_path(sysfs_path: &Path) -> Option<Vec<PathBuf>> {
     #[cfg(target_os = "linux")]
     {
         // search for dirs in 'host*/target*:*:*/*:*:*:*/block/*' under interface syspath
         let glob_pattern = sysfs_path.join("host*/target*:*:*/*:*:*:*/block/*");
-        glob(glob_pattern.to_str()?).ok().and_then(|mut entries| {
-            entries.find_map(|entry| match entry {
-                Ok(path) => path
-                    .file_name()
-                    .map(|name| std::path::Path::new("/dev").join(name)),
-                Err(_) => None,
+        let paths = glob(glob_pattern.to_str()?)
+            .ok()?
+            .filter_map(|entry| {
+                entry.ok().and_then(|path| {
+                    path.file_name()
+                        .map(|name| std::path::Path::new("/dev").join(name))
+                })
             })
-        })
+            .collect::<Vec<_>>();
+
+        if paths.is_empty() {
+            None
+        } else {
+            Some(paths)
+        }
     }
 
     #[cfg(not(target_os = "linux"))]

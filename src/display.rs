@@ -413,9 +413,9 @@ pub enum InterfaceBlocks {
     Driver,
     /// syspath obtained from udev (Linux only)
     SysPath,
-    /// The /dev/ device path for the interface if it exists (Linux only)
+    /// The /dev/ device paths for the interface if any exist (Linux only)
     ///
-    /// For example a CDC ACM device may have `/dev/ttyACM0`, MSD devices may have `/dev/sdX` paths
+    /// For example a CDC ACM device may have `/dev/ttyACM0`, MSD devices may have `/dev/sdX` paths per LUN
     DevPath,
     /// Mount paths for MSD interfaces in CSV partition_no:mount_path format (Linux only)
     MountPaths,
@@ -1527,7 +1527,10 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 .unwrap_or(0),
             InterfaceBlocks::DevPath => d
                 .iter()
-                .flat_map(|d| d.dev_path().map(|v| v.as_os_str().len()))
+                .flat_map(|d| {
+                    d.dev_paths()
+                        .map(|paths| paths.iter().map(|p| p.to_string_lossy()).join(",").len())
+                })
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::MountPaths => d
@@ -1617,8 +1620,12 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            InterfaceBlocks::DevPath => Some(match interface.dev_path() {
-                Some(v) => format!("{:pad$}", v.display(), pad = pad.get(self).unwrap_or(&0)),
+            InterfaceBlocks::DevPath => Some(match interface.dev_paths() {
+                Some(v) => format!(
+                    "{:pad$}",
+                    v.iter().map(|p| p.to_string_lossy()).join(","),
+                    pad = pad.get(self).unwrap_or(&0)
+                ),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
             InterfaceBlocks::MountPaths => Some(match render_mount_paths(interface) {

@@ -177,9 +177,9 @@ cyme --filter-name "Black Magic" --filter-class cdc-data
 
 ```bash
 # Find /dev/tty devices for named CDC ACM device (replace with --filter-name with -d vid:pid for more specific filtering)
-cargo run -- --json --filter-class cdc-communications --filter-name 'esp' | jq '.[] | (.extra.configurations[].interfaces[].devpath) | select(. != null)'
+cargo run -- --json --filter-class cdc-communications --filter-name 'esp' | jq '.[] | (.extra.configurations[].interfaces[].devpaths) | select(. != null)'
 # Find mount points for mass storage devices
-cyme --filter-class mass-storage --json | jq '.[] | {device_name: .name, devpath: .extra.configurations[].interfaces[].devpath, mounts: .extra.configurations[].interfaces[].mount_paths}'
+cyme --filter-class mass-storage --json | jq '.[] | {device_name: .name, devpaths: .extra.configurations[].interfaces[].devpaths, mounts: .extra.configurations[].interfaces[].mount_paths}'
 # Dump newly connected devices only (using cyme watch)
 cyme --json watch | jq '.buses[] | .devices[]? | select( (.last_event | has("connected")))'
 ```
