@@ -72,7 +72,9 @@
                     ],
                     "length": 9,
                     "extra": null,
-                    "device_path": null
+                    "device_path": null,
+                    "devpath": null,
+                    "mount_paths": null
                   }
                 ],
                 "attributes": [
@@ -157,7 +159,9 @@
                     ],
                     "length": 9,
                     "extra": null,
-                    "device_path": null
+                    "device_path": null,
+                    "devpath": null,
+                    "mount_paths": null
                   },
                   {
                     "name": "Relative Coordinate Interface",
@@ -189,7 +193,9 @@
                     ],
                     "length": 9,
                     "extra": null,
-                    "device_path": null
+                    "device_path": null,
+                    "devpath": null,
+                    "mount_paths": null
                   }
                 ],
                 "attributes": [
@@ -273,7 +279,9 @@
                     ],
                     "length": 9,
                     "extra": null,
-                    "device_path": null
+                    "device_path": null,
+                    "devpath": null,
+                    "mount_paths": null
                   }
                 ],
                 "attributes": [
@@ -365,7 +373,9 @@
                     ],
                     "length": 9,
                     "extra": null,
-                    "device_path": null
+                    "device_path": null,
+                    "devpath": null,
+                    "mount_paths": null
                   }
                 ],
                 "attributes": [
@@ -468,7 +478,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       },
                       {
                         "name": "CDC DATA interface",
@@ -515,7 +527,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       },
                       {
                         "name": "CDC",
@@ -547,7 +561,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       },
                       {
                         "name": "CDC DATA interface",
@@ -594,7 +610,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       },
                       {
                         "name": "BULK interface",
@@ -641,7 +659,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       }
                     ],
                     "attributes": [],
@@ -725,7 +745,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       },
                       {
                         "name": "",
@@ -772,7 +794,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       },
                       {
                         "name": "Black Magic UART Port",
@@ -804,7 +828,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       },
                       {
                         "name": "",
@@ -851,7 +877,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       },
                       {
                         "name": "Black Magic DFU",
@@ -867,7 +895,9 @@
                         "endpoints": [],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       },
                       {
                         "name": "Black Magic Trace Capture",
@@ -899,7 +929,9 @@
                         ],
                         "length": 9,
                         "extra": null,
-                        "device_path": null
+                        "device_path": null,
+                        "devpath": null,
+                        "mount_paths": null
                       }
                     ],
                     "attributes": [],
@@ -966,7 +998,9 @@
                     ],
                     "length": 9,
                     "extra": null,
-                    "device_path": null
+                    "device_path": null,
+                    "devpath": null,
+                    "mount_paths": null
                   }
                 ],
                 "attributes": [
@@ -1058,7 +1092,9 @@
                     ],
                     "length": 9,
                     "extra": null,
-                    "device_path": null
+                    "device_path": null,
+                    "devpath": null,
+                    "mount_paths": null
                   }
                 ],
                 "attributes": [
@@ -1151,7 +1187,9 @@
                     ],
                     "length": 9,
                     "extra": null,
-                    "device_path": null
+                    "device_path": null,
+                    "devpath": null,
+                    "mount_paths": null
                   }
                 ],
                 "attributes": [

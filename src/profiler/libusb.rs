@@ -287,7 +287,7 @@ impl LibUsbProfiler {
                 );
                 let path = device_path.to_string();
 
-                let interface = usb::Interface {
+                let mut interface = usb::Interface {
                     name: get_sysfs_string(&path, "interface").or_else(|| {
                         interface_desc
                             .description_string_index()
@@ -302,6 +302,8 @@ impl LibUsbProfiler {
                     driver: get_sysfs_readlink(&path, "driver")
                         .or_else(|| get_udev_driver_name(&path).ok().flatten()),
                     syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
+                    devpath: None,
+                    mount_paths: None,
                     path,
                     length: interface_desc.length(),
                     endpoints: self.build_endpoints(handle, &device_path, &interface_desc),
@@ -320,6 +322,9 @@ impl LibUsbProfiler {
                     internal: InternalData::default(),
                     device_path: Some(device_path),
                 };
+
+                interface.devpath = interface.dev_path();
+                interface.mount_paths = interface.block_mount_paths();
 
                 ret.push(interface);
             }

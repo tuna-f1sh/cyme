@@ -417,7 +417,7 @@ pub enum InterfaceBlocks {
     ///
     /// For example a CDC ACM device may have `/dev/ttyACM0`, MSD devices may have `/dev/sdX` paths
     DevPath,
-    /// Mount paths for MSD interfaces (Linux only)
+    /// Mount paths for MSD interfaces in CSV partition_no:mount_path format (Linux only)
     MountPaths,
     /// An interface can have many endpoints
     NumEndpoints,
@@ -1443,8 +1443,8 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 InterfaceBlocks::Name,
                 InterfaceBlocks::NumEndpoints,
                 InterfaceBlocks::Driver,
-                InterfaceBlocks::SysPath,
                 InterfaceBlocks::DevPath,
+                InterfaceBlocks::SysPath,
             ]
         } else {
             vec![
@@ -1532,7 +1532,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 .unwrap_or(0),
             InterfaceBlocks::MountPaths => d
                 .iter()
-                .flat_map(|d| d.block_mount_paths().map(|v| v.len()))
+                .flat_map(|d| render_mount_paths(d).map(|v| v.len()))
                 .max()
                 .unwrap_or(0),
             InterfaceBlocks::UidClass => d
@@ -1621,7 +1621,7 @@ impl Block<InterfaceBlocks, Interface> for InterfaceBlocks {
                 Some(v) => format!("{:pad$}", v.display(), pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            InterfaceBlocks::MountPaths => Some(match interface.block_mount_paths() {
+            InterfaceBlocks::MountPaths => Some(match render_mount_paths(interface) {
                 Some(v) => format!("{:pad$}", v, pad = pad.get(self).unwrap_or(&0)),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
@@ -2224,6 +2224,23 @@ pub fn render_heading<B: BlockEnum, T>(
     }
 
     ret
+}
+
+/// Renders mount mounts with partition "partition:mount_path,..." format
+pub fn render_mount_paths(interface: &Interface) -> Option<String> {
+    interface.block_mount_paths().map(|paths| {
+        paths
+            .iter()
+            .map(|(num, path)| {
+                if let Ok(part) = num.strip_prefix("/dev/") {
+                    format!("{}:{}", part.display(), path.display())
+                } else {
+                    format!(":{}", path.display())
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(", ")
+    })
 }
 
 /// Generates tree formatting and values given `current_tree`, current `branch_length` and item `index` in branch
