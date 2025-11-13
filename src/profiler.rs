@@ -775,6 +775,15 @@ fn get_udev_syspath(port_path: &str) -> Result<Option<String>> {
     return Ok(None);
 }
 
+/// Get the USB interface device devlink paths from udev on Linux if the feature is enabled
+#[allow(unused_variables)]
+fn get_devlinks(tty_path: &str) -> Result<Option<Vec<String>>> {
+    #[cfg(all(target_os = "linux", any(feature = "udev", feature = "udevlib")))]
+    return udev::get_devlinks(tty_path);
+    #[cfg(not(all(target_os = "linux", any(feature = "udev", feature = "udevlib"))))]
+    return Ok(None);
+}
+
 /// Get the USB device syspath based on the default location "/sys/bus/usb/devices" on Linux
 #[allow(unused_variables)]
 fn get_syspath(port_path: &str) -> Option<String> {

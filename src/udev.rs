@@ -93,6 +93,26 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display + Into<S
         .map(|s| s.trim().to_string()))
 }
 
+/// Lookup the DEVLINKS property for a device given the `sys_dev` path.
+///
+/// Can be used to find /dev/*/by-id/ and /dev/*/by-path/ links for a device.
+pub fn get_devlinks(sys_dev: &str) -> Result<Option<Vec<String>>, Error> {
+    let device = get_device(sys_dev)?;
+    log::debug!("Device Syspath: {:?}", device);
+    let devlinks = device.devlinks_list();
+    log::debug!("Devlinks: {:?}", devlinks);
+    // Ok(Some(
+    //     devlinks
+    //         .iter()
+    //         .map(|l| l.value().to_string())
+    //         .collect::<Vec<String>>(),
+    // ))
+
+    Ok(device
+        .get_property_value("DEVLINKS")
+        .map(|s| s.split_whitespace().map(|s| s.to_string()).collect()))
+}
+
 /// Utilities to get device information using udev hwdb - only supported on Linux. Requires 'udev' feature.
 pub mod hwdb {
     use super::*;
