@@ -186,7 +186,7 @@ cyme --json watch | jq '.buses[] | .devices[]? | select( (.last_event | has("con
 
 #### Functions
 
-```
+```bash
 ttyvid() {
   cyme --json --filter-class cdc-communications -d $1 | jq '.[] | (.extra.configurations[].interfaces[].devpaths[0]) | select(. != null)' | tr -d '"'
 }
