@@ -130,9 +130,12 @@ pub fn get_devlinks(sys_dev: &str) -> Result<Option<Vec<String>>, Error> {
         )
     })?;
 
-    Ok(device
-        .get_property_value("DEVLINKS")
-        .map(|s| s.split_whitespace().map(|s| s.to_string()).collect()))
+    Ok(device.property_value("DEVLINKS").map(|s| {
+        s.to_string_lossy()
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect()
+    }))
 }
 
 /// udev hwdb lookup functions
