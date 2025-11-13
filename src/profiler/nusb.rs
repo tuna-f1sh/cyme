@@ -457,6 +457,22 @@ impl NusbProfiler {
 
                 interface.devpaths = interface.dev_paths();
                 interface.mount_paths = interface.block_mount_paths();
+                // TODO add to device?
+                // if let Some(devpaths) = &interface.devpaths {
+                //     let ids: Vec<_> = devpaths
+                //         .iter()
+                //         .filter_map(|p| {
+                //             let path = format!(
+                //                 "{}/{}/{}",
+                //                 interface.sysfs_name(),
+                //                 "tty",
+                //                 p.file_name()?.to_string_lossy()
+                //             );
+                //             get_devlinks(&path).ok().flatten()
+                //         })
+                //         .collect();
+                //     log::info!("Interface {} devlinks: {:?}", interface.path, ids);
+                // }
 
                 ret.push(interface);
             }

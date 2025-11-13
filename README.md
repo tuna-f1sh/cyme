@@ -177,12 +177,26 @@ cyme --filter-name "Black Magic" --filter-class cdc-data
 
 ```bash
 # Find /dev/tty devices for named CDC ACM device (replace with --filter-name with -d vid:pid for more specific filtering)
-cargo run -- --json --filter-class cdc-communications --filter-name 'esp' | jq '.[] | (.extra.configurations[].interfaces[].devpaths) | select(. != null)'
+cargo run -- --json --filter-class cdc-communications --filter-name 'esp' | jq '.[] | (.extra.configurations[].interfaces[].devpaths[0]) | select(. != null)'
 # Find mount points for mass storage devices
 cyme --filter-class mass-storage --json | jq '.[] | {device_name: .name, devpaths: .extra.configurations[].interfaces[].devpaths, mounts: .extra.configurations[].interfaces[].mount_paths}'
 # Dump newly connected devices only (using cyme watch)
 cyme --json watch | jq '.buses[] | .devices[]? | select( (.last_event | has("connected")))'
 ```
+
+#### Functions
+
+```
+ttyvid() {
+  cyme --json --filter-class cdc-communications -d $1 | jq '.[] | (.extra.configurations[].interfaces[].devpaths[0]) | select(. != null)' | tr -d '"'
+}
+
+ttyname() {
+  cyme --json --filter-class cdc-communications --filter-name $1 | jq '.[] | (.extra.configurations[].interfaces[].devpaths[0]) | select(. != null)' | tr -d '"'
+}
+```
+
+Then use with a serial IO tool to open a device based on VID or name: `tio $(ttyname 'edbg')`
 
 ## Crate
 

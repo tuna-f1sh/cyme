@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+* profiling: obtain interface /dev/ paths on Linux - see README for example serial device finding ([#80](https://github.com/tuna-f1sh/cyme/issue/80)[#89](https://github.com/tuna-f1sh/cyme/pull/89)).
+* profiling: obtain interface block device mount paths if MSD ([#60](https://github.com/tuna-f1sh/cyme/issue/60)[#89](https://github.com/tuna-f1sh/cyme/pull/89)).
+
 ### Fixed
 
 * nusb profiler: use descriptor byte for bLength not cast wTotalLength ([#87](https://github.com/tuna-f1sh/cyme/pull/87)).

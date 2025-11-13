@@ -116,6 +116,25 @@ pub fn get_udev_attribute<T: AsRef<std::ffi::OsStr> + std::fmt::Display>(
         .map(|s| s.to_str().unwrap_or("").to_string()))
 }
 
+/// Lookup the DEVLINKS property for a device given the `sys_dev` path.
+///
+/// Can be used to find /dev/*/by-id/ and /dev/*/by-path/ links for a device.
+pub fn get_devlinks(sys_dev: &str) -> Result<Option<Vec<String>>, Error> {
+    let device = udevlib::Device::from_syspath(Path::new(sys_dev)).map_err(|e| {
+        Error::new(
+            ErrorKind::Udev,
+            &format!(
+                "Failed to get DEVLINKS for device at {}: Error({})",
+                sys_dev, e
+            ),
+        )
+    })?;
+
+    Ok(device
+        .get_property_value("DEVLINKS")
+        .map(|s| s.split_whitespace().map(|s| s.to_string()).collect()))
+}
+
 /// udev hwdb lookup functions
 ///
 /// Protected by the `udev_hwdb` feature because 'libudev-sys' excludes hwdb ffi bindings if native udev does not support hwdb
