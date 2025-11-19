@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.2.8] - 2025-11-19
 
 ### Added
 
