@@ -494,7 +494,7 @@ fn print_man() -> Result<()> {
     let mut app = Args::command();
 
     // completions
-    let bin_name = "cyme";
+    let bin_name = app.get_name().to_string();
     generate_to(Bash, &mut app, bin_name, &outdir).expect("Failed to generate Bash completions");
     generate_to(Fish, &mut app, bin_name, &outdir).expect("Failed to generate Fish completions");
     generate_to(Zsh, &mut app, bin_name, &outdir).expect("Failed to generate Zsh completions");

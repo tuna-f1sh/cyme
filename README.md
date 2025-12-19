@@ -42,8 +42,9 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 ## Demo
 
-* [General use asciicast](https://asciinema.org/a/IwYyZMrGMbXL4g15qDIaUViyM)
-* [Watch sub-command](https://youtu.be/ohRBrVBRolA)
+<a href="https://asciinema.org/a/542486" target="_blank"><img src="https://asciinema.org/a/542486.svg" /></a>
+
+* [YouTube demo of watch sub-command](https://youtu.be/ohRBrVBRolA)
 
 # Install
 
