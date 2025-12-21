@@ -1,4 +1,4 @@
-//! Icons and themeing of cyme output
+//! Icons and theming of cyme output
 #[cfg(feature = "regex_icon")]
 use regex;
 use serde::{Deserialize, Serialize};
@@ -567,7 +567,7 @@ impl IconTheme {
     }
 }
 
-/// Gets tree icon from [`static@DEFAULT_UTF8_TREE`] or [`static@DEFAULT_ASCII_TREE`] (depanding on [`Encoding`]) as `String` with `unwrap` because should panic if missing from there
+/// Gets tree icon from [`static@DEFAULT_UTF8_TREE`] or [`static@DEFAULT_ASCII_TREE`] (depending on [`Encoding`]) as `String` with `unwrap` because should panic if missing from there
 pub fn get_default_tree_icon(i: &Icon, encoding: &Encoding) -> String {
     match encoding {
         Encoding::Utf8 | Encoding::Glyphs => DEFAULT_UTF8_TREE.get(i).unwrap().to_string(),

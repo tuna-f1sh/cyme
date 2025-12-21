@@ -1627,10 +1627,10 @@ impl Device {
             self.serial_num.as_ref(),
         ) {
             (n, Some(m), Some(s)) => {
-                format!("Manufactuer={n} Product={m} Serial={s}")
+                format!("Manufacturer={n} Product={m} Serial={s}")
             }
             (n, Some(m), None) => {
-                format!("Manufactuer={n} Product={m}")
+                format!("Manufacturer={n} Product={m}")
             }
             (n, None, Some(s)) => {
                 format!("Product={n} Serial={s}")

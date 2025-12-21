@@ -668,7 +668,7 @@ where
                     } else {
                         new_bus.devices = Some(children.collect());
                     }
-                    // else find and add parent - this should work because we are sorted to accend the tree so parents should be created before their children
+                    // else find and add parent - this should work because we are sorted to ascend the tree so parents should be created before their children
                 } else {
                     let parent_node = new_bus
                         .get_node_mut(&parent_path)

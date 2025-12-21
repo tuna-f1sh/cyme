@@ -454,15 +454,15 @@ impl TryFrom<&[u8]> for TerminalExtra {
 }
 
 impl From<TerminalExtra> for Vec<u8> {
-    fn from(te: TerminalExtra) -> Self {
+    fn from(terminal_extra: TerminalExtra) -> Self {
         let mut ret = Vec::new();
-        ret.extend_from_slice(&te.objective_focal_length_min.to_le_bytes());
-        ret.extend_from_slice(&te.objective_focal_length_max.to_le_bytes());
-        ret.extend_from_slice(&te.ocular_focal_length.to_le_bytes());
-        ret.push(te.control_size);
+        ret.extend_from_slice(&terminal_extra.objective_focal_length_min.to_le_bytes());
+        ret.extend_from_slice(&terminal_extra.objective_focal_length_max.to_le_bytes());
+        ret.extend_from_slice(&terminal_extra.ocular_focal_length.to_le_bytes());
+        ret.push(terminal_extra.control_size);
 
-        for i in 0..te.control_size.min(3) {
-            ret.push((te.controls >> (i * 8)) as u8);
+        for i in 0..terminal_extra.control_size.min(3) {
+            ret.push((terminal_extra.controls >> (i * 8)) as u8);
         }
 
         ret

@@ -5,24 +5,24 @@ mod common;
 
 #[test]
 fn test_run() {
-    let te = common::TestEnv::new();
+    let env = common::TestEnv::new();
 
     // just run and check it doesn't exit with error without --from-json arg
-    te.assert_success_and_get_output(None, &[]);
+    env.assert_success_and_get_output(None, &[]);
 }
 
 #[test]
 #[cfg(target_os = "macos")]
 fn test_run_force_libusb() {
-    let te = common::TestEnv::new();
+    let env = common::TestEnv::new();
 
     // just run and check it doesn't exit with error without --from-json arg
-    te.assert_success_and_get_output(None, &["--force-libusb"]);
+    env.assert_success_and_get_output(None, &["--force-libusb"]);
 }
 
 #[test]
 fn test_list() {
-    let te = common::TestEnv::new();
+    let env = common::TestEnv::new();
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
     comp_sp.into_flattened();
@@ -30,7 +30,7 @@ fn test_list() {
     let comp = serde_json::to_string_pretty(&devices).unwrap();
 
     // TODO not sure why assert_output_json doesn't work, might help to have module which shows diff
-    te.assert_output(
+    env.assert_output(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json"],
         &comp,
@@ -40,7 +40,7 @@ fn test_list() {
 
 #[test]
 fn test_list_filtering() {
-    let te = common::TestEnv::new();
+    let env = common::TestEnv::new();
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
     let filter = cyme::profiler::Filter {
@@ -53,33 +53,33 @@ fn test_list_filtering() {
     filter.retain_flattened_devices_ref(&mut devices);
     let comp = serde_json::to_string_pretty(&devices).unwrap();
 
-    te.assert_output(
+    env.assert_output(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--filter-name", "Black Magic"],
         &comp,
         false,
     );
 
-    te.assert_output(
+    env.assert_output(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--vidpid", "1d50"],
         &comp,
         false,
     );
 
-    te.assert_output(
+    env.assert_output(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--vidpid", "1d50:6018"],
         &comp,
         false,
     );
 
-    te.assert_failure(
+    env.assert_failure(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--vidpid", "1d50:unhappy"],
     );
 
-    te.assert_output(
+    env.assert_output(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--filter-serial", "97B6A11D"],
         &comp,
@@ -97,14 +97,14 @@ fn test_list_filtering() {
     filter.retain_flattened_devices_ref(&mut devices);
     let comp = serde_json::to_string_pretty(&devices).unwrap();
 
-    te.assert_output(
+    env.assert_output(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--show", "2:"],
         &comp,
         false,
     );
 
-    te.assert_failure(
+    env.assert_failure(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--show", "f"],
     );
@@ -113,14 +113,14 @@ fn test_list_filtering() {
     filter.retain_flattened_devices_ref(&mut devices);
     let comp = serde_json::to_string_pretty(&devices).unwrap();
 
-    te.assert_output(
+    env.assert_output(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--show", "2:23"],
         &comp,
         false,
     );
 
-    te.assert_failure(
+    env.assert_failure(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--show", "blah"],
     );
@@ -130,11 +130,11 @@ fn test_list_filtering() {
 // windows line ending messes this up
 #[cfg(not(target_os = "windows"))]
 fn test_tree() {
-    let te = common::TestEnv::new();
+    let env = common::TestEnv::new();
 
     let comp = common::read_dump_to_string(common::CYME_LIBUSB_LINUX_TREE_DUMP);
 
-    te.assert_output_json(
+    env.assert_output_json(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--tree"],
         &comp,
@@ -143,7 +143,7 @@ fn test_tree() {
 
 #[test]
 fn test_tree_filtering() {
-    let te = common::TestEnv::new();
+    let env = common::TestEnv::new();
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
     let filter = cyme::profiler::Filter {
@@ -153,7 +153,7 @@ fn test_tree_filtering() {
     filter.retain_buses(&mut comp_sp.buses);
     let comp = serde_json::to_string_pretty(&comp_sp).unwrap();
 
-    te.assert_output(
+    env.assert_output(
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--tree", "--vidpid", "1d50"],
         &comp,

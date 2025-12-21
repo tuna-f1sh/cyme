@@ -56,7 +56,7 @@ From crates.io with a Rust tool-chain installed: `cargo install cyme`. To do it 
 
 ### Package Managers
 
-* [Homebrew 'cyme'](https://formulae.brew.sh/formula/cyme) which will also install a man page, completions and the 'libusb' dependency: 
+* [Homebrew 'cyme'](https://formulae.brew.sh/formula/cyme) which will also install a man page, completions and the 'libusb' dependency:
 
 ```bash
 brew install cyme
@@ -126,7 +126,7 @@ Use `cyme --help` for basic usage or `man ./doc/cyme.1`. There are also autocomp
 cyme --tree
 # As above but with configurations too
 cyme --tree --verbose
-# And with interfaces and endpoints - each verbose level goes futher down the USB descriptor tree. Using short arg here.
+# And with interfaces and endpoints - each verbose level goes further down the USB descriptor tree. Using short arg here.
 cyme --tree -vvv
 # List all USB devices and buses in a tree format with more display blocks, all verbose levels and headings to show what is being displayed
 cyme --tree --more --headings
@@ -141,7 +141,7 @@ cyme --from-json tree.json
 ```bash
 # List all USB devices and buses like 'lsusb'
 cyme --lsusb
-# lsusb verbose device dump including all descriptor informaion
+# lsusb verbose device dump including all descriptor information
 cyme --lsusb --verbose
 # lsusb tree mode (can add verbose levels [-v])
 cyme --lsusb --tree

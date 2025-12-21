@@ -64,7 +64,7 @@ impl From<Recipient> for nusb::transfer::Recipient {
     }
 }
 
-/// Covert to our crate speed
+/// Convert to our crate speed
 impl From<nusb::Speed> for usb::Speed {
     fn from(nusb: nusb::Speed) -> Self {
         match nusb {

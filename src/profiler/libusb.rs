@@ -82,7 +82,7 @@ impl From<libusb::Error> for Error {
     }
 }
 
-/// Covert to our crate speed
+/// Convert to our crate speed
 impl From<libusb::Speed> for usb::Speed {
     fn from(libusb: libusb::Speed) -> Self {
         match libusb {

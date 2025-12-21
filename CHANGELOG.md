@@ -65,7 +65,7 @@
 
 ## [2.2.0] - 2025-04-21
 
-`cyme watch` subcommand to watch for USB device hotplug events and _live_ edit display settings. A simple TUI proof of concept that grew beyond just showing hotplug events into something quite handy for exploring enumerated devices. It can also edit display settings and save them to the cyme config file. 
+`cyme watch` subcommand to watch for USB device hotplug events and _live_ edit display settings. A simple TUI proof of concept that grew beyond just showing hotplug events into something quite handy for exploring enumerated devices. It can also edit display settings and save them to the cyme config file.
 
 It's a nice way to customise display blocks: press 'b' to use the editor and 'Ctrl-s' to save. Use '?' for other keybindings. Navigation is mostly Vim-like. Try connecting and disconnecting a device while running `cyme watch` to see the hotplug events.
 
@@ -98,7 +98,7 @@ Here's a quick demo: https://youtu.be/ohRBrVBRolA?si=OY8zEtqF-8x_Lp7u
 ### Changed
 
 - build: hide `--gen` behind `cli_generate` feature ([#61](https://github.com/tuna-f1sh/cyme/pull/61)).
-- lsusb: brought upto date with v018 releae and some pre-v019 features ([#62](https://github.com/tuna-f1sh/cyme/pull/62)).
+- lsusb: brought upto date with v018 release and some pre-v019 features ([#62](https://github.com/tuna-f1sh/cyme/pull/62)).
 
 ### Added
 
@@ -253,7 +253,7 @@ _A release of patches, PRs and merges :), thanks to support_
 - Support udev/sysfs iString lookup ([#14](https://github.com/tuna-f1sh/cyme/pull/14)) (@haata).
 - Add fully defined USB Device based on class code triplet.
 - Support bLength, wTotalLength and bDescriptorType fields in `lsusb --verbose` with ([rusb/#185](https://github.com/a1ien/rusb/pull/185)). This completes the `lsusb --verbose` support apart from extra descriptors.
-- Add `lsusb::names` mod that ports 'usbutils/names.c' to match the behaviour using `lsusb --verbose`. This means class, sub-class and protocol udev-hwdb names are included now in `lsusb --verbose` ([b99e87](https://github.com/tuna-f1sh/cyme/commit/b99e87a586248fdd6dbf72d5624e5e61e993ff5a)). 
+- Add `lsusb::names` mod that ports 'usbutils/names.c' to match the behaviour using `lsusb --verbose`. This means class, sub-class and protocol udev-hwdb names are included now in `lsusb --verbose` ([b99e87](https://github.com/tuna-f1sh/cyme/commit/b99e87a586248fdd6dbf72d5624e5e61e993ff5a)).
 - Add the display blocks `uid-class`, `uid-subc-lass`, `uid-protocol`, `class`, and `class-value` for `DeviceBlock`s and `InterfaceBlock`s. These are also added for `--more`.
 - Add `feature=udev_hwdb` to guard against systems that have udev but not hwdb support ([cross/#1377](https://github.com/cross-rs/cross/issues/1377))/([libudev-sys/#16](https://github.com/dcuddeback/libudev-sys/pull/16)).
 

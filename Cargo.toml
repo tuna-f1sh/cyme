@@ -61,7 +61,7 @@ libusb = ["dep:rusb"] # libusb bindings rather than nusb Rust
 udev = ["dep:udevrs"] # udev device info lookup
 udev_hwdb = ["udevlib?/hwdb"] # udev hardware database lookup rather than usb-ids
 udevlib = ["dep:udevlib"] # udev libc bindings rather than Rust
-usb_test = [] # testing with phyiscal USB devices
+usb_test = [] # testing with physical USB devices
 regex_icon = ["dep:regex"] # icon name lookup with regex
 cli_generate = ["dep:clap_complete", "dep:clap_mangen"] # for generating man and completions
 native = ["nusb", "udev"] # pure Rust USB and udev bindings
@@ -107,7 +107,7 @@ image = "ghcr.io/cross-rs/aarch64-linux-android:main"
 section = "utility"
 copyright = "2024, John Whittington <john@jbrengineering.co.uk>"
 changelog = "CHANGELOG.md"
-extended-description = """Profiles system USB buses and the devices on those buses, including full device descriptors. Compatable with lsusb arguments and output whilst adding new features."""
+extended-description = """Profiles system USB buses and the devices on those buses, including full device descriptors. Compatible with lsusb arguments and output whilst adding new features."""
 assets = [
   ["target/release/cyme", "usr/bin/", "755"],
   ["README.md", "usr/share/doc/cyme/README", "644"],
