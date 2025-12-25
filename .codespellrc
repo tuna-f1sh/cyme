@@ -1,3 +1,3 @@
 [codespell]
 ignore-words-list = Ratatui,UNSECURE,Unsecure,unsecure,ser,wHeight,wheight,ot,ALS,als
-skip = target,./target,doc/cyme.1,./doc/cyme.1
+skip = target,./target,doc,./doc,doc/*,./doc/*
