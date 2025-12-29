@@ -1244,9 +1244,9 @@ impl TryFrom<(u8, u8, u8)> for UacType {
 impl From<UacType> for u8 {
     fn from(us: UacType) -> u8 {
         match us {
-            UacType::Control(aci) => aci as u8,
-            UacType::Streaming(asi) => asi as u8,
-            UacType::Midi(mi) => mi as u8,
+            UacType::Control(control_subtype) => control_subtype as u8,
+            UacType::Streaming(streaming_subtype) => streaming_subtype as u8,
+            UacType::Midi(midi_subtype) => midi_subtype as u8,
         }
     }
 }
@@ -1255,15 +1255,15 @@ impl fmt::Display for UacType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             match self {
-                UacType::Control(aci) => write!(f, "{aci:#}"),
-                UacType::Streaming(asi) => write!(f, "{asi:#}"),
-                UacType::Midi(mi) => write!(f, "{mi:#}"),
+                UacType::Control(control_subtype) => write!(f, "{control_subtype:#}"),
+                UacType::Streaming(streaming_subtype) => write!(f, "{streaming_subtype:#}"),
+                UacType::Midi(midi_subtype) => write!(f, "{midi_subtype:#}"),
             }
         } else {
             match self {
-                UacType::Control(aci) => write!(f, "{aci}"),
-                UacType::Streaming(asi) => write!(f, "{asi}"),
-                UacType::Midi(mi) => write!(f, "{mi}"),
+                UacType::Control(control_subtype) => write!(f, "{control_subtype}"),
+                UacType::Streaming(streaming_subtype) => write!(f, "{streaming_subtype}"),
+                UacType::Midi(midi_subtype) => write!(f, "{midi_subtype}"),
             }
         }
     }
@@ -1277,8 +1277,12 @@ impl UacType {
         data: &[u8],
     ) -> Result<UacInterfaceDescriptor, Error> {
         match self {
-            UacType::Control(aci) => aci.get_descriptor(&UacProtocol::from(protocol), data),
-            UacType::Streaming(asi) => asi.get_descriptor(&UacProtocol::from(protocol), data),
+            UacType::Control(control_subtype) => {
+                control_subtype.get_descriptor(&UacProtocol::from(protocol), data)
+            }
+            UacType::Streaming(streaming_subtype) => {
+                streaming_subtype.get_descriptor(&UacProtocol::from(protocol), data)
+            }
             UacType::Midi(_) => Err(Error::new(
                 ErrorKind::InvalidArg,
                 "Midi descriptor to UAC not supported, use MidiInterfaceDescriptor",

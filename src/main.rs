@@ -520,7 +520,7 @@ fn print_man() -> Result<()> {
 fn load_config<P: AsRef<Path>>(path: Option<P>) -> Result<Config> {
     if let Some(p) = path {
         let config = Config::from_file(p);
-        log::info!("Using user config {config:?}");
+        log::info!("Using user confog {config:?}");
         config
     } else {
         Config::sys()

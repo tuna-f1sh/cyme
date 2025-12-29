@@ -464,7 +464,7 @@ pub enum EndpointBlocks {
     SyncType,
     /// Usage type (Iso mode)
     UsageType,
-    /// Maximum packet size in bytes endpoint can send/recieve
+    /// Maximum packet size in bytes endpoint can send/receive
     MaxPacketSize,
     /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     Interval,
@@ -576,7 +576,7 @@ pub trait Block<B: BlockEnum, T> {
     /// Formats u16 values like VID as base16 or base10 depending on decimal setting
     fn format_base_u16(v: u16, settings: &PrintSettings) -> String {
         if settings.decimal {
-            // pad 6 not 5 to maintian 0x padding
+            // pad 6 not 5 to maintain 0x padding
             format!("{v:6}")
         } else {
             format!("0x{v:04x}")
@@ -2313,7 +2313,7 @@ fn generate_extra_blocks(
 
     // auto drop icon blocks depending on IconWhen and Encoding
     // will drop if any in search is not valid for encoding rather than per device
-    // I think accepable as similar to device block behaviour
+    // I think acceptable as similar to device block behaviour
     match settings.icon_when {
         // if never or auto and no icons, drop
         IconWhen::Never | IconWhen::Auto if settings.icons.is_none() => {

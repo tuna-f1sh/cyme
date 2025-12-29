@@ -126,7 +126,7 @@ direction\t'Direction of data into endpoint'
 transfer-type\t'Type of data transfer endpoint accepts'
 sync-type\t'Synchronisation type (Iso mode)'
 usage-type\t'Usage type (Iso mode)'
-max-packet-size\t'Maximum packet size in bytes endpoint can send/recieve'
+max-packet-size\t'Maximum packet size in bytes endpoint can send/receive'
 interval\t'Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints'"
 complete -c cyme -n "__fish_cyme_needs_command" -l block-operation -d 'Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks' -r -f -a "add\t'Add new blocks to the existing blocks, ignoring duplicates'
 append\t'Append new blocks to the end of the existing blocks'

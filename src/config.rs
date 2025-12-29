@@ -148,7 +148,7 @@ impl Config {
         }
     }
 
-    /// Attempt to read from .json format confg at `file_path`
+    /// Attempt to read from .json format config at `file_path`
     pub fn from_file<P: AsRef<Path>>(file_path: P) -> Result<Self> {
         let f = File::open(&file_path)?;
         let mut config: Self = serde_json::from_reader(BufReader::new(f)).map_err(|e| {

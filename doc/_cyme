@@ -153,7 +153,7 @@ direction\:"Direction of data into endpoint"
 transfer-type\:"Type of data transfer endpoint accepts"
 sync-type\:"Synchronisation type (Iso mode)"
 usage-type\:"Usage type (Iso mode)"
-max-packet-size\:"Maximum packet size in bytes endpoint can send/recieve"
+max-packet-size\:"Maximum packet size in bytes endpoint can send/receive"
 interval\:"Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints"))' \
 '--block-operation=[Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks]:BLOCK_OPERATION:((add\:"Add new blocks to the existing blocks, ignoring duplicates"
 append\:"Append new blocks to the end of the existing blocks"
