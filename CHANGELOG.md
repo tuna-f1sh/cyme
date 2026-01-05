@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.9] - 2025-01-05
+
+### Fixed
+
+* typos: typos and spelling mistakes ([#90](https://github.com/tuna-f1sh/cyme/pull/90)), ([usbutils#240](https://github.com/gregkh/usbutils/pull/240)).
+
 ## [2.2.8] - 2025-11-19
 
 ### Added
