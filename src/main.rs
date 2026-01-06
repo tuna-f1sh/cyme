@@ -96,8 +96,8 @@ struct Args {
 
     /// Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks
     ///
-    /// Default is 'new' for legacy reasons but 'add' is probably more useful
-    #[arg(long, value_enum, default_value_t = display::BlockOperation::New)]
+    /// Default is 'add' for ease of use, 'new' is more explicit and was legacy behaviour (< 2.3.0)
+    #[arg(long, value_enum, default_value_t = display::BlockOperation::Add)]
     block_operation: display::BlockOperation,
 
     /// Print more blocks by default at each verbosity

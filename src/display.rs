@@ -2369,11 +2369,11 @@ pub struct TreeData {
 #[derive(Default, PartialEq, Eq, Debug, ValueEnum, Clone, Copy, Serialize, Deserialize)]
 pub enum BlockOperation {
     /// Add new blocks to the existing blocks, ignoring duplicates
+    #[default]
     Add,
     /// Append new blocks to the end of the existing blocks
     Append,
     /// Replace all blocks with new ones
-    #[default]
     New,
     /// Prepend new blocks to the start of the existing blocks
     Prepend,
