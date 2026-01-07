@@ -632,7 +632,11 @@ where
     fn get_spusb(&mut self, with_extra: bool) -> Result<SystemProfile> {
         let mut spusb = SystemProfile { buses: Vec::new() };
 
-        log::info!("Building SystemProfile with {self:?}");
+        if with_extra {
+            log::info!("Building SystemProfile using {self:?} with extra device data");
+        } else {
+            log::info!("Building SystemProfile using {self:?} without extra device data");
+        }
 
         // temporary store of devices created when iterating through DeviceList
         let mut cache = self.get_devices(with_extra)?;
@@ -812,7 +816,7 @@ pub fn get_spusb() -> Result<SystemProfile> {
     #[cfg(feature = "nusb")]
     {
         let mut profiler = nusb::NusbProfiler::new();
-        profiler.get_spusb(true)
+        profiler.get_spusb(false)
     }
 
     #[cfg(all(not(feature = "libusb"), not(feature = "nusb")))]

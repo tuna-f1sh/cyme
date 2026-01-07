@@ -490,7 +490,12 @@ impl LibUsbProfiler {
         device: &libusb::Device<T>,
         device_desc: &libusb::DeviceDescriptor,
     ) -> Result<UsbDevice<T>> {
-        let timeout = std::time::Duration::from_secs(1);
+        let timeout = std::time::Duration::from_millis(
+            std::env::var("CYME_USB_TIMEOUT_MS")
+                .ok()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(200),
+        );
         let handle = device.open()?;
         let language = match handle.read_languages(timeout) {
             Ok(l) => {

@@ -691,7 +691,13 @@ impl NusbProfiler {
                         language,
                         vidpid: (device_info.vendor_id(), device_info.product_id()),
                         location: sp_device.location_id.to_owned(),
-                        timeout: std::time::Duration::from_secs(1),
+                        // timeout from CYME_USB_TIMEOUT_MS or default 200ms
+                        timeout: std::time::Duration::from_millis(
+                            std::env::var("CYME_USB_TIMEOUT_MS")
+                                .ok()
+                                .and_then(|s| s.parse::<u64>().ok())
+                                .unwrap_or(200),
+                        ),
                     };
 
                     match self.build_spdevice_extra(&usb_device, &mut sp_device) {
