@@ -435,7 +435,7 @@ fn get_system_profile(config: &Config, args: &Args) -> Result<profiler::SystemPr
         || args.device.is_some()
         || config.lsusb
         || config.more
-        || args.filter_class.is_none()
+        || args.filter_class.is_some()
     // class filter requires extra
     {
         profiler::get_spusb_with_extra()
