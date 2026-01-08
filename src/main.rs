@@ -97,8 +97,10 @@ struct Args {
     /// Operation to perform on the blocks supplied via --blocks, --bus-blocks, --config-blocks, --interface-blocks and --endpoint-blocks
     ///
     /// Default is 'add' for ease of use, 'new' is more explicit and was legacy behaviour (< 2.3.0)
-    #[arg(long, value_enum, default_value_t = display::BlockOperation::Add)]
-    block_operation: display::BlockOperation,
+    ///
+    /// [default: add]
+    #[arg(long, value_enum)]
+    block_operation: Option<display::BlockOperation>,
 
     /// Print more blocks by default at each verbosity
     ///
@@ -287,6 +289,9 @@ fn merge_config(c: &mut Config, a: &Args) {
     }
     if a.mask_serials.is_some() {
         c.mask_serials = a.mask_serials;
+    }
+    if a.block_operation.is_some() {
+        c.block_operation = a.block_operation;
     }
     c.sort_buses |= a.sort_buses;
     // take larger debug level
@@ -600,6 +605,7 @@ pub fn set_log_level(debug: u8) -> Result<()> {
 
 /// Merge with arg blocks with config blocks (or default if None) depending on BlockOperation
 fn merge_blocks(config: &Config, args: &Args, settings: &mut display::PrintSettings) -> Result<()> {
+    let block_op = config.block_operation.unwrap_or_default();
     if let Some(blocks) = &args.blocks {
         let mut device_blocks = config.blocks.to_owned().unwrap_or(if settings.more {
             DeviceBlocks::default_blocks(true)
@@ -608,28 +614,22 @@ fn merge_blocks(config: &Config, args: &Args, settings: &mut display::PrintSetti
         } else {
             DeviceBlocks::default_blocks(false)
         });
-        args.block_operation.run(&mut device_blocks, blocks)?;
+        block_op.run(&mut device_blocks, blocks)?;
         settings.device_blocks = Some(device_blocks);
     }
 
     if let Some(blocks) = &args.bus_blocks {
-        settings.bus_blocks = Some(args.block_operation.new_or_op(
-            config.bus_blocks.to_owned(),
-            blocks,
-            settings.more,
-        )?);
+        settings.bus_blocks =
+            Some(block_op.new_or_op(config.bus_blocks.to_owned(), blocks, settings.more)?);
     }
 
     if let Some(blocks) = &args.config_blocks {
-        settings.config_blocks = Some(args.block_operation.new_or_op(
-            settings.config_blocks.to_owned(),
-            blocks,
-            settings.more,
-        )?);
+        settings.config_blocks =
+            Some(block_op.new_or_op(settings.config_blocks.to_owned(), blocks, settings.more)?);
     }
 
     if let Some(blocks) = &args.interface_blocks {
-        settings.interface_blocks = Some(args.block_operation.new_or_op(
+        settings.interface_blocks = Some(block_op.new_or_op(
             settings.interface_blocks.to_owned(),
             blocks,
             settings.more,
@@ -637,11 +637,8 @@ fn merge_blocks(config: &Config, args: &Args, settings: &mut display::PrintSetti
     }
 
     if let Some(blocks) = &args.endpoint_blocks {
-        settings.endpoint_blocks = Some(args.block_operation.new_or_op(
-            settings.endpoint_blocks.to_owned(),
-            blocks,
-            settings.more,
-        )?);
+        settings.endpoint_blocks =
+            Some(block_op.new_or_op(settings.endpoint_blocks.to_owned(), blocks, settings.more)?);
     }
 
     Ok(())
