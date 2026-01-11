@@ -1,10 +1,16 @@
 # Changelog
 
+## [2.2.10] - 2025-01-11
+
+### Fixed
+
+* profiler: fix always reading extra descriptors even when not verbose ([#91](https://github.com/tuna-f1sh/cyme/pull/91)).
+
 ## [2.2.9] - 2025-01-05
 
 ### Fixed
 
-* typos: typos and spelling mistakes ([#90](https://github.com/tuna-f1sh/cyme/pull/90)), ([usbutils#240](https://github.com/gregkh/usbutils/pull/240)).
+* typos and spelling mistakes ([#90](https://github.com/tuna-f1sh/cyme/pull/90)), ([usbutils#240](https://github.com/gregkh/usbutils/pull/240)).
 
 ## [2.2.8] - 2025-11-19
 
