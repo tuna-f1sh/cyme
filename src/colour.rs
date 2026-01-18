@@ -1,6 +1,5 @@
 //! Colouring of cyme output
 use colored::*;
-use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt;
 
@@ -213,7 +212,7 @@ where
         type Value = Color;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("colour string or `3 u8 RGB array`")
+            formatter.write_str("colour string, '#rgb' or `3 u8 RGB array`")
         }
 
         fn visit_str<E>(self, value: &str) -> Result<Color, E>
@@ -283,7 +282,8 @@ fn color_to_string(color: Color) -> String {
         Color::BrightMagenta => "bright magenta".into(),
         Color::BrightCyan => "bright cyan".into(),
         Color::BrightWhite => "bright white".into(),
-        Color::TrueColor { r, g, b } => format!("[{r}, {g}, {b}]"),
+        Color::AnsiColor(n) => format!("ansi({})", n),
+        Color::TrueColor { r, g, b } => format!("#{:02X}{:02X}{:02X}", r, g, b),
     }
 }
 
@@ -293,16 +293,7 @@ where
     S: serde::ser::Serializer,
 {
     match color {
-        Some(c) => match c {
-            Color::TrueColor { r, g, b } => {
-                let mut seq = s.serialize_seq(Some(3))?;
-                seq.serialize_element(r)?;
-                seq.serialize_element(g)?;
-                seq.serialize_element(b)?;
-                seq.end()
-            }
-            _ => s.serialize_str(&color_to_string(*c)),
-        },
+        Some(c) => s.serialize_str(&color_to_string(*c)),
         None => s.serialize_none(),
     }
 }
