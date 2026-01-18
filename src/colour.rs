@@ -195,7 +195,9 @@ where
     match ColorOrNull::deserialize(deserializer)? {
         ColorOrNull::Str(s) => match s {
             "" => Ok(None),
-            _ => Ok(Some(Color::from(s))),
+            _ => Ok(Some(deserialize_color(
+                serde::de::IntoDeserializer::into_deserializer(s),
+            )?)),
         },
         ColorOrNull::FromStr(i) => Ok(Some(i)),
         ColorOrNull::Null => Ok(None),
@@ -219,7 +221,17 @@ where
         where
             E: serde::de::Error,
         {
-            Ok(Color::from(value))
+            if let Some(stripped) = value.strip_prefix('$') {
+                let num = u8::from_str_radix(stripped, 16).map_err(|_| {
+                    serde::de::Error::custom(format!(
+                        "Invalid ANSI color code: {}. Expected format is '$XX' where XX is a hex number between 00 and FF.",
+                        value
+                    ))
+                })?;
+                Ok(Color::AnsiColor(num))
+            } else {
+                Ok(Color::from(value))
+            }
         }
 
         fn visit_seq<M>(self, mut seq: M) -> Result<Color, M::Error>
@@ -282,7 +294,7 @@ fn color_to_string(color: Color) -> String {
         Color::BrightMagenta => "bright magenta".into(),
         Color::BrightCyan => "bright cyan".into(),
         Color::BrightWhite => "bright white".into(),
-        Color::AnsiColor(n) => format!("ansi({})", n),
+        Color::AnsiColor(n) => format!("${:02X}", n),
         Color::TrueColor { r, g, b } => format!("#{:02X}{:02X}{:02X}", r, g, b),
     }
 }
@@ -358,5 +370,31 @@ mod tests {
         let ser = serde_json::to_string_pretty(&ct).unwrap();
         let ctrt: ColourTheme = serde_json::from_str(&ser).unwrap();
         assert_eq!(ct, ctrt);
+    }
+
+    #[test]
+    fn test_deserialize_other_colors() {
+        let ct: ColourTheme = serde_json::from_str(r##"{"name": "#FF5733"}"##).unwrap();
+        assert_eq!(
+            ct.name,
+            Some(Color::TrueColor {
+                r: 0xFF,
+                g: 0x57,
+                b: 0x33
+            })
+        );
+
+        let ct2: ColourTheme = serde_json::from_str(r#"{"name": [255, 87, 51]}"#).unwrap();
+        assert_eq!(
+            ct2.name,
+            Some(Color::TrueColor {
+                r: 0xFF,
+                g: 0x57,
+                b: 0x33
+            })
+        );
+
+        let ct3: ColourTheme = serde_json::from_str(r##"{"name": "$1A"}"##).unwrap();
+        assert_eq!(ct3.name, Some(Color::AnsiColor(0x1A)));
     }
 }
