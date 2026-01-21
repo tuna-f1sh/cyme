@@ -156,8 +156,8 @@ See `cyme --help` for blocks available. One can also omit the value to the arg t
 cyme --more
 # List USB devices with chosen blocks: name, vid, pid, serial, speed (can use short -b)
 cyme --blocks name,vendor-id,product-id,serial -b speed
-# Customise other blocks - it's probably easier to use Config at this point
-cyme --blocks name --bus-blocks name --config-blocks name --interface-blocks class --endpoint-blocks number
+# Customise other blocks - it's probably easier to use Config at this point. -vvv to see config, interfaces and endpoints
+cyme -vvv --blocks name --bus-blocks name --config-blocks name --interface-blocks class --endpoint-blocks number
 # Use block-operation to change the default or config blocks with arg blocks
 cyme --block-operation remove --blocks serial
 cyme --block-operation add --blocks base-class --blocks last-event --bus-blocks host-controller-vendor
@@ -178,7 +178,7 @@ cyme --filter-name "Black Magic" --filter-class cdc-data
 
 ```bash
 # Find /dev/tty devices for named CDC ACM device (replace with --filter-name with -d vid:pid for more specific filtering)
-cargo run -- --json --filter-class cdc-communications --filter-name 'esp' | jq '.[] | (.extra.configurations[].interfaces[].devpaths[0]) | select(. != null)'
+cyme --filter-class cdc-communications --filter-name 'esp' --json | jq '.[] | (.extra.configurations[].interfaces[].devpaths[0]) | select(. != null)'
 # Find mount points for mass storage devices
 cyme --filter-class mass-storage --json | jq '.[] | {device_name: .name, devpaths: .extra.configurations[].interfaces[].devpaths, mounts: .extra.configurations[].interfaces[].mount_paths}'
 # Dump newly connected devices only (using cyme watch)
