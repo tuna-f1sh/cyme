@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.11] - 2025-01-30
+
+### Fixed
+
+* build: colored crate breaking change without major release ([#93](https://github.com/tuna-f1sh/cyme/issues/92)).
+
 ## [2.2.10] - 2025-01-11
 
 ### Fixed
