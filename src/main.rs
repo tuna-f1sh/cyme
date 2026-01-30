@@ -817,6 +817,7 @@ fn cyme() -> Result<()> {
         print_lsusb(&spusb, &args.device, &settings)?;
     } else {
         // check and report if was looking for args.device
+        #[allow(clippy::unnecessary_unwrap)]
         if args.device.is_some() && !spusb.buses.iter().any(|b| b.is_empty()) {
             return Err(Error::new(
                 ErrorKind::NotFound,
