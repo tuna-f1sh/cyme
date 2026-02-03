@@ -222,7 +222,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bump Homebrew formula
-        uses: mislav/bump-homebrew-formula-action@581d1a926c3b95b39a0048a3934a3489290408d2
+        uses: mislav/bump-homebrew-formula-action@56a283fa15557e9abaa4bdb63b8212abc68e655c
         with:
           formula-name: cyme
           formula-path: Formula/cyme.rb
