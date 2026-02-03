@@ -76,6 +76,12 @@ jobs:
             target/
           key: ${{ matrix.job.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Rustup update and version
+        shell: bash
+        run: |
+          rustup update
+          rustup --version
+
       # Could remove this step if not clippy/testing --all-features as only required for non-native profiler
       - name: Install prerequisites
         shell: bash
