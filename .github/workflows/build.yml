@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
     - name: Extract crate information
       id: crate_metadata
       run: |
@@ -39,7 +39,7 @@ jobs:
     name: Ensure 'cargo fmt' has been run
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
     - run: cargo fmt -- --check
 
   # Clippy pre-check would be nice but OS dependant features and libusb deps for all-features requires in matrix
@@ -65,7 +65,7 @@ jobs:
       # pkg-macos-x86_64: ${{ steps.package.outputs.pkg-universal-apple-darwin }}
       homebrew-pkg-name: ${{ steps.package.outputs.MACOS_PKG_NAME }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
         with:
           path: |
