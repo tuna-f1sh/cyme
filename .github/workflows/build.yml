@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
     - name: Extract crate information
       id: crate_metadata
       run: |
@@ -43,7 +43,7 @@ jobs:
       with:
         components: rustfmt
         toolchain: stable
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
     - run: cargo fmt -- --check
 
   # Clippy pre-check would be nice but OS dependant features and libusb deps for all-features requires in matrix
@@ -69,8 +69,8 @@ jobs:
       # pkg-macos-x86_64: ${{ steps.package.outputs.pkg-universal-apple-darwin }}
       homebrew-pkg-name: ${{ steps.package.outputs.MACOS_PKG_NAME }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry/index/
@@ -191,13 +191,13 @@ jobs:
           TARGET: ${{ matrix.job.target }}
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: ${{ steps.package.outputs.PKG_NAME }}
           path: ${{ steps.package.outputs.PKG_PATH }}
 
       - name: Upload dpkg artifact
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: steps.debian-package.outputs.DPKG_NAME
         with:
           name: ${{ steps.debian-package.outputs.DPKG_NAME }}
@@ -210,12 +210,12 @@ jobs:
     if: github.event_name == 'release'
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           path: artifacts
 
       - name: Upload release artifacts
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
         with:
           files: |
             artifacts/**/*.tar.gz
@@ -224,7 +224,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bump Homebrew formula
-        uses: mislav/bump-homebrew-formula-action@v3
+        uses: mislav/bump-homebrew-formula-action@581d1a926c3b95b39a0048a3934a3489290408d2
         with:
           formula-name: cyme
           formula-path: Formula/cyme.rb
