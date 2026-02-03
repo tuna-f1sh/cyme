@@ -39,10 +39,6 @@ jobs:
     name: Ensure 'cargo fmt' has been run
     runs-on: ubuntu-latest
     steps:
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        components: rustfmt
-        toolchain: stable
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
     - run: cargo fmt -- --check
 
@@ -79,10 +75,6 @@ jobs:
             ~/.cargo/bin/cargo-deb
             target/
           key: ${{ matrix.job.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-          toolchain: stable
 
       # Could remove this step if not clippy/testing --all-features as only required for non-native profiler
       - name: Install prerequisites
