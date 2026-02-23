@@ -275,6 +275,7 @@ pub static DEFAULT_ICONS: LazyLock<HashMap<Icon, &'static str>> = LazyLock::new(
         (Icon::Vid(0x1d50), "\u{e771}"),               // open source VID 
         (Icon::VidPid((0x1915, 0x520c)), "\u{f00a3}"), // specialized 󰂣
         (Icon::VidPid((0x1915, 0x520d)), "\u{f00a3}"), // specialized 󰂣
+        (Icon::VidPid((0x1915, 0x520e)), "\u{f00a3}"), // specialized 󰂣
         (Icon::VidPid((0x0483, 0x572B)), "\u{f00a3}"), // specialized 󰂣
         (Icon::Vid(0x046d), "\u{f037d}"),              // logitech 󰍽
         (Icon::Vid(0x091e), "\u{e2a6}"),               // garmin 
@@ -308,6 +309,8 @@ pub static DEFAULT_ICONS: LazyLock<HashMap<Icon, &'static str>> = LazyLock::new(
         (Icon::VidPid((0x18D1, 0x2D05)), "\u{e70e}"),  // android dev 
         (Icon::VidPid((0x18D1, 0xd00d)), "\u{e70e}"),  // android 
         (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
+        (Icon::VidPid((0x1209, 0xca01)), "\u{f191d}"), // CANnectivity single channel gs_can 󱤝
+        (Icon::VidPid((0x1209, 0xca02)), "\u{f191d}"), // CANnectivity dual channel gs_can 󱤝
         (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f0379}"), // lg monitor 󰍹
         (Icon::Classifier(BaseClass::Audio), "\u{f001}"), // 
         (Icon::Classifier(BaseClass::Image), "\u{f03e}"), // 
