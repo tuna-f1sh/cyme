@@ -189,13 +189,13 @@ jobs:
           TARGET: ${{ matrix.job.target }}
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: ${{ steps.package.outputs.PKG_NAME }}
           path: ${{ steps.package.outputs.PKG_PATH }}
 
       - name: Upload dpkg artifact
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         if: steps.debian-package.outputs.DPKG_NAME
         with:
           name: ${{ steps.debian-package.outputs.DPKG_NAME }}
