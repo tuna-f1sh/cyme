@@ -195,6 +195,11 @@ struct Args {
     #[arg(short = 'c', long)]
     config: Option<PathBuf>,
 
+    /// Filter devices after profiling rather than during.
+    /// This is slower but can be used as a fallback if the optimized profiling is causing issues.
+    #[arg(long, default_value_t = false)]
+    filter_post: bool,
+
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
     #[arg(short = 'z', long, action = clap::ArgAction::Count)]
     // short -d taken by lsusb compat vid:pid
@@ -815,12 +820,20 @@ fn cyme() -> Result<()> {
     } else {
         #[cfg(target_os = "macos")]
         {
-            get_system_profile_macos(&config, &args, filter.clone())?
+            get_system_profile_macos(
+                &config,
+                &args,
+                if args.filter_post { None } else { filter.clone() },
+            )?
         }
 
         #[cfg(not(target_os = "macos"))]
         {
-            get_system_profile(&config, &args, filter.clone())?
+            get_system_profile(
+                &config,
+                &args,
+                if args.filter_post { None } else { filter.clone() },
+            )?
         }
     };
 
