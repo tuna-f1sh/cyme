@@ -1975,7 +1975,7 @@ impl<'a> IntoIterator for &'a mut Device {
 /// Used to filter devices within buses
 ///
 /// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Filter {
     /// Retain only devices with vendor id matching this
     pub vid: Option<u16>,
@@ -1999,6 +1999,19 @@ pub struct Filter {
     pub no_exclude_root_hub: bool,
     /// Case sensitive matching for strings. False will be unless capital letter in query
     pub case_sensitive: bool,
+}
+
+/// Options for the profiler to allow for more performant profiling when using filters
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ProfilerOptions {
+    /// Filter to apply during profiling
+    pub filter: Option<Filter>,
+    /// Whether to collect extra data: configs, interfaces and endpoints
+    pub with_extra: bool,
+    /// Whether to collect more extra data for lsusb or json output: bos, qualifier, status, debug and hub data
+    pub more_extra: bool,
+    /// Whether we are building a tree (true) or just a flat list (false)
+    pub tree: bool,
 }
 
 /// Deprecated alias for [`Filter`]
@@ -2104,6 +2117,13 @@ impl Filter {
 
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &Device) -> bool {
+        self.is_identity_match(device)
+            && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
+            && (!device.is_root_hub() || self.no_exclude_root_hub)
+    }
+
+    /// Checks whether `device` matches the identity criteria of the filter (VID, PID, Name, Serial, Class, etc.)
+    pub fn is_identity_match(&self, device: &Device) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
@@ -2113,7 +2133,22 @@ impl Filter {
             && self.class.as_ref().is_none_or(|fc| {
                 device.class.as_ref() == Some(fc) || device.has_interface_class(fc)
             })
-            && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
+    }
+
+    /// Checks whether `device` could potentially match filter if extra data was loaded
+    ///
+    /// Used by profilers to decide whether to load extra data for a device
+    pub fn is_potential_match(&self, device: &Device) -> bool {
+        (Some(device.location_id.bus) == self.bus || self.bus.is_none())
+            && (Some(device.location_id.number) == self.number || self.number.is_none())
+            && (device.vendor_id == self.vid || self.vid.is_none())
+            && (device.product_id == self.pid || self.pid.is_none())
+            && (self.string_match(&self.name, Some(&device.name)))
+            && (self.string_match(&self.serial, device.serial_num.as_ref()))
+            // if we have a class filter, it's a potential match if we haven't loaded extra data yet (to check interfaces)
+            && self.class.as_ref().is_none_or(|fc| {
+                device.class.as_ref() == Some(fc) || device.extra.is_none()
+            })
             && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 

@@ -44,15 +44,21 @@ impl SystemProfileStreamBuilder {
 
     /// Build the [`SystemProfileStream`]
     pub fn build(self) -> Result<SystemProfileStream, Error> {
+        let options = super::ProfilerOptions {
+            filter: None,
+            with_extra: self.verbose,
+            more_extra: self.verbose, // assuming if verbose we want all
+            tree: true,               // Watch always works with tree usually
+        };
+
         let spusb = if let Some(spusb) = self.spusb {
             Arc::new(Mutex::new(spusb))
-        } else if self.verbose {
-            Arc::new(Mutex::new(super::get_spusb_with_extra()?))
         } else {
-            Arc::new(Mutex::new(super::get_spusb()?))
+            Arc::new(Mutex::new(super::get_spusb_with_options(&options)?))
         };
         let mut new = SystemProfileStream::new(spusb)?;
         new.verbose = self.verbose;
+        new.options = options;
         Ok(new)
     }
 }
@@ -62,6 +68,7 @@ pub struct SystemProfileStream {
     spusb: Arc<Mutex<SystemProfile>>,
     watch_stream: Pin<Box<dyn Stream<Item = HotplugEvent> + Send>>,
     verbose: bool,
+    options: super::ProfilerOptions,
 }
 
 impl SystemProfileStream {
@@ -72,6 +79,7 @@ impl SystemProfileStream {
             spusb,
             watch_stream,
             verbose: true,
+            options: super::ProfilerOptions::default(),
         })
     }
 
@@ -84,11 +92,9 @@ impl SystemProfileStream {
     ///
     /// Last events will be lost
     pub fn reprofile(&self) -> Arc<Mutex<SystemProfile>> {
-        if self.verbose {
-            Arc::new(Mutex::new(super::get_spusb_with_extra().unwrap()))
-        } else {
-            Arc::new(Mutex::new(super::get_spusb().unwrap()))
-        }
+        Arc::new(Mutex::new(
+            super::get_spusb_with_options(&self.options).unwrap(),
+        ))
     }
 }
 
@@ -106,8 +112,15 @@ impl Stream for SystemProfileStream {
 
                 match event {
                     HotplugEvent::Connected(device) => {
-                        let mut cyme_device: Device =
-                            profiler.build_spdevice(&device, extra).unwrap();
+                        let mut cyme_device: Device = profiler
+                            .build_spdevice(
+                                &device,
+                                &super::ProfilerOptions {
+                                    with_extra: extra,
+                                    ..Default::default()
+                                },
+                            )
+                            .unwrap();
                         cyme_device.last_event = Some(DeviceEvent::Connected(Local::now()));
                         // Windows bus number is a string ID so we need to find the bus based on this and assign the bus number created during cyme profiling
                         #[cfg(target_os = "windows")]

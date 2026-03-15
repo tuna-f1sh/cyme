@@ -415,6 +415,7 @@ impl LibUsbProfiler {
         handle: &UsbDevice<T>,
         device_desc: &libusb::DeviceDescriptor,
         sp_device: &mut Device,
+        more_extra: bool,
     ) -> Result<usb::DeviceExtra> {
         // attempt to get manufacturer and product strings from device itself
         sp_device.manufacturer = device_desc
@@ -454,32 +455,37 @@ impl LibUsbProfiler {
                         .map(|v| v.name().to_owned())
                 }),
             configurations: self.build_configurations(device, handle, device_desc, sp_device)?,
-            status: Self::get_device_status(handle).ok(),
-            debug: Self::get_debug_descriptor(handle).ok(),
+            status: None,
+            debug: None,
             binary_object_store: None,
             qualifier: None,
             hub: None,
             negotiated_speed: Some(usb::Speed::from(device.speed())),
         };
 
-        // Get device specific stuff: bos, hub, dualspeed, debug and status
-        if device_desc.usb_version() >= rusb::Version::from_bcd(0x0201) {
-            extra.binary_object_store = Self::get_bos_descriptor(handle).ok();
-        }
-        if device_desc.usb_version() >= rusb::Version::from_bcd(0x0200) {
-            extra.qualifier = Self::get_device_qualifier(handle).ok();
-        }
-        if device_desc.class_code() == usb::BaseClass::Hub as u8 {
-            let has_ssp = if let Some(bos) = &extra.binary_object_store {
-                bos.capabilities
-                    .iter()
-                    .any(|c| matches!(c, usb::descriptors::bos::BosCapability::SuperSpeedPlus(_)))
-            } else {
-                false
-            };
-            let bcd = sp_device.bcd_usb.map_or(0x0100, |v| v.into());
-            extra.hub =
-                Self::get_hub_descriptor(handle, device_desc.protocol_code(), bcd, has_ssp).ok();
+        if more_extra {
+            extra.status = Self::get_device_status(handle).ok();
+            extra.debug = Self::get_debug_descriptor(handle).ok();
+
+            // Get device specific stuff: bos, hub, dualspeed, debug and status
+            if device_desc.usb_version() >= rusb::Version::from_bcd(0x0201) {
+                extra.binary_object_store = Self::get_bos_descriptor(handle).ok();
+            }
+            if device_desc.usb_version() >= rusb::Version::from_bcd(0x0200) {
+                extra.qualifier = Self::get_device_qualifier(handle).ok();
+            }
+            if device_desc.class_code() == usb::BaseClass::Hub as u8 {
+                let has_ssp = if let Some(bos) = &extra.binary_object_store {
+                    bos.capabilities
+                        .iter()
+                        .any(|c| matches!(c, usb::descriptors::bos::BosCapability::SuperSpeedPlus(_)))
+                } else {
+                    false
+                };
+                let bcd = sp_device.bcd_usb.map_or(0x0100, |v| v.into());
+                extra.hub =
+                    Self::get_hub_descriptor(handle, device_desc.protocol_code(), bcd, has_ssp).ok();
+            }
         }
 
         Ok(extra)
@@ -538,7 +544,7 @@ impl LibUsbProfiler {
     fn build_spdevice<T: libusb::UsbContext>(
         &self,
         device: &libusb::Device<T>,
-        with_extra: bool,
+        options: &ProfilerOptions,
     ) -> Result<Device> {
         // TODO: this is actually negotiated speed not device speed
         // need to read from device descriptor
@@ -591,7 +597,13 @@ impl LibUsbProfiler {
 
         sp_device.serial_num = get_sysfs_string(&sp_device.sysfs_name(), "serial");
 
-        if with_extra {
+        // if we have a filter, check if it matches before doing extra
+        let is_match = options
+            .filter
+            .as_ref()
+            .map_or(true, |f| f.is_potential_match(&sp_device));
+
+        if options.with_extra && is_match {
             if let Ok(handle) = self.open_device(device, &device_desc) {
                 sp_device.profiler_error = {
                     match self.build_spdevice_extra(
@@ -599,6 +611,7 @@ impl LibUsbProfiler {
                         &handle,
                         &device_desc,
                         &mut sp_device,
+                        options.more_extra,
                     ) {
                         Ok(extra) => {
                             sp_device.extra = Some(extra);
@@ -654,14 +667,14 @@ impl LibUsbProfiler {
 }
 
 impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
-    fn get_devices(&mut self, with_extra: bool) -> Result<Vec<Device>> {
+    fn get_devices(&mut self, options: &ProfilerOptions) -> Result<Vec<Device>> {
         let mut devices = Vec::new();
         // run through devices building Device types - not root_hubs (port number 0)
         for device in libusb::DeviceList::new()?
             .iter()
             .filter(|d| d.port_number() != 0)
         {
-            match self.build_spdevice(&device, with_extra) {
+            match self.build_spdevice(&device, options) {
                 Ok(sp_device) => {
                     devices.push(sp_device.to_owned());
                     let print_stderr =
@@ -684,14 +697,14 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
     }
 
     #[cfg(target_os = "linux")]
-    fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
+    fn get_root_hubs(&mut self, options: &ProfilerOptions) -> Result<HashMap<u8, Device>> {
         let mut ret = HashMap::new();
 
         for device in libusb::DeviceList::new()?
             .iter()
             .filter(|d| d.port_number() == 0)
         {
-            if let Ok(mut sp_device) = self.build_spdevice(&device, true) {
+            if let Ok(mut sp_device) = self.build_spdevice(&device, options) {
                 // put self in as first device; root_hubs included in list on Linux
                 sp_device.devices = Some(vec![sp_device.clone()]);
                 ret.insert(sp_device.location_id.bus, sp_device);
@@ -702,12 +715,16 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
     }
 
     #[cfg(not(target_os = "linux"))]
-    fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>> {
+    fn get_root_hubs(&mut self, _options: &ProfilerOptions) -> Result<HashMap<u8, Device>> {
         Ok(HashMap::new())
     }
 
     fn get_buses(&mut self) -> Result<HashMap<u8, Bus>> {
-        <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::get_root_hubs(self).map(|hubs| {
+        <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::get_root_hubs(
+            self,
+            &ProfilerOptions::default(),
+        )
+        .map(|hubs| {
             hubs.into_iter()
                 .filter_map(|(k, d)| Some((k, Bus::try_from(d).ok()?)))
                 .collect()
@@ -715,7 +732,11 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
     }
 }
 
-pub(crate) fn fill_spusb(spusb: &mut SystemProfile) -> Result<()> {
+pub(crate) fn fill_spusb(spusb: &mut SystemProfile, options: &ProfilerOptions) -> Result<()> {
     let mut profiler = LibUsbProfiler;
-    <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::fill_spusb(&mut profiler, spusb)
+    <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::fill_spusb(
+        &mut profiler,
+        spusb,
+        options,
+    )
 }
