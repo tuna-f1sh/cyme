@@ -607,7 +607,7 @@ impl LibUsbProfiler {
             .as_ref()
             .map_or(true, |f| f.is_potential_match(&sp_device));
 
-        if options.with_extra && is_match {
+        if options.depth.includes_extra() && is_match {
             if let Ok(handle) = self.open_device(device, &device_desc) {
                 sp_device.profiler_error = {
                     match self.build_spdevice_extra(
@@ -615,7 +615,7 @@ impl LibUsbProfiler {
                         &handle,
                         &device_desc,
                         &mut sp_device,
-                        options.more_extra,
+                        options.depth.includes_more_extra(),
                     ) {
                         Ok(extra) => {
                             sp_device.extra = Some(extra);
@@ -721,8 +721,7 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
                 if let Ok(sp_device) = self.build_spdevice_shallow(&device) {
                     // If it's not even a potential match, it must be an ancestor
                     if !filter.is_potential_match(&sp_device) {
-                        device_options.with_extra = false;
-                        device_options.more_extra = false;
+                        device_options.depth = ProfileDepth::Identity;
                     }
                 }
             }

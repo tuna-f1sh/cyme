@@ -2001,15 +2001,41 @@ pub struct Filter {
     pub case_sensitive: bool,
 }
 
+/// Depth of the USB profile to collect.
+/// Higher levels include all data from lower levels.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ProfileDepth {
+    /// Only collect identity information (VID, PID, Name, Serial) from OS cache/sysfs.
+    /// Does not typically require opening the USB device handle.
+    #[default]
+    Identity,
+    /// Collect standard descriptors: configurations, interfaces and endpoints.
+    /// Requires opening the USB device handle.
+    Standard,
+    /// Collect all available data including BOS, Qualifier, Status, Debug and Hub descriptors.
+    Full,
+}
+
+impl ProfileDepth {
+    /// Returns true if this depth requires opening the device handle to read descriptors.
+    pub fn includes_extra(&self) -> bool {
+        matches!(self, Self::Standard | Self::Full)
+    }
+
+    /// Returns true if this depth requires reading extended descriptors (BOS, Hub, etc.)
+    pub fn includes_more_extra(&self) -> bool {
+        matches!(self, Self::Full)
+    }
+}
+
 /// Options for the profiler to allow for more performant profiling when using filters
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ProfilerOptions {
     /// Filter to apply during profiling
     pub filter: Option<Filter>,
-    /// Whether to collect extra data: configs, interfaces and endpoints
-    pub with_extra: bool,
-    /// Whether to collect more extra data for lsusb or json output: bos, qualifier, status, debug and hub data
-    pub more_extra: bool,
+    /// How much data to collect for each device
+    pub depth: ProfileDepth,
     /// Whether we are building a tree (true) or just a flat list (false)
     pub tree: bool,
 }

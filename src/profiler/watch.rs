@@ -46,9 +46,12 @@ impl SystemProfileStreamBuilder {
     pub fn build(self) -> Result<SystemProfileStream, Error> {
         let options = super::ProfilerOptions {
             filter: None,
-            with_extra: self.verbose,
-            more_extra: self.verbose, // assuming if verbose we want all
-            tree: true,               // Watch always works with tree usually
+            depth: if self.verbose {
+                super::ProfileDepth::Full
+            } else {
+                super::ProfileDepth::Standard
+            },
+            tree: true, // Watch always works with tree usually
         };
 
         let spusb = if let Some(spusb) = self.spusb {
@@ -116,7 +119,11 @@ impl Stream for SystemProfileStream {
                             .build_spdevice(
                                 &device,
                                 &super::ProfilerOptions {
-                                    with_extra: extra,
+                                    depth: if extra {
+                                        super::ProfileDepth::Full
+                                    } else {
+                                        super::ProfileDepth::Standard
+                                    },
                                     ..Default::default()
                                 },
                             )

@@ -236,10 +236,10 @@ pub fn get_spusb() -> Result<SystemProfile> {
 
 /// Runs `get_spusb` and then adds in data obtained from libusb. Requires 'libusb' feature.
 ///
-/// `system_profiler` captures Apple buses (essentially root_hubs) that are not captured by libusb (but are captured by nusb); this method merges the two to so the bus information is kept.
+/// `system_profiler` captures Apple buses (essentially root_hubs) that are not captured by libusb (mut are captured by nusb); this method merges the two to so the bus information is kept.
 pub fn get_spusb_with_extra() -> Result<SystemProfile> {
     get_spusb_with_options(&ProfilerOptions {
-        with_extra: true,
+        depth: ProfileDepth::Standard,
         ..Default::default()
     })
 }
@@ -263,7 +263,7 @@ pub fn get_spusb_with_options(options: &ProfilerOptions) -> Result<SystemProfile
             bus.fill_host_controller_from_ids();
         }
 
-        if options.with_extra {
+        if options.depth.includes_extra() {
             #[cfg(all(feature = "libusb", not(feature = "nusb")))]
             {
                 crate::profiler::libusb::fill_spusb(&mut sp, options)?;

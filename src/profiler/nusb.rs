@@ -683,9 +683,9 @@ impl NusbProfiler {
         let is_match = options
             .filter
             .as_ref()
-            .is_none_or(|f| f.is_potential_match(&sp_device));
+            .map_or(true, |f| f.is_potential_match(&sp_device));
 
-        if options.with_extra && is_match {
+        if options.depth.includes_extra() && is_match {
             if let Ok(device) = device_info.open().wait() {
                 // get the first language - probably US English
                 let languages: Vec<u16> = device
@@ -713,8 +713,11 @@ impl NusbProfiler {
                         ),
                     };
 
-                    match self.build_spdevice_extra(&usb_device, &mut sp_device, options.more_extra)
-                    {
+                    match self.build_spdevice_extra(
+                        &usb_device,
+                        &mut sp_device,
+                        options.depth.includes_more_extra(),
+                    ) {
                         Ok(extra) => {
                             sp_device.extra = Some(extra);
                             None
@@ -795,8 +798,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
                 let sp_device: Device = (&device_info).into();
                 // If it's not even a potential match, it must be an ancestor
                 if !filter.is_potential_match(&sp_device) {
-                    device_options.with_extra = false;
-                    device_options.more_extra = false;
+                    device_options.depth = ProfileDepth::Identity;
                 }
             }
 

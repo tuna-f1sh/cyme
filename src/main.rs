@@ -419,8 +419,11 @@ fn get_system_profile_macos(
             }
             let options = profiler::ProfilerOptions {
                 filter,
-                with_extra: true,
-                more_extra: config.lsusb || config.json,
+                depth: if config.lsusb || config.json {
+                    profiler::ProfileDepth::Full
+                } else {
+                    profiler::ProfileDepth::Standard
+                },
                 tree: config.tree,
             };
             profiler::macos::get_spusb_with_options(&options).map_or_else(
@@ -449,15 +452,23 @@ fn get_system_profile(
     args: &Args,
     filter: Option<profiler::Filter>,
 ) -> Result<profiler::SystemProfile> {
+    let depth = if config.lsusb || config.json {
+        profiler::ProfileDepth::Full
+    } else if config.verbose > 0
+        || config.tree
+        || args.device.is_some()
+        || config.lsusb
+        || config.more
+        || args.filter_class.is_some()
+    {
+        profiler::ProfileDepth::Standard
+    } else {
+        profiler::ProfileDepth::Identity
+    };
+
     let options = profiler::ProfilerOptions {
         filter,
-        with_extra: config.verbose > 0
-            || config.tree
-            || args.device.is_some()
-            || config.lsusb
-            || config.more
-            || args.filter_class.is_some(),
-        more_extra: config.lsusb || config.json,
+        depth,
         tree: config.tree,
     };
     profiler::get_spusb_with_options(&options)

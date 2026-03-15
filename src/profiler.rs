@@ -632,7 +632,7 @@ where
     fn get_spusb(&mut self, options: &ProfilerOptions) -> Result<SystemProfile> {
         let mut spusb = SystemProfile { buses: Vec::new() };
 
-        if options.with_extra {
+        if options.depth.includes_extra() {
             log::info!("Building SystemProfile using {self:?} with extra device data");
         } else {
             log::info!("Building SystemProfile using {self:?} without extra device data");
@@ -819,7 +819,7 @@ pub fn get_spusb() -> Result<SystemProfile> {
 /// See [`Profiler::get_spusb()`] for more information.
 pub fn get_spusb_with_extra() -> Result<SystemProfile> {
     get_spusb_with_options(&ProfilerOptions {
-        with_extra: true,
+        depth: ProfileDepth::Standard,
         ..Default::default()
     })
 }
