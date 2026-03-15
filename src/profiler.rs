@@ -641,15 +641,6 @@ where
         // temporary store of devices created when iterating through DeviceList
         let mut cache = self.get_devices(options)?;
 
-        // If not building a tree, we can filter the cache early to avoid grouping/tree building for non-matches
-        if !options.tree {
-            if let Some(filter) = &options.filter {
-                cache.retain(|d| {
-                    filter.is_identity_match(d) && (!d.is_root_hub() || filter.no_exclude_root_hub)
-                });
-            }
-        }
-
         cache.sort_by_key(|d| d.location_id.bus);
         log::trace!("Sorted devices {cache:#?}");
         // get system buses

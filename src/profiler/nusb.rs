@@ -634,7 +634,8 @@ impl NusbProfiler {
                 };
                 let bcd = sp_device.bcd_usb.map_or(0x0100, |v| v.into());
                 extra.hub =
-                    Self::get_hub_descriptor(device, device_desc.device_protocol, bcd, has_ssp).ok();
+                    Self::get_hub_descriptor(device, device_desc.device_protocol, bcd, has_ssp)
+                        .ok();
             }
         }
 
@@ -682,7 +683,7 @@ impl NusbProfiler {
         let is_match = options
             .filter
             .as_ref()
-            .map_or(true, |f| f.is_potential_match(&sp_device));
+            .is_none_or(|f| f.is_potential_match(&sp_device));
 
         if options.with_extra && is_match {
             if let Ok(device) = device_info.open().wait() {
@@ -741,19 +742,76 @@ impl NusbProfiler {
 impl Profiler<UsbDevice> for NusbProfiler {
     fn get_devices(&mut self, options: &ProfilerOptions) -> Result<Vec<Device>> {
         let mut devices = Vec::new();
-        for device in nusb::list_devices().wait()? {
-            match self.build_spdevice(&device, options) {
+        let raw_devices: Vec<nusb::DeviceInfo> = nusb::list_devices().wait()?.collect();
+
+        // If filtering, determine which devices are matches or ancestors of matches
+        let filter_set: Option<std::collections::HashSet<(u8, Vec<u8>)>> =
+            if let Some(filter) = &options.filter {
+                let mut set = std::collections::HashSet::new();
+                for device_info in &raw_devices {
+                    let sp_device: Device = device_info.into();
+                    // Potential match includes interface class potential if extra data not yet loaded
+                    if filter.is_potential_match(&sp_device) {
+                        let bus = sp_device.location_id.bus;
+                        let ports = sp_device.location_id.tree_positions;
+
+                        // Add the match itself
+                        set.insert((bus, ports.clone()));
+
+                        // If building a tree, add all ancestors of this match
+                        if options.tree {
+                            for i in 1..ports.len() {
+                                set.insert((bus, ports[0..i].to_vec()));
+                            }
+                        }
+                    }
+                }
+                Some(set)
+            } else {
+                None
+            };
+
+        for device_info in raw_devices {
+            let bus_no = if cfg!(target_os = "macos") {
+                u8::from_str_radix(device_info.bus_id(), 16).unwrap_or(0)
+            } else if cfg!(target_os = "linux") || cfg!(target_os = "android") {
+                device_info.bus_id().parse::<u8>().unwrap_or(0)
+            } else {
+                0
+            };
+            let ports = device_info.port_chain().to_vec();
+
+            // Check if we should profile this device at all
+            if let Some(set) = &filter_set {
+                if !set.contains(&(bus_no, ports.clone())) {
+                    continue;
+                }
+            }
+
+            // Determine if this device is a potential match or just an ancestor
+            // If it's just an ancestor, we override the options to skip extra data
+            let mut device_options = options.clone();
+            if let Some(filter) = &options.filter {
+                let sp_device: Device = (&device_info).into();
+                // If it's not even a potential match, it must be an ancestor
+                if !filter.is_potential_match(&sp_device) {
+                    device_options.with_extra = false;
+                    device_options.more_extra = false;
+                }
+            }
+
+            match self.build_spdevice(&device_info, &device_options) {
                 #[allow(unused_mut)]
                 Ok(mut sp_device) => {
                     #[cfg(target_os = "windows")]
                     {
                         // Windows doesn't have a bus number for root hubs, so we use the index
                         // and assign devices based on serial number
-                        if let Some(existing_no) = self.bus_id_map.get(device.bus_id()) {
+                        if let Some(existing_no) = self.bus_id_map.get(device_info.bus_id()) {
                             sp_device.location_id.bus = *existing_no;
                         } else {
                             let bus = self.bus_id_map.len() as u8;
-                            self.bus_id_map.insert(device.bus_id().to_owned(), bus);
+                            self.bus_id_map.insert(device_info.bus_id().to_owned(), bus);
                             sp_device.location_id.bus = bus;
                         }
                     }
@@ -767,11 +825,11 @@ impl Profiler<UsbDevice> for NusbProfiler {
                         if print_stderr {
                             eprintln!("{e}");
                         } else {
-                            log::warn!("Non-critical error during profile of {device:?}: {e}");
+                            log::warn!("Non-critical error during profile of {device_info:?}: {e}");
                         }
                     });
                 }
-                Err(e) => eprintln!("Failed to get data for {device:?}: {e}"),
+                Err(e) => eprintln!("Failed to get data for {device_info:?}: {e}"),
             }
         }
 

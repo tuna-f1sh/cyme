@@ -538,16 +538,12 @@ impl LibUsbProfiler {
         })
     }
 
-    /// Builds a [`Device`] from a [`libusb::Device`] by using `device_descriptor()` and intrograting for configuration strings. Optionally with `with_extra` will gather full device information, including from udev if feature is present.
-    ///
-    /// [`Device.profiler_error`] `Option<String>` will contain any non-critical error during gather of `with_extra` data - normally due to permissions preventing open of device descriptors.
-    fn build_spdevice<T: libusb::UsbContext>(
+    /// Builds a shallow [`Device`] from a [`libusb::Device`] without opening it or reading extra data.
+    /// Uses sysfs strings if available (Linux) to populate identity fields.
+    fn build_spdevice_shallow<T: libusb::UsbContext>(
         &self,
         device: &libusb::Device<T>,
-        options: &ProfilerOptions,
     ) -> Result<Device> {
-        // TODO: this is actually negotiated speed not device speed
-        // need to read from device descriptor
         let speed = match usb::Speed::from(device.speed()) {
             usb::Speed::Unknown => None,
             v => Some(DeviceSpeed::SpeedValue(v)),
@@ -573,29 +569,37 @@ impl LibUsbProfiler {
             ..Default::default()
         };
 
-        // sysfs cache
-        sp_device.name = get_sysfs_string(&sp_device.sysfs_name(), "product")
-            // udev-hwdb
+        let sysfs_name = sp_device.sysfs_name();
+        sp_device.name = get_sysfs_string(&sysfs_name, "product")
             .or_else(|| names::product(device_desc.vendor_id(), device_desc.product_id()))
-            // usb-ids
             .or_else(|| {
                 usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
                     .map(|device| device.name().to_owned())
             })
-            // empty
             .unwrap_or_default();
 
-        // sysfs cache
-        sp_device.manufacturer = get_sysfs_string(&sp_device.sysfs_name(), "manufacturer")
-            // udev-hwdb
-            .or_else(|| names::vendor(device_desc.vendor_id())) // udev, usb-ids if error
-            // usb-ids
-            .or_else(|| {
+        sp_device.manufacturer = get_sysfs_string(&sysfs_name, "manufacturer").or_else(|| {
+            names::vendor(device_desc.vendor_id()).or_else(|| {
                 usb_ids::Vendor::from_id(device_desc.vendor_id())
                     .map(|vendor| vendor.name().to_owned())
-            });
+            })
+        });
 
-        sp_device.serial_num = get_sysfs_string(&sp_device.sysfs_name(), "serial");
+        sp_device.serial_num = get_sysfs_string(&sysfs_name, "serial");
+
+        Ok(sp_device)
+    }
+
+    /// Builds a [`Device`] from a [`libusb::Device`] by using `device_descriptor()` and intrograting for configuration strings. Optionally with `with_extra` will gather full device information, including from udev if feature is present.
+    ///
+    /// [`Device.profiler_error`] `Option<String>` will contain any non-critical error during gather of `with_extra` data - normally due to permissions preventing open of device descriptors.
+    fn build_spdevice<T: libusb::UsbContext>(
+        &self,
+        device: &libusb::Device<T>,
+        options: &ProfilerOptions,
+    ) -> Result<Device> {
+        let mut sp_device = self.build_spdevice_shallow(device)?;
+        let device_desc = device.device_descriptor()?;
 
         // if we have a filter, check if it matches before doing extra
         let is_match = options
@@ -669,12 +673,61 @@ impl LibUsbProfiler {
 impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
     fn get_devices(&mut self, options: &ProfilerOptions) -> Result<Vec<Device>> {
         let mut devices = Vec::new();
+        let raw_devices = libusb::DeviceList::new()?;
+
+        // If filtering, determine which devices are matches or ancestors of matches
+        let filter_set: Option<std::collections::HashSet<(u8, Vec<u8>)>> =
+            if let Some(filter) = &options.filter {
+                let mut set = std::collections::HashSet::new();
+                for device in raw_devices.iter().filter(|d| d.port_number() != 0) {
+                    if let Ok(sp_device) = self.build_spdevice_shallow(&device) {
+                        // Potential match includes interface class potential if extra data not yet loaded
+                        if filter.is_potential_match(&sp_device) {
+                            let bus = sp_device.location_id.bus;
+                            let ports = sp_device.location_id.tree_positions.clone();
+
+                            // Add the match itself
+                            set.insert((bus, ports.clone()));
+
+                        // If building a tree, add all ancestors of this match
+                        if options.tree {
+                            for i in 1..ports.len() {
+                                set.insert((bus, ports[0..i].to_vec()));
+                            }
+                        }
+                    }
+                }
+                Some(set)
+            } else {
+                None
+            };
+
         // run through devices building Device types - not root_hubs (port number 0)
-        for device in libusb::DeviceList::new()?
-            .iter()
-            .filter(|d| d.port_number() != 0)
-        {
-            match self.build_spdevice(&device, options) {
+        for device in raw_devices.iter().filter(|d| d.port_number() != 0) {
+            let bus = device.bus_number();
+            let ports = device.port_numbers().unwrap_or_default();
+
+            // Check if we should profile this device at all
+            if let Some(set) = &filter_set {
+                if !set.contains(&(bus, ports.clone())) {
+                    continue;
+                }
+            }
+
+            // Determine if this device is a potential match or just an ancestor
+            // If it's just an ancestor, we override the options to skip extra data
+            let mut device_options = options.clone();
+            if let Some(filter) = &options.filter {
+                if let Ok(sp_device) = self.build_spdevice_shallow(&device) {
+                    // If it's not even a potential match, it must be an ancestor
+                    if !filter.is_potential_match(&sp_device) {
+                        device_options.with_extra = false;
+                        device_options.more_extra = false;
+                    }
+                }
+            }
+
+            match self.build_spdevice(&device, &device_options) {
                 Ok(sp_device) => {
                     devices.push(sp_device.to_owned());
                     let print_stderr =
