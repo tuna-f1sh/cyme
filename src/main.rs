@@ -422,13 +422,24 @@ fn get_system_profile_macos(
             if cfg!(feature = "libusb") {
                 log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
             }
+            let depth = if config.verbose >= 2
+                || (config.json && config.verbose >= 1)
+                || (config.lsusb && (args.device.is_some() || config.tree || config.verbose > 0))
+            {
+                profiler::ProfileDepth::Full
+            } else if config.verbose == 1
+                || args.filter_class.is_some()
+                || config.json
+                || config.more
+            {
+                profiler::ProfileDepth::Standard
+            } else {
+                profiler::ProfileDepth::Identity
+            };
+
             let options = profiler::ProfilerOptions {
                 filter,
-                depth: if config.lsusb || config.json {
-                    profiler::ProfileDepth::Full
-                } else {
-                    profiler::ProfileDepth::Standard
-                },
+                depth,
                 tree: config.tree,
             };
             profiler::macos::get_spusb_with_options(&options).map_or_else(
@@ -457,15 +468,12 @@ fn get_system_profile(
     args: &Args,
     filter: Option<profiler::Filter>,
 ) -> Result<profiler::SystemProfile> {
-    let depth = if config.lsusb || config.json {
-        profiler::ProfileDepth::Full
-    } else if config.verbose > 0
-        || config.tree
-        || args.device.is_some()
-        || config.lsusb
-        || config.more
-        || args.filter_class.is_some()
+    let depth = if config.verbose >= 2
+        || (config.json && config.verbose >= 1)
+        || (config.lsusb && (args.device.is_some() || config.tree || config.verbose > 0))
     {
+        profiler::ProfileDepth::Full
+    } else if config.verbose == 1 || args.filter_class.is_some() || config.json || config.more {
         profiler::ProfileDepth::Standard
     } else {
         profiler::ProfileDepth::Identity
@@ -823,7 +831,11 @@ fn cyme() -> Result<()> {
             get_system_profile_macos(
                 &config,
                 &args,
-                if args.filter_post { None } else { filter.clone() },
+                if args.filter_post {
+                    None
+                } else {
+                    filter.clone()
+                },
             )?
         }
 
@@ -832,7 +844,11 @@ fn cyme() -> Result<()> {
             get_system_profile(
                 &config,
                 &args,
-                if args.filter_post { None } else { filter.clone() },
+                if args.filter_post {
+                    None
+                } else {
+                    filter.clone()
+                },
             )?
         }
     };
