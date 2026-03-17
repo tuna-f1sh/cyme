@@ -401,6 +401,16 @@ impl NusbProfiler {
         let mut ret: Vec<usb::Interface> = Vec::new();
 
         for interface in config.interfaces() {
+            // Determine active alternate setting from sysfs if on Linux
+            let sample_path = usb::DevicePath::new_with_port_path(
+                device.location.to_owned().into(),
+                Some(config.configuration_value()),
+                Some(interface.interface_number()),
+                None, // No alt setting in sysfs dir name
+            )
+            .to_string();
+            let active_alt = get_sysfs_active_alternate_setting(&sample_path);
+
             for interface_alt in interface.alt_settings() {
                 let device_path = usb::DevicePath::new_with_port_path(
                     device.location.to_owned().into(),
@@ -431,6 +441,7 @@ impl NusbProfiler {
                     sub_class: interface_alt.subclass(),
                     protocol: interface_alt.protocol(),
                     alt_setting: interface_alt.alternate_setting(),
+                    active: active_alt.is_some_and(|a| a == interface_alt.alternate_setting()),
                     driver: get_sysfs_readlink(&path, "driver")
                         .or_else(|| get_udev_driver_name(&path).ok().flatten()),
                     syspath,
@@ -457,22 +468,6 @@ impl NusbProfiler {
 
                 interface.devpaths = interface.dev_paths();
                 interface.mount_paths = interface.block_mount_paths();
-                // TODO add to device?
-                // if let Some(devpaths) = &interface.devpaths {
-                //     let ids: Vec<_> = devpaths
-                //         .iter()
-                //         .filter_map(|p| {
-                //             let path = format!(
-                //                 "{}/{}/{}",
-                //                 interface.sysfs_name(),
-                //                 "tty",
-                //                 p.file_name()?.to_string_lossy()
-                //             );
-                //             get_devlinks(&path).ok().flatten()
-                //         })
-                //         .collect();
-                //     log::info!("Interface {} devlinks: {:?}", interface.path, ids);
-                // }
 
                 ret.push(interface);
             }
@@ -485,8 +480,10 @@ impl NusbProfiler {
         &self,
         device: &UsbDevice,
         device_desc: &usb::DeviceDescriptor,
+        sp_device: &Device,
     ) -> Result<Vec<usb::Configuration>> {
         let mut ret: Vec<usb::Configuration> = Vec::new();
+        let active_config = get_sysfs_configuration_value(&sp_device.sysfs_name());
 
         for c in device.handle.configurations() {
             let mut attributes = Vec::new();
@@ -526,6 +523,7 @@ impl NusbProfiler {
                     .unwrap_or_default(),
                 string_index: c.string_index().map(|i| i.into()).unwrap_or(0),
                 number: c.configuration_value(),
+                active: active_config.is_some_and(|a| a == c.configuration_value()),
                 attributes,
                 max_power: NumericalUnit {
                     value: (c.max_power() as u32 * power_mult),
@@ -603,7 +601,7 @@ impl NusbProfiler {
                         .map(|v| v.name().to_owned())
                 },
             ),
-            configurations: self.build_configurations(device, &device_desc)?,
+            configurations: self.build_configurations(device, &device_desc, sp_device)?,
             status: None,
             debug: None,
             binary_object_store: None,
@@ -639,6 +637,18 @@ impl NusbProfiler {
             }
         }
 
+        // Fallback to sysfs for hub port count if missing (especially useful for root hubs)
+        if extra.hub.is_none()
+            && (device_desc.device_class == usb::BaseClass::Hub as u8 || sp_device.is_root_hub())
+        {
+            if let Some(ports) = get_sysfs_hub_ports(&sysfs_name) {
+                extra.hub = Some(usb::HubDescriptor {
+                    num_ports: ports,
+                    ..Default::default()
+                });
+            }
+        }
+
         Ok(extra)
     }
 
@@ -649,8 +659,9 @@ impl NusbProfiler {
     ) -> Result<Device> {
         let mut sp_device: Device = device_info.into();
 
-        let generic_extra = |sysfs_name: &str| {
-            usb::DeviceExtra {
+        // Called on demand as fallback
+        let generic_extra = |sysfs_name: &str, is_root_hub: bool| {
+            let mut extra = usb::DeviceExtra {
                 max_packet_size: 0, // ...extra will update with actual
                 // nusb doesn't have these cached
                 string_indexes: (0, 0, 0),
@@ -676,14 +687,28 @@ impl NusbProfiler {
                 qualifier: None,
                 hub: None,
                 negotiated_speed: None,
+            };
+
+            // Fallback to sysfs for hub port count if missing (especially useful for root hubs)
+            if extra.hub.is_none()
+                && (device_info.class() == usb::BaseClass::Hub as u8 || is_root_hub)
+            {
+                if let Some(ports) = get_sysfs_hub_ports(sysfs_name) {
+                    extra.hub = Some(usb::HubDescriptor {
+                        num_ports: ports,
+                        ..Default::default()
+                    });
+                }
             }
+
+            extra
         };
 
         // if we have a filter, check if it matches before doing extra
         let is_match = options
             .filter
             .as_ref()
-            .map_or(true, |f| f.is_potential_match(&sp_device));
+            .is_none_or(|f| f.is_potential_match(&sp_device));
 
         if options.depth.includes_extra() && is_match {
             if let Ok(device) = device_info.open().wait() {
@@ -723,7 +748,10 @@ impl NusbProfiler {
                             None
                         }
                         Err(e) => {
-                            sp_device.extra = Some(generic_extra(&sp_device.sysfs_name()));
+                            sp_device.extra = Some(generic_extra(
+                                &sp_device.sysfs_name(),
+                                sp_device.is_root_hub(),
+                            ));
                             Some(format!("Failed to get some extra data for {sp_device}, probably requires elevated permissions: {e}"))
                         }
                     }
@@ -734,8 +762,16 @@ impl NusbProfiler {
                     "Failed to open device, extra data incomplete and possibly inaccurate"
                         .to_string(),
                 );
-                sp_device.extra = Some(generic_extra(&sp_device.sysfs_name()));
+                sp_device.extra = Some(generic_extra(
+                    &sp_device.sysfs_name(),
+                    sp_device.is_root_hub(),
+                ));
             }
+        } else {
+            sp_device.extra = Some(generic_extra(
+                &sp_device.sysfs_name(),
+                sp_device.is_root_hub(),
+            ));
         }
 
         Ok(sp_device)
@@ -782,11 +818,10 @@ impl Profiler<UsbDevice> for NusbProfiler {
             } else {
                 0
             };
-            let ports = device_info.port_chain().to_vec();
 
             // Check if we should profile this device at all
             if let Some(set) = &filter_set {
-                if !set.contains(&(bus_no, ports.clone())) {
+                if !set.contains(&(bus_no, device_info.port_chain().to_vec())) {
                     continue;
                 }
             }
@@ -900,7 +935,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
         Ok(root_hubs)
     }
 
-    fn get_buses(&mut self) -> Result<HashMap<u8, Bus>> {
+    fn get_buses(&mut self, options: &ProfilerOptions) -> Result<HashMap<u8, Bus>> {
         let mut buses = HashMap::new();
         for nusb_bus in nusb::list_buses().wait()? {
             #[allow(unused_mut)]
@@ -921,8 +956,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
             // add root hub to devices like lsusb on Linux since they are displayed like devices
             #[cfg(any(target_os = "linux", target_os = "android"))]
             {
-                let sp_device =
-                    self.build_spdevice(nusb_bus.root_hub(), &ProfilerOptions::default())?;
+                let sp_device = self.build_spdevice(nusb_bus.root_hub(), options)?;
                 bus.devices = Some(vec![sp_device]);
             }
 

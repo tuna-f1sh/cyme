@@ -316,7 +316,7 @@ impl UsbPath {
 }
 
 /// Port path to a device
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PortPath {
     /// Bus number
     bus: u8,

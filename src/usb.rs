@@ -387,6 +387,7 @@ impl BaseClass {
         match self {
             BaseClass::Hid => "Human Interface Device".into(),
             BaseClass::CdcCommunications => "Communications".into(),
+            BaseClass::WirelessController => "Wireless".into(),
             _ => self.to_title_case(),
         }
     }
@@ -1053,6 +1054,9 @@ pub struct Interface {
     pub protocol: u8,
     /// Interfaces can have the same number/path but an alternate setting defined here
     pub alt_setting: u8,
+    /// Whether this is the currently active alternate setting
+    #[serde(default)]
+    pub active: bool,
     /// Driver obtained from udev (Linux only)
     pub driver: Option<String>,
     /// syspath obtained from udev (Linux only)
@@ -1215,6 +1219,9 @@ pub struct Configuration {
     pub string_index: u8,
     /// Number of config, bConfigurationValue; value to set to enable to configuration
     pub number: u8,
+    /// Whether this is the currently active configuration
+    #[serde(default)]
+    pub active: bool,
     /// Number of interfaces available for this configuruation
     ///
     /// Option for legacy json de compatibility. Will count unique interface numbers in self.interfaces if None

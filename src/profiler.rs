@@ -614,7 +614,7 @@ where
     fn get_root_hubs(&mut self, options: &ProfilerOptions) -> Result<HashMap<u8, Device>>;
 
     /// Get the [`Bus`]s connected to the host for building the [`SystemProfile`]
-    fn get_buses(&mut self) -> Result<HashMap<u8, Bus>>;
+    fn get_buses(&mut self, options: &ProfilerOptions) -> Result<HashMap<u8, Bus>>;
 
     /// Create a new [`Bus`] from a root hub [`Device`]
     fn new_sp_bus(&self, bus_number: u8, root_hub: Option<Device>) -> Bus {
@@ -639,21 +639,36 @@ where
         }
 
         // temporary store of devices created when iterating through DeviceList
-        let mut cache = self.get_devices(options)?;
+        let cache = self.get_devices(options)?;
+        log::trace!("Devices {cache:#?}");
 
-        cache.sort_by_key(|d| d.location_id.bus);
-        log::trace!("Sorted devices {cache:#?}");
         // get system buses
-        let mut buses = self.get_buses()?;
+        let mut buses = self.get_buses(options)?;
         log::trace!("Buses {buses:#?}");
 
         // group by bus number and then stick them into a bus in the returned SystemProfile
-        for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
+        // sorting by port path is required for group_by to work correctly and matches lsusb -t sorting
+        for (key, group) in &cache
+            .into_iter()
+            .sorted_by_key(|d| d.port_path())
+            .group_by(|d| d.location_id.bus)
+        {
             // create the bus if missing, we'll add devices at next step
             let mut new_bus = buses.remove(&key).unwrap_or(Bus::from(key));
 
             if !options.tree {
-                new_bus.devices = Some(group.collect());
+                let existing = std::mem::take(&mut new_bus.devices);
+                let mut all_devices: Vec<Device> = group.collect();
+                if let Some(mut root_devices) = existing {
+                    // Filter root devices if needed
+                    if let Some(filter) = &options.filter {
+                        root_devices.retain(|d| !d.is_root_hub() || filter.no_exclude_root_hub);
+                    }
+                    root_devices.append(&mut all_devices);
+                    new_bus.devices = Some(root_devices);
+                } else {
+                    new_bus.devices = Some(all_devices);
+                }
             } else {
                 // group into parent groups with parent path as key or trunk devices so they end up in same place
                 let parent_groups =
@@ -744,6 +759,40 @@ fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
         .map(|s| s.trim().to_string());
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     return None;
+}
+
+/// Attempt to retrieve the current bConfigurationValue for a device
+/// If there are any failures in retrieving the data, None is returned
+#[allow(unused_variables)]
+fn get_sysfs_configuration_value(sysfs_name: &str) -> Option<u8> {
+    #[cfg(target_os = "linux")]
+    return get_sysfs_string(sysfs_name, "bConfigurationValue").and_then(|s| s.parse::<u8>().ok());
+
+    #[cfg(not(target_os = "linux"))]
+    None
+}
+
+/// Attempt to retrieve the current bAlternateSetting for an interface
+/// If there are any failures in retrieving the data, None is returned
+#[allow(unused_variables)]
+fn get_sysfs_active_alternate_setting(interface_path: &str) -> Option<u8> {
+    #[cfg(target_os = "linux")]
+    return get_sysfs_string(interface_path, "bAlternateSetting")
+        .and_then(|s| s.parse::<u8>().ok());
+
+    #[cfg(not(target_os = "linux"))]
+    None
+}
+
+/// Attempt to retrieve the current maxchild (ports) for a hub
+/// If there are any failures in retrieving the data, None is returned
+#[allow(unused_variables)]
+fn get_sysfs_hub_ports(sysfs_name: &str) -> Option<u8> {
+    #[cfg(target_os = "linux")]
+    return get_sysfs_string(sysfs_name, "maxchild").and_then(|s| s.parse::<u8>().ok());
+
+    #[cfg(not(target_os = "linux"))]
+    None
 }
 
 #[allow(unused_variables)]

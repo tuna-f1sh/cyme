@@ -278,6 +278,18 @@ impl LibUsbProfiler {
         let mut ret: Vec<usb::Interface> = Vec::new();
 
         for interface in config_desc.interfaces() {
+            // Determine active alternate setting from sysfs if on Linux
+            // The path for an interface in sysfs is bus-port:config.interface
+            // All alternate settings share the same directory
+            let sample_path = usb::DevicePath::new_with_port_path(
+                handle.location.clone().into(),
+                Some(config_desc.number()),
+                Some(interface.number()),
+                None, // No alt setting in sysfs dir name
+            )
+            .to_string();
+            let active_alt = get_sysfs_active_alternate_setting(&sample_path);
+
             for interface_desc in interface.descriptors() {
                 let device_path = usb::DevicePath::new_with_port_path(
                     handle.location.clone().into(),
@@ -299,6 +311,7 @@ impl LibUsbProfiler {
                     sub_class: interface_desc.sub_class_code(),
                     protocol: interface_desc.protocol_code(),
                     alt_setting: interface_desc.setting_number(),
+                    active: active_alt.is_some_and(|a| a == interface_desc.setting_number()),
                     driver: get_sysfs_readlink(&path, "driver")
                         .or_else(|| get_udev_driver_name(&path).ok().flatten()),
                     syspath: get_syspath(&path).or_else(|| get_udev_syspath(&path).ok().flatten()),
@@ -388,6 +401,9 @@ impl LibUsbProfiler {
                     .unwrap_or(String::new()),
                 string_index: config_desc.description_string_index().unwrap_or(0),
                 number: config_desc.number(),
+                active: cur_config
+                    .as_ref()
+                    .is_some_and(|(c, _)| *c == config_desc.number()),
                 attributes,
                 max_power: NumericalUnit {
                     value: config_desc.max_power() as u32 * power_mult,
@@ -476,15 +492,28 @@ impl LibUsbProfiler {
             }
             if device_desc.class_code() == usb::BaseClass::Hub as u8 {
                 let has_ssp = if let Some(bos) = &extra.binary_object_store {
-                    bos.capabilities
-                        .iter()
-                        .any(|c| matches!(c, usb::descriptors::bos::BosCapability::SuperSpeedPlus(_)))
+                    bos.capabilities.iter().any(|c| {
+                        matches!(c, usb::descriptors::bos::BosCapability::SuperSpeedPlus(_))
+                    })
                 } else {
                     false
                 };
                 let bcd = sp_device.bcd_usb.map_or(0x0100, |v| v.into());
                 extra.hub =
-                    Self::get_hub_descriptor(handle, device_desc.protocol_code(), bcd, has_ssp).ok();
+                    Self::get_hub_descriptor(handle, device_desc.protocol_code(), bcd, has_ssp)
+                        .ok();
+            }
+        }
+
+        // Fallback to sysfs for hub port count if missing (especially useful for root hubs)
+        if extra.hub.is_none()
+            && (device_desc.class_code() == usb::BaseClass::Hub as u8 || sp_device.is_root_hub())
+        {
+            if let Some(ports) = get_sysfs_hub_ports(&sysfs_name) {
+                extra.hub = Some(usb::HubDescriptor {
+                    num_ports: ports,
+                    ..Default::default()
+                });
             }
         }
 
@@ -587,6 +616,49 @@ impl LibUsbProfiler {
 
         sp_device.serial_num = get_sysfs_string(&sysfs_name, "serial");
 
+        // Fallback extra data from sysfs - won't be as complete as with device open, but better than nothing and doesn't require permissions
+        let mut extra = usb::DeviceExtra {
+            max_packet_size: device_desc.max_packet_size(),
+            string_indexes: (
+                device_desc.product_string_index().unwrap_or(0),
+                device_desc.manufacturer_string_index().unwrap_or(0),
+                device_desc.serial_number_string_index().unwrap_or(0),
+            ),
+            driver: get_sysfs_readlink(&sysfs_name, "driver")
+                .or_else(|| get_udev_driver_name(&sysfs_name).ok().flatten()),
+            syspath: get_syspath(&sysfs_name)
+                .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
+            vendor: names::vendor(device_desc.vendor_id()).or_else(|| {
+                usb_ids::Vendor::from_id(device_desc.vendor_id()).map(|v| v.name().to_owned())
+            }),
+            product_name: names::product(device_desc.vendor_id(), device_desc.product_id())
+                .or_else(|| {
+                    usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
+                        .map(|v| v.name().to_owned())
+                }),
+            configurations: Vec::new(),
+            status: None,
+            debug: None,
+            binary_object_store: None,
+            qualifier: None,
+            hub: None,
+            negotiated_speed: None,
+        };
+
+        // Fallback to sysfs for hub port count if missing (especially useful for root hubs)
+        if extra.hub.is_none()
+            && (device_desc.class_code() == usb::BaseClass::Hub as u8 || sp_device.is_root_hub())
+        {
+            if let Some(ports) = get_sysfs_hub_ports(&sp_device.sysfs_name()) {
+                extra.hub = Some(usb::HubDescriptor {
+                    num_ports: ports,
+                    ..Default::default()
+                });
+            }
+        }
+
+        sp_device.extra = Some(extra);
+
         Ok(sp_device)
     }
 
@@ -617,8 +689,7 @@ impl LibUsbProfiler {
                         &mut sp_device,
                         options.depth.includes_more_extra(),
                     ) {
-                        Ok(extra) => {
-                            sp_device.extra = Some(extra);
+                        Ok(_) => {
                             None
                         }
                         Err(e) => {
@@ -630,39 +701,7 @@ impl LibUsbProfiler {
                 }
             } else {
                 log::warn!("Failed to open device {device:?} for extra data");
-                let sysfs_name = sp_device.sysfs_name();
                 sp_device.profiler_error = Some("Failed to open device for extra data".to_string());
-                sp_device.extra = Some(usb::DeviceExtra {
-                    max_packet_size: device_desc.max_packet_size(),
-                    string_indexes: (
-                        device_desc.product_string_index().unwrap_or(0),
-                        device_desc.manufacturer_string_index().unwrap_or(0),
-                        device_desc.serial_number_string_index().unwrap_or(0),
-                    ),
-                    driver: get_sysfs_readlink(&sysfs_name, "driver")
-                        .or_else(|| get_udev_driver_name(&sysfs_name).ok().flatten()),
-                    syspath: get_syspath(&sysfs_name)
-                        .or_else(|| get_udev_syspath(&sysfs_name).ok().flatten()),
-                    vendor: names::vendor(device_desc.vendor_id()).or_else(|| {
-                        usb_ids::Vendor::from_id(device_desc.vendor_id())
-                            .map(|v| v.name().to_owned())
-                    }),
-                    product_name: names::product(device_desc.vendor_id(), device_desc.product_id())
-                        .or_else(|| {
-                            usb_ids::Device::from_vid_pid(
-                                device_desc.vendor_id(),
-                                device_desc.product_id(),
-                            )
-                            .map(|v| v.name().to_owned())
-                        }),
-                    configurations: Vec::new(),
-                    status: None,
-                    debug: None,
-                    binary_object_store: None,
-                    qualifier: None,
-                    hub: None,
-                    negotiated_speed: Some(usb::Speed::from(device.speed())),
-                });
             }
         }
 
@@ -689,10 +728,11 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
                             // Add the match itself
                             set.insert((bus, ports.clone()));
 
-                        // If building a tree, add all ancestors of this match
-                        if options.tree {
-                            for i in 1..ports.len() {
-                                set.insert((bus, ports[0..i].to_vec()));
+                            // If building a tree, add all ancestors of this match
+                            if options.tree {
+                                for i in 1..ports.len() {
+                                    set.insert((bus, ports[0..i].to_vec()));
+                                }
                             }
                         }
                     }
@@ -704,6 +744,12 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
 
         // run through devices building Device types - not root_hubs (port number 0)
         for device in raw_devices.iter().filter(|d| d.port_number() != 0) {
+            log::debug!(
+                "Processing device: bus {}, address {}, ports {:?}",
+                device.bus_number(),
+                device.address(),
+                device.port_numbers()
+            );
             let bus = device.bus_number();
             let ports = device.port_numbers().unwrap_or_default();
 
@@ -771,16 +817,14 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
         Ok(HashMap::new())
     }
 
-    fn get_buses(&mut self) -> Result<HashMap<u8, Bus>> {
-        <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::get_root_hubs(
-            self,
-            &ProfilerOptions::default(),
+    fn get_buses(&mut self, options: &ProfilerOptions) -> Result<HashMap<u8, Bus>> {
+        <LibUsbProfiler as Profiler<UsbDevice<rusb::Context>>>::get_root_hubs(self, options).map(
+            |hubs| {
+                hubs.into_iter()
+                    .filter_map(|(k, d)| Some((k, Bus::try_from(d).ok()?)))
+                    .collect()
+            },
         )
-        .map(|hubs| {
-            hubs.into_iter()
-                .filter_map(|(k, d)| Some((k, Bus::try_from(d).ok()?)))
-                .collect()
-        })
     }
 }
 
