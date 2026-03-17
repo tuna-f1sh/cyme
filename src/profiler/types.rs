@@ -762,8 +762,8 @@ impl Bus {
             if verbosity > 0 {
                 ret.push(format!(
                     "ID {:04x}:{:04x} {} {}",
-                    self.pci_vendor.unwrap_or(0xFFFF),
-                    self.pci_device.unwrap_or(0xFFFF),
+                    root_device.vendor_id.unwrap_or(0xFFFF),
+                    root_device.product_id.unwrap_or(0xFFFF),
                     vendor,
                     product
                 ));
@@ -1610,16 +1610,10 @@ impl Device {
         let (driver, vendor, product) = match &self.extra {
             Some(v) => (
                 v.driver.to_owned().unwrap_or(String::from("[none]")),
-                v.vendor.to_owned().unwrap_or(String::from("[unknown]")),
-                v.product_name
-                    .to_owned()
-                    .unwrap_or(String::from("[unknown]")),
+                v.vendor.to_owned().unwrap_or_default(),
+                v.product_name.to_owned().unwrap_or_default(),
             ),
-            None => (
-                String::from("[none]"),
-                String::from("[unknown]"),
-                String::from("[unknown]"),
-            ),
+            None => (String::from("[none]"), String::new(), String::new()),
         };
 
         let get_istrings = || match (
@@ -1643,8 +1637,25 @@ impl Device {
 
         if let Some(extra) = self.extra.as_ref() {
             let ports = extra.hub.as_ref().map(|hub| hub.num_ports);
-            for config in &extra.configurations {
-                for interface in &config.interfaces {
+            // lsusb -t only shows active configuration
+            let active_config = extra
+                .configurations
+                .iter()
+                .find(|c| c.active)
+                .or_else(|| extra.configurations.first());
+
+            if let Some(config) = active_config {
+                // lsusb -t only shows active alternate settings for each interface
+                let mut interfaces_to_show = Vec::new();
+                for (_if_num, group) in &config.interfaces.iter().group_by(|i| i.number) {
+                    let group: Vec<_> = group.collect();
+                    let active_if = group.iter().find(|i| i.active).or_else(|| group.first());
+                    if let Some(interface) = active_if {
+                        interfaces_to_show.push(*interface);
+                    }
+                }
+
+                for interface in interfaces_to_show {
                     let mut device_strings = Vec::with_capacity(verbosity as usize);
                     let interface_driver = interface
                         .driver
