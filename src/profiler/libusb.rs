@@ -221,29 +221,29 @@ impl<T: libusb::UsbContext> UsbOperations for UsbDevice<T> {
 impl LibUsbProfiler {
     fn build_endpoints<T: libusb::UsbContext>(
         &self,
-        handle: &UsbDevice<T>,
+        handle: Option<&UsbDevice<T>>,
         interface_path: &usb::DevicePath,
         interface_desc: &libusb::InterfaceDescriptor,
     ) -> Vec<usb::Endpoint> {
         let mut ret: Vec<usb::Endpoint> = Vec::new();
 
         for endpoint_desc in interface_desc.endpoint_descriptors() {
-            let extra_desc = if let Some(extra) = endpoint_desc.extra() {
-                self.build_endpoint_descriptor_extra(
-                    handle,
-                    (
-                        interface_desc.class_code(),
-                        interface_desc.sub_class_code(),
-                        interface_desc.protocol_code(),
-                    ),
-                    interface_desc.interface_number(),
-                    extra.to_vec(),
-                )
-                .ok()
-                .flatten()
-            } else {
-                None
-            };
+            let extra_desc = handle.and_then(|h| {
+                endpoint_desc.extra().and_then(|extra| {
+                    self.build_endpoint_descriptor_extra(
+                        h,
+                        (
+                            interface_desc.class_code(),
+                            interface_desc.sub_class_code(),
+                            interface_desc.protocol_code(),
+                        ),
+                        interface_desc.interface_number(),
+                        extra.to_vec(),
+                    )
+                    .ok()
+                    .flatten()
+                })
+            });
             let endpoint_path = usb::EndpointPath::new_with_device_path(
                 interface_path.to_owned(),
                 endpoint_desc.number(),
@@ -272,7 +272,8 @@ impl LibUsbProfiler {
 
     fn build_interfaces<T: libusb::UsbContext>(
         &self,
-        handle: &UsbDevice<T>,
+        handle: Option<&UsbDevice<T>>,
+        location: &DeviceLocation,
         config_desc: &libusb::ConfigDescriptor,
     ) -> Result<Vec<usb::Interface>> {
         let mut ret: Vec<usb::Interface> = Vec::new();
@@ -282,7 +283,7 @@ impl LibUsbProfiler {
             // The path for an interface in sysfs is bus-port:config.interface
             // All alternate settings share the same directory
             let sample_path = usb::DevicePath::new_with_port_path(
-                handle.location.clone().into(),
+                location.clone().into(),
                 Some(config_desc.number()),
                 Some(interface.number()),
                 None, // No alt setting in sysfs dir name
@@ -292,7 +293,7 @@ impl LibUsbProfiler {
 
             for interface_desc in interface.descriptors() {
                 let device_path = usb::DevicePath::new_with_port_path(
-                    handle.location.clone().into(),
+                    location.clone().into(),
                     Some(config_desc.number()),
                     Some(interface_desc.interface_number()),
                     Some(interface_desc.setting_number()),
@@ -303,7 +304,7 @@ impl LibUsbProfiler {
                     name: get_sysfs_string(&path, "interface").or_else(|| {
                         interface_desc
                             .description_string_index()
-                            .and_then(|i| handle.get_descriptor_string(i))
+                            .and_then(|i| handle.and_then(|h| h.get_descriptor_string(i)))
                     }),
                     string_index: interface_desc.description_string_index().unwrap_or(0),
                     number: interface_desc.interface_number(),
@@ -320,9 +321,9 @@ impl LibUsbProfiler {
                     path,
                     length: interface_desc.length(),
                     endpoints: self.build_endpoints(handle, &device_path, &interface_desc),
-                    extra: self
-                        .build_interface_descriptor_extra(
-                            handle,
+                    extra: handle.and_then(|h| {
+                        self.build_interface_descriptor_extra(
+                            h,
                             (
                                 interface_desc.class_code(),
                                 interface_desc.sub_class_code(),
@@ -331,7 +332,8 @@ impl LibUsbProfiler {
                             interface_desc.interface_number(),
                             interface_desc.extra().to_vec(),
                         )
-                        .ok(),
+                        .ok()
+                    }),
                     internal: InternalData::default(),
                     device_path: Some(device_path),
                 };
@@ -349,7 +351,7 @@ impl LibUsbProfiler {
     fn build_configurations<T: libusb::UsbContext>(
         &self,
         device: &libusb::Device<T>,
-        handle: &UsbDevice<T>,
+        handle: Option<&UsbDevice<T>>,
         device_desc: &libusb::DeviceDescriptor,
         sp_device: &Device,
     ) -> Result<Vec<usb::Configuration>> {
@@ -396,7 +398,7 @@ impl LibUsbProfiler {
             ret.push(usb::Configuration {
                 name: config_desc
                     .description_string_index()
-                    .and_then(|i| handle.get_descriptor_string(i))
+                    .and_then(|i| handle.and_then(|h| h.get_descriptor_string(i)))
                     .or(config_name)
                     .unwrap_or(String::new()),
                 string_index: config_desc.description_string_index().unwrap_or(0),
@@ -413,10 +415,11 @@ impl LibUsbProfiler {
                 length: config_desc.length(),
                 total_length: config_desc.total_length(),
                 num_interfaces: Some(config_desc.num_interfaces()),
-                interfaces: self.build_interfaces(handle, &config_desc)?,
-                extra: self
-                    .build_config_descriptor_extra(handle, config_desc.extra().to_vec())
-                    .ok(),
+                interfaces: self.build_interfaces(handle, &sp_device.location_id, &config_desc)?,
+                extra: handle.and_then(|h| {
+                    self.build_config_descriptor_extra(h, config_desc.extra().to_vec())
+                        .ok()
+                }),
                 internal: Default::default(),
             });
         }
@@ -470,7 +473,12 @@ impl LibUsbProfiler {
                     usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
                         .map(|v| v.name().to_owned())
                 }),
-            configurations: self.build_configurations(device, handle, device_desc, sp_device)?,
+            configurations: self.build_configurations(
+                device,
+                Some(handle),
+                device_desc,
+                sp_device,
+            )?,
             status: None,
             debug: None,
             binary_object_store: None,
@@ -636,7 +644,9 @@ impl LibUsbProfiler {
                     usb_ids::Device::from_vid_pid(device_desc.vendor_id(), device_desc.product_id())
                         .map(|v| v.name().to_owned())
                 }),
-            configurations: Vec::new(),
+            configurations: self
+                .build_configurations(device, None, &device_desc, &sp_device)
+                .unwrap_or_default(),
             status: None,
             debug: None,
             binary_object_store: None,
@@ -677,7 +687,7 @@ impl LibUsbProfiler {
         let is_match = options
             .filter
             .as_ref()
-            .map_or(true, |f| f.is_potential_match(&sp_device));
+            .is_none_or(|f| f.is_potential_match(&sp_device));
 
         if options.depth.includes_extra() && is_match {
             if let Ok(handle) = self.open_device(device, &device_desc) {
@@ -689,7 +699,8 @@ impl LibUsbProfiler {
                         &mut sp_device,
                         options.depth.includes_more_extra(),
                     ) {
-                        Ok(_) => {
+                        Ok(extra) => {
+                            sp_device.extra = Some(extra);
                             None
                         }
                         Err(e) => {
@@ -744,12 +755,6 @@ impl<C: libusb::UsbContext> Profiler<UsbDevice<C>> for LibUsbProfiler {
 
         // run through devices building Device types - not root_hubs (port number 0)
         for device in raw_devices.iter().filter(|d| d.port_number() != 0) {
-            log::debug!(
-                "Processing device: bus {}, address {}, ports {:?}",
-                device.bus_number(),
-                device.address(),
-                device.port_numbers()
-            );
             let bus = device.bus_number();
             let ports = device.port_numbers().unwrap_or_default();
 
