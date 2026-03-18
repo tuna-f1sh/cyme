@@ -67,6 +67,7 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'Force pure libusb profiler on macOS rather than combining system_profiler output')
             [CompletionResult]::new('--force-libusb', '--force-libusb', [CompletionResultType]::ParameterName, 'Force pure libusb profiler on macOS rather than combining system_profiler output')
+            [CompletionResult]::new('--filter-post', '--filter-post', [CompletionResultType]::ParameterName, 'Filter devices after profiling rather than during')
             [CompletionResult]::new('-z', '-z', [CompletionResultType]::ParameterName, 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE')
             [CompletionResult]::new('--debug', '--debug', [CompletionResultType]::ParameterName, 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE')
             [CompletionResult]::new('--gen', '--gen', [CompletionResultType]::ParameterName, 'Generate cli completions and man page')
