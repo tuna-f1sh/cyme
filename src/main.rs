@@ -196,8 +196,9 @@ struct Args {
     config: Option<PathBuf>,
 
     /// Filter devices after profiling rather than during.
+    ///
     /// This is slower but can be used as a fallback if the optimized profiling is causing issues.
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, hide = true)]
     filter_post: bool,
 
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
