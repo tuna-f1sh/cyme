@@ -160,3 +160,26 @@ fn test_tree_filtering() {
         false,
     );
 }
+
+#[test]
+fn test_device_filter() {
+    let env = common::TestEnv::new();
+
+    // EHCI Host Controller (root hub)
+    env.assert_success_and_get_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--device", "/dev/bus/usb/001/001"],
+    );
+
+    // Virtual Mouse (not a root hub)
+    env.assert_success_and_get_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--device", "/dev/bus/usb/001/002"],
+    );
+
+    // Non-existent
+    env.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--device", "/dev/bus/usb/001/010"],
+    );
+}

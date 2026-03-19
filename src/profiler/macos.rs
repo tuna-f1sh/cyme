@@ -251,8 +251,8 @@ pub fn get_spusb_with_options(options: &ProfilerOptions) -> Result<SystemProfile
         .output()?;
 
     if output.status.success() {
-        let mut sp: SystemProfile = serde_json::from_str(String::from_utf8(output.stdout)?.as_str())
-            .map_err(|e| {
+        let mut sp: SystemProfile =
+            serde_json::from_str(String::from_utf8(output.stdout)?.as_str()).map_err(|e| {
                 Error::new(
                     ErrorKind::Parsing,
                     &format!("Failed to parse 'system_profiler -json SPUSBDataType'; Error({e})"),

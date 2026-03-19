@@ -798,7 +798,12 @@ fn cyme() -> Result<()> {
         // * lsusb compat (shows root_hubs)
         // * json - for --from-json support
         // * list_root_hubs - user wants to see root hubs in list
-        f.no_exclude_root_hub = config.lsusb || config.json || config.list_root_hubs;
+        // * device or show is some - user specifically requested a device or bus
+        f.no_exclude_root_hub = config.lsusb
+            || config.json
+            || config.list_root_hubs
+            || args.device.is_some()
+            || args.show.is_some();
 
         Some(f)
     } else {
@@ -806,9 +811,14 @@ fn cyme() -> Result<()> {
         // * lsusb compat (shows root_hubs)
         // * json - for --from-json support
         // * list_root_hubs - user wants to see root hubs in list
+        // * device or show is some - user specifically requested a device or bus
         if cfg!(target_os = "linux") {
             Some(profiler::Filter {
-                no_exclude_root_hub: (config.lsusb || config.json || config.list_root_hubs),
+                no_exclude_root_hub: (config.lsusb
+                    || config.json
+                    || config.list_root_hubs
+                    || args.device.is_some()
+                    || args.show.is_some()),
                 ..Default::default()
             })
         } else {
@@ -878,7 +888,7 @@ fn cyme() -> Result<()> {
     } else {
         // check and report if was looking for args.device
         #[allow(clippy::unnecessary_unwrap)]
-        if args.device.is_some() && !spusb.buses.iter().any(|b| b.is_empty()) {
+        if args.device.is_some() && spusb.is_empty() {
             return Err(Error::new(
                 ErrorKind::NotFound,
                 &format!("Unable to find device at {:?}", args.device.unwrap()),
