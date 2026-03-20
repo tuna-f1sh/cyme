@@ -409,6 +409,7 @@ impl NusbProfiler {
                 None, // No alt setting in sysfs dir name
             )
             .to_string();
+            // Can be obtained from nusb if claimed interface and [`Interface::get_alt_setting`] but that requires claiming the interface which is disruptive - sysfs is read-only and non-disruptive if available
             let active_alt = get_sysfs_active_alternate_setting(&sample_path);
 
             for interface_alt in interface.alt_settings() {
@@ -483,7 +484,11 @@ impl NusbProfiler {
         sp_device: &Device,
     ) -> Result<Vec<usb::Configuration>> {
         let mut ret: Vec<usb::Configuration> = Vec::new();
-        let active_config = get_sysfs_configuration_value(&sp_device.sysfs_name());
+        let active_config = device
+            .handle
+            .active_configuration()
+            .map(|c| Some(c.configuration_value()))
+            .unwrap_or_else(|_| get_sysfs_configuration_value(&sp_device.sysfs_name()));
 
         for c in device.handle.configurations() {
             let mut attributes = Vec::new();
