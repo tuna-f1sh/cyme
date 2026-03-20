@@ -940,6 +940,7 @@ impl Profiler<UsbDevice> for NusbProfiler {
         Ok(root_hubs)
     }
 
+    #[allow(unused_variables)]
     fn get_buses(&mut self, options: &ProfilerOptions) -> Result<HashMap<u8, Bus>> {
         let mut buses = HashMap::new();
         for nusb_bus in nusb::list_buses().wait()? {
