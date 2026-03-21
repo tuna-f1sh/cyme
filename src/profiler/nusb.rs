@@ -293,6 +293,17 @@ impl UsbDevice {
             }),
         }
     }
+
+    /// Get the active alternate setting for an interface by claiming it.
+    ///
+    /// Requires claiming the interface so might fail if another process has it claimed or cannot be claimed for any reason.
+    pub(crate) fn get_active_alt_setting(&self, interface_number: u8) -> Option<u8> {
+        self.handle
+            .claim_interface(interface_number)
+            .wait()
+            .ok()
+            .map(|interface| interface.get_alt_setting())
+    }
 }
 
 impl UsbOperations for UsbDevice {
@@ -397,6 +408,7 @@ impl NusbProfiler {
         &self,
         device: &UsbDevice,
         config: &nusb::descriptors::ConfigurationDescriptor,
+        config_active: bool,
     ) -> Result<Vec<usb::Interface>> {
         let mut ret: Vec<usb::Interface> = Vec::new();
 
@@ -409,8 +421,20 @@ impl NusbProfiler {
                 None, // No alt setting in sysfs dir name
             )
             .to_string();
-            // Can be obtained from nusb if claimed interface and [`Interface::get_alt_setting`] but that requires claiming the interface which is disruptive - sysfs is read-only and non-disruptive if available
-            let active_alt = get_sysfs_active_alternate_setting(&sample_path);
+
+            // Will be None if not on Linux but will fall back to claiming the interface later which works on all platforms
+            let mut active_alt = get_sysfs_active_alternate_setting(&sample_path);
+
+            // Only check for active alt setting if config is active - if config is not active, alt settings are not active either and we should just mark all as inactive without trying to determine which is active
+            if active_alt.is_none() && config_active {
+                // If only one alt setting, it must be the active one
+                let mut alt_settings = interface.alt_settings();
+                if let (Some(first), None) = (alt_settings.next(), alt_settings.next()) {
+                    active_alt = Some(first.alternate_setting());
+                } else {
+                    active_alt = device.get_active_alt_setting(interface.interface_number());
+                }
+            }
 
             for interface_alt in interface.alt_settings() {
                 let device_path = usb::DevicePath::new_with_port_path(
@@ -521,6 +545,8 @@ impl NusbProfiler {
                 2
             };
 
+            let active = active_config.is_some_and(|a| a == c.configuration_value());
+
             ret.push(usb::Configuration {
                 name: c
                     .string_index()
@@ -528,7 +554,7 @@ impl NusbProfiler {
                     .unwrap_or_default(),
                 string_index: c.string_index().map(|i| i.into()).unwrap_or(0),
                 number: c.configuration_value(),
-                active: active_config.is_some_and(|a| a == c.configuration_value()),
+                active,
                 attributes,
                 max_power: NumericalUnit {
                     value: (c.max_power() as u32 * power_mult),
@@ -538,7 +564,7 @@ impl NusbProfiler {
                 length: config_desc[0],
                 total_length,
                 num_interfaces: Some(c.num_interfaces()),
-                interfaces: self.build_interfaces(device, &c)?,
+                interfaces: self.build_interfaces(device, &c, active)?,
                 extra: self
                     .build_config_descriptor_extra(device, config_extra)
                     .ok(),
