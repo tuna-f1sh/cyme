@@ -1,6 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use cyme::profiler;
 use cyme::usb::{DevicePath, EndpointPath, PortPath};
+use std::hint::black_box;
 use std::sync::LazyLock;
 
 fn bench_dump() -> profiler::SystemProfile {

@@ -1,5 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use cyme::profiler;
+use std::hint::black_box;
 
 pub fn profile(c: &mut Criterion) {
     c.bench_function("bench_gather_system_profile", |b| {
