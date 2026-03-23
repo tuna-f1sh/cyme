@@ -31,8 +31,8 @@ heck = "0.4.0" # common case conversions - could be internal but simple crate wi
 dirs = "6.0.0" # cross-platform XDG_CONFIG_HOME - could be internal since only this path
 fastrand = "2.1.1" # fast random number generator for masking serials
 terminal_size = "0.2.5" # terminal size for automatic column width during display
-strum = "0.26" # enum to string conversion
-strum_macros = "0.26" # enum to string conversion
+strum = "0.28" # enum to string conversion
+strum_macros = "0.28" # enum to string conversion
 regex = { version = "1.10.5", optional = true } # icon name lookup with regex
 uuid = { version = "1.9.1", features = ["serde"] } # descriptor UUID field support as type
 pci-ids = "0.2.5" # PCI ID database
@@ -48,7 +48,7 @@ criterion = "0.5.1"
 
 [target.'cfg(target_os="linux")'.dependencies]
 glob = "0.3.3" # find block devices in USB syspath
-udevrs = { version = "^0.4.0", optional = true }
+udevrs = { version = "^0.5.0", optional = true }
 udevlib = { package = "udev", version = "^0.8.0", optional = true }
 
 [target.'cfg(target_os="macos")'.dependencies]
