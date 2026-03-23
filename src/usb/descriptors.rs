@@ -1146,7 +1146,7 @@ impl From<PrinterReportDescriptor> for Vec<u8> {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[allow(missing_docs)]
 pub struct HubDescriptor {
     pub length: u8,

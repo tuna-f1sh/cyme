@@ -202,6 +202,7 @@ replace\:"Mask by replacing length with random chars"))' \
 '--json[Output as json format after sorting, filters and tree settings are applied; without -tree will be flattened dump of devices]' \
 '-F[Force pure libusb profiler on macOS rather than combining system_profiler output]' \
 '--force-libusb[Force pure libusb profiler on macOS rather than combining system_profiler output]' \
+'--filter-post[Filter devices after profiling rather than during]' \
 '*-z[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
 '*--debug[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
 '--gen[Generate cli completions and man page]' \

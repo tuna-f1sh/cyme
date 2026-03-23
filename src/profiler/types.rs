@@ -762,8 +762,8 @@ impl Bus {
             if verbosity > 0 {
                 ret.push(format!(
                     "ID {:04x}:{:04x} {} {}",
-                    self.pci_vendor.unwrap_or(0xFFFF),
-                    self.pci_device.unwrap_or(0xFFFF),
+                    root_device.vendor_id.unwrap_or(0xFFFF),
+                    root_device.product_id.unwrap_or(0xFFFF),
                     vendor,
                     product
                 ));
@@ -1610,16 +1610,10 @@ impl Device {
         let (driver, vendor, product) = match &self.extra {
             Some(v) => (
                 v.driver.to_owned().unwrap_or(String::from("[none]")),
-                v.vendor.to_owned().unwrap_or(String::from("[unknown]")),
-                v.product_name
-                    .to_owned()
-                    .unwrap_or(String::from("[unknown]")),
+                v.vendor.to_owned().unwrap_or_default(),
+                v.product_name.to_owned().unwrap_or_default(),
             ),
-            None => (
-                String::from("[none]"),
-                String::from("[unknown]"),
-                String::from("[unknown]"),
-            ),
+            None => (String::from("[none]"), String::new(), String::new()),
         };
 
         let get_istrings = || match (
@@ -1643,8 +1637,25 @@ impl Device {
 
         if let Some(extra) = self.extra.as_ref() {
             let ports = extra.hub.as_ref().map(|hub| hub.num_ports);
-            for config in &extra.configurations {
-                for interface in &config.interfaces {
+            // lsusb -t only shows active configuration
+            let active_config = extra
+                .configurations
+                .iter()
+                .find(|c| c.active)
+                .or_else(|| extra.configurations.first());
+
+            if let Some(config) = active_config {
+                // lsusb -t only shows active alternate settings for each interface
+                let mut interfaces_to_show = Vec::new();
+                for (_if_num, group) in &config.interfaces.iter().group_by(|i| i.number) {
+                    let group: Vec<_> = group.collect();
+                    let active_if = group.iter().find(|i| i.active).or_else(|| group.first());
+                    if let Some(interface) = active_if {
+                        interfaces_to_show.push(*interface);
+                    }
+                }
+
+                for interface in interfaces_to_show {
                     let mut device_strings = Vec::with_capacity(verbosity as usize);
                     let interface_driver = interface
                         .driver
@@ -1975,7 +1986,7 @@ impl<'a> IntoIterator for &'a mut Device {
 /// Used to filter devices within buses
 ///
 /// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Filter {
     /// Retain only devices with vendor id matching this
     pub vid: Option<u16>,
@@ -1999,6 +2010,45 @@ pub struct Filter {
     pub no_exclude_root_hub: bool,
     /// Case sensitive matching for strings. False will be unless capital letter in query
     pub case_sensitive: bool,
+}
+
+/// Depth of the USB profile to collect.
+/// Higher levels include all data from lower levels.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ProfileDepth {
+    /// Only collect identity information (VID, PID, Name, Serial) from OS cache/sysfs.
+    /// Does not typically require opening the USB device handle.
+    #[default]
+    Identity,
+    /// Collect standard descriptors: configurations, interfaces and endpoints.
+    /// Requires opening the USB device handle.
+    Standard,
+    /// Collect all available data including BOS, Qualifier, Status, Debug and Hub descriptors.
+    Full,
+}
+
+impl ProfileDepth {
+    /// Returns true if this depth requires opening the device handle to read descriptors.
+    pub fn includes_extra(&self) -> bool {
+        matches!(self, Self::Standard | Self::Full)
+    }
+
+    /// Returns true if this depth requires reading extended descriptors (BOS, Hub, etc.)
+    pub fn includes_more_extra(&self) -> bool {
+        matches!(self, Self::Full)
+    }
+}
+
+/// Options for the profiler to allow for more performant profiling when using filters
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ProfilerOptions {
+    /// Filter to apply during profiling
+    pub filter: Option<Filter>,
+    /// How much data to collect for each device
+    pub depth: ProfileDepth,
+    /// Whether we are building a tree (true) or just a flat list (false)
+    pub tree: bool,
 }
 
 /// Deprecated alias for [`Filter`]
@@ -2104,6 +2154,13 @@ impl Filter {
 
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &Device) -> bool {
+        self.is_identity_match(device)
+            && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
+            && (!device.is_root_hub() || self.no_exclude_root_hub)
+    }
+
+    /// Checks whether `device` matches the identity criteria of the filter (VID, PID, Name, Serial, Class, etc.)
+    pub fn is_identity_match(&self, device: &Device) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
             && (device.vendor_id == self.vid || self.vid.is_none())
@@ -2113,7 +2170,22 @@ impl Filter {
             && self.class.as_ref().is_none_or(|fc| {
                 device.class.as_ref() == Some(fc) || device.has_interface_class(fc)
             })
-            && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
+    }
+
+    /// Checks whether `device` could potentially match filter if extra data was loaded
+    ///
+    /// Used by profilers to decide whether to load extra data for a device
+    pub fn is_potential_match(&self, device: &Device) -> bool {
+        (Some(device.location_id.bus) == self.bus || self.bus.is_none())
+            && (Some(device.location_id.number) == self.number || self.number.is_none())
+            && (device.vendor_id == self.vid || self.vid.is_none())
+            && (device.product_id == self.pid || self.pid.is_none())
+            && (self.string_match(&self.name, Some(&device.name)))
+            && (self.string_match(&self.serial, device.serial_num.as_ref()))
+            // if we have a class filter, it's a potential match if we haven't loaded extra data yet (to check interfaces)
+            && self.class.as_ref().is_none_or(|fc| {
+                device.class.as_ref() == Some(fc) || device.extra.is_none()
+            })
             && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 

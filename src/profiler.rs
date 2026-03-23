@@ -606,15 +606,15 @@ where
     }
 
     /// Get [`Device`]s connected to the host, excluding root hubs
-    fn get_devices(&mut self, with_extra: bool) -> Result<Vec<Device>>;
+    fn get_devices(&mut self, options: &ProfilerOptions) -> Result<Vec<Device>>;
 
     /// Get root hubs connected to the host as [`Device`]s
     ///
     /// root hubs are pseudo devices and not always listed in the device list, so this is a separate function to get them. The data is used to help create [`Bus`]es; root hubs are an abstraction over Host Controller information.
-    fn get_root_hubs(&mut self) -> Result<HashMap<u8, Device>>;
+    fn get_root_hubs(&mut self, options: &ProfilerOptions) -> Result<HashMap<u8, Device>>;
 
     /// Get the [`Bus`]s connected to the host for building the [`SystemProfile`]
-    fn get_buses(&mut self) -> Result<HashMap<u8, Bus>>;
+    fn get_buses(&mut self, options: &ProfilerOptions) -> Result<HashMap<u8, Bus>>;
 
     /// Create a new [`Bus`] from a root hub [`Device`]
     fn new_sp_bus(&self, bus_number: u8, root_hub: Option<Device>) -> Bus {
@@ -629,62 +629,83 @@ where
     }
 
     /// Build the [`SystemProfile`] from the Profiler get_devices and get_root_hubs (for buses) functions
-    fn get_spusb(&mut self, with_extra: bool) -> Result<SystemProfile> {
+    fn get_spusb(&mut self, options: &ProfilerOptions) -> Result<SystemProfile> {
         let mut spusb = SystemProfile { buses: Vec::new() };
 
-        if with_extra {
+        if options.depth.includes_extra() {
             log::info!("Building SystemProfile using {self:?} with extra device data");
         } else {
             log::info!("Building SystemProfile using {self:?} without extra device data");
         }
 
         // temporary store of devices created when iterating through DeviceList
-        let mut cache = self.get_devices(with_extra)?;
-        cache.sort_by_key(|d| d.location_id.bus);
-        log::trace!("Sorted devices {cache:#?}");
+        let cache = self.get_devices(options)?;
+        log::trace!("Devices {cache:#?}");
+
         // get system buses
-        let mut buses = self.get_buses()?;
+        let mut buses = self.get_buses(options)?;
         log::trace!("Buses {buses:#?}");
 
         // group by bus number and then stick them into a bus in the returned SystemProfile
-        for (key, group) in &cache.into_iter().group_by(|d| d.location_id.bus) {
+        // sorting by port path is required for group_by to work correctly and matches lsusb -t sorting
+        for (key, group) in &cache
+            .into_iter()
+            .sorted_by_key(|d| d.port_path())
+            .group_by(|d| d.location_id.bus)
+        {
             // create the bus if missing, we'll add devices at next step
             let mut new_bus = buses.remove(&key).unwrap_or(Bus::from(key));
 
-            // group into parent groups with parent path as key or trunk devices so they end up in same place
-            let parent_groups =
-                group.group_by(|d| d.parent_port_path().unwrap_or(d.trunk_port_path()));
-
-            // now go through parent paths inserting devices owned by that parent
-            // this is not perfect...if the sort of devices does not result in order of depth, it will panic because the parent of a device will not exist. But that won't happen, right...
-            // sort key - ends_with to ensure root_hubs, which will have same str length as trunk devices will still be ahead
-            for (parent_path, children) in parent_groups.into_iter().sorted_by_key(|x| x.0.depth())
-            {
-                // if root devices, add them to bus
-                if parent_path.is_root_hub() {
-                    // if parent_path == "-" {
-                    let devices = std::mem::take(&mut new_bus.devices);
-                    if let Some(mut d) = devices {
-                        for new_device in children {
-                            d.push(new_device);
-                        }
-                        new_bus.devices = Some(d);
-                    } else {
-                        new_bus.devices = Some(children.collect());
+            if !options.tree {
+                let existing = std::mem::take(&mut new_bus.devices);
+                let mut all_devices: Vec<Device> = group.collect();
+                if let Some(mut root_devices) = existing {
+                    // Filter root devices if needed
+                    if let Some(filter) = &options.filter {
+                        root_devices.retain(|d| !d.is_root_hub() || filter.no_exclude_root_hub);
                     }
-                    // else find and add parent - this should work because we are sorted to ascend the tree so parents should be created before their children
+                    root_devices.append(&mut all_devices);
+                    new_bus.devices = Some(root_devices);
                 } else {
-                    let parent_node = new_bus
-                        .get_node_mut(&parent_path)
-                        .expect("Parent node does not exist in new bus!");
-                    let devices = std::mem::take(&mut parent_node.devices);
-                    if let Some(mut d) = devices {
-                        for new_device in children {
-                            d.push(new_device);
+                    new_bus.devices = Some(all_devices);
+                }
+            } else {
+                // group into parent groups with parent path as key or trunk devices so they end up in same place
+                let parent_groups =
+                    group.group_by(|d| d.parent_port_path().unwrap_or(d.trunk_port_path()));
+
+                // now go through parent paths inserting devices owned by that parent
+                // this is not perfect...if the sort of devices does not result in order of depth, it will panic because the parent of a device will not exist. But that won't happen, right...
+                // sort key - ends_with to ensure root_hubs, which will have same str length as trunk devices will still be ahead
+                for (parent_path, children) in
+                    parent_groups.into_iter().sorted_by_key(|x| x.0.depth())
+                {
+                    // if root devices, add them to bus
+                    if parent_path.is_root_hub() {
+                        // if parent_path == "-" {
+                        let devices = std::mem::take(&mut new_bus.devices);
+                        if let Some(mut d) = devices {
+                            for new_device in children {
+                                d.push(new_device);
+                            }
+                            new_bus.devices = Some(d);
+                        } else {
+                            new_bus.devices = Some(children.collect());
                         }
-                        parent_node.devices = Some(d);
+                        // else find and add parent - this should work because we are sorted to ascend the tree so parents should be created before their children
                     } else {
-                        parent_node.devices = Some(children.collect());
+                        let parent_node = new_bus
+                            .get_node_mut(&parent_path)
+                            .expect("Parent node does not exist in new bus!");
+                        let devices = std::mem::take(&mut parent_node.devices);
+                        if let Some(mut d) = devices {
+                            for new_device in children {
+                                d.push(new_device);
+                            }
+                            parent_node.devices = Some(d);
+                        } else {
+                            parent_node.devices = Some(children.collect());
+                        }
                     }
                 }
             }
@@ -706,8 +727,8 @@ where
     /// Fills a passed mutable `spusb` reference to fill using `get_spusb`. Will replace existing [`Device`]s found in the Profiler tree but leave others and the buses.
     ///
     /// The main use case for this is to merge with macOS `system_profiler` data, so that [`usb::DeviceExtra`] can be obtained but internal buses kept. One could also use it to update a static .json dump.
-    fn fill_spusb(&mut self, spusb: &mut SystemProfile) -> Result<()> {
-        let libusb_spusb = self.get_spusb(true)?;
+    fn fill_spusb(&mut self, spusb: &mut SystemProfile, options: &ProfilerOptions) -> Result<()> {
+        let libusb_spusb = self.get_spusb(options)?;
 
         // merge if passed has any buses
         if !spusb.buses.is_empty() {
@@ -738,6 +759,40 @@ fn get_sysfs_string(sysfs_name: &str, attr: &str) -> Option<String> {
         .map(|s| s.trim().to_string());
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     return None;
+}
+
+/// Attempt to retrieve the current bConfigurationValue for a device
+/// If there are any failures in retrieving the data, None is returned
+#[allow(unused_variables)]
+fn get_sysfs_configuration_value(sysfs_name: &str) -> Option<u8> {
+    #[cfg(target_os = "linux")]
+    return get_sysfs_string(sysfs_name, "bConfigurationValue").and_then(|s| s.parse::<u8>().ok());
+
+    #[cfg(not(target_os = "linux"))]
+    None
+}
+
+/// Attempt to retrieve the current bAlternateSetting for an interface
+/// If there are any failures in retrieving the data, None is returned
+#[allow(unused_variables)]
+fn get_sysfs_active_alternate_setting(interface_path: &str) -> Option<u8> {
+    #[cfg(target_os = "linux")]
+    return get_sysfs_string(interface_path, "bAlternateSetting")
+        .and_then(|s| s.parse::<u8>().ok());
+
+    #[cfg(not(target_os = "linux"))]
+    None
+}
+
+/// Attempt to retrieve the current maxchild (ports) for a hub
+/// If there are any failures in retrieving the data, None is returned
+#[allow(unused_variables)]
+fn get_sysfs_hub_ports(sysfs_name: &str) -> Option<u8> {
+    #[cfg(target_os = "linux")]
+    return get_sysfs_string(sysfs_name, "maxchild").and_then(|s| s.parse::<u8>().ok());
+
+    #[cfg(not(target_os = "linux"))]
+    None
 }
 
 #[allow(unused_variables)]
@@ -805,46 +860,33 @@ fn get_syspath(port_path: &str) -> Option<String> {
 ///
 /// Bus data on Windows is only available with 'nusb', and on this bus numbers are created in order of appearance since it is not a concept in the Windows USB stack.
 pub fn get_spusb() -> Result<SystemProfile> {
-    #[cfg(all(feature = "libusb", not(feature = "nusb")))]
-    {
-        let mut profiler = libusb::LibUsbProfiler;
-        <libusb::LibUsbProfiler as Profiler<libusb::UsbDevice<rusb::Context>>>::get_spusb(
-            &mut profiler,
-            false,
-        )
-    }
-    #[cfg(feature = "nusb")]
-    {
-        let mut profiler = nusb::NusbProfiler::new();
-        profiler.get_spusb(false)
-    }
-
-    #[cfg(all(not(feature = "libusb"), not(feature = "nusb")))]
-    {
-        Err(crate::error::Error::new(
-            crate::error::ErrorKind::Unsupported,
-            "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`",
-        ))
-    }
+    get_spusb_with_options(&ProfilerOptions::default())
 }
 
 /// Build [`SystemProfile`] including [`usb::DeviceExtra`] - the main function to use for most use cases unless one does not want verbose data. The extra data requires opening the device to read device descriptors.
 ///
 /// See [`Profiler::get_spusb()`] for more information.
 pub fn get_spusb_with_extra() -> Result<SystemProfile> {
+    get_spusb_with_options(&ProfilerOptions {
+        depth: ProfileDepth::Standard,
+        ..Default::default()
+    })
+}
+
+/// Build [`SystemProfile`] with [`ProfilerOptions`] to allow for more performant profiling when using filters
+pub fn get_spusb_with_options(options: &ProfilerOptions) -> Result<SystemProfile> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
     {
         let mut profiler = libusb::LibUsbProfiler;
         <libusb::LibUsbProfiler as Profiler<libusb::UsbDevice<rusb::Context>>>::get_spusb(
             &mut profiler,
-            true,
+            options,
         )
     }
-
     #[cfg(feature = "nusb")]
     {
         let mut profiler = nusb::NusbProfiler::new();
-        profiler.get_spusb(true)
+        profiler.get_spusb(options)
     }
 
     #[cfg(all(not(feature = "libusb"), not(feature = "nusb")))]

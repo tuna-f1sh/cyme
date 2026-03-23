@@ -108,7 +108,7 @@ struct Args {
 
     /// Sort devices operation
     ///
-    /// [default: device-number]
+    /// [default: device-number (flat), branch-position (tree)]
     #[arg(long, value_enum)]
     sort_devices: Option<display::Sort>,
 
@@ -194,6 +194,12 @@ struct Args {
     /// Path to user config file to use for custom icons, colours and default settings
     #[arg(short = 'c', long)]
     config: Option<PathBuf>,
+
+    /// Filter devices after profiling rather than during.
+    ///
+    /// This is slower but can be used as a fallback if the optimized profiling is causing issues.
+    #[arg(long, default_value_t = false, hide = true)]
+    filter_post: bool,
 
     /// Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
     #[arg(short = 'z', long, action = clap::ArgAction::Count)]
@@ -389,7 +395,11 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
 
 /// macOS can use system_profiler to get USB data and merge with libusb so separate function
 #[cfg(target_os = "macos")]
-fn get_system_profile_macos(config: &Config, args: &Args) -> Result<profiler::SystemProfile> {
+fn get_system_profile_macos(
+    config: &Config,
+    args: &Args,
+    filter: Option<profiler::Filter>,
+) -> Result<profiler::SystemProfile> {
     // if requested or only have libusb, use system_profiler and merge with libusb
     if args.system_profiler || !cfg!(feature = "nusb") {
         if !config.force_libusb
@@ -397,51 +407,85 @@ fn get_system_profile_macos(config: &Config, args: &Args) -> Result<profiler::Sy
                 && args.filter_class.is_none() // class filter requires extra
                 && !((config.tree && config.lsusb) || config.verbose > 0 || config.more)
         {
-            profiler::macos::get_spusb()
-                .map_or_else(|e| {
+            profiler::macos::get_spusb().map_or_else(
+                |e| {
                     // For non-zero return, report but continue in this case
                     if e.kind() == ErrorKind::SystemProfiler {
                         eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({e})");
-                        get_system_profile(config, args)
+                        get_system_profile(config, args, filter)
                     } else {
                         Err(e)
                     }
-                }, Ok)
+                },
+                Ok,
+            )
         } else if !config.force_libusb {
             if cfg!(feature = "libusb") {
                 log::warn!("Merging macOS system_profiler output with libusb for verbose data. Apple internal devices will not be obtained");
             }
-            profiler::macos::get_spusb_with_extra().map_or_else(|e| {
-                // For non-zero return, report but continue in this case
-                if e.kind() == ErrorKind::SystemProfiler {
-                    eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({e})");
-                    get_system_profile(config, args)
-                } else {
-                    Err(e)
-                }
-            }, Ok)
+            let depth = if config.verbose >= 2
+                || (config.json && config.verbose >= 1)
+                || (config.lsusb && (args.device.is_some() || config.tree || config.verbose > 0))
+            {
+                profiler::ProfileDepth::Full
+            } else if config.verbose == 1
+                || args.filter_class.is_some()
+                || config.json
+                || config.more
+            {
+                profiler::ProfileDepth::Standard
+            } else {
+                profiler::ProfileDepth::Identity
+            };
+
+            let options = profiler::ProfilerOptions {
+                filter,
+                depth,
+                tree: config.tree,
+            };
+            profiler::macos::get_spusb_with_options(&options).map_or_else(
+                |e| {
+                    // For non-zero return, report but continue in this case
+                    if e.kind() == ErrorKind::SystemProfiler {
+                        eprintln!("Failed to run 'system_profiler -json SPUSBDataType', fallback to cyme profiler; Error({e})");
+                        get_system_profile(config, args, options.filter)
+                    } else {
+                        Err(e)
+                    }
+                },
+                Ok,
+            )
         } else {
-            get_system_profile(config, args)
+            get_system_profile(config, args, filter)
         }
     } else {
-        get_system_profile(config, args)
+        get_system_profile(config, args, filter)
     }
 }
 
 /// Detects and switches between verbose profiler (extra) and normal profiler
-fn get_system_profile(config: &Config, args: &Args) -> Result<profiler::SystemProfile> {
-    if config.verbose > 0
-        || config.tree
-        || args.device.is_some()
-        || config.lsusb
-        || config.more
-        || args.filter_class.is_some()
-    // class filter requires extra
+fn get_system_profile(
+    config: &Config,
+    args: &Args,
+    filter: Option<profiler::Filter>,
+) -> Result<profiler::SystemProfile> {
+    let depth = if config.verbose >= 2
+        || (config.json && config.verbose >= 1)
+        || (config.lsusb && (args.device.is_some() || config.tree || config.verbose > 0))
     {
-        profiler::get_spusb_with_extra()
+        profiler::ProfileDepth::Full
+    } else if config.verbose == 1 || args.filter_class.is_some() || config.json || config.more {
+        profiler::ProfileDepth::Standard
     } else {
-        profiler::get_spusb()
-    }
+        profiler::ProfileDepth::Identity
+    };
+
+    let options = profiler::ProfilerOptions {
+        filter,
+        depth,
+        tree: config.tree,
+    };
+    profiler::get_spusb_with_options(&options)
 }
 
 fn print_lsusb(
@@ -699,28 +743,6 @@ fn cyme() -> Result<()> {
         _ => (),
     };
 
-    let mut spusb = if let Some(file_path) = args.from_json.clone() {
-        match profiler::read_json_dump(&file_path) {
-            Ok(s) => s,
-            Err(e) => {
-                log::warn!(
-                    "Failed to read json dump, attempting as flattened with phony bus: Error({e})"
-                );
-                profiler::read_flat_json_to_phony_bus(&file_path)?
-            }
-        }
-    } else {
-        #[cfg(target_os = "macos")]
-        {
-            get_system_profile_macos(&config, &args)?
-        }
-
-        #[cfg(not(target_os = "macos"))]
-        {
-            get_system_profile(&config, &args)?
-        }
-    };
-
     let filter = if config.hide_hubs
         || config.hide_buses
         || args.vidpid.is_some()
@@ -776,7 +798,12 @@ fn cyme() -> Result<()> {
         // * lsusb compat (shows root_hubs)
         // * json - for --from-json support
         // * list_root_hubs - user wants to see root hubs in list
-        f.no_exclude_root_hub = config.lsusb || config.json || config.list_root_hubs;
+        // * device or show is some - user specifically requested a device or bus
+        f.no_exclude_root_hub = config.lsusb
+            || config.json
+            || config.list_root_hubs
+            || args.device.is_some()
+            || args.show.is_some();
 
         Some(f)
     } else {
@@ -784,13 +811,56 @@ fn cyme() -> Result<()> {
         // * lsusb compat (shows root_hubs)
         // * json - for --from-json support
         // * list_root_hubs - user wants to see root hubs in list
+        // * device or show is some - user specifically requested a device or bus
         if cfg!(target_os = "linux") {
             Some(profiler::Filter {
-                no_exclude_root_hub: (config.lsusb || config.json || config.list_root_hubs),
+                no_exclude_root_hub: (config.lsusb
+                    || config.json
+                    || config.list_root_hubs
+                    || args.device.is_some()
+                    || args.show.is_some()),
                 ..Default::default()
             })
         } else {
             None
+        }
+    };
+
+    let mut spusb = if let Some(file_path) = args.from_json.clone() {
+        match profiler::read_json_dump(&file_path) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!(
+                    "Failed to read json dump, attempting as flattened with phony bus: Error({e})"
+                );
+                profiler::read_flat_json_to_phony_bus(&file_path)?
+            }
+        }
+    } else {
+        #[cfg(target_os = "macos")]
+        {
+            get_system_profile_macos(
+                &config,
+                &args,
+                if args.filter_post {
+                    None
+                } else {
+                    filter.clone()
+                },
+            )?
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            get_system_profile(
+                &config,
+                &args,
+                if args.filter_post {
+                    None
+                } else {
+                    filter.clone()
+                },
+            )?
         }
     };
 
@@ -818,7 +888,7 @@ fn cyme() -> Result<()> {
     } else {
         // check and report if was looking for args.device
         #[allow(clippy::unnecessary_unwrap)]
-        if args.device.is_some() && !spusb.buses.iter().any(|b| b.is_empty()) {
+        if args.device.is_some() && spusb.is_empty() {
             return Err(Error::new(
                 ErrorKind::NotFound,
                 &format!("Unable to find device at {:?}", args.device.unwrap()),

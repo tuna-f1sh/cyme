@@ -272,7 +272,13 @@ impl Config {
             decimal: self.decimal,
             mask_serials: self.mask_serials,
             group_devices,
-            sort_devices: self.sort_devices.unwrap_or_default(),
+            sort_devices: self.sort_devices.unwrap_or_else(|| {
+                if self.tree {
+                    display::Sort::BranchPosition
+                } else {
+                    display::Sort::default()
+                }
+            }),
             sort_buses: self.sort_buses,
             no_padding: self.no_padding,
             headings: self.headings,
