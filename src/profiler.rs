@@ -651,7 +651,7 @@ where
         for (key, group) in &cache
             .into_iter()
             .sorted_by_key(|d| d.port_path())
-            .group_by(|d| d.location_id.bus)
+            .chunk_by(|d| d.location_id.bus)
         {
             // create the bus if missing, we'll add devices at next step
             let mut new_bus = buses.remove(&key).unwrap_or(Bus::from(key));
@@ -672,7 +672,7 @@ where
             } else {
                 // group into parent groups with parent path as key or trunk devices so they end up in same place
                 let parent_groups =
-                    group.group_by(|d| d.parent_port_path().unwrap_or(d.trunk_port_path()));
+                    group.chunk_by(|d| d.parent_port_path().unwrap_or(d.trunk_port_path()));
 
                 // now go through parent paths inserting devices owned by that parent
                 // this is not perfect...if the sort of devices does not result in order of depth, it will panic because the parent of a device will not exist. But that won't happen, right...

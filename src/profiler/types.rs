@@ -1647,7 +1647,7 @@ impl Device {
             if let Some(config) = active_config {
                 // lsusb -t only shows active alternate settings for each interface
                 let mut interfaces_to_show = Vec::new();
-                for (_if_num, group) in &config.interfaces.iter().group_by(|i| i.number) {
+                for (_if_num, group) in &config.interfaces.iter().chunk_by(|i| i.number) {
                     let group: Vec<_> = group.collect();
                     let active_if = group.iter().find(|i| i.active).or_else(|| group.first());
                     if let Some(interface) = active_if {

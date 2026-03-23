@@ -18,43 +18,43 @@ clap_complete = { version = "4.0.6", optional = true } # CLI completions
 clap_mangen = { version = "0.2.5", optional = true } # for generating man - could manually do this
 colored = "3.0.0" # terminal colouring helper
 cansi = { version = "=2.2.1", optional = true } # ANSI escape code helper; decolored - no dependencies
-itertools = "0.10.5" # iterator methods used for building device tree
+itertools = "0.14.0" # iterator methods used for building device tree
 rusb = { version = "0.9.4", optional = true } # libusb bindings
 nusb = { version = "0.2.1", optional = true } # pure Rust USB library
 serde = { version = "1.0", features = ["derive"] } # --json serialisation and --from-json deserialisation
 serde_json = "1.0.87"
-serde_with = "2.0.1"
+serde_with = "3.18.0"
 log = "0.4.17"
-simple_logger = { version = "4.0.0", features = ["stderr"], optional = false } # perhaps make this optional in the future; only required by bin targets
+simple_logger = { version = "5.0.0", features = ["stderr"], optional = false } # perhaps make this optional in the future; only required by bin targets
 usb-ids = { version = "1" } # USB ID database
-heck = "0.4.0" # common case conversions - could be internal but simple crate with no dependencies
+heck = "0.5.0" # common case conversions - could be internal but simple crate with no dependencies
 dirs = "6.0.0" # cross-platform XDG_CONFIG_HOME - could be internal since only this path
 fastrand = "2.1.1" # fast random number generator for masking serials
-terminal_size = "0.2.5" # terminal size for automatic column width during display
+terminal_size = "0.4.0" # terminal size for automatic column width during display
 strum = "0.28" # enum to string conversion
 strum_macros = "0.28" # enum to string conversion
 regex = { version = "1.10.5", optional = true } # icon name lookup with regex
 uuid = { version = "1.9.1", features = ["serde"] } # descriptor UUID field support as type
 pci-ids = "0.2.5" # PCI ID database
 unicode-width = "0.2.0" # ensure USB device table is printed with equal width columns - zero dependencies
-crossterm = { version = "0.28.1", optional = true } # watch: terminal manipulation
+crossterm = { version = "0.29.0", optional = true } # watch: terminal manipulation
 futures-lite = { version = "2.6.0", optional = true } # watch: async helper
 chrono = { version = "0.4.39", features = ["serde"] } # watch: event times as human readable
 
 [dev-dependencies]
 diff = "0.1"
 assert-json-diff = "2.0.2"
-criterion = "0.5.1"
+criterion = "0.8.2"
 
 [target.'cfg(target_os="linux")'.dependencies]
 glob = "0.3.3" # find block devices in USB syspath
 udevrs = { version = "^0.5.0", optional = true }
-udevlib = { package = "udev", version = "^0.8.0", optional = true }
+udevlib = { package = "udev", version = "^0.9.0", optional = true }
 
 [target.'cfg(target_os="macos")'.dependencies]
 core-foundation = "0.10.1"
 core-foundation-sys = "0.8.4"
-io-kit-sys = "0.4.0"
+io-kit-sys = "0.5.0"
 
 [features]
 libusb = ["dep:rusb"] # libusb bindings rather than nusb Rust
