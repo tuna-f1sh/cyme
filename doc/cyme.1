@@ -295,10 +295,12 @@ max\-packet\-size: Maximum packet size in bytes endpoint can send/receive
 interval: Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints
 .RE
 .TP
-\fB\-\-block\-operation\fR \fI<BLOCK_OPERATION>\fR [default: new]
+\fB\-\-block\-operation\fR \fI<BLOCK_OPERATION>\fR
 Operation to perform on the blocks supplied via \-\-blocks, \-\-bus\-blocks, \-\-config\-blocks, \-\-interface\-blocks and \-\-endpoint\-blocks
 
-Default is \*(Aqnew\*(Aq for legacy reasons but \*(Aqadd\*(Aq is probably more useful
+Default is \*(Aqadd\*(Aq for ease of use, \*(Aqnew\*(Aq is more explicit and was legacy behaviour (< 2.3.0)
+
+[default: add]
 .br
 
 .br

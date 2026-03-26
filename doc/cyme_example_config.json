@@ -92,6 +92,7 @@
     "usage-type",
     "max-packet-size"
   ],
+  "block-operation": null,
   "mask-serials": null,
   "group-devices": "no-group",
   "encoding": "glyphs",
