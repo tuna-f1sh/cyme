@@ -311,6 +311,7 @@ pub static DEFAULT_ICONS: LazyLock<HashMap<Icon, &'static str>> = LazyLock::new(
         (Icon::VidPid((0x1d50, 0x606f)), "\u{f191d}"), // candlelight_fw gs_can 󱤝
         (Icon::VidPid((0x1209, 0xca01)), "\u{f191d}"), // CANnectivity single channel gs_can 󱤝
         (Icon::VidPid((0x1209, 0xca02)), "\u{f191d}"), // CANnectivity dual channel gs_can 󱤝
+        (Icon::VidPid((0x05c6, 0x9008)), "\u{f019}"),  // qualcomm EDL 
         (Icon::VidPidMsb((0x043e, 0x9a)), "\u{f0379}"), // lg monitor 󰍹
         (Icon::Classifier(BaseClass::Audio), "\u{f001}"), // 
         (Icon::Classifier(BaseClass::Image), "\u{f03e}"), // 
