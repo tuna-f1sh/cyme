@@ -293,7 +293,7 @@ pub static DEFAULT_ICONS: LazyLock<HashMap<Icon, &'static str>> = LazyLock::new(
             Icon::ClassifierSubProtocol((BaseClass::WirelessController, 0x01, 0x01)),
             "\u{f188}",
         ), // bluetooth DFU 
-        (Icon::Vid(0x2341), "\u{f2db}"),               // arduino 
+        (Icon::Vid(0x2341), "\u{e733}"),               // arduino 
         (Icon::Vid(0x239A), "\u{f2db}"),               // adafruit 
         (Icon::Vid(0x2e8a), "\u{f315}"),               // raspberry pi foundation 
         (Icon::Vid(0x0483), "\u{f2db}"),               // stm 
