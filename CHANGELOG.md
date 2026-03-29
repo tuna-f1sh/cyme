@@ -18,6 +18,7 @@ Also wrote some more tests to diff actual output of `lsusb` against `cyme --lsus
 * profiler: reduce profiling time when filtering by passing options with filter to profiler ([#104](https://github.com/tuna-f1sh/cyme/pull/104)).
 * profiler: gets active config and alt setting for interfaces.
 * profiler: (Linux) sysfs fallback for hub ports, active config and alt setting.
+* watch: if not started with `--verbose` then could not cycle verbose mode with 'v' key.
 * arg: hidden `--filter-post` for filtering post profiling in case fallback to previous behaviour is required.
 * icons: defaults include CANnectivity gs_usb devices.
 * icons: defaults update Arduino and add Qualcomm EDL.
