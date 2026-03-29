@@ -874,6 +874,7 @@ pub fn get_spusb_with_extra() -> Result<SystemProfile> {
 }
 
 /// Build [`SystemProfile`] with [`ProfilerOptions`] to allow for more performant profiling when using filters
+#[allow(unused_variables)]
 pub fn get_spusb_with_options(options: &ProfilerOptions) -> Result<SystemProfile> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
     {

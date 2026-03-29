@@ -398,6 +398,7 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     }
 }
 
+#[allow(unused_variables)]
 fn is_watch(args: &Args) -> bool {
     #[cfg(feature = "watch")]
     {
