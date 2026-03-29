@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.3.0] - 2025-03-29
+
+Big reduction of profiling time^ when filtering by passing options with filter to profiler. Previously, filtering was done post profiling of all devices - even those that would be filtered out. This included opening descriptors and reading data for redundant devices.
+
+Also wrote some more tests to diff actual output of `lsusb` against `cyme --lsusb` - found some discrepancies in the tree and tree verbose output which have been fixed.
+
+^ ~O(n) where n is devices on host - ~ because depends on descriptors and number of filter matches. See [#104](https://github.com/tuna-f1sh/cyme/pull/104) for more details.
+
+### Changed
+
+* tree: default to branch sort to match lsusb and expected.
+* main: default `--block-operation` is `add` not `new` (replace) ([#106](https://github.com/tuna-f1sh/cyme/pull/106)).
+
+### Added
+
+* profiler: reduce profiling time when filtering by passing options with filter to profiler ([#104](https://github.com/tuna-f1sh/cyme/pull/104)).
+* profiler: gets active config and alt setting for interfaces.
+* profiler: (Linux) sysfs fallback for hub ports, active config and alt setting.
+* arg: hidden `--filter-post` for filtering post profiling in case fallback to previous behaviour is required.
+* icons: defaults include CANnectivity gs_usb devices.
+* icons: defaults update Arduino and add Qualcomm EDL.
+
+### Fixed
+
+* lsusb: fix `--tree --verbose` using PCI IDs not root hub USB IDs.
+* lsusb: fix `--tree -v` showing all config and alt interfaces, not just active like `lsusb --tree -v`.
+* main: `--device -D` not working without `--lsusb` flag.
+
 ## [2.2.11] - 2025-01-30
 
 ### Fixed
