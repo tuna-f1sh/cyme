@@ -398,6 +398,17 @@ fn parse_devpath(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     }
 }
 
+fn is_watch(args: &Args) -> bool {
+    #[cfg(feature = "watch")]
+    {
+        matches!(args.command, Some(SubCommand::Watch))
+    }
+    #[cfg(not(feature = "watch"))]
+    {
+        false
+    }
+}
+
 /// macOS can use system_profiler to get USB data and merge with libusb so separate function
 #[cfg(target_os = "macos")]
 fn get_system_profile_macos(
@@ -431,6 +442,8 @@ fn get_system_profile_macos(
             let depth = if config.verbose >= 2
                 || (config.json && config.verbose >= 1)
                 || (config.lsusb && (args.device.is_some() || config.tree || config.verbose > 0))
+                || is_watch(args)
+            // watch needs full data to be able to show changes properly since only new devices are re-profiled
             {
                 profiler::ProfileDepth::Full
             } else if config.verbose == 1
@@ -477,6 +490,8 @@ fn get_system_profile(
     let depth = if config.verbose >= 2
         || (config.json && config.verbose >= 1)
         || (config.lsusb && (args.device.is_some() || config.tree || config.verbose > 0))
+        || is_watch(args)
+    // watch needs full data to be able to show changes properly since only new devices are re-profiled
     {
         profiler::ProfileDepth::Full
     } else if config.verbose == 1 || args.filter_class.is_some() || config.json || config.more {
@@ -870,6 +885,9 @@ fn cyme() -> Result<()> {
 
     #[cfg(feature = "watch")]
     if matches!(args.command, Some(SubCommand::Watch)) {
+        // pass spusb to watch so that it can be based on from_json
+        // note: profiler will have been forced to full depth (get_system..) for watch to be able to show changes properly since only new devices are re-profiled based on supplied options to stream
+        // ideally watch would generate own spusb or trigger when print options change but this works..
         if settings.json {
             watch::watch_usb_devices_json(spusb, filter, settings)?;
         } else {

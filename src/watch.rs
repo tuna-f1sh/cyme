@@ -299,7 +299,7 @@ pub fn watch_usb_devices(
 
     // pass spusb to stream builder, will get Arc<Mutex<SystemProfile>> back below
     let mut profile_stream = SystemProfileStreamBuilder::new()
-        .with_spusb(spusb)
+        .with_spusb(spusb) // note that initial must be full level of verbosity since only new devices will be re-profiled with supplied options. One day will add a reprofile trigger when verbosity/filter changes..
         .is_verbose(true) // because print_settings can change verbosity, always capture full device data
         .build()
         .map_err(|e| Error::new(ErrorKind::Nusb, &e.to_string()))?;
@@ -1207,11 +1207,7 @@ impl Display {
             }
             _ => {
                 let print_settings = self.print_settings.lock().unwrap();
-                let verbosity = if print_settings.verbosity == 3 {
-                    String::from("0")
-                } else {
-                    (print_settings.verbosity + 1).to_string()
-                };
+                let verbosity = (print_settings.verbosity).to_string();
                 let mut footer = format!(
                     " [q]-Quit [b]-Edit Blocks [v]-Verbosity-(→{}) [t]-Tree-(→{}) [h]-Headings-(→{}) [o]-Decimal-(→{}) [p]-Sort-(→{})",
                     verbosity,

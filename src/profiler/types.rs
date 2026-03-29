@@ -2038,6 +2038,20 @@ impl ProfileDepth {
     pub fn includes_more_extra(&self) -> bool {
         matches!(self, Self::Full)
     }
+
+    /// Returns true if this depth includes all available data, including extended descriptors.
+    ///
+    /// Legacy of old 'extra' profiling
+    pub fn is_verbose(&self) -> bool {
+        matches!(self, Self::Full)
+    }
+
+    /// Set the profile depth to `Full` if `verbose` is true, otherwise set it to `Identity`.
+    ///
+    /// Legacy of old 'extra' profiling
+    pub fn set_verbose(&mut self, verbose: bool) {
+        *self = if verbose { Self::Full } else { Self::Identity };
+    }
 }
 
 /// Options for the profiler to allow for more performant profiling when using filters
@@ -2049,6 +2063,27 @@ pub struct ProfilerOptions {
     pub depth: ProfileDepth,
     /// Whether we are building a tree (true) or just a flat list (false)
     pub tree: bool,
+}
+
+impl ProfilerOptions {
+    /// Creates new profiler options with defaults
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Set the profile depth to `Full` if `verbose` is true, otherwise set it to `Identity`.
+    ///
+    /// Legacy of old 'extra' profiling
+    pub fn set_verbose(&mut self, verbose: bool) {
+        self.depth.set_verbose(verbose);
+    }
+
+    /// Returns true if the profile depth is `Full`, indicating that all available data, including extended descriptors, will be collected.
+    ///
+    /// Legacy of old 'extra' profiling
+    pub fn is_verbose(&self) -> bool {
+        self.depth.is_verbose()
+    }
 }
 
 /// Deprecated alias for [`Filter`]

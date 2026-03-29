@@ -16,7 +16,7 @@ use std::task::{Context, Poll};
 #[derive(Default)]
 pub struct SystemProfileStreamBuilder {
     spusb: Option<SystemProfile>,
-    verbose: bool,
+    options: super::ProfilerOptions,
 }
 
 impl SystemProfileStreamBuilder {
@@ -24,7 +24,12 @@ impl SystemProfileStreamBuilder {
     pub fn new() -> Self {
         Self {
             spusb: None,
-            verbose: true,
+            // Default full and as tree for max information
+            options: super::ProfilerOptions {
+                filter: None,
+                depth: super::ProfileDepth::Full,
+                tree: true,
+            },
         }
     }
 
@@ -32,7 +37,7 @@ impl SystemProfileStreamBuilder {
     ///
     /// When set to true, the stream will include full device descriptors for verbose printing
     pub fn is_verbose(mut self, verbose: bool) -> Self {
-        self.verbose = verbose;
+        self.options.set_verbose(verbose);
         self
     }
 
@@ -42,27 +47,21 @@ impl SystemProfileStreamBuilder {
         self
     }
 
+    /// Set the [`ProfilerOptions`] for the stream
+    pub fn with_options(mut self, options: super::ProfilerOptions) -> Self {
+        self.options = options;
+        self
+    }
+
     /// Build the [`SystemProfileStream`]
     pub fn build(self) -> Result<SystemProfileStream, Error> {
-        let options = super::ProfilerOptions {
-            filter: None,
-            depth: if self.verbose {
-                super::ProfileDepth::Full
-            } else {
-                super::ProfileDepth::Standard
-            },
-            tree: true, // Watch always works with tree usually
-        };
-
         let spusb = if let Some(spusb) = self.spusb {
             Arc::new(Mutex::new(spusb))
         } else {
-            Arc::new(Mutex::new(super::get_spusb_with_options(&options)?))
+            Arc::new(Mutex::new(super::get_spusb_with_options(&self.options)?))
         };
-        let mut new = SystemProfileStream::new(spusb)?;
-        new.verbose = self.verbose;
-        new.options = options;
-        Ok(new)
+
+        SystemProfileStream::new_with_options(spusb, self.options)
     }
 }
 
@@ -70,7 +69,6 @@ impl SystemProfileStreamBuilder {
 pub struct SystemProfileStream {
     spusb: Arc<Mutex<SystemProfile>>,
     watch_stream: Pin<Box<dyn Stream<Item = HotplugEvent> + Send>>,
-    verbose: bool,
     options: super::ProfilerOptions,
 }
 
@@ -81,8 +79,20 @@ impl SystemProfileStream {
         Ok(Self {
             spusb,
             watch_stream,
-            verbose: true,
             options: super::ProfilerOptions::default(),
+        })
+    }
+
+    /// Create a new [`SystemProfileStream`] with an initial [`SystemProfile`] and [`ProfilerOptions`] for profiling devices
+    pub fn new_with_options(
+        spusb: Arc<Mutex<SystemProfile>>,
+        options: super::ProfilerOptions,
+    ) -> Result<Self, Error> {
+        let watch_stream = Box::pin(watch_devices()?);
+        Ok(Self {
+            spusb,
+            watch_stream,
+            options,
         })
     }
 
@@ -105,7 +115,6 @@ impl Stream for SystemProfileStream {
     type Item = Arc<Mutex<SystemProfile>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let extra = self.verbose;
         let this = self.get_mut();
         let mut profiler = NusbProfiler::new();
 
@@ -115,19 +124,8 @@ impl Stream for SystemProfileStream {
 
                 match event {
                     HotplugEvent::Connected(device) => {
-                        let mut cyme_device: Device = profiler
-                            .build_spdevice(
-                                &device,
-                                &super::ProfilerOptions {
-                                    depth: if extra {
-                                        super::ProfileDepth::Full
-                                    } else {
-                                        super::ProfileDepth::Standard
-                                    },
-                                    ..Default::default()
-                                },
-                            )
-                            .unwrap();
+                        let mut cyme_device: Device =
+                            profiler.build_spdevice(&device, &this.options).unwrap();
                         cyme_device.last_event = Some(DeviceEvent::Connected(Local::now()));
                         // Windows bus number is a string ID so we need to find the bus based on this and assign the bus number created during cyme profiling
                         #[cfg(target_os = "windows")]
