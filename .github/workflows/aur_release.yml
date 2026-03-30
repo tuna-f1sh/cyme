@@ -1,0 +1,75 @@
+name: Update AUR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 2.3.0). If not provided, it will be read from Cargo.toml'
+        required: false
+        default: ''
+      pkgrel:
+        description: 'pkgrel value'
+        required: false
+        default: '1'
+
+jobs:
+  update-aur:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git openssh sudo
+
+      - name: Checkout cyme repo
+        uses: actions/checkout@v4
+
+      - name: Setup SSH for AUR
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur_key
+          chmod 600 ~/.ssh/aur_key
+
+      - name: Clone AUR repo
+        run: |
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/aur_key" git clone ssh://aur@aur.archlinux.org/cyme-bin.git aur-repo
+
+      - name: Run update script
+        run: |
+          # makepkg cannot be run as root, so create a build user
+          useradd -m build
+          echo "build ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/build
+
+          # Mark the directory as safe for git
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/aur-repo"
+
+          # Set ownership for the build user
+          chown -R build:build .
+          chown -R build:build /home/build
+
+          # Run the script as the build user
+          # We need to pass AUR_DIR to the script
+          sudo -u build AUR_DIR=aur-repo ./scripts/update_aur.sh "${{ github.event.inputs.version }}" "${{ github.event.inputs.pkgrel }}"
+
+      - name: Commit and push to AUR
+        run: |
+          cd aur-repo
+          if [[ -n $(git status --porcelain) ]]; then
+            git config --global --add safe.directory "$(pwd)"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add PKGBUILD .SRCINFO
+            # We use the version from the PKGBUILD if not provided in inputs
+            VERSION="${{ github.event.inputs.version }}"
+            if [[ -z "$VERSION" ]]; then
+              VERSION=$(grep '^pkgver=' PKGBUILD | cut -d= -f2)
+            fi
+            git commit -m "Update to v${VERSION} (pkgrel: ${{ github.event.inputs.pkgrel }})"
+            GIT_SSH_COMMAND="ssh -i ~/.ssh/aur_key" git push origin master
+          else
+            echo "No changes to commit"
+          fi
