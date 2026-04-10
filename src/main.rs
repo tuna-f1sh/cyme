@@ -304,36 +304,34 @@ fn merge_config(c: &mut Config, a: &Args) {
     c.verbose = c.verbose.max(a.verbose);
 }
 
+/// Parse a hexadecimal u16, accepting an optional `0x` prefix.
+///
+/// Unlike the previous implementation which parsed as `u32` and truncated via
+/// `as u16`, this rejects values that would overflow `u16` (e.g. `0x10000`).
+fn parse_hex_u16(s: &str) -> Result<u16> {
+    u16::from_str_radix(s.trim().trim_start_matches("0x"), 16)
+        .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
+}
+
 /// Parse the vidpid filter lsusb format: vid:Option<pid>
 fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>)> {
     let vid_split: Vec<&str> = s.split(':').collect();
     if vid_split.len() >= 2 {
-        let vid: Option<u16> =
-            vid_split
-                .first()
-                .filter(|v| !v.is_empty())
-                .map_or(Ok(None), |v| {
-                    u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
-                        .map(|v| Some(v as u16))
-                        .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
-                })?;
-        let pid: Option<u16> =
-            vid_split
-                .get(1)
-                .filter(|v| !v.is_empty())
-                .map_or(Ok(None), |v| {
-                    u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
-                        .map(|v| Some(v as u16))
-                        .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
-                })?;
+        let vid: Option<u16> = vid_split
+            .first()
+            .filter(|v| !v.is_empty())
+            .map(|v| parse_hex_u16(v))
+            .transpose()?;
+        let pid: Option<u16> = vid_split
+            .get(1)
+            .filter(|v| !v.is_empty())
+            .map(|v| parse_hex_u16(v))
+            .transpose()?;
 
         Ok((vid, pid))
     } else {
-        let vid: Option<u16> = u32::from_str_radix(s.trim().trim_start_matches("0x"), 16)
-            .map(|v| Some(v as u16))
-            .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))?;
-
-        Ok((vid, None))
+        let vid = parse_hex_u16(s)?;
+        Ok((Some(vid), None))
     }
 }
 
@@ -937,6 +935,18 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_hex_u16() {
+        assert_eq!(parse_hex_u16("0x1234").unwrap(), 0x1234);
+        assert_eq!(parse_hex_u16("1234").unwrap(), 0x1234);
+        assert_eq!(parse_hex_u16("FFFF").unwrap(), 0xFFFF);
+        assert_eq!(parse_hex_u16("0xffff").unwrap(), 0xFFFF);
+        // overflow: previously silently truncated via `u32 as u16`
+        assert!(parse_hex_u16("0x10000").is_err());
+        assert!(parse_hex_u16("0xdeadbeef").is_err());
+        assert!(parse_hex_u16("zz").is_err());
+    }
+
+    #[test]
     fn test_parse_vidpid() {
         assert_eq!(
             parse_vidpid("000A:0x000b").unwrap(),
@@ -946,6 +956,9 @@ mod tests {
         assert_eq!(parse_vidpid("000A:").unwrap(), (Some(0x0A), None));
         assert_eq!(parse_vidpid("0x000A").unwrap(), (Some(0x0A), None));
         assert!(parse_vidpid("dfg:sdfd").is_err());
+        // overflow on either side should error, not silently truncate
+        assert!(parse_vidpid("0x10000:0x1").is_err());
+        assert!(parse_vidpid("0x1:0x10000").is_err());
     }
 
     #[test]
