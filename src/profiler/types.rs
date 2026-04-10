@@ -1988,10 +1988,13 @@ impl<'a> IntoIterator for &'a mut Device {
 /// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Filter {
-    /// Retain only devices with vendor id matching this
-    pub vid: Option<u16>,
-    /// Retain only devices with product id matching this
-    pub pid: Option<u16>,
+    /// Retain only devices whose vendor/product id matches any entry in this list
+    ///
+    /// Each entry is a `(vid, pid)` pair where either side may be `None` to
+    /// match anything. An empty `Vec` disables the filter. Multiple entries
+    /// are combined with OR semantics (a device matches if any entry matches).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub vidpid: Vec<(Option<u16>, Option<u16>)>,
     /// Retain only devices on this bus
     pub bus: Option<u8>,
     /// Retain only devices with this device number
@@ -2115,8 +2118,7 @@ pub type USBFilter = Filter;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
 /// let filter = Filter {
-///     vid: Some(0x1d50),
-///     pid: Some(0x6018),
+///     vidpid: vec![(Some(0x1d50), Some(0x6018))],
 ///     ..Default::default()
 /// };
 /// filter.retain_buses(&mut spusb.buses);
@@ -2187,6 +2189,18 @@ impl Filter {
         }
     }
 
+    /// Checks whether any `vidpid` entry matches `device`. Empty `Vec` = no
+    /// filter and always returns true.
+    fn vidpid_matches(&self, device: &Device) -> bool {
+        if self.vidpid.is_empty() {
+            return true;
+        }
+        self.vidpid.iter().any(|(vid, pid)| {
+            vid.is_none_or(|v| device.vendor_id == Some(v))
+                && pid.is_none_or(|p| device.product_id == Some(p))
+        })
+    }
+
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &Device) -> bool {
         self.is_identity_match(device)
@@ -2198,8 +2212,7 @@ impl Filter {
     pub fn is_identity_match(&self, device: &Device) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
-            && (device.vendor_id == self.vid || self.vid.is_none())
-            && (device.product_id == self.pid || self.pid.is_none())
+            && self.vidpid_matches(device)
             && (self.string_match(&self.name, Some(&device.name)))
             && (self.string_match(&self.serial, device.serial_num.as_ref()))
             && self.class.as_ref().is_none_or(|fc| {
@@ -2213,8 +2226,7 @@ impl Filter {
     pub fn is_potential_match(&self, device: &Device) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
-            && (device.vendor_id == self.vid || self.vid.is_none())
-            && (device.product_id == self.pid || self.pid.is_none())
+            && self.vidpid_matches(device)
             && (self.string_match(&self.name, Some(&device.name)))
             && (self.string_match(&self.serial, device.serial_num.as_ref()))
             // if we have a class filter, it's a potential match if we haven't loaded extra data yet (to check interfaces)

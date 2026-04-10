@@ -37,8 +37,11 @@ struct Args {
     tree: bool,
 
     /// Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:[PID]
-    #[arg(short = 'd', long)]
-    vidpid: Option<String>,
+    ///
+    /// May be supplied multiple times and/or comma-separated to match any
+    /// of several devices, e.g. `--vidpid 1d50:6018,0x05ac:`.
+    #[arg(short = 'd', long, value_delimiter = ',', num_args = 1..)]
+    vidpid: Vec<String>,
 
     /// Show only devices with specified device and/or bus numbers (in decimal) in format [[bus]:][devnum]
     #[arg(short, long)]
@@ -756,7 +759,7 @@ fn cyme() -> Result<()> {
 
     let filter = if config.hide_hubs
         || config.hide_buses
-        || args.vidpid.is_some()
+        || !args.vidpid.is_empty()
         || args.show.is_some()
         || args.device.is_some()
         || args.filter_name.is_some()
@@ -765,15 +768,14 @@ fn cyme() -> Result<()> {
     {
         let mut f = profiler::Filter::new();
 
-        if let Some(vidpid) = &args.vidpid {
-            let (vid, pid) = parse_vidpid(vidpid.as_str()).map_err(|e| {
+        for vidpid in &args.vidpid {
+            let pair = parse_vidpid(vidpid.as_str()).map_err(|e| {
                 Error::new(
                     ErrorKind::InvalidArg,
                     &format!("Failed to parse vidpid '{vidpid}'; Error({e})"),
                 )
             })?;
-            f.vid = vid;
-            f.pid = pid;
+            f.vidpid.push(pair);
         }
 
         // decode device devpath into the show filter since that is what it essentially will do
