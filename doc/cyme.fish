@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_cyme_global_optspecs
-	string join \n l/lsusb t/tree d/vidpid= s/show= D/device= filter-name= filter-serial= filter-class= v/verbose b/blocks= bus-blocks= config-blocks= interface-blocks= endpoint-blocks= block-operation= m/more sort-devices= sort-buses group-devices= hide-buses hide-hubs list-root-hubs decimal no-padding color= no-color encoding= ascii no-icons icon= headings json from-json= F/force-libusb c/config= filter-post z/debug mask-serials= gen system-profiler h/help V/version
+	string join \n l/lsusb t/tree d/vidpid= s/show= D/device= filter-name= filter-serial= filter-class= exclude= v/verbose b/blocks= bus-blocks= config-blocks= interface-blocks= endpoint-blocks= block-operation= m/more sort-devices= sort-buses group-devices= hide-buses hide-hubs list-root-hubs decimal no-padding color= no-color encoding= ascii no-icons icon= headings json from-json= F/force-libusb c/config= filter-post z/debug mask-serials= gen system-profiler h/help V/version
 end
 
 function __fish_cyme_needs_command
@@ -54,6 +54,7 @@ wireless-controller\t'Wireless controllers: Bluetooth adaptors, Microsoft RNDIS'
 miscellaneous\t'This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website'
 application-specific-interface\t'This base class is defined for devices that conform to several class specifications found on the USB-IF website'
 vendor-specific-class\t'This base class is defined for vendors to use as they please'"
+complete -c cyme -n "__fish_cyme_needs_command" -l exclude -d 'Exclude devices matching a KEY=VALUE predicate' -r
 complete -c cyme -n "__fish_cyme_needs_command" -s b -l blocks -d 'Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks' -r -f -a "bus-number\t'Number of bus device is attached'
 device-number\t'Bus issued device number'
 branch-position\t'Position of device in parent branch'
