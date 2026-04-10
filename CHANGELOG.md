@@ -1,5 +1,42 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+* arg: `--vidpid`/`-d` now accepts multiple values (repeat the flag or use a
+  comma-separated list) to match any of several devices.
+* arg: `--exclude KEY=VALUE` flag to exclude devices from output. Supported
+  keys: `vidpid`, `name`, `serial`, `class`. Composes with include filters,
+  e.g. `cyme -d 0x05ac: --exclude vidpid=05ac:8600`.
+* profiler: `Filter` now exposes `exclude_vidpid`, `exclude_name`,
+  `exclude_serial`, `exclude_class` fields and an `is_excluded` helper.
+  Exclusion is applied in both `is_match` and `is_potential_match`, so
+  profilers can prune excluded devices without loading extras when the
+  decision is authoritative (e.g. vidpid, or base class).
+
+### Changed
+
+* **BREAKING** (library): `Filter::vid: Option<u16>` and
+  `Filter::pid: Option<u16>` are replaced by
+  `Filter::vidpid: Vec<(Option<u16>, Option<u16>)>`. Each entry is a
+  `(vid, pid)` pair where either side may be `None` to match anything;
+  multiple entries combine with OR semantics. An empty `Vec` disables
+  the filter. Migration:
+
+  ```rust
+  // before
+  Filter { vid: Some(0x1d50), pid: Some(0x6018), ..Default::default() }
+  // after
+  Filter { vidpid: vec![(Some(0x1d50), Some(0x6018))], ..Default::default() }
+  ```
+
+### Fixed
+
+* arg: `parse_vidpid` previously parsed each half as `u32` and cast `as u16`,
+  silently wrapping values larger than `0xFFFF` (e.g. `0x10000:0x1` became
+  `(0x0, 0x1)`). Values that overflow `u16` now return a parse error.
+
 ## [2.3.0] - 2025-03-29
 
 Big reduction of profiling time^ when filtering by passing options with filter to profiler. Previously, filtering was done post profiling of all devices - even those that would be filtered out. This included opening descriptors and reading data for redundant devices.

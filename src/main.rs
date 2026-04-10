@@ -1,6 +1,7 @@
 //! Where the magic happens for `cyme` binary!
 #[cfg(not(feature = "watch"))]
 use clap::Parser;
+use clap::ValueEnum;
 #[cfg(feature = "watch")]
 use clap::{Parser, Subcommand};
 use colored::*;
@@ -37,8 +38,11 @@ struct Args {
     tree: bool,
 
     /// Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:[PID]
-    #[arg(short = 'd', long)]
-    vidpid: Option<String>,
+    ///
+    /// May be supplied multiple times and/or comma-separated to match any
+    /// of several devices, e.g. `--vidpid 1d50:6018,0x05ac:`.
+    #[arg(short = 'd', long, value_delimiter = ',', num_args = 1..)]
+    vidpid: Vec<String>,
 
     /// Show only devices with specified device and/or bus numbers (in decimal) in format [[bus]:][devnum]
     #[arg(short, long)]
@@ -59,6 +63,20 @@ struct Args {
     /// Filter on USB class code
     #[arg(long)]
     filter_class: Option<BaseClass>,
+
+    /// Exclude devices matching a KEY=VALUE predicate.
+    ///
+    /// May be supplied multiple times and/or comma-separated. Supported
+    /// keys: `vidpid=VID:[PID]`, `name=STRING`, `serial=STRING`,
+    /// `class=CLASS`. Exclude criteria are applied after include filters.
+    ///
+    /// Examples:
+    ///
+    ///   --exclude vidpid=1234:5678
+    ///   --exclude vidpid=1234:5678,name=Hub
+    ///   --vidpid 0x05ac: --exclude vidpid=05ac:8600
+    #[arg(long, value_delimiter = ',', num_args = 1..)]
+    exclude: Vec<String>,
 
     /// Verbosity level (repeat provides count): 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and more blocks
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
@@ -304,36 +322,67 @@ fn merge_config(c: &mut Config, a: &Args) {
     c.verbose = c.verbose.max(a.verbose);
 }
 
+/// Parse a hexadecimal u16, accepting an optional `0x` prefix.
+///
+/// Unlike the previous implementation which parsed as `u32` and truncated via
+/// `as u16`, this rejects values that would overflow `u16` (e.g. `0x10000`).
+fn parse_hex_u16(s: &str) -> Result<u16> {
+    u16::from_str_radix(s.trim().trim_start_matches("0x"), 16)
+        .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
+}
+
+/// A single parsed entry from `--exclude KEY=VALUE`
+enum ExcludeEntry {
+    Vidpid((Option<u16>, Option<u16>)),
+    Name(String),
+    Serial(String),
+    Class(BaseClass),
+}
+
+/// Parse a single `--exclude` entry in `KEY=VALUE` form.
+fn parse_exclude(s: &str) -> Result<ExcludeEntry> {
+    let (key, value) = s.split_once('=').ok_or_else(|| {
+        Error::new(
+            ErrorKind::InvalidArg,
+            &format!("--exclude expects KEY=VALUE, got '{s}'"),
+        )
+    })?;
+    match key.trim() {
+        "vidpid" => Ok(ExcludeEntry::Vidpid(parse_vidpid(value)?)),
+        "name" => Ok(ExcludeEntry::Name(value.to_string())),
+        "serial" => Ok(ExcludeEntry::Serial(value.to_string())),
+        "class" => {
+            let class = BaseClass::from_str(value, true).map_err(|e| {
+                Error::new(ErrorKind::Parsing, &format!("Unknown class '{value}': {e}"))
+            })?;
+            Ok(ExcludeEntry::Class(class))
+        }
+        other => Err(Error::new(
+            ErrorKind::InvalidArg,
+            &format!("Unknown --exclude key '{other}'; supported: vidpid, name, serial, class"),
+        )),
+    }
+}
+
 /// Parse the vidpid filter lsusb format: vid:Option<pid>
 fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>)> {
     let vid_split: Vec<&str> = s.split(':').collect();
     if vid_split.len() >= 2 {
-        let vid: Option<u16> =
-            vid_split
-                .first()
-                .filter(|v| !v.is_empty())
-                .map_or(Ok(None), |v| {
-                    u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
-                        .map(|v| Some(v as u16))
-                        .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
-                })?;
-        let pid: Option<u16> =
-            vid_split
-                .get(1)
-                .filter(|v| !v.is_empty())
-                .map_or(Ok(None), |v| {
-                    u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
-                        .map(|v| Some(v as u16))
-                        .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
-                })?;
+        let vid: Option<u16> = vid_split
+            .first()
+            .filter(|v| !v.is_empty())
+            .map(|v| parse_hex_u16(v))
+            .transpose()?;
+        let pid: Option<u16> = vid_split
+            .get(1)
+            .filter(|v| !v.is_empty())
+            .map(|v| parse_hex_u16(v))
+            .transpose()?;
 
         Ok((vid, pid))
     } else {
-        let vid: Option<u16> = u32::from_str_radix(s.trim().trim_start_matches("0x"), 16)
-            .map(|v| Some(v as u16))
-            .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))?;
-
-        Ok((vid, None))
+        let vid = parse_hex_u16(s)?;
+        Ok((Some(vid), None))
     }
 }
 
@@ -758,7 +807,8 @@ fn cyme() -> Result<()> {
 
     let filter = if config.hide_hubs
         || config.hide_buses
-        || args.vidpid.is_some()
+        || !args.vidpid.is_empty()
+        || !args.exclude.is_empty()
         || args.show.is_some()
         || args.device.is_some()
         || args.filter_name.is_some()
@@ -767,15 +817,28 @@ fn cyme() -> Result<()> {
     {
         let mut f = profiler::Filter::new();
 
-        if let Some(vidpid) = &args.vidpid {
-            let (vid, pid) = parse_vidpid(vidpid.as_str()).map_err(|e| {
+        for vidpid in &args.vidpid {
+            let pair = parse_vidpid(vidpid.as_str()).map_err(|e| {
                 Error::new(
                     ErrorKind::InvalidArg,
                     &format!("Failed to parse vidpid '{vidpid}'; Error({e})"),
                 )
             })?;
-            f.vid = vid;
-            f.pid = pid;
+            f.vidpid.push(pair);
+        }
+
+        for entry in &args.exclude {
+            match parse_exclude(entry.as_str()).map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidArg,
+                    &format!("Failed to parse --exclude '{entry}'; Error({e})"),
+                )
+            })? {
+                ExcludeEntry::Vidpid(pair) => f.exclude_vidpid.push(pair),
+                ExcludeEntry::Name(s) => f.exclude_name = Some(s),
+                ExcludeEntry::Serial(s) => f.exclude_serial = Some(s),
+                ExcludeEntry::Class(c) => f.exclude_class = Some(c),
+            }
         }
 
         // decode device devpath into the show filter since that is what it essentially will do
@@ -937,6 +1000,50 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_hex_u16() {
+        assert_eq!(parse_hex_u16("0x1234").unwrap(), 0x1234);
+        assert_eq!(parse_hex_u16("1234").unwrap(), 0x1234);
+        assert_eq!(parse_hex_u16("FFFF").unwrap(), 0xFFFF);
+        assert_eq!(parse_hex_u16("0xffff").unwrap(), 0xFFFF);
+        // overflow: previously silently truncated via `u32 as u16`
+        assert!(parse_hex_u16("0x10000").is_err());
+        assert!(parse_hex_u16("0xdeadbeef").is_err());
+        assert!(parse_hex_u16("zz").is_err());
+    }
+
+    #[test]
+    fn test_parse_exclude() {
+        match parse_exclude("vidpid=1234:5678").unwrap() {
+            ExcludeEntry::Vidpid((Some(0x1234), Some(0x5678))) => {}
+            _ => panic!("expected vidpid match"),
+        }
+        match parse_exclude("vidpid=0x1d50:").unwrap() {
+            ExcludeEntry::Vidpid((Some(0x1d50), None)) => {}
+            _ => panic!("expected vidpid vid-only match"),
+        }
+        match parse_exclude("name=Hub").unwrap() {
+            ExcludeEntry::Name(s) if s == "Hub" => {}
+            _ => panic!("expected name match"),
+        }
+        match parse_exclude("serial=abc123").unwrap() {
+            ExcludeEntry::Serial(s) if s == "abc123" => {}
+            _ => panic!("expected serial match"),
+        }
+        match parse_exclude("class=hub").unwrap() {
+            ExcludeEntry::Class(_) => {}
+            _ => panic!("expected class match"),
+        }
+        // missing '='
+        assert!(parse_exclude("vidpid1234:5678").is_err());
+        // unknown key
+        assert!(parse_exclude("foo=bar").is_err());
+        // invalid class
+        assert!(parse_exclude("class=not-a-class").is_err());
+        // overflow in vidpid
+        assert!(parse_exclude("vidpid=0x10000:0x1").is_err());
+    }
+
+    #[test]
     fn test_parse_vidpid() {
         assert_eq!(
             parse_vidpid("000A:0x000b").unwrap(),
@@ -946,6 +1053,9 @@ mod tests {
         assert_eq!(parse_vidpid("000A:").unwrap(), (Some(0x0A), None));
         assert_eq!(parse_vidpid("0x000A").unwrap(), (Some(0x0A), None));
         assert!(parse_vidpid("dfg:sdfd").is_err());
+        // overflow on either side should error, not silently truncate
+        assert!(parse_vidpid("0x10000:0x1").is_err());
+        assert!(parse_vidpid("0x1:0x10000").is_err());
     }
 
     #[test]
