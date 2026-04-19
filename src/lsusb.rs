@@ -914,15 +914,14 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                         indent = indent + 2
                     );
                     match endpoint.transfer_type {
-                        TransferType::Bulk
-                            if ss.attributes & 0x1f != 0 => {
-                                println!(
-                                    "{:indent$}MaxStreams {:>13}",
-                                    "",
-                                    1 << ss.attributes,
-                                    indent = indent + 2
-                                );
-                            }
+                        TransferType::Bulk if ss.attributes & 0x1f != 0 => {
+                            println!(
+                                "{:indent$}MaxStreams {:>13}",
+                                "",
+                                1 << ss.attributes,
+                                indent = indent + 2
+                            );
+                        }
                         TransferType::Isochronous | TransferType::Interrupt => {
                             if ss.attributes & 0x03 != 0 {
                                 println!(

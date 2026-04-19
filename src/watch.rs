@@ -357,19 +357,16 @@ pub fn watch_usb_devices(
         };
 
         match event::read().unwrap() {
-            Event::Resize(_, _)
-                if send_wrapper(WatchEvent::Resize) => {
+            Event::Resize(_, _) if send_wrapper(WatchEvent::Resize) => {
+                break;
+            }
+            Event::Mouse(MouseEvent { kind, .. }) => match kind {
+                MouseEventKind::ScrollUp if send_wrapper(WatchEvent::ScrollUp(1)) => {
                     break;
                 }
-            Event::Mouse(MouseEvent { kind, .. }) => match kind {
-                MouseEventKind::ScrollUp
-                    if send_wrapper(WatchEvent::ScrollUp(1)) => {
-                        break;
-                    }
-                MouseEventKind::ScrollDown
-                    if send_wrapper(WatchEvent::ScrollDown(1)) => {
-                        break;
-                    }
+                MouseEventKind::ScrollDown if send_wrapper(WatchEvent::ScrollDown(1)) => {
+                    break;
+                }
                 _ => (),
             },
             Event::Key(key_event) => {
