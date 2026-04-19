@@ -2130,9 +2130,9 @@ pub fn auto_max_string_len<B: BlockEnum, T>(
             .iter()
             .filter(|v| **v > auto_max_string)
             .count();
-        if variable_longer != 0 {
-            remaining_chars /= variable_longer;
-        }
+        remaining_chars = remaining_chars
+            .checked_div(variable_longer)
+            .unwrap_or(remaining_chars);
         auto_max_string += remaining_chars;
 
         if auto_max_string < MIN_VARIABLE_STRING_LEN {
