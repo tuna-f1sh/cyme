@@ -162,13 +162,11 @@ fn set_filter(field: &FilterField, value: Option<String>, filter: &mut Filter) -
         FilterField::Serial => filter.serial = value,
         FilterField::VidPid => match value {
             Some(s) => {
-                let (vid, pid) = parse_vidpid(&s)?;
-                filter.vid = vid;
-                filter.pid = pid;
+                let pair = parse_vidpid(&s)?;
+                filter.vidpid = vec![pair];
             }
             None => {
-                filter.vid = None;
-                filter.pid = None;
+                filter.vidpid.clear();
             }
         },
         FilterField::Class => match value {
@@ -454,9 +452,10 @@ pub fn watch_usb_devices(
                 let original = match field {
                     FilterField::Name => display.filter.name.clone(),
                     FilterField::Serial => display.filter.serial.clone(),
-                    FilterField::VidPid => match (display.filter.vid, display.filter.pid) {
-                        (Some(vid), Some(pid)) => Some(format!("{vid:04x}:{pid:04x}")),
-                        (Some(vid), None) => Some(format!("{vid:04x}")),
+                    FilterField::VidPid => match display.filter.vidpid.first() {
+                        Some((Some(vid), Some(pid))) => Some(format!("{vid:04x}:{pid:04x}")),
+                        Some((Some(vid), None)) => Some(format!("{vid:04x}")),
+                        Some((None, Some(pid))) => Some(format!(":{pid:04x}")),
                         _ => None,
                     },
                     FilterField::Class => display.filter.class.map(|c| c.to_string()),
@@ -1133,17 +1132,25 @@ impl Display {
                 )
             }
             _ => {
+                let vidpid_display = if self.filter.vidpid.is_empty() {
+                    ":".to_string()
+                } else {
+                    self.filter
+                        .vidpid
+                        .iter()
+                        .map(|(vid, pid)| {
+                            format!(
+                                "{}:{}",
+                                vid.map_or(String::new(), |v| format!("{v:04x}")),
+                                pid.map_or(String::new(), |p| format!("{p:04x}")),
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(",")
+                };
                 format!(
-                    " FILTERS Name={:?} Serial={:?} VID:PID={}:{} Class={:?}",
-                    self.filter.name,
-                    self.filter.serial,
-                    self.filter
-                        .vid
-                        .map_or("".to_string(), |v| format!("{v:04x}")),
-                    self.filter
-                        .pid
-                        .map_or("".to_string(), |p| format!("{p:04x}")),
-                    self.filter.class
+                    " FILTERS Name={:?} Serial={:?} VID:PID={} Class={:?}",
+                    self.filter.name, self.filter.serial, vidpid_display, self.filter.class
                 )
             }
         };

@@ -175,6 +175,14 @@ cyme -d 0x05ac
 cyme -d 05ac:8103 --mask-serials hide
 # Filter for only devices with a certain name and class (filters can be combined)
 cyme --filter-name "Black Magic" --filter-class cdc-data
+# Match multiple vid:pid pairs (repeat the flag and/or use a comma list)
+cyme -d 1d50:6018 -d 0x05ac:
+cyme -d 1d50:6018,0x05ac:
+# Exclude devices; supported keys: vidpid, name, serial, class
+cyme --exclude vidpid=1d50:6018
+cyme --exclude vidpid=1d50:6018,name=Hub
+# Show all Apple devices except one specific product
+cyme -d 0x05ac: --exclude vidpid=05ac:8600
 ```
 
 ### JSON - jq

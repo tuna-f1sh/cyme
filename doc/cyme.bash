@@ -35,7 +35,7 @@ _cyme() {
 
     case "${cmd}" in
         cyme)
-            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --block-operation --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --filter-post --debug --mask-serials --gen --system-profiler --help --version watch help"
+            opts="-l -t -d -s -D -v -b -m -F -c -z -h -V --lsusb --tree --vidpid --show --device --filter-name --filter-serial --filter-class --exclude --verbose --blocks --bus-blocks --config-blocks --interface-blocks --endpoint-blocks --block-operation --more --sort-devices --sort-buses --group-devices --hide-buses --hide-hubs --list-root-hubs --decimal --no-padding --color --no-color --encoding --ascii --no-icons --icon --headings --json --from-json --force-libusb --config --filter-post --debug --mask-serials --gen --system-profiler --help --version watch help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -75,6 +75,10 @@ _cyme() {
                     ;;
                 --filter-class)
                     COMPREPLY=($(compgen -W "use-interface-descriptor audio cdc-communications hid physical image printer mass-storage hub cdc-data smart-card content-security video personal-healthcare audio-video billboard usb-type-c-bridge bdp mctp i3c-device diagnostic wireless-controller miscellaneous application-specific-interface vendor-specific-class" -- "${cur}"))
+                    return 0
+                    ;;
+                --exclude)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --blocks)

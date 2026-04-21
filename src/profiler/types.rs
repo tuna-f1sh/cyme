@@ -1988,10 +1988,13 @@ impl<'a> IntoIterator for &'a mut Device {
 /// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Filter {
-    /// Retain only devices with vendor id matching this
-    pub vid: Option<u16>,
-    /// Retain only devices with product id matching this
-    pub pid: Option<u16>,
+    /// Retain only devices whose vendor/product id matches any entry in this list
+    ///
+    /// Each entry is a `(vid, pid)` pair where either side may be `None` to
+    /// match anything. An empty `Vec` disables the filter. Multiple entries
+    /// are combined with OR semantics (a device matches if any entry matches).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub vidpid: Vec<(Option<u16>, Option<u16>)>,
     /// Retain only devices on this bus
     pub bus: Option<u8>,
     /// Retain only devices with this device number
@@ -2002,6 +2005,21 @@ pub struct Filter {
     pub serial: Option<String>,
     /// retain only device of BaseClass class
     pub class: Option<BaseClass>,
+    /// Exclude devices whose vendor/product id matches any entry in this list
+    ///
+    /// Same shape and semantics as [`Filter::vidpid`] but inverted: a device
+    /// matching any entry is dropped. Empty `Vec` disables the exclusion.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub exclude_vidpid: Vec<(Option<u16>, Option<u16>)>,
+    /// Exclude devices whose name contains this string
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exclude_name: Option<String>,
+    /// Exclude devices whose serial contains this string
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exclude_serial: Option<String>,
+    /// Exclude devices of this BaseClass
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exclude_class: Option<BaseClass>,
     /// Exclude empty buses in the tree
     pub exclude_empty_bus: bool,
     /// Exclude empty hubs in the tree
@@ -2115,8 +2133,7 @@ pub type USBFilter = Filter;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
 /// let filter = Filter {
-///     vid: Some(0x1d50),
-///     pid: Some(0x6018),
+///     vidpid: vec![(Some(0x1d50), Some(0x6018))],
 ///     ..Default::default()
 /// };
 /// filter.retain_buses(&mut spusb.buses);
@@ -2187,9 +2204,50 @@ impl Filter {
         }
     }
 
+    /// Checks whether any entry in `vidpid_list` matches `device`.
+    fn any_vidpid_hit(list: &[(Option<u16>, Option<u16>)], device: &Device) -> bool {
+        list.iter().any(|(vid, pid)| {
+            vid.is_none_or(|v| device.vendor_id == Some(v))
+                && pid.is_none_or(|p| device.product_id == Some(p))
+        })
+    }
+
+    /// Checks whether any `vidpid` entry matches `device`. Empty `Vec` = no
+    /// filter and always returns true.
+    fn vidpid_matches(&self, device: &Device) -> bool {
+        self.vidpid.is_empty() || Self::any_vidpid_hit(&self.vidpid, device)
+    }
+
+    /// Returns true if any exclude criterion matches `device`.
+    ///
+    /// An empty exclude set returns false (nothing is excluded). Multiple
+    /// exclude fields OR together — a device is excluded if *any* populated
+    /// criterion matches it.
+    pub fn is_excluded(&self, device: &Device) -> bool {
+        if !self.exclude_vidpid.is_empty() && Self::any_vidpid_hit(&self.exclude_vidpid, device) {
+            return true;
+        }
+        if self.exclude_name.is_some() && self.string_match(&self.exclude_name, Some(&device.name))
+        {
+            return true;
+        }
+        if self.exclude_serial.is_some()
+            && self.string_match(&self.exclude_serial, device.serial_num.as_ref())
+        {
+            return true;
+        }
+        if let Some(fc) = self.exclude_class.as_ref() {
+            if device.class.as_ref() == Some(fc) || device.has_interface_class(fc) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &Device) -> bool {
         self.is_identity_match(device)
+            && !self.is_excluded(device)
             && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
             && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
@@ -2198,8 +2256,7 @@ impl Filter {
     pub fn is_identity_match(&self, device: &Device) -> bool {
         (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
-            && (device.vendor_id == self.vid || self.vid.is_none())
-            && (device.product_id == self.pid || self.pid.is_none())
+            && self.vidpid_matches(device)
             && (self.string_match(&self.name, Some(&device.name)))
             && (self.string_match(&self.serial, device.serial_num.as_ref()))
             && self.class.as_ref().is_none_or(|fc| {
@@ -2209,19 +2266,53 @@ impl Filter {
 
     /// Checks whether `device` could potentially match filter if extra data was loaded
     ///
-    /// Used by profilers to decide whether to load extra data for a device
+    /// Used by profilers to decide whether to load extra data for a device.
+    /// Include criteria use the usual is_none_or-style checks. Exclude
+    /// criteria prune only when the decision can be made with the pre-probe
+    /// data already in hand: vidpid is always known, but class and
+    /// interface-derived checks need extras to be authoritative, so when
+    /// `device.extra` is not yet loaded we keep the device as a potential
+    /// match and let the final `is_match` pass decide.
     pub fn is_potential_match(&self, device: &Device) -> bool {
-        (Some(device.location_id.bus) == self.bus || self.bus.is_none())
+        // include side
+        let include_ok = (Some(device.location_id.bus) == self.bus || self.bus.is_none())
             && (Some(device.location_id.number) == self.number || self.number.is_none())
-            && (device.vendor_id == self.vid || self.vid.is_none())
-            && (device.product_id == self.pid || self.pid.is_none())
+            && self.vidpid_matches(device)
             && (self.string_match(&self.name, Some(&device.name)))
             && (self.string_match(&self.serial, device.serial_num.as_ref()))
             // if we have a class filter, it's a potential match if we haven't loaded extra data yet (to check interfaces)
             && self.class.as_ref().is_none_or(|fc| {
                 device.class.as_ref() == Some(fc) || device.extra.is_none()
             })
-            && (!device.is_root_hub() || self.no_exclude_root_hub)
+            && (!device.is_root_hub() || self.no_exclude_root_hub);
+
+        if !include_ok {
+            return false;
+        }
+
+        // exclude side — only prune on criteria we can decide pre-extras
+        if !self.exclude_vidpid.is_empty() && Self::any_vidpid_hit(&self.exclude_vidpid, device) {
+            return false;
+        }
+        if self.exclude_name.is_some() && self.string_match(&self.exclude_name, Some(&device.name))
+        {
+            return false;
+        }
+        if self.exclude_serial.is_some()
+            && self.string_match(&self.exclude_serial, device.serial_num.as_ref())
+        {
+            return false;
+        }
+        // base class is always known; interface class needs extras to be authoritative
+        let class_excluded = self.exclude_class.as_ref().is_some_and(|fc| {
+            device.class.as_ref() == Some(fc)
+                || (device.extra.is_some() && device.has_interface_class(fc))
+        });
+        if class_excluded {
+            return false;
+        }
+
+        true
     }
 
     /// Checks whether `bus` passes through filter
@@ -2548,5 +2639,98 @@ mod tests {
     #[test]
     fn test_json_dump_read_not_panic() {
         read_json_dump("./tests/data/system_profiler_dump.json").unwrap();
+    }
+
+    /// Build a minimal synthetic `Device` for filter unit testing.
+    fn mk_device(vid: u16, pid: u16, name: &str) -> Device {
+        Device {
+            name: name.to_string(),
+            vendor_id: Some(vid),
+            product_id: Some(pid),
+            location_id: DeviceLocation {
+                bus: 1,
+                tree_positions: vec![1],
+                number: 2,
+            },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_filter_vidpid_multi_or() {
+        let d1 = mk_device(0x1d50, 0x6018, "Black Magic Probe");
+        let d2 = mk_device(0x05ac, 0x8600, "Apple Internal Keyboard");
+        let d3 = mk_device(0x0bda, 0x0129, "Realtek SD Reader");
+
+        let filter = Filter {
+            vidpid: vec![(Some(0x1d50), Some(0x6018)), (Some(0x05ac), None)],
+            ..Default::default()
+        };
+
+        assert!(filter.is_match(&d1));
+        assert!(filter.is_match(&d2));
+        assert!(!filter.is_match(&d3));
+        // potential match agrees on the pre-probe fields
+        assert!(filter.is_potential_match(&d1));
+        assert!(filter.is_potential_match(&d2));
+        assert!(!filter.is_potential_match(&d3));
+    }
+
+    #[test]
+    fn test_filter_exclude_vidpid() {
+        let d1 = mk_device(0x1d50, 0x6018, "Black Magic Probe");
+        let d2 = mk_device(0x05ac, 0x8600, "Apple Internal Keyboard");
+
+        let filter = Filter {
+            exclude_vidpid: vec![(Some(0x1d50), Some(0x6018))],
+            ..Default::default()
+        };
+
+        assert!(!filter.is_match(&d1));
+        assert!(filter.is_match(&d2));
+        // profiler pruning: exclude is precise for vidpid
+        assert!(!filter.is_potential_match(&d1));
+        assert!(filter.is_potential_match(&d2));
+    }
+
+    #[test]
+    fn test_filter_include_plus_exclude_composition() {
+        let d_bmp = mk_device(0x05ac, 0x1234, "Magic Keyboard");
+        let d_specific = mk_device(0x05ac, 0x8600, "Apple Internal Keyboard");
+        let d_other = mk_device(0x0bda, 0x0129, "Realtek SD Reader");
+
+        // include all Apple devices but exclude one specific product
+        let filter = Filter {
+            vidpid: vec![(Some(0x05ac), None)],
+            exclude_vidpid: vec![(Some(0x05ac), Some(0x8600))],
+            ..Default::default()
+        };
+
+        assert!(filter.is_match(&d_bmp));
+        assert!(!filter.is_match(&d_specific));
+        assert!(!filter.is_match(&d_other));
+    }
+
+    #[test]
+    fn test_filter_exclude_name() {
+        let d1 = mk_device(0x1d50, 0x6018, "Black Magic Probe");
+        let d2 = mk_device(0x05ac, 0x8600, "Apple Internal Keyboard");
+
+        let filter = Filter {
+            exclude_name: Some("Magic".to_string()),
+            ..Default::default()
+        };
+
+        // "Magic" appears in d1 but not d2
+        assert!(!filter.is_match(&d1));
+        assert!(filter.is_match(&d2));
+    }
+
+    #[test]
+    fn test_filter_empty_exclude_is_noop() {
+        let d = mk_device(0x1d50, 0x6018, "Black Magic Probe");
+        let filter = Filter::default();
+        assert!(filter.is_match(&d));
+        assert!(!filter.is_excluded(&d));
     }
 }

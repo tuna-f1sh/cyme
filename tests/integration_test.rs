@@ -162,6 +162,98 @@ fn test_tree_filtering() {
 }
 
 #[test]
+fn test_vidpid_multi_value() {
+    let env = common::TestEnv::new();
+
+    // repeated --vidpid and comma-separated should both accumulate into the
+    // same Filter.vidpid Vec, so their outputs must be identical.
+    let out_repeated = env.assert_success_and_get_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--vidpid", "1d50:6018", "--vidpid", "05ac:"],
+    );
+    let out_csv = env.assert_success_and_get_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--vidpid", "1d50:6018,05ac:"],
+    );
+    assert_eq!(out_repeated, out_csv);
+}
+
+#[test]
+fn test_exclude_vidpid() {
+    let env = common::TestEnv::new();
+
+    let mut comp_sp = common::sp_data_from_libusb_linux();
+    let filter = cyme::profiler::Filter {
+        exclude_vidpid: vec![(Some(0x1d50), Some(0x6018))],
+        no_exclude_root_hub: true,
+        ..Default::default()
+    };
+    comp_sp.into_flattened();
+    let mut devices = comp_sp.flattened_devices();
+    filter.retain_flattened_devices_ref(&mut devices);
+    let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+    env.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--exclude", "vidpid=1d50:6018"],
+        &comp,
+        false,
+    );
+}
+
+#[test]
+fn test_exclude_include_composition() {
+    let env = common::TestEnv::new();
+
+    // include all 1d50 devices but exclude the specific 1d50:6018 pair
+    let mut comp_sp = common::sp_data_from_libusb_linux();
+    let filter = cyme::profiler::Filter {
+        vidpid: vec![(Some(0x1d50), None)],
+        exclude_vidpid: vec![(Some(0x1d50), Some(0x6018))],
+        no_exclude_root_hub: true,
+        ..Default::default()
+    };
+    comp_sp.into_flattened();
+    let mut devices = comp_sp.flattened_devices();
+    filter.retain_flattened_devices_ref(&mut devices);
+    let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+    env.assert_output(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &[
+            "--json",
+            "--vidpid",
+            "1d50",
+            "--exclude",
+            "vidpid=1d50:6018",
+        ],
+        &comp,
+        false,
+    );
+}
+
+#[test]
+fn test_exclude_parse_errors() {
+    let env = common::TestEnv::new();
+
+    // missing '='
+    env.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--exclude", "vidpid1d50:6018"],
+    );
+    // unknown key
+    env.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--exclude", "foo=bar"],
+    );
+    // u16 overflow in exclude vidpid
+    env.assert_failure(
+        Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+        &["--json", "--exclude", "vidpid=0x10000:0x1"],
+    );
+}
+
+#[test]
 fn test_device_filter() {
     let env = common::TestEnv::new();
 

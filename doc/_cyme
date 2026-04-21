@@ -15,8 +15,8 @@ _cyme() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID:_default' \
-'--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID:_default' \
+'*-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID:_default' \
+'*--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID:_default' \
 '-s+[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW:_default' \
 '--show=[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW:_default' \
 '-D+[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE:_default' \
@@ -48,6 +48,7 @@ wireless-controller\:"Wireless controllers\: Bluetooth adaptors, Microsoft RNDIS
 miscellaneous\:"This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website"
 application-specific-interface\:"This base class is defined for devices that conform to several class specifications found on the USB-IF website"
 vendor-specific-class\:"This base class is defined for vendors to use as they please"))' \
+'*--exclude=[Exclude devices matching a KEY=VALUE predicate]:EXCLUDE:_default' \
 '*-b+[Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks]:BLOCKS:((bus-number\:"Number of bus device is attached"
 device-number\:"Bus issued device number"
 branch-position\:"Position of device in parent branch"
