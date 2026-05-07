@@ -28,7 +28,7 @@ The name comes from the technical term for the type of blossom on a Apple tree: 
 
 * Compatible with `lsusb` using `--lsusb` argument. Supports all arguments including `--verbose` output - fully parsed device descriptors! Output is identical for use with no args (list), tree (excluding drivers on non-Linux) and should match for verbose (perhaps formatting differences).
 * Default build is a native Rust profiler using [nusb](https://docs.rs/nusb/latest/nusb).
-* Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter-name`, `--filter-serial`, `--filter-class` and option to hide empty `--hide-buses`/`--hide-hubs`.
+* Filters like `lsusb` but that also work when printing `--tree`. Adds `--filter-name`, `--filter-serial`, `--filter-class` and option to hide empty `--hide-buses`/`--hide-hubs`. Also invert with `--filter-exclude`.
 * Improved `--tree` mode; shows device, configurations, interfaces and endpoints as tree depending on level of `--verbose`.
 * Controllable display `--blocks` for device, bus `--bus-blocks`, configurations `--config-blocks`, interfaces `--interface-blocks` and endpoints `--endpoint-blocks`. Use `--more` to see more by default.
 * Modern terminal features with coloured output, utf-8 characters and icon look-up based device data. Can be turned off and customised. See `--encoding` (glyphs [default], utf8 and ascii), which can keep icons/tree within a certain encoding, `--color` (auto [default], always and never) and `--icon` (auto [default], always and never). Auto `--icon` will only show icons if all icons to be shown are supported by the `--encoding`.
@@ -173,8 +173,18 @@ cyme --block-operation remove --blocks serial
 cyme -d 0x05ac
 # Specifically an Apple Headset, masking the serial number with '*'
 cyme -d 05ac:8103 --mask-serials hide
-# Filter for only devices with a certain name and class (filters can be combined)
+# Filter for only devices with a certain name and class (different flags AND together)
 cyme --filter-name "Black Magic" --filter-class cdc-data
+# OR two vendors by repeating the flag (each occurrence is a separate OR'd filter)
+cyme -d 0x05ac -d 0x1d50
+# OR two names
+cyme --filter-name "Black Magic" --filter-name "FTDI"
+# Exclude specific devices with --filter-exclude (KEY=VALUE, keys: vidpid, name, serial, class, bus, number)
+cyme --filter-exclude vidpid=05ac:8600
+# Exclude all keyboards while still filtering by class
+cyme --filter-class hid --filter-exclude name=Keyboard
+# Comma-separate pairs to AND within one exclusion; repeat the flag to OR exclusions
+cyme --filter-exclude vidpid=05ac:8600,name=Hub
 ```
 
 ### JSON - jq
