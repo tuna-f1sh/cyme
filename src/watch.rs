@@ -157,10 +157,7 @@ struct Display {
 }
 
 fn set_filter(field: &FilterField, value: Option<String>, filter: &mut FilterGroup) -> Result<()> {
-    if filter.filters.is_empty() {
-        filter.filters.push(Filter::default());
-    }
-    let f = &mut filter.filters[0];
+    let mut f = filter.filters.first().cloned().unwrap_or_default();
     match field {
         FilterField::Name => f.name = value,
         FilterField::Serial => f.serial = value,
@@ -185,15 +182,7 @@ fn set_filter(field: &FilterField, value: Option<String>, filter: &mut FilterGro
             None => f.class = None,
         },
     };
-    // If filter is now empty, clear the filters vec
-    if f.vid.is_none()
-        && f.pid.is_none()
-        && f.name.is_none()
-        && f.serial.is_none()
-        && f.class.is_none()
-    {
-        filter.filters.clear();
-    }
+    filter.filters = if f == Filter::default() { vec![] } else { vec![f] };
     Ok(())
 }
 
