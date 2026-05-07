@@ -89,6 +89,8 @@ pub struct Config {
     pub json: bool,
     /// Print non-critical errors (normally due to permissions) during USB profiler to stderr
     pub print_non_critical_profiler_stderr: bool,
+    /// Default filter group to apply when running cyme
+    pub filter: Option<crate::profiler::FilterGroup>,
 }
 
 impl Config {
@@ -343,5 +345,39 @@ mod tests {
         let c = Config::new();
         assert!(c.save_file(&path).is_ok());
         assert!(Config::from_file(path).is_ok());
+    }
+
+    #[test]
+    fn test_filter_serialize_deserialize() {
+        use crate::profiler::{Filter, FilterGroup};
+
+        let config = Config {
+            filter: Some(FilterGroup {
+                filters: vec![Filter {
+                    vid: Some(0x1d50),
+                    pid: Some(0x6018),
+                    ..Default::default()
+                }],
+                exclude_filters: vec![Filter {
+                    name: Some("Keyboard".into()),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        // round-trip through JSON
+        let json = serde_json::to_string(&config).unwrap();
+        let restored: Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(config.filter, restored.filter);
+
+        // deserialize from raw JSON — note kebab-case key and decimal VID/PID values
+        let raw = r#"{"filter": {"filters": [{"vid": 7504, "pid": 24600}], "exclude-filters": [{"name": "Keyboard"}]}}"#;
+        let from_raw: Config = serde_json::from_str(raw).unwrap();
+        let f = from_raw.filter.unwrap();
+        assert_eq!(f.filters[0].vid, Some(0x1d50));
+        assert_eq!(f.filters[0].pid, Some(0x6018));
+        assert_eq!(f.exclude_filters[0].name.as_deref(), Some("Keyboard"));
     }
 }

@@ -22,7 +22,7 @@ use super::parse_vidpid;
 use cyme::config::Config;
 use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
-use cyme::profiler::{watch::SystemProfileStreamBuilder, Filter, SystemProfile};
+use cyme::profiler::{watch::SystemProfileStreamBuilder, Filter, FilterGroup, SystemProfile};
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -134,7 +134,7 @@ struct Display {
     buffer: Vec<u8>,
     spusb: Arc<Mutex<SystemProfile>>,
     print_settings: Arc<Mutex<PrintSettings>>,
-    filter: Filter,
+    filter: FilterGroup,
     state: Arc<Mutex<State>>,
     /// Size of current window
     terminal_size: (u16, u16),
@@ -156,32 +156,44 @@ struct Display {
     selected_item: Option<LineItem>,
 }
 
-fn set_filter(field: &FilterField, value: Option<String>, filter: &mut Filter) -> Result<()> {
+fn set_filter(field: &FilterField, value: Option<String>, filter: &mut FilterGroup) -> Result<()> {
+    if filter.filters.is_empty() {
+        filter.filters.push(Filter::default());
+    }
+    let f = &mut filter.filters[0];
     match field {
-        FilterField::Name => filter.name = value,
-        FilterField::Serial => filter.serial = value,
+        FilterField::Name => f.name = value,
+        FilterField::Serial => f.serial = value,
         FilterField::VidPid => match value {
             Some(s) => {
                 let (vid, pid) = parse_vidpid(&s)?;
-                filter.vid = vid;
-                filter.pid = pid;
+                f.vid = vid;
+                f.pid = pid;
             }
             None => {
-                filter.vid = None;
-                filter.pid = None;
+                f.vid = None;
+                f.pid = None;
             }
         },
         FilterField::Class => match value {
             Some(s) => {
-                filter.class = Some(
+                f.class = Some(
                     cyme::usb::BaseClass::from_str(&s, true)
                         .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))?,
                 );
             }
-            None => filter.class = None,
+            None => f.class = None,
         },
     };
-
+    // If filter is now empty, clear the filters vec
+    if f.vid.is_none()
+        && f.pid.is_none()
+        && f.name.is_none()
+        && f.serial.is_none()
+        && f.class.is_none()
+    {
+        filter.filters.clear();
+    }
     Ok(())
 }
 
@@ -192,7 +204,7 @@ fn strip_ansi_codes(input: &str) -> String {
 
 fn print_json(
     spusb: &mut SystemProfile,
-    filter: Option<&Filter>,
+    filter: Option<&FilterGroup>,
     print_settings: &PrintSettings,
 ) -> Result<()> {
     cyme::display::prepare(spusb, filter, print_settings);
@@ -203,7 +215,7 @@ fn print_json(
 
 pub fn watch_usb_devices_json(
     spusb: SystemProfile,
-    filter: Option<Filter>,
+    filter: Option<FilterGroup>,
     print_settings: PrintSettings,
 ) -> Result<()> {
     // pass spusb to stream builder, will get Arc<Mutex<SystemProfile>> back below
@@ -249,7 +261,7 @@ pub fn watch_usb_devices_json(
 
 pub fn watch_usb_devices(
     spusb: SystemProfile,
-    filter: Option<Filter>,
+    filter: Option<FilterGroup>,
     mut print_settings: PrintSettings,
     mut config: Config,
 ) -> Result<()> {
@@ -452,14 +464,30 @@ pub fn watch_usb_devices(
 
             Ok(WatchEvent::EditFilter(field)) => {
                 let original = match field {
-                    FilterField::Name => display.filter.name.clone(),
-                    FilterField::Serial => display.filter.serial.clone(),
-                    FilterField::VidPid => match (display.filter.vid, display.filter.pid) {
-                        (Some(vid), Some(pid)) => Some(format!("{vid:04x}:{pid:04x}")),
-                        (Some(vid), None) => Some(format!("{vid:04x}")),
-                        _ => None,
-                    },
-                    FilterField::Class => display.filter.class.map(|c| c.to_string()),
+                    FilterField::Name => {
+                        display.filter.filters.first().and_then(|f| f.name.clone())
+                    }
+                    FilterField::Serial => display
+                        .filter
+                        .filters
+                        .first()
+                        .and_then(|f| f.serial.clone()),
+                    FilterField::VidPid => {
+                        display
+                            .filter
+                            .filters
+                            .first()
+                            .and_then(|f| match (f.vid, f.pid) {
+                                (Some(vid), Some(pid)) => Some(format!("{vid:04x}:{pid:04x}")),
+                                (Some(vid), None) => Some(format!("{vid:04x}")),
+                                _ => None,
+                            })
+                    }
+                    FilterField::Class => display
+                        .filter
+                        .filters
+                        .first()
+                        .and_then(|f| f.class.map(|c| c.to_string())),
                 };
                 *display.state.lock().unwrap() = State::EditingFilter {
                     field,
@@ -1135,15 +1163,19 @@ impl Display {
             _ => {
                 format!(
                     " FILTERS Name={:?} Serial={:?} VID:PID={}:{} Class={:?}",
-                    self.filter.name,
-                    self.filter.serial,
+                    self.filter.filters.first().and_then(|f| f.name.as_ref()),
+                    self.filter.filters.first().and_then(|f| f.serial.as_ref()),
                     self.filter
-                        .vid
+                        .filters
+                        .first()
+                        .and_then(|f| f.vid)
                         .map_or("".to_string(), |v| format!("{v:04x}")),
                     self.filter
-                        .pid
+                        .filters
+                        .first()
+                        .and_then(|f| f.pid)
                         .map_or("".to_string(), |p| format!("{p:04x}")),
-                    self.filter.class
+                    self.filter.filters.first().and_then(|f| f.class),
                 )
             }
         };
