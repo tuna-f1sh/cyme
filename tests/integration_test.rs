@@ -43,10 +43,13 @@ fn test_list_filtering() {
     let env = common::TestEnv::new();
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
-    let filter = cyme::profiler::Filter {
-        name: Some("Black Magic".into()),
+    let filter = cyme::profiler::FilterGroup {
         no_exclude_root_hub: true,
-        ..Default::default()
+        ..cyme::profiler::Filter {
+            name: Some("Black Magic".into()),
+            ..Default::default()
+        }
+        .into()
     };
     comp_sp.into_flattened();
     let mut devices = comp_sp.flattened_devices();
@@ -87,10 +90,13 @@ fn test_list_filtering() {
     );
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
-    let mut filter = cyme::profiler::Filter {
-        bus: Some(2),
+    let mut filter = cyme::profiler::FilterGroup {
         no_exclude_root_hub: true,
-        ..Default::default()
+        ..cyme::profiler::Filter {
+            bus: Some(2),
+            ..Default::default()
+        }
+        .into()
     };
     comp_sp.into_flattened();
     let mut devices = comp_sp.flattened_devices();
@@ -109,7 +115,9 @@ fn test_list_filtering() {
         &["--json", "--show", "f"],
     );
 
-    filter.number = Some(23);
+    if let Some(f) = filter.filters.first_mut() {
+        f.number = Some(23);
+    }
     filter.retain_flattened_devices_ref(&mut devices);
     let comp = serde_json::to_string_pretty(&devices).unwrap();
 
@@ -146,10 +154,10 @@ fn test_tree_filtering() {
     let env = common::TestEnv::new();
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
-    let filter = cyme::profiler::Filter {
+    let filter = cyme::profiler::FilterGroup::from(cyme::profiler::Filter {
         name: Some("Black Magic".into()),
         ..Default::default()
-    };
+    });
     filter.retain_buses(&mut comp_sp.buses);
     let comp = serde_json::to_string_pretty(&comp_sp).unwrap();
 

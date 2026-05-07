@@ -1,8 +1,8 @@
 //! Where the magic happens for `cyme` binary!
-#[cfg(not(feature = "watch"))]
-use clap::Parser;
 #[cfg(feature = "watch")]
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+#[cfg(not(feature = "watch"))]
+use clap::{Parser, ValueEnum};
 use colored::*;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -37,8 +37,8 @@ struct Args {
     tree: bool,
 
     /// Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:[PID]
-    #[arg(short = 'd', long)]
-    vidpid: Option<String>,
+    #[arg(short = 'd', long, action = clap::ArgAction::Append, value_name = "VID:[PID]")]
+    vidpid: Vec<String>,
 
     /// Show only devices with specified device and/or bus numbers (in decimal) in format [[bus]:][devnum]
     #[arg(short, long)]
@@ -49,16 +49,21 @@ struct Args {
     device: Option<String>,
 
     /// Filter on string contained in name
-    #[arg(long)]
-    filter_name: Option<String>,
+    #[arg(long, action = clap::ArgAction::Append)]
+    filter_name: Vec<String>,
 
     /// Filter on string contained in serial
-    #[arg(long)]
-    filter_serial: Option<String>,
+    #[arg(long, action = clap::ArgAction::Append)]
+    filter_serial: Vec<String>,
 
     /// Filter on USB class code
-    #[arg(long)]
-    filter_class: Option<BaseClass>,
+    #[arg(long, action = clap::ArgAction::Append)]
+    filter_class: Vec<BaseClass>,
+
+    /// Exclude devices matching KEY=VALUE criteria. KEY is one of: vidpid, name, serial, class, bus, number.
+    /// Comma-separate multiple KEY=VALUE pairs to AND them (one occurrence). Repeat the arg to OR exclusions.
+    #[arg(long, action = clap::ArgAction::Append, value_name = "KEY=VALUE")]
+    filter_exclude: Vec<String>,
 
     /// Verbosity level (repeat provides count): 1 prints device configurations; 2 prints interfaces; 3 prints interface endpoints; 4 prints everything and more blocks
     #[arg(short = 'v', long, default_value_t = 0, action = clap::ArgAction::Count)]
@@ -370,6 +375,52 @@ fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     }
 }
 
+/// Parse a --filter-exclude KEY=VALUE[,KEY=VALUE...] string into a Filter
+fn parse_exclude(s: &str) -> Result<profiler::Filter> {
+    let mut f = profiler::Filter::default();
+    for part in s.split(',') {
+        let (key, value) = part.split_once('=').ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidArg,
+                &format!("Expected KEY=VALUE format in '--filter-exclude {s}'"),
+            )
+        })?;
+        match key.trim() {
+            "vidpid" => {
+                let (vid, pid) = parse_vidpid(value.trim())?;
+                f.vid = vid;
+                f.pid = pid;
+            }
+            "name" => f.name = Some(value.to_string()),
+            "serial" => f.serial = Some(value.to_string()),
+            "class" => {
+                f.class = Some(
+                    BaseClass::from_str(value.trim(), true).map_err(|e| {
+                        Error::new(ErrorKind::Parsing, &e.to_string())
+                    })?,
+                )
+            }
+            "bus" => {
+                f.bus = Some(value.trim().parse::<u8>().map_err(|e| {
+                    Error::new(ErrorKind::Parsing, &e.to_string())
+                })?)
+            }
+            "number" => {
+                f.number = Some(value.trim().parse::<u8>().map_err(|e| {
+                    Error::new(ErrorKind::Parsing, &e.to_string())
+                })?)
+            }
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::InvalidArg,
+                    &format!("Unknown exclude key '{key}'; expected one of: vidpid, name, serial, class, bus, number"),
+                ))
+            }
+        }
+    }
+    Ok(f)
+}
+
 /// Parse devpath supplied by --device into a show format
 ///
 /// Could be a regex match r"^[\/|\w+\/]+(?'bus'\d{3})\/(?'devno'\d{3})$" but this saves another crate
@@ -415,13 +466,13 @@ fn is_watch(args: &Args) -> bool {
 fn get_system_profile_macos(
     config: &Config,
     args: &Args,
-    filter: Option<profiler::Filter>,
+    filter: Option<profiler::FilterGroup>,
 ) -> Result<profiler::SystemProfile> {
     // if requested or only have libusb, use system_profiler and merge with libusb
     if args.system_profiler || !cfg!(feature = "nusb") {
         if !config.force_libusb
             && args.device.is_none() // device path requires extra
-                && args.filter_class.is_none() // class filter requires extra
+                && args.filter_class.is_empty() // class filter requires extra
                 && !((config.tree && config.lsusb) || config.verbose > 0 || config.more)
         {
             profiler::macos::get_spusb().map_or_else(
@@ -448,7 +499,7 @@ fn get_system_profile_macos(
             {
                 profiler::ProfileDepth::Full
             } else if config.verbose == 1
-                || args.filter_class.is_some()
+                || !args.filter_class.is_empty()
                 || config.json
                 || config.more
             {
@@ -486,7 +537,7 @@ fn get_system_profile_macos(
 fn get_system_profile(
     config: &Config,
     args: &Args,
-    filter: Option<profiler::Filter>,
+    filter: Option<profiler::FilterGroup>,
 ) -> Result<profiler::SystemProfile> {
     let depth = if config.verbose >= 2
         || (config.json && config.verbose >= 1)
@@ -495,7 +546,7 @@ fn get_system_profile(
     // watch needs full data to be able to show changes properly since only new devices are re-profiled
     {
         profiler::ProfileDepth::Full
-    } else if config.verbose == 1 || args.filter_class.is_some() || config.json || config.more {
+    } else if config.verbose == 1 || !args.filter_class.is_empty() || config.json || config.more {
         profiler::ProfileDepth::Standard
     } else {
         profiler::ProfileDepth::Identity
@@ -704,6 +755,62 @@ fn merge_blocks(config: &Config, args: &Args, settings: &mut display::PrintSetti
     Ok(())
 }
 
+/// Build inclusion filters via cross-product of multi-value args.
+/// Each unique combination of (vidpid, name, serial, class) becomes one Filter.
+/// bus/number are always AND'd into every filter (single-value).
+fn build_inclusion_filters(
+    vidpids: &[(Option<u16>, Option<u16>)],
+    bus: Option<u8>,
+    number: Option<u8>,
+    names: &[String],
+    serials: &[String],
+    classes: &[BaseClass],
+) -> Vec<profiler::Filter> {
+    // Normalise: empty vec → one None sentinel so cross-product still runs once
+    let vids: Vec<Option<(Option<u16>, Option<u16>)>> = if vidpids.is_empty() {
+        vec![None]
+    } else {
+        vidpids.iter().map(|v| Some(*v)).collect()
+    };
+    let names: Vec<Option<String>> = if names.is_empty() {
+        vec![None]
+    } else {
+        names.iter().map(|n| Some(n.clone())).collect()
+    };
+    let serials: Vec<Option<String>> = if serials.is_empty() {
+        vec![None]
+    } else {
+        serials.iter().map(|s| Some(s.clone())).collect()
+    };
+    let classes: Vec<Option<BaseClass>> = if classes.is_empty() {
+        vec![None]
+    } else {
+        classes.iter().map(|c| Some(*c)).collect()
+    };
+
+    let mut filters = Vec::new();
+    for vid in &vids {
+        for name in &names {
+            for serial in &serials {
+                for class in &classes {
+                    let (vid_val, pid_val) = vid.unwrap_or((None, None));
+                    filters.push(profiler::Filter {
+                        vid: vid_val,
+                        pid: pid_val,
+                        bus,
+                        number,
+                        name: name.clone(),
+                        serial: serial.clone(),
+                        class: *class,
+                        case_sensitive: false,
+                    });
+                }
+            }
+        }
+    }
+    filters
+}
+
 fn cyme() -> Result<()> {
     let mut args = Args::parse();
 
@@ -756,83 +863,103 @@ fn cyme() -> Result<()> {
         _ => (),
     };
 
-    let filter = if config.hide_hubs
-        || config.hide_buses
-        || args.vidpid.is_some()
-        || args.show.is_some()
-        || args.device.is_some()
-        || args.filter_name.is_some()
-        || args.filter_serial.is_some()
-        || args.filter_class.is_some()
-    {
-        let mut f = profiler::Filter::new();
+    let filter = {
+        // Parse multi-value inclusion args
+        let vidpids: Vec<(Option<u16>, Option<u16>)> = args
+            .vidpid
+            .iter()
+            .map(|s| {
+                parse_vidpid(s.as_str()).map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidArg,
+                        &format!("Failed to parse vidpid '{s}'; Error({e})"),
+                    )
+                })
+            })
+            .collect::<Result<_>>()?;
 
-        if let Some(vidpid) = &args.vidpid {
-            let (vid, pid) = parse_vidpid(vidpid.as_str()).map_err(|e| {
-                Error::new(
-                    ErrorKind::InvalidArg,
-                    &format!("Failed to parse vidpid '{vidpid}'; Error({e})"),
-                )
-            })?;
-            f.vid = vid;
-            f.pid = pid;
-        }
-
-        // decode device devpath into the show filter since that is what it essentially will do
-        if let Some(devpath) = &args.device {
-            let (bus, number) = parse_devpath(devpath.as_str()).map_err(|e| {
+        // Parse show/device into bus/number (single-value)
+        let (bus, number) = if let Some(devpath) = &args.device {
+            parse_devpath(devpath.as_str()).map_err(|e| {
                 Error::new(
                     ErrorKind::InvalidArg,
                     &format!(
                         "Failed to parse devpath '{devpath}', should end with 'BUS/DEVNO'; Error({e})"
                     ),
                 )
-            })?;
-            f.bus = bus;
-            f.number = number;
+            })?
         } else if let Some(show) = &args.show {
-            let (bus, number) = parse_show(show.as_str()).map_err(|e| {
+            parse_show(show.as_str()).map_err(|e| {
                 Error::new(
                     ErrorKind::InvalidArg,
                     &format!("Failed to parse show parameter '{show}'; Error({e})"),
                 )
-            })?;
-            f.bus = bus;
-            f.number = number;
-        }
+            })?
+        } else {
+            (None, None)
+        };
 
-        // no need to unwrap as these are Option
-        f.name = args.filter_name.clone();
-        f.serial = args.filter_serial.clone();
-        f.class = args.filter_class;
-        f.exclude_empty_hub = config.hide_hubs;
-        f.exclude_empty_bus = config.hide_buses;
-        // exclude root hubs unless:
-        // * lsusb compat (shows root_hubs)
-        // * json - for --from-json support
-        // * list_root_hubs - user wants to see root hubs in list
-        // * device or show is some - user specifically requested a device or bus
-        f.no_exclude_root_hub = config.lsusb
+        // Parse exclusion filters
+        let exclude_filters: Vec<profiler::Filter> = args
+            .filter_exclude
+            .iter()
+            .map(|s| {
+                parse_exclude(s.as_str()).map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidArg,
+                        &format!("Failed to parse filter-exclude '{s}'; Error({e})"),
+                    )
+                })
+            })
+            .collect::<Result<_>>()?;
+
+        let no_exclude_root_hub = config.lsusb
             || config.json
             || config.list_root_hubs
             || args.device.is_some()
             || args.show.is_some();
 
-        Some(f)
-    } else {
-        // exclude root hubs (on Linux) unless:
-        // * lsusb compat (shows root_hubs)
-        // * json - for --from-json support
-        // * list_root_hubs - user wants to see root hubs in list
-        // * device or show is some - user specifically requested a device or bus
-        if cfg!(target_os = "linux") {
-            Some(profiler::Filter {
-                no_exclude_root_hub: (config.lsusb
-                    || config.json
-                    || config.list_root_hubs
-                    || args.device.is_some()
-                    || args.show.is_some()),
-                ..Default::default()
+        let has_inclusion_criteria = !vidpids.is_empty()
+            || !args.filter_name.is_empty()
+            || !args.filter_serial.is_empty()
+            || !args.filter_class.is_empty()
+            || bus.is_some()
+            || number.is_some();
+        let has_any_criteria = has_inclusion_criteria
+            || !exclude_filters.is_empty()
+            || config.hide_hubs
+            || config.hide_buses;
+
+        if has_any_criteria || cfg!(target_os = "linux") {
+            let inclusion_filters = if has_inclusion_criteria {
+                build_inclusion_filters(
+                    &vidpids,
+                    bus,
+                    number,
+                    &args.filter_name,
+                    &args.filter_serial,
+                    &args.filter_class,
+                )
+            } else {
+                Vec::new()
+            };
+
+            // Merge config filter if present (OR inclusion filters)
+            let mut all_inclusion_filters = inclusion_filters;
+            if let Some(cfg_filter) = &config.filter {
+                all_inclusion_filters.extend(cfg_filter.filters.iter().cloned());
+            }
+            let mut all_exclude_filters = exclude_filters;
+            if let Some(cfg_filter) = &config.filter {
+                all_exclude_filters.extend(cfg_filter.exclude_filters.iter().cloned());
+            }
+
+            Some(profiler::FilterGroup {
+                filters: all_inclusion_filters,
+                exclude_filters: all_exclude_filters,
+                exclude_empty_bus: config.hide_buses,
+                exclude_empty_hub: config.hide_hubs,
+                no_exclude_root_hub,
             })
         } else {
             None

@@ -1986,7 +1986,8 @@ impl<'a> IntoIterator for &'a mut Device {
 /// Used to filter devices within buses
 ///
 /// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(default)]
 pub struct Filter {
     /// Retain only devices with vendor id matching this
     pub vid: Option<u16>,
@@ -2002,12 +2003,6 @@ pub struct Filter {
     pub serial: Option<String>,
     /// retain only device of BaseClass class
     pub class: Option<BaseClass>,
-    /// Exclude empty buses in the tree
-    pub exclude_empty_bus: bool,
-    /// Exclude empty hubs in the tree
-    pub exclude_empty_hub: bool,
-    /// Don't exclude Linux root_hub devices - this is inverse because they are pseudo [`Bus`]'s in the tree
-    pub no_exclude_root_hub: bool,
     /// Case sensitive matching for strings. False will be unless capital letter in query
     pub case_sensitive: bool,
 }
@@ -2058,7 +2053,7 @@ impl ProfileDepth {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ProfilerOptions {
     /// Filter to apply during profiling
-    pub filter: Option<Filter>,
+    pub filter: Option<FilterGroup>,
     /// How much data to collect for each device
     pub depth: ProfileDepth,
     /// Whether we are building a tree (true) or just a flat list (false)
@@ -2096,10 +2091,10 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = Filter {
+/// let filter = FilterGroup::from(Filter {
 ///     name: Some(String::from("Black Magic Probe")),
 ///     ..Default::default()
-/// };
+/// });
 /// filter.retain_buses(&mut spusb.buses);
 /// let flattened = spusb.flattened_devices();
 /// // node was on a hub so that will remain with it
@@ -2114,11 +2109,11 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = Filter {
+/// let filter = FilterGroup::from(Filter {
 ///     vid: Some(0x1d50),
 ///     pid: Some(0x6018),
 ///     ..Default::default()
-/// };
+/// });
 /// filter.retain_buses(&mut spusb.buses);
 /// let flattened = spusb.flattened_devices();
 /// // node was on a hub so that will remain with it
@@ -2134,11 +2129,11 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = Filter {
+/// let filter = FilterGroup::from(Filter {
 ///     number: Some(6),
 ///     bus: Some(20),
 ///     ..Default::default()
-/// };
+/// });
 /// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // now no hub
@@ -2152,10 +2147,10 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/cyme_libusb_merge_macos_tree.json").unwrap();
-/// let filter = Filter {
+/// let filter = FilterGroup::from(Filter {
 ///     class: Some(cyme::usb::BaseClass::CdcCommunications),
 ///     ..Default::default()
-/// };
+/// });
 /// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // black magic probe has CDCCommunications serial
@@ -2163,10 +2158,68 @@ pub type USBFilter = Filter;
 /// assert_eq!(device.unwrap().name, "Black Magic Probe  v1.8.2");
 /// ```
 ///
+/// Combine filters with a single struct update when extra flags are needed
+///
+/// ```
+/// use cyme::profiler::*;
+///
+/// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
+/// let filter = FilterGroup {
+///     no_exclude_root_hub: true,
+///     ..Filter::new_with_name("Black Magic Probe".into(), false).into()
+/// };
+/// let mut flattened = spusb.flattened_devices();
+/// filter.retain_flattened_devices_ref(&mut flattened);
+/// assert!(!flattened.is_empty());
+/// ```
+///
 impl Filter {
     /// Creates a new filter with defaults
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Creates a new filter with name filter
+    pub fn new_with_name(name: String, case_sensitive: bool) -> Self {
+        Self {
+            name: Some(name),
+            case_sensitive,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new filter with vid and pid filter
+    pub fn new_with_vid_pid(vid: u16, pid: u16) -> Self {
+        Self {
+            vid: Some(vid),
+            pid: Some(pid),
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new filter with bus and number filter
+    pub fn new_with_bus_number(bus: u8, number: u8) -> Self {
+        Self {
+            bus: Some(bus),
+            number: Some(number),
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new filter with class filter
+    pub fn new_with_class(class: BaseClass) -> Self {
+        Self {
+            class: Some(class),
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new filter with serial filter
+    pub fn new_with_serial(serial: String) -> Self {
+        Self {
+            serial: Some(serial),
+            ..Default::default()
+        }
     }
 
     fn string_match(&self, pattern: &Option<String>, query: Option<&String>) -> bool {
@@ -2190,8 +2243,6 @@ impl Filter {
     /// Checks whether `device` passes through filter
     pub fn is_match(&self, device: &Device) -> bool {
         self.is_identity_match(device)
-            && !(self.exclude_empty_hub && device.is_hub() && !device.has_devices())
-            && (!device.is_root_hub() || self.no_exclude_root_hub)
     }
 
     /// Checks whether `device` matches the identity criteria of the filter (VID, PID, Name, Serial, Class, etc.)
@@ -2221,13 +2272,6 @@ impl Filter {
             && self.class.as_ref().is_none_or(|fc| {
                 device.class.as_ref() == Some(fc) || device.extra.is_none()
             })
-            && (!device.is_root_hub() || self.no_exclude_root_hub)
-    }
-
-    /// Checks whether `bus` passes through filter
-    pub fn is_bus_match(&self, bus: &Bus) -> bool {
-        (bus.usb_bus_number == self.bus || self.bus.is_none() || bus.usb_bus_number.is_none())
-            && !(self.exclude_empty_bus && bus.is_empty())
     }
 
     /// Recursively looks down tree for any `device` matching filter
@@ -2244,62 +2288,217 @@ impl Filter {
             None => false,
         }
     }
+}
 
-    /// Recursively retain only `Bus` in `buses` with `Device` matching filter
+/// Groups [`Filter`]s with OR semantics and an optional exclusion list
+///
+/// Devices pass through a [`FilterGroup`] if:
+/// 1. They are not excluded by structural flags (`exclude_empty_hub`, `exclude_empty_bus`, root hub)
+/// 2. They match **any** filter in `filters` (OR), or `filters` is empty (matches all)
+/// 3. They do not match **any** filter in `exclude_filters`
+///
+/// Filters within a group are always OR'd. AND is not needed: two `Filter`s that each constrain
+/// a different field (e.g. `vid` and `class`) can be expressed as a single `Filter` with both
+/// fields set — a device can never satisfy two different values of the same field simultaneously.
+///
+/// On the CLI, repeating the same flag (e.g. `--vidpid 0x1234 --vidpid 0x4321`) produces one
+/// `Filter` per value, all OR'd inside the group. Combining different flags (e.g. `--vidpid
+/// 0x1234 --filter-name Probe`) merges them into one `Filter` via cross-product, preserving AND
+/// semantics within that filter.
+///
+/// # Construction
+///
+/// Single filter — wraps one [`Filter`]:
+/// ```
+/// use cyme::profiler::*;
+/// let filter = FilterGroup::from(Filter::new_with_vid_pid(0x1d50, 0x6018));
+/// ```
+///
+/// OR two VIDs — each `Filter` in the vec is an independent OR branch:
+/// ```
+/// use cyme::profiler::*;
+/// let filter = FilterGroup::from(vec![
+///     Filter::new_with_vid_pid(0x1234, 0x0001),
+///     Filter::new_with_vid_pid(0x4321, 0x0002),
+/// ]);
+/// ```
+///
+/// With extra structural flags — struct update from a converted `Filter`:
+/// ```
+/// use cyme::profiler::*;
+/// let filter = FilterGroup {
+///     no_exclude_root_hub: true,
+///     ..Filter::new_with_name("Black Magic".into(), false).into()
+/// };
+/// ```
+///
+/// Exclusion — devices matching `exclude_filters` are always hidden:
+/// ```
+/// use cyme::profiler::*;
+/// let filter = FilterGroup {
+///     filters: vec![Filter::new_with_class(cyme::usb::BaseClass::Hid)],
+///     exclude_filters: vec![Filter::new_with_name("Keyboard".into(), false)],
+///     ..Default::default()
+/// };
+/// ```
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case", default)]
+pub struct FilterGroup {
+    /// Inclusion filters — device matches if it satisfies ANY of these (OR)
+    pub filters: Vec<Filter>,
+    /// Exclusion filters — device is excluded if it matches any of these
+    pub exclude_filters: Vec<Filter>,
+    /// Exclude empty buses (those with no devices)
+    pub exclude_empty_bus: bool,
+    /// Exclude empty hubs (those with no devices); when listing hides hubs regardless
+    pub exclude_empty_hub: bool,
+    /// Do not exclude Linux root hub devices
+    pub no_exclude_root_hub: bool,
+}
+
+impl FilterGroup {
+    /// Creates a new filter group with defaults
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Checks whether `device` passes through this filter group
+    pub fn is_match(&self, device: &Device) -> bool {
+        if self.exclude_empty_hub && device.is_hub() && !device.has_devices() {
+            return false;
+        }
+        if device.is_root_hub() && !self.no_exclude_root_hub {
+            return false;
+        }
+
+        let included =
+            self.filters.is_empty() || self.filters.iter().any(|f| f.is_identity_match(device));
+
+        if !included {
+            return false;
+        }
+
+        !self
+            .exclude_filters
+            .iter()
+            .any(|f| f.is_identity_match(device))
+    }
+
+    /// Checks whether `device` could potentially match this filter group if extra data was loaded
+    ///
+    /// Used by profilers to decide whether to load extra device data
+    pub fn is_potential_match(&self, device: &Device) -> bool {
+        if device.is_root_hub() && !self.no_exclude_root_hub {
+            return false;
+        }
+
+        let potentially_included =
+            self.filters.is_empty() || self.filters.iter().any(|f| f.is_potential_match(device));
+
+        if !potentially_included {
+            return false;
+        }
+
+        // Only definitively exclude if the exclusion filter has no class criteria
+        // (class requires extra data to evaluate interfaces)
+        !self
+            .exclude_filters
+            .iter()
+            .any(|f| f.class.is_none() && f.is_identity_match(device))
+    }
+
+    /// Checks whether `bus` passes through this filter group
+    pub fn is_bus_match(&self, bus: &Bus) -> bool {
+        if self.exclude_empty_bus && bus.is_empty() {
+            return false;
+        }
+
+        if self.filters.is_empty() {
+            return true;
+        }
+
+        let bus_no = bus.usb_bus_number;
+        self.filters
+            .iter()
+            .any(|f| f.bus.is_none() || bus_no == f.bus || bus_no.is_none())
+    }
+
+    /// Recursively looks down tree for any `device` matching this filter group
+    pub fn exists_in_tree(&self, device: &Device) -> bool {
+        if self.is_match(device) {
+            return true;
+        }
+        match &device.devices {
+            Some(devs) => devs.iter().any(|d| self.exists_in_tree(d)),
+            None => false,
+        }
+    }
+
+    /// Recursively retain only `Bus` in `buses` with `Device` matching filter group
     pub fn retain_buses(&self, buses: &mut Vec<Bus>) {
-        // filter any empty or number matches
         buses.retain(|b| self.is_bus_match(b));
-
         for bus in buses.iter_mut() {
             bus.devices.iter_mut().for_each(|d| self.retain_devices(d));
         }
-
-        // check bus match again in case empty after device filter
         buses.retain(|b| self.is_bus_match(b));
     }
 
-    /// Recursively hide `Bus` in `buses` with `Device` matching filter
+    /// Recursively hide `Bus` in `buses` not matching filter group
     pub fn hide_buses(&self, buses: &mut [Bus]) {
         buses
             .iter_mut()
             .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
-
         for bus in buses.iter_mut() {
             bus.devices.iter_mut().for_each(|d| self.hide_devices(d));
         }
-
         buses
             .iter_mut()
             .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
     }
 
-    /// Recursively retain only `Device` in `devices` matching filter
+    /// Recursively retain only `Device` in `devices` matching filter group
     ///
     /// Note that non-matching parents will still be retained if they have a matching `Device` within their branches
     pub fn retain_devices(&self, devices: &mut Vec<Device>) {
         devices.retain(|d| self.exists_in_tree(d));
-
         for d in devices {
             d.devices.iter_mut().for_each(|d| self.retain_devices(d));
         }
     }
 
-    /// Recursively retain only `Device` in `devices` matching filter
+    /// Recursively hide `Device` in `devices` not matching filter group
     pub fn hide_devices(&self, devices: &mut [Device]) {
         devices
             .iter_mut()
             .for_each(|d| d.internal.hidden = !self.exists_in_tree(d));
-
         for d in devices {
             d.devices.iter_mut().for_each(|d| self.hide_devices(d));
         }
     }
 
-    /// Retains only `&Device` in `devices` which match filter
+    /// Retains only `&Device` in `devices` which match filter group
     ///
-    /// Does not check down tree so should be used to flattened devices only (`get_all_devices`). Will remove hubs if `hide_hubs` since when flattened they will have no devices
+    /// Does not check down tree so should be used with flattened devices only
     pub fn retain_flattened_devices_ref(&self, devices: &mut Vec<&Device>) {
         devices.retain(|d| self.is_match(d))
+    }
+}
+
+impl From<Filter> for FilterGroup {
+    fn from(filter: Filter) -> Self {
+        FilterGroup {
+            filters: vec![filter],
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Vec<Filter>> for FilterGroup {
+    fn from(filters: Vec<Filter>) -> Self {
+        FilterGroup {
+            filters,
+            ..Default::default()
+        }
     }
 }
 
