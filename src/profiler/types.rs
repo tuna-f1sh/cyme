@@ -2091,10 +2091,7 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = FilterGroup::from(Filter {
-///     name: Some(String::from("Black Magic Probe")),
-///     ..Default::default()
-/// });
+/// let filter = FilterGroup::from(Filter::new_with_name("Black Magic Probe".into(), false));
 /// filter.retain_buses(&mut spusb.buses);
 /// let flattened = spusb.flattened_devices();
 /// // node was on a hub so that will remain with it
@@ -2109,11 +2106,7 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = FilterGroup::from(Filter {
-///     vid: Some(0x1d50),
-///     pid: Some(0x6018),
-///     ..Default::default()
-/// });
+/// let filter = FilterGroup::from(Filter::new_with_vid_pid(0x1d50, 0x6018));
 /// filter.retain_buses(&mut spusb.buses);
 /// let flattened = spusb.flattened_devices();
 /// // node was on a hub so that will remain with it
@@ -2129,11 +2122,7 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = FilterGroup::from(Filter {
-///     number: Some(6),
-///     bus: Some(20),
-///     ..Default::default()
-/// });
+/// let filter = FilterGroup::from(Filter::new_with_bus_number(20, 6));
 /// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // now no hub
@@ -2147,10 +2136,7 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/cyme_libusb_merge_macos_tree.json").unwrap();
-/// let filter = FilterGroup::from(Filter {
-///     class: Some(cyme::usb::BaseClass::CdcCommunications),
-///     ..Default::default()
-/// });
+/// let filter = FilterGroup::from(Filter::new_with_class(cyme::usb::BaseClass::CdcCommunications));
 /// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // black magic probe has CDCCommunications serial
