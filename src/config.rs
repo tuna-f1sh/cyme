@@ -90,7 +90,7 @@ pub struct Config {
     /// Print non-critical errors (normally due to permissions) during USB profiler to stderr
     pub print_non_critical_profiler_stderr: bool,
     /// Default filter group to apply when running cyme
-    pub filter: Option<crate::profiler::FilterGroup>,
+    pub filter: Option<crate::profiler::DeviceFilter>,
 }
 
 impl Config {
@@ -349,10 +349,10 @@ mod tests {
 
     #[test]
     fn test_filter_serialize_deserialize() {
-        use crate::profiler::{Filter, FilterGroup};
+        use crate::profiler::{Filter, DeviceFilter};
 
         let config = Config {
-            filter: Some(FilterGroup {
+            filter: Some(DeviceFilter {
                 filters: vec![Filter {
                     vid: Some(0x1d50),
                     pid: Some(0x6018),
