@@ -1,7 +1,7 @@
-/// This example shows how to use the FilterGroup to filter out devices that match certain criteria
+/// This example shows how to use the DeviceFilter to filter out devices that match certain criteria
 ///
-/// See [`FilterGroup`] docs for more information
-use cyme::profiler::{self, Filter, FilterGroup};
+/// See [`DeviceFilter`] docs for more information
+use cyme::profiler::{self, Filter, DeviceFilter};
 use cyme::usb::BaseClass;
 
 fn main() -> Result<(), String> {
@@ -10,7 +10,7 @@ fn main() -> Result<(), String> {
         .map_err(|e| format!("Failed to gather system USB data from libusb, Error({e})"))?;
 
     // create a filter group with a single filter that matches devices with the HID class
-    let filter = FilterGroup::from(Filter::new_with_class(BaseClass::Hid));
+    let filter = DeviceFilter::from(Filter::new_with_class(BaseClass::Hid));
 
     // will retain only the buses that have devices that match the filter - parent devices such as hubs with a HID device will be retained
     filter.retain_buses(&mut sp_usb.buses);

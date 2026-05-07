@@ -466,7 +466,7 @@ fn is_watch(args: &Args) -> bool {
 fn get_system_profile_macos(
     config: &Config,
     args: &Args,
-    filter: Option<profiler::FilterGroup>,
+    filter: Option<profiler::DeviceFilter>,
 ) -> Result<profiler::SystemProfile> {
     // if requested or only have libusb, use system_profiler and merge with libusb
     if args.system_profiler || !cfg!(feature = "nusb") {
@@ -537,7 +537,7 @@ fn get_system_profile_macos(
 fn get_system_profile(
     config: &Config,
     args: &Args,
-    filter: Option<profiler::FilterGroup>,
+    filter: Option<profiler::DeviceFilter>,
 ) -> Result<profiler::SystemProfile> {
     let depth = if config.verbose >= 2
         || (config.json && config.verbose >= 1)
@@ -954,7 +954,7 @@ fn cyme() -> Result<()> {
                 all_exclude_filters.extend(cfg_filter.exclude_filters.iter().cloned());
             }
 
-            Some(profiler::FilterGroup {
+            Some(profiler::DeviceFilter {
                 filters: all_inclusion_filters,
                 exclude_filters: all_exclude_filters,
                 exclude_empty_bus: config.hide_buses,

@@ -22,7 +22,7 @@ use super::parse_vidpid;
 use cyme::config::Config;
 use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
-use cyme::profiler::{watch::SystemProfileStreamBuilder, Filter, FilterGroup, SystemProfile};
+use cyme::profiler::{watch::SystemProfileStreamBuilder, Filter, DeviceFilter, SystemProfile};
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -134,7 +134,7 @@ struct Display {
     buffer: Vec<u8>,
     spusb: Arc<Mutex<SystemProfile>>,
     print_settings: Arc<Mutex<PrintSettings>>,
-    filter: FilterGroup,
+    filter: DeviceFilter,
     state: Arc<Mutex<State>>,
     /// Size of current window
     terminal_size: (u16, u16),
@@ -156,7 +156,7 @@ struct Display {
     selected_item: Option<LineItem>,
 }
 
-fn set_filter(field: &FilterField, value: Option<String>, filter: &mut FilterGroup) -> Result<()> {
+fn set_filter(field: &FilterField, value: Option<String>, filter: &mut DeviceFilter) -> Result<()> {
     let mut f = filter.filters.first().cloned().unwrap_or_default();
     match field {
         FilterField::Name => f.name = value,
@@ -197,7 +197,7 @@ fn strip_ansi_codes(input: &str) -> String {
 
 fn print_json(
     spusb: &mut SystemProfile,
-    filter: Option<&FilterGroup>,
+    filter: Option<&DeviceFilter>,
     print_settings: &PrintSettings,
 ) -> Result<()> {
     cyme::display::prepare(spusb, filter, print_settings);
@@ -208,7 +208,7 @@ fn print_json(
 
 pub fn watch_usb_devices_json(
     spusb: SystemProfile,
-    filter: Option<FilterGroup>,
+    filter: Option<DeviceFilter>,
     print_settings: PrintSettings,
 ) -> Result<()> {
     // pass spusb to stream builder, will get Arc<Mutex<SystemProfile>> back below
@@ -254,7 +254,7 @@ pub fn watch_usb_devices_json(
 
 pub fn watch_usb_devices(
     spusb: SystemProfile,
-    filter: Option<FilterGroup>,
+    filter: Option<DeviceFilter>,
     mut print_settings: PrintSettings,
     mut config: Config,
 ) -> Result<()> {

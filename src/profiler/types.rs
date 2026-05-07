@@ -2053,7 +2053,7 @@ impl ProfileDepth {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ProfilerOptions {
     /// Filter to apply during profiling
-    pub filter: Option<FilterGroup>,
+    pub filter: Option<DeviceFilter>,
     /// How much data to collect for each device
     pub depth: ProfileDepth,
     /// Whether we are building a tree (true) or just a flat list (false)
@@ -2091,7 +2091,7 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = FilterGroup::from(Filter::new_with_name("Black Magic Probe".into(), false));
+/// let filter = DeviceFilter::from(Filter::new_with_name("Black Magic Probe".into(), false));
 /// filter.retain_buses(&mut spusb.buses);
 /// let flattened = spusb.flattened_devices();
 /// // node was on a hub so that will remain with it
@@ -2106,7 +2106,7 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = FilterGroup::from(Filter::new_with_vid_pid(0x1d50, 0x6018));
+/// let filter = DeviceFilter::from(Filter::new_with_vid_pid(0x1d50, 0x6018));
 /// filter.retain_buses(&mut spusb.buses);
 /// let flattened = spusb.flattened_devices();
 /// // node was on a hub so that will remain with it
@@ -2122,7 +2122,7 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = FilterGroup::from(Filter::new_with_bus_number(20, 6));
+/// let filter = DeviceFilter::from(Filter::new_with_bus_number(20, 6));
 /// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // now no hub
@@ -2136,7 +2136,7 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/cyme_libusb_merge_macos_tree.json").unwrap();
-/// let filter = FilterGroup::from(Filter::new_with_class(cyme::usb::BaseClass::CdcCommunications));
+/// let filter = DeviceFilter::from(Filter::new_with_class(cyme::usb::BaseClass::CdcCommunications));
 /// let mut flattened = spusb.flattened_devices();
 /// filter.retain_flattened_devices_ref(&mut flattened);
 /// // black magic probe has CDCCommunications serial
@@ -2150,7 +2150,7 @@ pub type USBFilter = Filter;
 /// use cyme::profiler::*;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
-/// let filter = FilterGroup {
+/// let filter = DeviceFilter {
 ///     no_exclude_root_hub: true,
 ///     ..Filter::new_with_name("Black Magic Probe".into(), false).into()
 /// };
@@ -2278,7 +2278,7 @@ impl Filter {
 
 /// Groups [`Filter`]s with OR semantics and an optional exclusion list
 ///
-/// Devices pass through a [`FilterGroup`] if:
+/// Devices pass through a [`DeviceFilter`] if:
 /// 1. They are not excluded by structural flags (`exclude_empty_hub`, `exclude_empty_bus`, root hub)
 /// 2. They match **any** filter in `filters` (OR), or `filters` is empty (matches all)
 /// 3. They do not match **any** filter in `exclude_filters`
@@ -2297,13 +2297,13 @@ impl Filter {
 /// Single filter — wraps one [`Filter`]:
 /// ```
 /// use cyme::profiler::*;
-/// let filter = FilterGroup::from(Filter::new_with_vid_pid(0x1d50, 0x6018));
+/// let filter = DeviceFilter::from(Filter::new_with_vid_pid(0x1d50, 0x6018));
 /// ```
 ///
 /// OR two VIDs — each `Filter` in the vec is an independent OR branch:
 /// ```
 /// use cyme::profiler::*;
-/// let filter = FilterGroup::from(vec![
+/// let filter = DeviceFilter::from(vec![
 ///     Filter::new_with_vid_pid(0x1234, 0x0001),
 ///     Filter::new_with_vid_pid(0x4321, 0x0002),
 /// ]);
@@ -2312,7 +2312,7 @@ impl Filter {
 /// With extra structural flags — struct update from a converted `Filter`:
 /// ```
 /// use cyme::profiler::*;
-/// let filter = FilterGroup {
+/// let filter = DeviceFilter {
 ///     no_exclude_root_hub: true,
 ///     ..Filter::new_with_name("Black Magic".into(), false).into()
 /// };
@@ -2321,7 +2321,7 @@ impl Filter {
 /// Exclusion — devices matching `exclude_filters` are always hidden:
 /// ```
 /// use cyme::profiler::*;
-/// let filter = FilterGroup {
+/// let filter = DeviceFilter {
 ///     filters: vec![Filter::new_with_class(cyme::usb::BaseClass::Hid)],
 ///     exclude_filters: vec![Filter::new_with_name("Keyboard".into(), false)],
 ///     ..Default::default()
@@ -2329,7 +2329,7 @@ impl Filter {
 /// ```
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case", default)]
-pub struct FilterGroup {
+pub struct DeviceFilter {
     /// Inclusion filters — device matches if it satisfies ANY of these (OR)
     pub filters: Vec<Filter>,
     /// Exclusion filters — device is excluded if it matches any of these
@@ -2342,7 +2342,7 @@ pub struct FilterGroup {
     pub no_exclude_root_hub: bool,
 }
 
-impl FilterGroup {
+impl DeviceFilter {
     /// Creates a new filter group with defaults
     pub fn new() -> Self {
         Default::default()
@@ -2470,18 +2470,18 @@ impl FilterGroup {
     }
 }
 
-impl From<Filter> for FilterGroup {
+impl From<Filter> for DeviceFilter {
     fn from(filter: Filter) -> Self {
-        FilterGroup {
+        DeviceFilter {
             filters: vec![filter],
             ..Default::default()
         }
     }
 }
 
-impl From<Vec<Filter>> for FilterGroup {
+impl From<Vec<Filter>> for DeviceFilter {
     fn from(filters: Vec<Filter>) -> Self {
-        FilterGroup {
+        DeviceFilter {
             filters,
             ..Default::default()
         }
