@@ -182,7 +182,11 @@ fn set_filter(field: &FilterField, value: Option<String>, filter: &mut FilterGro
             None => f.class = None,
         },
     };
-    filter.filters = if f == Filter::default() { vec![] } else { vec![f] };
+    filter.filters = if f == Filter::default() {
+        vec![]
+    } else {
+        vec![f]
+    };
     Ok(())
 }
 
