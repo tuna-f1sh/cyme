@@ -115,5 +115,5 @@
   "force-libusb": false,
   "json": false,
   "print-non-critical-profiler-stderr": false,
-  "filter": null
+  "device-filter": null
 }

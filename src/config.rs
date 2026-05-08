@@ -90,7 +90,7 @@ pub struct Config {
     /// Print non-critical errors (normally due to permissions) during USB profiler to stderr
     pub print_non_critical_profiler_stderr: bool,
     /// Default device filter to apply when running cyme
-    pub filter: Option<crate::profiler::DeviceFilter>,
+    pub device_filter: Option<crate::profiler::DeviceFilter>,
 }
 
 impl Config {
@@ -162,7 +162,7 @@ impl Config {
         use crate::usb::BaseClass;
 
         Config {
-            filter: Some(DeviceFilter {
+            device_filter: Some(DeviceFilter {
                 // Inclusion filters are OR'd: a device passes if it matches any one.
                 filters: vec![
                     // Specific device by vendor and product ID (decimal u16 values in JSON)
@@ -405,7 +405,7 @@ mod tests {
         use crate::profiler::{DeviceFilter, Filter};
 
         let config = Config {
-            filter: Some(DeviceFilter {
+            device_filter: Some(DeviceFilter {
                 filters: vec![Filter {
                     vid: Some(0x1d50),
                     pid: Some(0x6018),
@@ -423,12 +423,12 @@ mod tests {
         // round-trip through JSON
         let json = serde_json::to_string(&config).unwrap();
         let restored: Config = serde_json::from_str(&json).unwrap();
-        assert_eq!(config.filter, restored.filter);
+        assert_eq!(config.device_filter, restored.device_filter);
 
         // deserialize from raw JSON — note kebab-case key and decimal VID/PID values
-        let raw = r#"{"filter": {"filters": [{"vid": 7504, "pid": 24600}], "exclude-filters": [{"name": "Keyboard"}]}}"#;
+        let raw = r#"{"device-filter": {"filters": [{"vid": 7504, "pid": 24600}], "exclude-filters": [{"name": "Keyboard"}]}}"#;
         let from_raw: Config = serde_json::from_str(raw).unwrap();
-        let f = from_raw.filter.unwrap();
+        let f = from_raw.device_filter.unwrap();
         assert_eq!(f.filters[0].vid, Some(0x1d50));
         assert_eq!(f.filters[0].pid, Some(0x6018));
         assert_eq!(f.exclude_filters[0].name.as_deref(), Some("Keyboard"));

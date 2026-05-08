@@ -57,7 +57,7 @@
   "force-libusb": false,
   "json": false,
   "print-non-critical-profiler-stderr": false,
-  "filter": {
+  "device-filter": {
     "filters": [
       {
         "vid": 7504,
