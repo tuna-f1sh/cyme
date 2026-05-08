@@ -936,12 +936,12 @@ fn cyme() -> Result<()> {
             || !exclude_filters.is_empty()
             || config.hide_hubs
             || config.hide_buses
-            || config.filter.is_some();
+            || config.device_filter.is_some();
 
         if has_any_criteria || cfg!(target_os = "linux") {
             // Use config.filter as the base so its filters and structural flags are preserved;
             // CLI args are then layered on top.
-            let mut f = config.filter.clone().unwrap_or_default();
+            let mut f = config.device_filter.clone().unwrap_or_default();
 
             // Extend inclusion/exclusion filters with any CLI-supplied criteria (OR'd)
             if has_inclusion_criteria {
