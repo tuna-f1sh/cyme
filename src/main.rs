@@ -766,26 +766,27 @@ fn build_inclusion_filters(
     serials: &[String],
     classes: &[BaseClass],
 ) -> Vec<profiler::Filter> {
-    // Normalise: empty vec → one None sentinel so cross-product still runs once
+    // Empty slice → one None sentinel so the cross-product iterates at least once;
+    // an absent dimension means "no constraint on that field".
     let vids: Vec<Option<(Option<u16>, Option<u16>)>> = if vidpids.is_empty() {
         vec![None]
     } else {
-        vidpids.iter().map(|v| Some(*v)).collect()
+        vidpids.iter().copied().map(Some).collect()
     };
-    let names: Vec<Option<String>> = if names.is_empty() {
+    let names: Vec<Option<&String>> = if names.is_empty() {
         vec![None]
     } else {
-        names.iter().map(|n| Some(n.clone())).collect()
+        names.iter().map(Some).collect()
     };
-    let serials: Vec<Option<String>> = if serials.is_empty() {
+    let serials: Vec<Option<&String>> = if serials.is_empty() {
         vec![None]
     } else {
-        serials.iter().map(|s| Some(s.clone())).collect()
+        serials.iter().map(Some).collect()
     };
     let classes: Vec<Option<BaseClass>> = if classes.is_empty() {
         vec![None]
     } else {
-        classes.iter().map(|c| Some(*c)).collect()
+        classes.iter().copied().map(Some).collect()
     };
 
     let mut filters = Vec::new();
@@ -799,8 +800,8 @@ fn build_inclusion_filters(
                         pid: pid_val,
                         bus,
                         number,
-                        name: name.clone(),
-                        serial: serial.clone(),
+                        name: name.map(|n| n.to_owned()),
+                        serial: serial.map(|s| s.to_owned()),
                         class: *class,
                         case_sensitive: false,
                     });
