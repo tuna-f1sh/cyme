@@ -15,15 +15,15 @@ _cyme() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID:_default' \
-'--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VIDPID:_default' \
+'*-d+[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VID:[PID]:_default' \
+'*--vidpid=[Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID\:\[PID\]]:VID:[PID]:_default' \
 '-s+[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW:_default' \
 '--show=[Show only devices with specified device and/or bus numbers (in decimal) in format \[\[bus\]\:\]\[devnum\]]:SHOW:_default' \
 '-D+[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE:_default' \
 '--device=[Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path]:DEVICE:_default' \
-'--filter-name=[Filter on string contained in name]:FILTER_NAME:_default' \
-'--filter-serial=[Filter on string contained in serial]:FILTER_SERIAL:_default' \
-'--filter-class=[Filter on USB class code]:FILTER_CLASS:((use-interface-descriptor\:"Device class is unspecified, interface descriptors are used to determine needed drivers"
+'*--filter-name=[Filter on string contained in name]:FILTER_NAME:_default' \
+'*--filter-serial=[Filter on string contained in serial]:FILTER_SERIAL:_default' \
+'*--filter-class=[Filter on USB class code]:FILTER_CLASS:((use-interface-descriptor\:"Device class is unspecified, interface descriptors are used to determine needed drivers"
 audio\:"Speaker, microphone, sound card, MIDI"
 cdc-communications\:"The modern serial interface; appears as a UART/RS232 port on most systems"
 hid\:"Human Interface Device; game controllers, keyboards, mice etc. Also commonly used as a device data interface rather then creating something from scratch"
@@ -48,6 +48,7 @@ wireless-controller\:"Wireless controllers\: Bluetooth adaptors, Microsoft RNDIS
 miscellaneous\:"This base class is defined for miscellaneous device definitions. Some matching SubClass and Protocols are defined on the USB-IF website"
 application-specific-interface\:"This base class is defined for devices that conform to several class specifications found on the USB-IF website"
 vendor-specific-class\:"This base class is defined for vendors to use as they please"))' \
+'*--filter-exclude=[Exclude devices matching KEY=VALUE criteria. KEY is one of\: vidpid, name, serial, class, bus, number. Comma-separate multiple KEY=VALUE pairs to AND them (one occurrence). Repeat the arg to OR exclusions]:KEY=VALUE:_default' \
 '*-b+[Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks]:BLOCKS:((bus-number\:"Number of bus device is attached"
 device-number\:"Bus issued device number"
 branch-position\:"Position of device in parent branch"
