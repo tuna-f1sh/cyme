@@ -1,7 +1,7 @@
 /// This example shows how to use the DeviceFilter to filter out devices that match certain criteria
 ///
 /// See [`DeviceFilter`] docs for more information
-use cyme::profiler::{self, Filter, DeviceFilter};
+use cyme::profiler::{self, DeviceFilter, Filter};
 use cyme::usb::BaseClass;
 
 fn main() -> Result<(), String> {
