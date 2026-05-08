@@ -935,39 +935,33 @@ fn cyme() -> Result<()> {
         let has_any_criteria = has_inclusion_criteria
             || !exclude_filters.is_empty()
             || config.hide_hubs
-            || config.hide_buses;
+            || config.hide_buses
+            || config.filter.is_some();
 
         if has_any_criteria || cfg!(target_os = "linux") {
-            let inclusion_filters = if has_inclusion_criteria {
-                build_inclusion_filters(
+            // Use config.filter as the base so its filters and structural flags are preserved;
+            // CLI args are then layered on top.
+            let mut f = config.filter.clone().unwrap_or_default();
+
+            // Extend inclusion/exclusion filters with any CLI-supplied criteria (OR'd)
+            if has_inclusion_criteria {
+                f.filters.extend(build_inclusion_filters(
                     &vidpids,
                     bus,
                     number,
                     &args.filter_name,
                     &args.filter_serial,
                     &args.filter_class,
-                )
-            } else {
-                Vec::new()
-            };
-
-            // Merge config filter if present (OR inclusion filters)
-            let mut all_inclusion_filters = inclusion_filters;
-            if let Some(cfg_filter) = &config.filter {
-                all_inclusion_filters.extend(cfg_filter.filters.iter().cloned());
+                ));
             }
-            let mut all_exclude_filters = exclude_filters;
-            if let Some(cfg_filter) = &config.filter {
-                all_exclude_filters.extend(cfg_filter.exclude_filters.iter().cloned());
-            }
+            f.exclude_filters.extend(exclude_filters);
 
-            Some(profiler::DeviceFilter {
-                filters: all_inclusion_filters,
-                exclude_filters: all_exclude_filters,
-                exclude_empty_bus: config.hide_buses,
-                exclude_empty_hub: config.hide_hubs,
-                no_exclude_root_hub,
-            })
+            // Structural flags: OR config.filter values with CLI/config arg values
+            f.exclude_empty_bus |= config.hide_buses;
+            f.exclude_empty_hub |= config.hide_hubs;
+            f.no_exclude_root_hub |= no_exclude_root_hub;
+
+            Some(f)
         } else {
             None
         }
