@@ -1986,6 +1986,7 @@ impl<'a> IntoIterator for &'a mut Device {
 /// Used to filter devices within buses
 ///
 /// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
+#[skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(default)]
 pub struct Filter {
@@ -2004,6 +2005,7 @@ pub struct Filter {
     /// retain only device of BaseClass class
     pub class: Option<BaseClass>,
     /// Case sensitive matching for strings. False will be unless capital letter in query
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub case_sensitive: bool,
 }
 

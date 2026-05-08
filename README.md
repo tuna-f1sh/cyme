@@ -187,6 +187,8 @@ cyme --filter-class hid --filter-exclude name=Keyboard
 cyme --filter-exclude vidpid=05ac:8600,name=Hub
 ```
 
+Filtering can also be configured in the config file. See './doc/cyme_example_filter_config.json' as an example - demo showing all fields, not designed to be used verbatum!
+
 ### JSON - jq
 
 ```bash
