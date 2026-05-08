@@ -2276,20 +2276,21 @@ impl Filter {
     }
 }
 
-/// Groups [`Filter`]s with OR semantics and an optional exclusion list
+/// The top-level USB device filter, combining inclusion [`Filter`]s and an optional exclusion list
+/// with some profiling structural flags.
 ///
 /// Devices pass through a [`DeviceFilter`] if:
 /// 1. They are not excluded by structural flags (`exclude_empty_hub`, `exclude_empty_bus`, root hub)
 /// 2. They match **any** filter in `filters` (OR), or `filters` is empty (matches all)
 /// 3. They do not match **any** filter in `exclude_filters`
 ///
-/// Filters within a group are always OR'd. AND is not needed: two `Filter`s that each constrain
-/// a different field (e.g. `vid` and `class`) can be expressed as a single `Filter` with both
-/// fields set — a device can never satisfy two different values of the same field simultaneously.
+/// Multiple `Filter`s are always OR'd — AND between separate filters is unnecessary because a
+/// single [`Filter`] already ANDs all its fields together, and a device can never satisfy two
+/// different values of the same field simultaneously.
 ///
 /// On the CLI, repeating the same flag (e.g. `--vidpid 0x1234 --vidpid 0x4321`) produces one
-/// `Filter` per value, all OR'd inside the group. Combining different flags (e.g. `--vidpid
-/// 0x1234 --filter-name Probe`) merges them into one `Filter` via cross-product, preserving AND
+/// `Filter` per value, all OR'd. Combining different flags (e.g. `--vidpid 0x1234
+/// --filter-name Probe`) merges them into a single `Filter` via cross-product, preserving AND
 /// semantics within that filter.
 ///
 /// # Construction
@@ -2343,12 +2344,12 @@ pub struct DeviceFilter {
 }
 
 impl DeviceFilter {
-    /// Creates a new filter group with defaults
+    /// Creates a new [`DeviceFilter`] with defaults
     pub fn new() -> Self {
         Default::default()
     }
 
-    /// Checks whether `device` passes through this filter group
+    /// Checks whether `device` passes through the [`DeviceFilter`]
     pub fn is_match(&self, device: &Device) -> bool {
         if self.exclude_empty_hub && device.is_hub() && !device.has_devices() {
             return false;
@@ -2370,7 +2371,7 @@ impl DeviceFilter {
             .any(|f| f.is_identity_match(device))
     }
 
-    /// Checks whether `device` could potentially match this filter group if extra data was loaded
+    /// Checks whether `device` could potentially match this filter if extra data was loaded
     ///
     /// Used by profilers to decide whether to load extra device data
     pub fn is_potential_match(&self, device: &Device) -> bool {
@@ -2393,7 +2394,7 @@ impl DeviceFilter {
             .any(|f| f.class.is_none() && f.is_identity_match(device))
     }
 
-    /// Checks whether `bus` passes through this filter group
+    /// Checks whether `bus` passes through this filter
     pub fn is_bus_match(&self, bus: &Bus) -> bool {
         if self.exclude_empty_bus && bus.is_empty() {
             return false;
@@ -2409,7 +2410,7 @@ impl DeviceFilter {
             .any(|f| f.bus.is_none() || bus_no == f.bus || bus_no.is_none())
     }
 
-    /// Recursively looks down tree for any `device` matching this filter group
+    /// Recursively looks down tree for any `device` matching this filter
     pub fn exists_in_tree(&self, device: &Device) -> bool {
         if self.is_match(device) {
             return true;
@@ -2420,49 +2421,57 @@ impl DeviceFilter {
         }
     }
 
-    /// Recursively retain only `Bus` in `buses` with `Device` matching filter group
+    /// Recursively retain only `Bus` in `buses` with `Device` matching filter
     pub fn retain_buses(&self, buses: &mut Vec<Bus>) {
+        // filter any empty or number matches
         buses.retain(|b| self.is_bus_match(b));
+
         for bus in buses.iter_mut() {
             bus.devices.iter_mut().for_each(|d| self.retain_devices(d));
         }
+
+        // check bus match again in case empty after device filter
         buses.retain(|b| self.is_bus_match(b));
     }
 
-    /// Recursively hide `Bus` in `buses` not matching filter group
+    /// Recursively hide `Bus` in `buses` not matching filter
     pub fn hide_buses(&self, buses: &mut [Bus]) {
         buses
             .iter_mut()
             .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
+
         for bus in buses.iter_mut() {
             bus.devices.iter_mut().for_each(|d| self.hide_devices(d));
         }
+
         buses
             .iter_mut()
             .for_each(|b| b.internal.hidden = !self.is_bus_match(b));
     }
 
-    /// Recursively retain only `Device` in `devices` matching filter group
+    /// Recursively retain only `Device` in `devices` matching filter
     ///
     /// Note that non-matching parents will still be retained if they have a matching `Device` within their branches
     pub fn retain_devices(&self, devices: &mut Vec<Device>) {
         devices.retain(|d| self.exists_in_tree(d));
+
         for d in devices {
             d.devices.iter_mut().for_each(|d| self.retain_devices(d));
         }
     }
 
-    /// Recursively hide `Device` in `devices` not matching filter group
+    /// Recursively hide `Device` in `devices` not matching filter
     pub fn hide_devices(&self, devices: &mut [Device]) {
         devices
             .iter_mut()
             .for_each(|d| d.internal.hidden = !self.exists_in_tree(d));
+
         for d in devices {
             d.devices.iter_mut().for_each(|d| self.hide_devices(d));
         }
     }
 
-    /// Retains only `&Device` in `devices` which match filter group
+    /// Retains only `&Device` in `devices` which match filter
     ///
     /// Does not check down tree so should be used with flattened devices only
     pub fn retain_flattened_devices_ref(&self, devices: &mut Vec<&Device>) {

@@ -22,7 +22,7 @@ use super::parse_vidpid;
 use cyme::config::Config;
 use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
-use cyme::profiler::{watch::SystemProfileStreamBuilder, Filter, DeviceFilter, SystemProfile};
+use cyme::profiler::{watch::SystemProfileStreamBuilder, DeviceFilter, Filter, SystemProfile};
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
