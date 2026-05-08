@@ -152,6 +152,59 @@ impl Config {
         }
     }
 
+    /// Get an example [`Config`] with a verbose [`crate::profiler::DeviceFilter`] demonstrating all filter fields
+    ///
+    /// Intended for generating `cyme_example_filter_config.json` (see `--gen`). The filter
+    /// is written inline so every field is visible and users can copy/adapt what they need.
+    /// Unlike [`Config::example`] this is not intended as a base config to copy verbatim.
+    pub fn example_with_filter() -> Self {
+        use crate::profiler::{DeviceFilter, Filter};
+        use crate::usb::BaseClass;
+
+        Config {
+            filter: Some(DeviceFilter {
+                // Inclusion filters are OR'd: a device passes if it matches any one.
+                filters: vec![
+                    // Specific device by vendor and product ID (decimal u16 values in JSON)
+                    Filter::new_with_vid_pid(0x1d50, 0x6018),
+                    // Vendor only — omit pid to match any product from this vendor
+                    Filter {
+                        vid: Some(0x05ac),
+                        ..Default::default()
+                    },
+                    // Name substring — case-insensitive when all-lowercase, case-sensitive otherwise
+                    Filter::new_with_name("black magic".into(), false),
+                    // USB class code
+                    Filter::new_with_class(BaseClass::Hid),
+                    // AND within a filter: vid AND name must both match (case_sensitive true = exact case)
+                    Filter {
+                        vid: Some(0x1366),
+                        name: Some("J-Link".into()),
+                        case_sensitive: true,
+                        ..Default::default()
+                    },
+                    // Physical location: bus and device number
+                    Filter::new_with_bus_number(1, 3),
+                ],
+                // Exclusion filters: device is hidden if it matches any one of these,
+                // even when it satisfied an inclusion filter above.
+                exclude_filters: vec![
+                    // Hide devices whose name contains "Hub" (capital H → case-sensitive)
+                    Filter::new_with_name("Hub".into(), false),
+                    // Hide a specific vid:pid
+                    Filter::new_with_vid_pid(0x1d6b, 0x0002),
+                ],
+                // Hide buses that contain no devices
+                exclude_empty_bus: false,
+                // Hide hubs that contain no devices (when listing, hides all hubs)
+                exclude_empty_hub: false,
+                // On Linux root hub devices are excluded by default; true to include them
+                no_exclude_root_hub: false,
+            }),
+            ..Default::default()
+        }
+    }
+
     /// Attempt to read from .json format config at `file_path`
     pub fn from_file<P: AsRef<Path>>(file_path: P) -> Result<Self> {
         let f = File::open(&file_path)?;

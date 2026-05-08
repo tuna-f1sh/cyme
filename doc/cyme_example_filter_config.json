@@ -1,0 +1,98 @@
+{
+  "icons": {
+    "user": null,
+    "tree": null
+  },
+  "colours": {
+    "name": "bright blue",
+    "serial": "green",
+    "manufacturer": "blue",
+    "driver": "bright magenta",
+    "string": "blue",
+    "icon": null,
+    "location": "magenta",
+    "path": "bright cyan",
+    "number": "cyan",
+    "speed": "magenta",
+    "vid": "bright yellow",
+    "pid": "yellow",
+    "class_code": "bright yellow",
+    "sub_code": "yellow",
+    "protocol": "yellow",
+    "attributes": "magenta",
+    "power": "red",
+    "tree": "bright black",
+    "tree_bus_start": "bright black",
+    "tree_bus_terminator": "bright black",
+    "tree_configuration_terminator": "bright black",
+    "tree_interface_terminator": "bright black",
+    "tree_endpoint_in": "yellow",
+    "tree_endpoint_out": "magenta"
+  },
+  "blocks": null,
+  "bus-blocks": null,
+  "config-blocks": null,
+  "interface-blocks": null,
+  "endpoint-blocks": null,
+  "block-operation": null,
+  "mask-serials": null,
+  "group-devices": null,
+  "encoding": null,
+  "icon-when": null,
+  "color-when": null,
+  "sort-devices": null,
+  "sort-buses": false,
+  "max-variable-string-len": null,
+  "no-auto-width": false,
+  "lsusb": false,
+  "tree": false,
+  "verbose": 0,
+  "more": false,
+  "hide-buses": false,
+  "hide-hubs": false,
+  "list-root-hubs": false,
+  "decimal": false,
+  "no-padding": false,
+  "headings": false,
+  "force-libusb": false,
+  "json": false,
+  "print-non-critical-profiler-stderr": false,
+  "filter": {
+    "filters": [
+      {
+        "vid": 7504,
+        "pid": 24600
+      },
+      {
+        "vid": 1452
+      },
+      {
+        "name": "black magic"
+      },
+      {
+        "class": "hid"
+      },
+      {
+        "vid": 4966,
+        "name": "J-Link",
+        "case_sensitive": true
+      },
+      {
+        "bus": 1,
+        "number": 3
+      }
+    ],
+    "exclude-filters": [
+      {
+        "name": "Hub"
+      },
+      {
+        "vid": 7531,
+        "pid": 2
+      }
+    ],
+    "exclude-empty-bus": false,
+    "exclude-empty-hub": false,
+    "no-exclude-root-hub": false
+  }
+}

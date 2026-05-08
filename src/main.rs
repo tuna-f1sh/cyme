@@ -630,6 +630,12 @@ fn print_man() -> Result<()> {
         serde_json::to_string_pretty(&Config::example())?,
     )?;
 
+    // example config with filter
+    std::fs::write(
+        PathBuf::from(&outdir).join("cyme_example_filter_config.json"),
+        serde_json::to_string_pretty(&Config::example_with_filter())?,
+    )?;
+
     Ok(())
 }
 
