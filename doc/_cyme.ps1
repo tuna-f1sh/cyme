@@ -30,6 +30,7 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--filter-name', '--filter-name', [CompletionResultType]::ParameterName, 'Filter on string contained in name')
             [CompletionResult]::new('--filter-serial', '--filter-serial', [CompletionResultType]::ParameterName, 'Filter on string contained in serial')
             [CompletionResult]::new('--filter-class', '--filter-class', [CompletionResultType]::ParameterName, 'Filter on USB class code')
+            [CompletionResult]::new('--filter-exclude', '--filter-exclude', [CompletionResultType]::ParameterName, 'Exclude devices matching KEY=VALUE criteria. KEY is one of: vidpid, name, serial, class, bus, number. Comma-separate multiple KEY=VALUE pairs to AND them (one occurrence). Repeat the arg to OR exclusions')
             [CompletionResult]::new('-b', '-b', [CompletionResultType]::ParameterName, 'Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks')
             [CompletionResult]::new('--blocks', '--blocks', [CompletionResultType]::ParameterName, 'Specify the blocks which will be displayed for each device and in what order. Supply arg multiple times or csv to specify multiple blocks')
             [CompletionResult]::new('--bus-blocks', '--bus-blocks', [CompletionResultType]::ParameterName, 'Specify the blocks which will be displayed for each bus and in what order. Supply arg multiple times or csv to specify multiple blocks')
