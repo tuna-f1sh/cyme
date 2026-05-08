@@ -132,6 +132,130 @@ fn test_list_filtering() {
         Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
         &["--json", "--show", "blah"],
     );
+
+    // Multiple --vidpid args are OR'd: Black Magic (1d50:6018) OR J-Link (1366:1050)
+    {
+        let mut comp_sp = common::sp_data_from_libusb_linux();
+        let filter = cyme::profiler::DeviceFilter {
+            no_exclude_root_hub: true,
+            ..cyme::profiler::DeviceFilter::from(vec![
+                cyme::profiler::Filter::new_with_vid_pid(0x1d50, 0x6018),
+                cyme::profiler::Filter::new_with_vid_pid(0x1366, 0x1050),
+            ])
+        };
+        comp_sp.into_flattened();
+        let mut devices = comp_sp.flattened_devices();
+        filter.retain_flattened_devices_ref(&mut devices);
+        let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+        env.assert_output(
+            Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+            &["--json", "--vidpid", "1d50:6018", "--vidpid", "1366:1050"],
+            &comp,
+            false,
+        );
+    }
+
+    // Multiple --filter-name args are OR'd
+    {
+        let mut comp_sp = common::sp_data_from_libusb_linux();
+        let filter = cyme::profiler::DeviceFilter {
+            no_exclude_root_hub: true,
+            ..cyme::profiler::DeviceFilter::from(vec![
+                cyme::profiler::Filter::new_with_name("Black Magic".into(), false),
+                cyme::profiler::Filter::new_with_name("J-Link".into(), false),
+            ])
+        };
+        comp_sp.into_flattened();
+        let mut devices = comp_sp.flattened_devices();
+        filter.retain_flattened_devices_ref(&mut devices);
+        let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+        env.assert_output(
+            Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+            &[
+                "--json",
+                "--filter-name",
+                "Black Magic",
+                "--filter-name",
+                "J-Link",
+            ],
+            &comp,
+            false,
+        );
+    }
+
+    // --filter-exclude removes matching devices from the inclusion set
+    // --vidpid 203a includes all three Virtual devices; --filter-exclude name=Mouse removes one
+    {
+        let mut comp_sp = common::sp_data_from_libusb_linux();
+        let filter = cyme::profiler::DeviceFilter {
+            filters: vec![cyme::profiler::Filter {
+                vid: Some(0x203a),
+                ..Default::default()
+            }],
+            exclude_filters: vec![cyme::profiler::Filter::new_with_name("Mouse".into(), false)],
+            no_exclude_root_hub: true,
+            ..Default::default()
+        };
+        comp_sp.into_flattened();
+        let mut devices = comp_sp.flattened_devices();
+        filter.retain_flattened_devices_ref(&mut devices);
+        let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+        env.assert_output(
+            Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+            &[
+                "--json",
+                "--vidpid",
+                "203a",
+                "--filter-exclude",
+                "name=Mouse",
+            ],
+            &comp,
+            false,
+        );
+    }
+
+    // Cross-product: two vidpids × one name produces two Filters (AND within each).
+    // J-Link (1366) does not contain "Virtual" so only the 203a devices pass.
+    {
+        let mut comp_sp = common::sp_data_from_libusb_linux();
+        let filter = cyme::profiler::DeviceFilter {
+            no_exclude_root_hub: true,
+            ..cyme::profiler::DeviceFilter::from(vec![
+                cyme::profiler::Filter {
+                    vid: Some(0x203a),
+                    name: Some("Virtual".into()),
+                    ..Default::default()
+                },
+                cyme::profiler::Filter {
+                    vid: Some(0x1366),
+                    name: Some("Virtual".into()),
+                    ..Default::default()
+                },
+            ])
+        };
+        comp_sp.into_flattened();
+        let mut devices = comp_sp.flattened_devices();
+        filter.retain_flattened_devices_ref(&mut devices);
+        let comp = serde_json::to_string_pretty(&devices).unwrap();
+
+        env.assert_output(
+            Some(common::CYME_LIBUSB_LINUX_TREE_DUMP),
+            &[
+                "--json",
+                "--vidpid",
+                "203a",
+                "--vidpid",
+                "1366",
+                "--filter-name",
+                "Virtual",
+            ],
+            &comp,
+            false,
+        );
+    }
 }
 
 #[test]
