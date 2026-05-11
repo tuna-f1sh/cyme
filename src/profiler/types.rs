@@ -2153,7 +2153,7 @@ pub type USBFilter = Filter;
 ///
 /// # let mut spusb = read_json_dump(&"./tests/data/system_profiler_dump.json").unwrap();
 /// let filter = DeviceFilter {
-///     no_exclude_root_hub: true,
+///     include_root_hubs: true,
 ///     ..Filter::new_with_name("Black Magic Probe".into(), false).into()
 /// };
 /// let mut flattened = spusb.flattened_devices();
@@ -2316,7 +2316,7 @@ impl Filter {
 /// ```
 /// use cyme::profiler::*;
 /// let filter = DeviceFilter {
-///     no_exclude_root_hub: true,
+///     include_root_hubs: true,
 ///     ..Filter::new_with_name("Black Magic".into(), false).into()
 /// };
 /// ```
@@ -2341,8 +2341,8 @@ pub struct DeviceFilter {
     pub exclude_empty_bus: bool,
     /// Exclude empty hubs (those with no devices); when listing hides hubs regardless
     pub exclude_empty_hub: bool,
-    /// Do not exclude Linux root hub devices
-    pub no_exclude_root_hub: bool,
+    /// Include Linux root hub devices (excluded by default as they are pseudo buses)
+    pub include_root_hubs: bool,
 }
 
 impl DeviceFilter {
@@ -2356,7 +2356,7 @@ impl DeviceFilter {
         if self.exclude_empty_hub && device.is_hub() && !device.has_devices() {
             return false;
         }
-        if device.is_root_hub() && !self.no_exclude_root_hub {
+        if device.is_root_hub() && !self.include_root_hubs {
             return false;
         }
 
@@ -2377,7 +2377,7 @@ impl DeviceFilter {
     ///
     /// Used by profilers to decide whether to load extra device data
     pub fn is_potential_match(&self, device: &Device) -> bool {
-        if device.is_root_hub() && !self.no_exclude_root_hub {
+        if device.is_root_hub() && !self.include_root_hubs {
             return false;
         }
 

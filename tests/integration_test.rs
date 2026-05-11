@@ -44,7 +44,7 @@ fn test_list_filtering() {
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
     let filter = cyme::profiler::DeviceFilter {
-        no_exclude_root_hub: true,
+        include_root_hubs: true,
         ..cyme::profiler::Filter {
             name: Some("Black Magic".into()),
             ..Default::default()
@@ -91,7 +91,7 @@ fn test_list_filtering() {
 
     let mut comp_sp = common::sp_data_from_libusb_linux();
     let mut filter = cyme::profiler::DeviceFilter {
-        no_exclude_root_hub: true,
+        include_root_hubs: true,
         ..cyme::profiler::Filter {
             bus: Some(2),
             ..Default::default()
@@ -137,7 +137,7 @@ fn test_list_filtering() {
     {
         let mut comp_sp = common::sp_data_from_libusb_linux();
         let filter = cyme::profiler::DeviceFilter {
-            no_exclude_root_hub: true,
+            include_root_hubs: true,
             ..cyme::profiler::DeviceFilter::from(vec![
                 cyme::profiler::Filter::new_with_vid_pid(0x1d50, 0x6018),
                 cyme::profiler::Filter::new_with_vid_pid(0x1366, 0x1050),
@@ -160,7 +160,7 @@ fn test_list_filtering() {
     {
         let mut comp_sp = common::sp_data_from_libusb_linux();
         let filter = cyme::profiler::DeviceFilter {
-            no_exclude_root_hub: true,
+            include_root_hubs: true,
             ..cyme::profiler::DeviceFilter::from(vec![
                 cyme::profiler::Filter::new_with_name("Black Magic".into(), false),
                 cyme::profiler::Filter::new_with_name("J-Link".into(), false),
@@ -195,7 +195,7 @@ fn test_list_filtering() {
                 ..Default::default()
             }],
             exclude_filters: vec![cyme::profiler::Filter::new_with_name("Mouse".into(), false)],
-            no_exclude_root_hub: true,
+            include_root_hubs: true,
             ..Default::default()
         };
         comp_sp.into_flattened();
@@ -222,7 +222,7 @@ fn test_list_filtering() {
     {
         let mut comp_sp = common::sp_data_from_libusb_linux();
         let filter = cyme::profiler::DeviceFilter {
-            no_exclude_root_hub: true,
+            include_root_hubs: true,
             ..cyme::profiler::DeviceFilter::from(vec![
                 cyme::profiler::Filter {
                     vid: Some(0x203a),

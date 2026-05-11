@@ -920,7 +920,7 @@ fn cyme() -> Result<()> {
             })
             .collect::<Result<_>>()?;
 
-        let no_exclude_root_hub = config.lsusb
+        let include_root_hubs = config.lsusb
             || config.json
             || config.list_root_hubs
             || args.device.is_some()
@@ -956,10 +956,9 @@ fn cyme() -> Result<()> {
             }
             f.exclude_filters.extend(exclude_filters);
 
-            // Structural flags: OR config.filter values with CLI/config arg values
-            f.exclude_empty_bus |= config.hide_buses;
-            f.exclude_empty_hub |= config.hide_hubs;
-            f.no_exclude_root_hub |= no_exclude_root_hub;
+            f.exclude_empty_bus = config.hide_buses;
+            f.exclude_empty_hub = config.hide_hubs;
+            f.include_root_hubs = include_root_hubs;
 
             Some(f)
         } else {
