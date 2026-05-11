@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- filter: multi-value `--filter-*` CLI args (same arg OR'd, different args AND'd via cross-product), `--filter-exclude KEY=VALUE` for excluding devices, and `filter-include`/`filter-exclude` config keys ([#111](https://github.com/tuna-f1sh/cyme/pull/111)).
+
+### Changed
+
+- filter: **breaking crate API** — `Filter` is now a single-criterion struct within the new `DeviceFilter` container type, which replaces `Option<Filter>` in `ProfilerOptions` and owns the `retain_*`/`hide_*` methods; use `DeviceFilter::from(filter)` to migrate ([#111](https://github.com/tuna-f1sh/cyme/pull/111)).
+
+### Fixed
+
+- profiler: windows: fix manufacturer string always none on windows falling back to usb.ids ([#110](https://github.com/tuna-f1sh/cyme/issues/110)).
+
 ## [2.3.0] - 2025-03-29
 
 Big reduction of profiling time^ when filtering by passing options with filter to profiler. Previously, filtering was done post profiling of all devices - even those that would be filtered out. This included opening descriptors and reading data for redundant devices.
