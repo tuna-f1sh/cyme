@@ -37,7 +37,7 @@ struct Args {
     tree: bool,
 
     /// Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:[PID]
-    #[arg(short = 'd', long, action = clap::ArgAction::Append, value_name = "VID:[PID]")]
+    #[arg(short = 'd', long, action = clap::ArgAction::Append, value_name = "VID:[PID]", aliases = &["filter-vidpid"])]
     vidpid: Vec<String>,
 
     /// Show only devices with specified device and/or bus numbers (in decimal) in format [[bus]:][devnum]
