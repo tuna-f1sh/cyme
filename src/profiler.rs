@@ -662,7 +662,7 @@ where
                 if let Some(mut root_devices) = existing {
                     // Filter root devices if needed
                     if let Some(filter) = &options.filter {
-                        root_devices.retain(|d| !d.is_root_hub() || filter.no_exclude_root_hub);
+                        root_devices.retain(|d| !d.is_root_hub() || filter.include_root_hubs);
                     }
                     root_devices.append(&mut all_devices);
                     new_bus.devices = Some(root_devices);
