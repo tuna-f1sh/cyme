@@ -1983,6 +1983,104 @@ impl<'a> IntoIterator for &'a mut Device {
     }
 }
 
+/// A vendor and product ID pair used in filter expressions, serialised as a hex string.
+///
+/// Accepts the formats `"VID:PID"`, `"VID:"`, `"VID"` (PID wildcard), or `":PID"` (VID wildcard).
+/// Both components are optional; an absent component matches any value.
+///
+/// ```
+/// use cyme::profiler::VidPid;
+/// let vp: VidPid = "1d50:6018".parse().unwrap();
+/// assert_eq!(vp, VidPid(Some(0x1d50), Some(0x6018)));
+/// let vp: VidPid = "05ac".parse().unwrap();
+/// assert_eq!(vp, VidPid(Some(0x05ac), None));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DeserializeFromStr, SerializeDisplay)]
+pub struct VidPid(pub Option<u16>, pub Option<u16>);
+
+impl std::fmt::Display for VidPid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (self.0, self.1) {
+            (Some(vid), Some(pid)) => write!(f, "{vid:04x}:{pid:04x}"),
+            (Some(vid), None) => write!(f, "{vid:04x}"),
+            (None, Some(pid)) => write!(f, ":{pid:04x}"),
+            (None, None) => write!(f, ":"),
+        }
+    }
+}
+
+impl std::str::FromStr for VidPid {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        fn parse_hex(s: &str) -> Result<u16> {
+            u16::from_str_radix(s.trim().trim_start_matches("0x"), 16)
+                .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
+        }
+        if let Some((vid_str, pid_str)) = s.split_once(':') {
+            let vid = if vid_str.trim().is_empty() {
+                None
+            } else {
+                Some(parse_hex(vid_str)?)
+            };
+            let pid = if pid_str.trim().is_empty() {
+                None
+            } else {
+                Some(parse_hex(pid_str)?)
+            };
+            Ok(VidPid(vid, pid))
+        } else {
+            Ok(VidPid(Some(parse_hex(s)?), None))
+        }
+    }
+}
+
+/// A single filter entry for [`crate::config::Config`] `filter_include`/`filter_exclude` fields.
+///
+/// Each set field is AND'd together; multiple entries in the array are OR'd.
+/// Serialises to a sparse JSON object — only set fields appear.
+///
+/// ```json
+/// {"vidpid": "1d50:6018"}
+/// {"vidpid": "05ac", "name": "Keyboard"}
+/// ```
+#[skip_serializing_none]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
+pub struct FilterEntry {
+    /// Vendor and/or product ID in hex format, e.g. `"1d50:6018"`, `"05ac"`, `":6018"`
+    pub vidpid: Option<VidPid>,
+    /// Match devices whose name contains this substring
+    pub name: Option<String>,
+    /// Match devices whose serial number contains this substring
+    pub serial: Option<String>,
+    /// Match devices of this USB class
+    pub class: Option<BaseClass>,
+    /// Match devices on this bus number
+    pub bus: Option<u8>,
+    /// Match devices with this device number
+    pub number: Option<u8>,
+    /// Force case-sensitive string matching. Omit (or set `false`) to use smartcase:
+    /// case-insensitive for all-lowercase patterns, case-sensitive when the pattern has any uppercase.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub case_sensitive: bool,
+}
+
+impl From<FilterEntry> for Filter {
+    fn from(e: FilterEntry) -> Self {
+        Filter {
+            vid: e.vidpid.and_then(|v| v.0),
+            pid: e.vidpid.and_then(|v| v.1),
+            name: e.name,
+            serial: e.serial,
+            class: e.class,
+            bus: e.bus,
+            number: e.number,
+            case_sensitive: e.case_sensitive,
+        }
+    }
+}
+
 /// Used to filter devices within buses
 ///
 /// The tree to a [`Device`] is kept even if parent branches are not matches. To avoid this, one must flatten the devices first.
@@ -2004,7 +2102,11 @@ pub struct Filter {
     pub serial: Option<String>,
     /// retain only device of BaseClass class
     pub class: Option<BaseClass>,
-    /// Case sensitive matching for strings. False will be unless capital letter in query
+    /// Force case-sensitive string matching.
+    ///
+    /// When `false` (default), matching uses **smartcase**: case-insensitive if the pattern is
+    /// all-lowercase, case-sensitive if it contains any uppercase character.
+    /// Set to `true` to force case-sensitive matching even for all-lowercase patterns.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub case_sensitive: bool,
 }
@@ -2203,15 +2305,18 @@ impl Filter {
     }
 
     /// Creates a new filter with serial filter
-    pub fn new_with_serial(serial: String) -> Self {
+    pub fn new_with_serial(serial: String, case_sensitive: bool) -> Self {
         Self {
             serial: Some(serial),
+            case_sensitive,
             ..Default::default()
         }
     }
 
     fn string_match(&self, pattern: &Option<String>, query: Option<&String>) -> bool {
         if let (Some(p), Some(q)) = (pattern, query) {
+            // Smartcase: when case_sensitive=false, auto-detect from the pattern —
+            // case-sensitive if any uppercase present, case-insensitive if all-lowercase.
             let case_sensitive = if !self.case_sensitive {
                 p.chars().any(|c| c.is_uppercase())
             } else {

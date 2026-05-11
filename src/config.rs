@@ -89,8 +89,12 @@ pub struct Config {
     pub json: bool,
     /// Print non-critical errors (normally due to permissions) during USB profiler to stderr
     pub print_non_critical_profiler_stderr: bool,
-    /// Default device filter to apply when running cyme
-    pub device_filter: Option<crate::profiler::DeviceFilter>,
+    /// Inclusion filters, OR'd together. Each entry is a [`crate::profiler::FilterEntry`];
+    /// fields within one entry are AND'd, multiple entries are OR'd.
+    pub filter_include: Vec<crate::profiler::FilterEntry>,
+    /// Exclusion filters, OR'd together. Devices matching any entry are hidden even if
+    /// they passed an inclusion filter.
+    pub filter_exclude: Vec<crate::profiler::FilterEntry>,
 }
 
 impl Config {
@@ -152,55 +156,67 @@ impl Config {
         }
     }
 
-    /// Get an example [`Config`] with a verbose [`crate::profiler::DeviceFilter`] demonstrating all filter fields
+    /// Get an example [`Config`] demonstrating the filter string syntax
     ///
-    /// Intended for generating `cyme_example_filter_config.json` (see `--gen`). The filter
-    /// is written inline so every field is visible and users can copy/adapt what they need.
+    /// Intended for generating `cyme_example_filter_config.json` (see `--gen`).
     /// Unlike [`Config::example`] this is not intended as a base config to copy verbatim.
     pub fn example_with_filter() -> Self {
-        use crate::profiler::{DeviceFilter, Filter};
+        use crate::profiler::{FilterEntry, VidPid};
         use crate::usb::BaseClass;
 
         Config {
-            device_filter: Some(DeviceFilter {
-                // Inclusion filters are OR'd: a device passes if it matches any one.
-                filters: vec![
-                    // Specific device by vendor and product ID (decimal u16 values in JSON)
-                    Filter::new_with_vid_pid(0x1d50, 0x6018),
-                    // Vendor only — omit pid to match any product from this vendor
-                    Filter {
-                        vid: Some(0x05ac),
-                        ..Default::default()
-                    },
-                    // Name substring — case-insensitive when all-lowercase, case-sensitive otherwise
-                    Filter::new_with_name("black magic".into(), false),
-                    // USB class code
-                    Filter::new_with_class(BaseClass::Hid),
-                    // AND within a filter: vid AND name must both match (case_sensitive true = exact case)
-                    Filter {
-                        vid: Some(0x1366),
-                        name: Some("J-Link".into()),
-                        case_sensitive: true,
-                        ..Default::default()
-                    },
-                    // Physical location: bus and device number
-                    Filter::new_with_bus_number(1, 3),
-                ],
-                // Exclusion filters: device is hidden if it matches any one of these,
-                // even when it satisfied an inclusion filter above.
-                exclude_filters: vec![
-                    // Hide devices whose name contains "Hub" (capital H → case-sensitive)
-                    Filter::new_with_name("Hub".into(), false),
-                    // Hide a specific vid:pid
-                    Filter::new_with_vid_pid(0x1d6b, 0x0002),
-                ],
-                // Hide buses that contain no devices
-                exclude_empty_bus: false,
-                // Hide hubs that contain no devices (when listing, hides all hubs)
-                exclude_empty_hub: false,
-                // On Linux root hub devices are excluded by default; true to include them
-                no_exclude_root_hub: false,
-            }),
+            filter_include: vec![
+                // Match a specific device by vid:pid
+                FilterEntry {
+                    vidpid: Some(VidPid(Some(0x1d50), Some(0x6018))),
+                    ..Default::default()
+                },
+                // Match any device from a vendor (vid only, pid wildcard)
+                FilterEntry {
+                    vidpid: Some(VidPid(Some(0x05ac), None)),
+                    ..Default::default()
+                },
+                // Match by name substring (all-lowercase = case-insensitive)
+                FilterEntry {
+                    name: Some("black magic".into()),
+                    ..Default::default()
+                },
+                // Match by USB class
+                FilterEntry {
+                    class: Some(BaseClass::Hid),
+                    ..Default::default()
+                },
+                // AND within one entry: vid AND name must both match (capitalization = case-sensitive)
+                FilterEntry {
+                    vidpid: Some(VidPid(Some(0x1366), None)),
+                    name: Some("J-Link".into()),
+                    ..Default::default()
+                },
+                // Match by physical location
+                FilterEntry {
+                    bus: Some(1),
+                    number: Some(3),
+                    ..Default::default()
+                },
+            ],
+            filter_exclude: vec![
+                // Hide devices whose name contains "Hub" (capital H = case-sensitive)
+                FilterEntry {
+                    name: Some("Hub".into()),
+                    ..Default::default()
+                },
+                // Exclude device with serial number containing "zf3ds2" (case-sensitive)
+                FilterEntry {
+                    serial: Some("zf3ds2".into()),
+                    case_sensitive: true,
+                    ..Default::default()
+                },
+                // Hide a specific vid:pid
+                FilterEntry {
+                    vidpid: Some(VidPid(Some(0x1d6b), Some(0x0002))),
+                    ..Default::default()
+                },
+            ],
             ..Default::default()
         }
     }
@@ -371,12 +387,25 @@ impl From<&Config> for display::PrintSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::profiler::{FilterEntry, VidPid};
 
     #[test]
     #[cfg(feature = "regex_icon")]
     fn test_deserialize_example_file() {
         let path = PathBuf::from("./doc").join("cyme_example_config.json");
         assert!(Config::from_file(path).is_ok());
+    }
+
+    #[test]
+    #[cfg(feature = "regex_icon")]
+    fn test_deserialize_example_filter_file() {
+        let path = PathBuf::from("./doc").join("cyme_example_filter_config.json");
+        let c = Config::from_file(path);
+        assert!(
+            c.is_ok(),
+            "Failed to deserialize example filter config: {:?}",
+            c.err()
+        );
     }
 
     #[test]
@@ -402,35 +431,55 @@ mod tests {
 
     #[test]
     fn test_filter_serialize_deserialize() {
-        use crate::profiler::{DeviceFilter, Filter};
-
         let config = Config {
-            device_filter: Some(DeviceFilter {
-                filters: vec![Filter {
-                    vid: Some(0x1d50),
-                    pid: Some(0x6018),
+            filter_include: vec![
+                FilterEntry {
+                    vidpid: Some(VidPid(Some(0x1d50), Some(0x6018))),
                     ..Default::default()
-                }],
-                exclude_filters: vec![Filter {
-                    name: Some("Keyboard".into()),
+                },
+                FilterEntry {
+                    name: Some("black magic".into()),
                     ..Default::default()
-                }],
+                },
+            ],
+            filter_exclude: vec![FilterEntry {
+                name: Some("Keyboard".into()),
                 ..Default::default()
-            }),
+            }],
             ..Default::default()
         };
 
         // round-trip through JSON
         let json = serde_json::to_string(&config).unwrap();
         let restored: Config = serde_json::from_str(&json).unwrap();
-        assert_eq!(config.device_filter, restored.device_filter);
+        assert_eq!(config.filter_include, restored.filter_include);
+        assert_eq!(config.filter_exclude, restored.filter_exclude);
 
-        // deserialize from raw JSON — note kebab-case key and decimal VID/PID values
-        let raw = r#"{"device-filter": {"filters": [{"vid": 7504, "pid": 24600}], "exclude-filters": [{"name": "Keyboard"}]}}"#;
+        // deserialize from raw JSON — vidpid as hex string, other fields as plain strings
+        let raw = r#"{"filter-include": [{"vidpid": "1d50:6018"}, {"name": "black magic"}], "filter-exclude": [{"name": "Keyboard"}]}"#;
         let from_raw: Config = serde_json::from_str(raw).unwrap();
-        let f = from_raw.device_filter.unwrap();
-        assert_eq!(f.filters[0].vid, Some(0x1d50));
-        assert_eq!(f.filters[0].pid, Some(0x6018));
-        assert_eq!(f.exclude_filters[0].name.as_deref(), Some("Keyboard"));
+        assert_eq!(
+            from_raw.filter_include[0].vidpid,
+            Some(VidPid(Some(0x1d50), Some(0x6018)))
+        );
+        assert_eq!(
+            from_raw.filter_include[1].name.as_deref(),
+            Some("black magic")
+        );
+        assert_eq!(from_raw.filter_exclude[0].name.as_deref(), Some("Keyboard"));
+
+        // vid-only and AND within one entry
+        let raw = r#"{"filter-include": [{"vidpid": "05ac", "name": "Keyboard"}]}"#;
+        let from_raw: Config = serde_json::from_str(raw).unwrap();
+        assert_eq!(
+            from_raw.filter_include[0].vidpid,
+            Some(VidPid(Some(0x05ac), None))
+        );
+        assert_eq!(from_raw.filter_include[0].name.as_deref(), Some("Keyboard"));
+
+        // invalid vidpid string should fail
+        assert!(
+            serde_json::from_str::<Config>(r#"{"filter-include": [{"vidpid": "gggg"}]}"#).is_err()
+        );
     }
 }

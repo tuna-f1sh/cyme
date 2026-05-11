@@ -18,6 +18,7 @@ use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::profiler;
 use cyme::usb::BaseClass;
+use std::str::FromStr;
 
 #[cfg(feature = "watch")]
 mod watch;
@@ -311,35 +312,7 @@ fn merge_config(c: &mut Config, a: &Args) {
 
 /// Parse the vidpid filter lsusb format: vid:Option<pid>
 fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>)> {
-    let vid_split: Vec<&str> = s.split(':').collect();
-    if vid_split.len() >= 2 {
-        let vid: Option<u16> =
-            vid_split
-                .first()
-                .filter(|v| !v.is_empty())
-                .map_or(Ok(None), |v| {
-                    u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
-                        .map(|v| Some(v as u16))
-                        .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
-                })?;
-        let pid: Option<u16> =
-            vid_split
-                .get(1)
-                .filter(|v| !v.is_empty())
-                .map_or(Ok(None), |v| {
-                    u32::from_str_radix(v.trim().trim_start_matches("0x"), 16)
-                        .map(|v| Some(v as u16))
-                        .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
-                })?;
-
-        Ok((vid, pid))
-    } else {
-        let vid: Option<u16> = u32::from_str_radix(s.trim().trim_start_matches("0x"), 16)
-            .map(|v| Some(v as u16))
-            .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))?;
-
-        Ok((vid, None))
-    }
+    profiler::VidPid::from_str(s).map(|v| (v.0, v.1))
 }
 
 /// Parse the show Option<bus>:device lsusb format
@@ -932,18 +905,32 @@ fn cyme() -> Result<()> {
             || !args.filter_class.is_empty()
             || bus.is_some()
             || number.is_some();
+        // Convert config FilterEntry structs to Filter (validated at config load time)
+        let config_include: Vec<profiler::Filter> = config
+            .filter_include
+            .iter()
+            .cloned()
+            .map(profiler::Filter::from)
+            .collect();
+        let config_exclude: Vec<profiler::Filter> = config
+            .filter_exclude
+            .iter()
+            .cloned()
+            .map(profiler::Filter::from)
+            .collect();
+
         let has_any_criteria = has_inclusion_criteria
             || !exclude_filters.is_empty()
             || config.hide_hubs
             || config.hide_buses
-            || config.device_filter.is_some();
+            || !config_include.is_empty()
+            || !config_exclude.is_empty();
 
         if has_any_criteria || cfg!(target_os = "linux") {
-            // Use config.filter as the base so its filters and structural flags are preserved;
-            // CLI args are then layered on top.
-            let mut f = config.device_filter.clone().unwrap_or_default();
+            let mut f = profiler::DeviceFilter::default();
 
-            // Extend inclusion/exclusion filters with any CLI-supplied criteria (OR'd)
+            // Config filters first, then CLI (both OR'd together)
+            f.filters.extend(config_include);
             if has_inclusion_criteria {
                 f.filters.extend(build_inclusion_filters(
                     &vidpids,
@@ -954,11 +941,20 @@ fn cyme() -> Result<()> {
                     &args.filter_class,
                 ));
             }
+            f.exclude_filters.extend(config_exclude);
             f.exclude_filters.extend(exclude_filters);
 
             f.exclude_empty_bus = config.hide_buses;
             f.exclude_empty_hub = config.hide_hubs;
             f.include_root_hubs = include_root_hubs;
+
+            if !f.filters.is_empty() || !f.exclude_filters.is_empty() {
+                log::info!(
+                    "Device filter active: {} inclusion filter(s), {} exclusion filter(s)",
+                    f.filters.len(),
+                    f.exclude_filters.len()
+                );
+            }
 
             Some(f)
         } else {
