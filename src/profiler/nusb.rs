@@ -176,13 +176,19 @@ impl From<&nusb::DeviceInfo> for Device {
             DeviceSpeed::SpeedValue(s)
         });
 
-        let manufacturer = device_info
-            .manufacturer_string()
-            .map(|s| s.to_string())
-            .or_else(|| names::vendor(device_info.vendor_id()))
-            .or_else(|| {
-                usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_string())
-            });
+        let manufacturer = if cfg!(target_os = "windows") {
+            // Windows does not cache manufacturer string so will always return None. We want to leave it None so that the descriptor is actually read if we can open the device
+            device_info.manufacturer_string().map(|s| s.to_string())
+        } else {
+            device_info
+                .manufacturer_string()
+                .map(|s| s.to_string())
+                .or_else(|| names::vendor(device_info.vendor_id()))
+                .or_else(|| {
+                    usb_ids::Vendor::from_id(device_info.vendor_id()).map(|v| v.name().to_string())
+                })
+        };
+
         let name = device_info
             .product_string()
             .map(|s| s.to_string())
