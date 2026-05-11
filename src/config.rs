@@ -9,6 +9,9 @@ use crate::display;
 use crate::display::Block;
 use crate::error::{Error, ErrorKind, Result};
 use crate::icon;
+use crate::profiler::FilterEntry;
+use crate::types::VidPid;
+use crate::usb::BaseClass;
 
 const CONF_DIR: &str = "cyme";
 const CONF_NAME: &str = "cyme.json";
@@ -161,9 +164,6 @@ impl Config {
     /// Intended for generating `cyme_example_filter_config.json` (see `--gen`).
     /// Unlike [`Config::example`] this is not intended as a base config to copy verbatim.
     pub fn example_with_filter() -> Self {
-        use crate::profiler::{FilterEntry, VidPid};
-        use crate::usb::BaseClass;
-
         Config {
             filter_include: vec![
                 // Match a specific device by vid:pid
@@ -387,7 +387,6 @@ impl From<&Config> for display::PrintSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::profiler::{FilterEntry, VidPid};
 
     #[test]
     #[cfg(feature = "regex_icon")]

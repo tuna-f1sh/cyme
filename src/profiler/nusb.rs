@@ -592,8 +592,7 @@ impl NusbProfiler {
             usb::DeviceDescriptor::try_from(device.handle.device_descriptor().as_bytes())?;
         sp_device.bcd_usb = Some(device_desc.usb_version);
 
-        // try to get strings from device descriptors
-        // if missing
+        // try to get strings from device descriptors if missing
         if sp_device.name.is_empty() {
             if let Some(name) = device.get_descriptor_string(device_desc.product_string_index) {
                 sp_device.name = name;
