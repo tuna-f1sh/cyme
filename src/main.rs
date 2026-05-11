@@ -17,6 +17,7 @@ use cyme::display::{self, Block, DeviceBlocks};
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::lsusb;
 use cyme::profiler;
+use cyme::types::VidPid;
 use cyme::usb::BaseClass;
 use std::str::FromStr;
 
@@ -39,7 +40,7 @@ struct Args {
 
     /// Show only devices with the specified vendor and product ID numbers (in hexadecimal) in format VID:[PID]
     #[arg(short = 'd', long, action = clap::ArgAction::Append, value_name = "VID:[PID]", aliases = &["filter-vidpid"])]
-    vidpid: Vec<String>,
+    vidpid: Vec<VidPid>,
 
     /// Show only devices with specified device and/or bus numbers (in decimal) in format [[bus]:][devnum]
     #[arg(short, long)]
@@ -310,11 +311,6 @@ fn merge_config(c: &mut Config, a: &Args) {
     c.verbose = c.verbose.max(a.verbose);
 }
 
-/// Parse the vidpid filter lsusb format: vid:Option<pid>
-fn parse_vidpid(s: &str) -> Result<(Option<u16>, Option<u16>)> {
-    profiler::VidPid::from_str(s).map(|v| (v.0, v.1))
-}
-
 /// Parse the show Option<bus>:device lsusb format
 fn parse_show(s: &str) -> Result<(Option<u8>, Option<u8>)> {
     if s.contains(':') {
@@ -360,9 +356,9 @@ fn parse_exclude(s: &str) -> Result<profiler::Filter> {
         })?;
         match key.trim() {
             "vidpid" => {
-                let (vid, pid) = parse_vidpid(value.trim())?;
-                f.vid = vid;
-                f.pid = pid;
+                let vp = VidPid::from_str(value.trim())?;
+                f.vid = vp.0;
+                f.pid = vp.1;
             }
             "name" => f.name = Some(value.to_string()),
             "serial" => f.serial = Some(value.to_string()),
@@ -738,7 +734,7 @@ fn merge_blocks(config: &Config, args: &Args, settings: &mut display::PrintSetti
 /// Each unique combination of (vidpid, name, serial, class) becomes one Filter.
 /// bus/number are always AND'd into every filter (single-value).
 fn build_inclusion_filters(
-    vidpids: &[(Option<u16>, Option<u16>)],
+    vidpids: &[VidPid],
     bus: Option<u8>,
     number: Option<u8>,
     names: &[String],
@@ -747,7 +743,7 @@ fn build_inclusion_filters(
 ) -> Vec<profiler::Filter> {
     // Empty slice → one None sentinel so the cross-product iterates at least once;
     // an absent dimension means "no constraint on that field".
-    let vids: Vec<Option<(Option<u16>, Option<u16>)>> = if vidpids.is_empty() {
+    let vids: Vec<Option<VidPid>> = if vidpids.is_empty() {
         vec![None]
     } else {
         vidpids.iter().copied().map(Some).collect()
@@ -773,7 +769,7 @@ fn build_inclusion_filters(
         for name in &names {
             for serial in &serials {
                 for class in &classes {
-                    let (vid_val, pid_val) = vid.unwrap_or((None, None));
+                    let (vid_val, pid_val) = vid.map_or((None, None), |v| (v.0, v.1));
                     filters.push(profiler::Filter {
                         vid: vid_val,
                         pid: pid_val,
@@ -844,19 +840,8 @@ fn cyme() -> Result<()> {
     };
 
     let filter = {
-        // Parse multi-value inclusion args
-        let vidpids: Vec<(Option<u16>, Option<u16>)> = args
-            .vidpid
-            .iter()
-            .map(|s| {
-                parse_vidpid(s.as_str()).map_err(|e| {
-                    Error::new(
-                        ErrorKind::InvalidArg,
-                        &format!("Failed to parse vidpid '{s}'; Error({e})"),
-                    )
-                })
-            })
-            .collect::<Result<_>>()?;
+        // args.vidpid is already Vec<VidPid> — parsed and validated by clap
+        let vidpids = &args.vidpid;
 
         // Parse show/device into bus/number (single-value)
         let (bus, number) = if let Some(devpath) = &args.device {
@@ -933,7 +918,7 @@ fn cyme() -> Result<()> {
             f.filters.extend(config_include);
             if has_inclusion_criteria {
                 f.filters.extend(build_inclusion_filters(
-                    &vidpids,
+                    vidpids,
                     bus,
                     number,
                     &args.filter_name,
@@ -1057,18 +1042,6 @@ mod tests {
         };
         args.blocks = Some(vec![display::DeviceBlocks::BusNumber]);
         println!("{}", serde_json::to_string_pretty(&args).unwrap());
-    }
-
-    #[test]
-    fn test_parse_vidpid() {
-        assert_eq!(
-            parse_vidpid("000A:0x000b").unwrap(),
-            (Some(0x0A), Some(0x0b))
-        );
-        assert_eq!(parse_vidpid("000A:1").unwrap(), (Some(0x0A), Some(1)));
-        assert_eq!(parse_vidpid("000A:").unwrap(), (Some(0x0A), None));
-        assert_eq!(parse_vidpid("0x000A").unwrap(), (Some(0x0A), None));
-        assert!(parse_vidpid("dfg:sdfd").is_err());
     }
 
     #[test]

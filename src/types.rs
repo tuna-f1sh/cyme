@@ -4,8 +4,86 @@ use std::str::FromStr;
 
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 use crate::error::{self, Error, ErrorKind};
+
+/// A vendor and product ID pair used in filter expressions, serialised as a hex string.
+///
+/// Accepts the formats `"VID:PID"`, `"VID:"`, `"VID"` (PID wildcard), or `":PID"` (VID wildcard).
+/// Both components are optional; an absent component matches any value.
+///
+/// ```
+/// use cyme::types::VidPid;
+/// let vp: VidPid = "1d50:6018".parse().unwrap();
+/// assert_eq!(vp, VidPid(Some(0x1d50), Some(0x6018)));
+/// let vp: VidPid = "05ac".parse().unwrap();
+/// assert_eq!(vp, VidPid(Some(0x05ac), None));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DeserializeFromStr, SerializeDisplay)]
+pub struct VidPid(pub Option<u16>, pub Option<u16>);
+
+impl fmt::Display for VidPid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (self.0, self.1) {
+            (Some(vid), Some(pid)) => write!(f, "{vid:04x}:{pid:04x}"),
+            (Some(vid), None) => write!(f, "{vid:04x}"),
+            (None, Some(pid)) => write!(f, ":{pid:04x}"),
+            (None, None) => write!(f, ":"),
+        }
+    }
+}
+
+impl FromStr for VidPid {
+    type Err = Error;
+
+    fn from_str(s: &str) -> error::Result<Self> {
+        fn parse_hex(s: &str) -> error::Result<u16> {
+            u16::from_str_radix(s.trim().trim_start_matches("0x"), 16)
+                .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
+        }
+        if let Some((vid_str, pid_str)) = s.split_once(':') {
+            let vid = if vid_str.trim().is_empty() {
+                None
+            } else {
+                Some(parse_hex(vid_str)?)
+            };
+            let pid = if pid_str.trim().is_empty() {
+                None
+            } else {
+                Some(parse_hex(pid_str)?)
+            };
+            Ok(VidPid(vid, pid))
+        } else {
+            Ok(VidPid(Some(parse_hex(s)?), None))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vidpid_parse() {
+        assert_eq!(
+            "000A:0x000b".parse::<VidPid>().unwrap(),
+            VidPid(Some(0x0A), Some(0x0b))
+        );
+        assert_eq!(
+            "000A:1".parse::<VidPid>().unwrap(),
+            VidPid(Some(0x0A), Some(1))
+        );
+        assert_eq!("000A:".parse::<VidPid>().unwrap(), VidPid(Some(0x0A), None));
+        assert_eq!(
+            "0x000A".parse::<VidPid>().unwrap(),
+            VidPid(Some(0x0A), None)
+        );
+        assert!("dfg:sdfd".parse::<VidPid>().is_err());
+        // values that would silently truncate with u32-as-u16 should now error
+        assert!("1ffff".parse::<VidPid>().is_err());
+    }
+}
 
 /// A numerical `value` converted from a String, which includes a `unit` and `description`
 ///

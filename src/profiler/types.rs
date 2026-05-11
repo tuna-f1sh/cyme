@@ -14,7 +14,7 @@ use std::str::FromStr;
 
 use super::*;
 use crate::error::{Error, ErrorKind};
-use crate::types::NumericalUnit;
+use crate::types::{NumericalUnit, VidPid};
 use crate::usb::*;
 
 /// Root JSON returned from system_profiler and used as holder for all static USB bus data
@@ -1980,58 +1980,6 @@ impl<'a> IntoIterator for &'a mut Device {
 
     fn into_iter(self) -> std::vec::IntoIter<Self::Item> {
         self.flatten_mut().into_iter()
-    }
-}
-
-/// A vendor and product ID pair used in filter expressions, serialised as a hex string.
-///
-/// Accepts the formats `"VID:PID"`, `"VID:"`, `"VID"` (PID wildcard), or `":PID"` (VID wildcard).
-/// Both components are optional; an absent component matches any value.
-///
-/// ```
-/// use cyme::profiler::VidPid;
-/// let vp: VidPid = "1d50:6018".parse().unwrap();
-/// assert_eq!(vp, VidPid(Some(0x1d50), Some(0x6018)));
-/// let vp: VidPid = "05ac".parse().unwrap();
-/// assert_eq!(vp, VidPid(Some(0x05ac), None));
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, DeserializeFromStr, SerializeDisplay)]
-pub struct VidPid(pub Option<u16>, pub Option<u16>);
-
-impl std::fmt::Display for VidPid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match (self.0, self.1) {
-            (Some(vid), Some(pid)) => write!(f, "{vid:04x}:{pid:04x}"),
-            (Some(vid), None) => write!(f, "{vid:04x}"),
-            (None, Some(pid)) => write!(f, ":{pid:04x}"),
-            (None, None) => write!(f, ":"),
-        }
-    }
-}
-
-impl std::str::FromStr for VidPid {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        fn parse_hex(s: &str) -> Result<u16> {
-            u16::from_str_radix(s.trim().trim_start_matches("0x"), 16)
-                .map_err(|e| Error::new(ErrorKind::Parsing, &e.to_string()))
-        }
-        if let Some((vid_str, pid_str)) = s.split_once(':') {
-            let vid = if vid_str.trim().is_empty() {
-                None
-            } else {
-                Some(parse_hex(vid_str)?)
-            };
-            let pid = if pid_str.trim().is_empty() {
-                None
-            } else {
-                Some(parse_hex(pid_str)?)
-            };
-            Ok(VidPid(vid, pid))
-        } else {
-            Ok(VidPid(Some(parse_hex(s)?), None))
-        }
     }
 }
 

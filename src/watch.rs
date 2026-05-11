@@ -18,11 +18,11 @@ use std::io::Write;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
-use super::parse_vidpid;
 use cyme::config::Config;
 use cyme::display::*;
 use cyme::error::{Error, ErrorKind, Result};
 use cyme::profiler::{watch::SystemProfileStreamBuilder, DeviceFilter, Filter, SystemProfile};
+use cyme::types::VidPid;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -163,9 +163,9 @@ fn set_filter(field: &FilterField, value: Option<String>, filter: &mut DeviceFil
         FilterField::Serial => f.serial = value,
         FilterField::VidPid => match value {
             Some(s) => {
-                let (vid, pid) = parse_vidpid(&s)?;
-                f.vid = vid;
-                f.pid = pid;
+                let vp = s.parse::<VidPid>()?;
+                f.vid = vp.0;
+                f.pid = vp.1;
             }
             None => {
                 f.vid = None;
