@@ -57,42 +57,38 @@
   "force-libusb": false,
   "json": false,
   "print-non-critical-profiler-stderr": false,
-  "device-filter": {
-    "filters": [
-      {
-        "vid": 7504,
-        "pid": 24600
-      },
-      {
-        "vid": 1452
-      },
-      {
-        "name": "black magic"
-      },
-      {
-        "class": "hid"
-      },
-      {
-        "vid": 4966,
-        "name": "J-Link",
-        "case_sensitive": true
-      },
-      {
-        "bus": 1,
-        "number": 3
-      }
-    ],
-    "exclude-filters": [
-      {
-        "name": "Hub"
-      },
-      {
-        "vid": 7531,
-        "pid": 2
-      }
-    ],
-    "exclude-empty-bus": false,
-    "exclude-empty-hub": false,
-    "no-exclude-root-hub": false
-  }
+  "filter-include": [
+    {
+      "vidpid": "1d50:6018"
+    },
+    {
+      "vidpid": "05ac"
+    },
+    {
+      "name": "black magic"
+    },
+    {
+      "class": "hid"
+    },
+    {
+      "vidpid": "1366",
+      "name": "J-Link"
+    },
+    {
+      "bus": 1,
+      "number": 3
+    }
+  ],
+  "filter-exclude": [
+    {
+      "name": "Hub"
+    },
+    {
+      "serial": "zf3ds2",
+      "case-sensitive": true
+    },
+    {
+      "vidpid": "1d6b:0002"
+    }
+  ]
 }
