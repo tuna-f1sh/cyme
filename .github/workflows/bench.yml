@@ -1,0 +1,120 @@
+name: Benchmark comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      compare_ref:
+        description: 'Branch/ref to compare against (baseline)'
+        required: false
+        default: 'main'
+      hyperfine_args:
+        description: 'Arguments passed to both cyme binaries for hyperfine (e.g. "--lsusb")'
+        required: false
+        default: ''
+
+jobs:
+  bench-baseline:
+    name: Benchmark ${{ inputs.compare_ref || 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ inputs.compare_ref || 'main' }}
+
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install prerequisites
+        run: sudo apt-get -y update && sudo apt-get -y install libudev-dev libusb-1.0-0-dev
+
+      - name: Run cargo bench (save baseline)
+        run: cargo bench -- --save-baseline base 2>&1 | tee bench-baseline.txt
+
+      - name: Upload criterion baseline
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: criterion-baseline
+          path: target/criterion
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Upload baseline binary
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: cyme-baseline
+          path: target/release/cyme
+
+  bench-feature:
+    name: Benchmark ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    needs: bench-baseline
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install prerequisites
+        run: sudo apt-get -y update && sudo apt-get -y install libudev-dev libusb-1.0-0-dev hyperfine
+
+      - name: Download criterion baseline
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: criterion-baseline
+          path: target/criterion
+
+      - name: Run cargo bench (compare against baseline)
+        run: cargo bench -- --baseline base 2>&1 | tee bench-feature.txt
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Download baseline binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cyme-baseline
+          path: cyme-baseline
+
+      - name: Make baseline binary executable
+        run: chmod +x cyme-baseline/cyme
+
+      - name: Run hyperfine comparison
+        run: |
+          hyperfine \
+            --warmup 3 \
+            --export-markdown hyperfine-results.md \
+            --command-name "${{ inputs.compare_ref || 'main' }}" "cyme-baseline/cyme ${{ inputs.hyperfine_args }}" \
+            --command-name "${{ github.ref_name }}" "target/release/cyme ${{ inputs.hyperfine_args }}"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## cargo bench: \`${{ github.ref_name }}\` vs \`${{ inputs.compare_ref || 'main' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat bench-feature.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## hyperfine: \`${{ github.ref_name }}\` vs \`${{ inputs.compare_ref || 'main' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat hyperfine-results.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: bench-results
+          path: |
+            bench-feature.txt
+            hyperfine-results.md
