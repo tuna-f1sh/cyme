@@ -17,16 +17,16 @@ _cyme() {
                 cmd="cyme"
                 ;;
             cyme,help)
-                cmd="cyme__help"
+                cmd="cyme__subcmd__help"
                 ;;
             cyme,watch)
-                cmd="cyme__watch"
+                cmd="cyme__subcmd__watch"
                 ;;
-            cyme__help,help)
-                cmd="cyme__help__help"
+            cyme__subcmd__help,help)
+                cmd="cyme__subcmd__help__subcmd__help"
                 ;;
-            cyme__help,watch)
-                cmd="cyme__help__watch"
+            cyme__subcmd__help,watch)
+                cmd="cyme__subcmd__help__subcmd__watch"
                 ;;
             *)
                 ;;
@@ -152,7 +152,7 @@ _cyme() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        cyme__help)
+        cyme__subcmd__help)
             opts="watch help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -166,7 +166,7 @@ _cyme() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        cyme__help__help)
+        cyme__subcmd__help__subcmd__help)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -180,7 +180,7 @@ _cyme() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        cyme__help__watch)
+        cyme__subcmd__help__subcmd__watch)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -194,7 +194,7 @@ _cyme() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        cyme__watch)
+        cyme__subcmd__watch)
             opts="-h --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
