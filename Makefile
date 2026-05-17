@@ -94,7 +94,7 @@ else
 	cargo deb --target $(TARGET) --no-strip --no-build
 endif
 
-$(DOCS): Cargo.toml $(RSRCS)
+$(DOCS): Cargo.toml Cargo.lock $(RSRCS)
 	@echo "Generating docs for $(PROJECT_NAME) $(VERSION)"
 	$(CARGO_CMD) run $(CARGO_FLAGS) -F=cli_generate -- --gen
 
