@@ -266,6 +266,10 @@ pub enum DeviceBlocks {
     Speed,
     /// Negotiated device speed as connected
     NegotiatedSpeed,
+    /// Advertised device speed as the USB-IF label string
+    StringSpeed,
+    /// Negotiated device speed as the USB-IF label string
+    NegotiatedStringSpeed,
     /// Position along all branches back to trunk device
     TreePositions,
     /// macOS system_profiler only - actually bus current in mA not power!
@@ -848,6 +852,21 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .flat_map(|d| d.last_event().map(|s| s.to_string().len()))
                 .max()
                 .unwrap_or(0),
+            DeviceBlocks::StringSpeed => d
+                .iter()
+                .flat_map(|d| d.device_speed.as_ref().map(|s| format!("{s:+}").len()))
+                .max()
+                .unwrap_or(0),
+            DeviceBlocks::NegotiatedStringSpeed => d
+                .iter()
+                .flat_map(|d| {
+                    d.extra
+                        .as_ref()
+                        .and_then(|e| e.negotiated_speed.as_ref())
+                        .map(|s| format!("{s:+}").len())
+                })
+                .max()
+                .unwrap_or(0),
             _ => self.block_length().len(),
         }
     }
@@ -957,6 +976,18 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                     None => format!("{:>10}", "-"),
                 },
             ),
+            DeviceBlocks::StringSpeed => Some(match d.device_speed.as_ref() {
+                Some(v) => format!("{:pad$}", format!("{v:+}"), pad = pad.get(self).unwrap_or(&0)),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            DeviceBlocks::NegotiatedStringSpeed => Some(
+                match d.extra.as_ref().and_then(|e| e.negotiated_speed.as_ref()) {
+                    Some(v) => {
+                        format!("{:pad$}", format!("{v:+}"), pad = pad.get(self).unwrap_or(&0))
+                    }
+                    None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+                },
+            ),
             DeviceBlocks::TreePositions => Some(format!(
                 "{:pad$}",
                 format!("{:}", d.location_id.tree_positions.iter().format("-")),
@@ -1052,9 +1083,10 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 ct.manufacturer.map_or(s.normal(), |c| s.color(c))
             }
             DeviceBlocks::Driver => ct.driver.map_or(s.normal(), |c| s.color(c)),
-            DeviceBlocks::Speed | DeviceBlocks::NegotiatedSpeed => {
-                ct.speed.map_or(s.normal(), |c| s.color(c))
-            }
+            DeviceBlocks::Speed
+            | DeviceBlocks::NegotiatedSpeed
+            | DeviceBlocks::StringSpeed
+            | DeviceBlocks::NegotiatedStringSpeed => ct.speed.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::BusPower
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => ct.power.map_or(s.normal(), |c| s.color(c)),
@@ -1089,6 +1121,8 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::Serial => "Serial",
             DeviceBlocks::Speed => "Speed",
             DeviceBlocks::NegotiatedSpeed => "NgSpd",
+            DeviceBlocks::StringSpeed => "SgSpd",
+            DeviceBlocks::NegotiatedStringSpeed => "NSSpd",
             DeviceBlocks::TreePositions => "TPos",
             // will be 000 mA = 6
             DeviceBlocks::BusPower => "PBus",

@@ -653,6 +653,8 @@ pub enum Speed {
     SuperSpeed,
     SuperSpeedPlus,
     SuperSpeedPlusX2,
+    Usb40Gbps,
+    Usb80Gbps,
 }
 
 impl FromStr for Speed {
@@ -660,6 +662,8 @@ impl FromStr for Speed {
 
     fn from_str(s: &str) -> error::Result<Self> {
         Ok(match s {
+            "80000" | "80.0 Gb/s" | "usb_80_gbps" | "usb80gbps" => Speed::Usb80Gbps,
+            "40000" | "40.0 Gb/s" | "usb_40_gbps" | "usb40gbps" => Speed::Usb40Gbps,
             "20000" | "20.0 Gb/s" | "super_speed_plus_plus" | "super++" => Speed::SuperSpeedPlusX2,
             "10000" | "10.0 Gb/s" | "super_speed_plus" | "super+" => Speed::SuperSpeedPlus,
             "5000" | "5.0 Gb/s" | "super_speed" | "super" => Speed::SuperSpeed,
@@ -688,26 +692,52 @@ impl From<u8> for Speed {
 
 impl fmt::Display for Speed {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
+        if f.alternate() {
             match self {
-                Speed::SuperSpeedPlusX2 => "super_speed_plus_plus",
-                Speed::SuperSpeedPlus => "super_speed_plus",
-                Speed::SuperSpeed => "super_speed",
-                Speed::HighSpeed | Speed::HighBandwidth => "high_speed",
-                Speed::FullSpeed => "full_speed",
-                Speed::LowSpeed => "low_speed",
-                Speed::Unknown => "unknown",
-                // _ => todo!("Unsupported speed"),
+                Speed::Usb80Gbps => write!(f, "USB80Gbps"),
+                Speed::Usb40Gbps => write!(f, "USB40Gbps"),
+                Speed::SuperSpeedPlusX2 => write!(f, "SuperSpeed20Gb/s"),
+                Speed::SuperSpeedPlus => write!(f, "SuperSpeed+"),
+                Speed::SuperSpeed => write!(f, "SuperSpeed"),
+                Speed::HighSpeed | Speed::HighBandwidth => write!(f, "HighSpeed"),
+                Speed::FullSpeed => write!(f, "FullSpeed"),
+                Speed::LowSpeed => write!(f, "LowSpeed"),
+                Speed::Unknown => write!(f, "Unknown"),
             }
-        )
+        } else {
+            write!(
+                f,
+                "{}",
+                match self {
+                    Speed::Usb80Gbps => "usb_80_gbps",
+                    Speed::Usb40Gbps => "usb_40_gbps",
+                    Speed::SuperSpeedPlusX2 => "super_speed_plus_plus",
+                    Speed::SuperSpeedPlus => "super_speed_plus",
+                    Speed::SuperSpeed => "super_speed",
+                    Speed::HighSpeed | Speed::HighBandwidth => "high_speed",
+                    Speed::FullSpeed => "full_speed",
+                    Speed::LowSpeed => "low_speed",
+                    Speed::Unknown => "unknown",
+                    // _ => todo!("Unsupported speed"),
+                }
+            )
+        }
     }
 }
 
 impl From<&Speed> for NumericalUnit<f32> {
     fn from(speed: &Speed) -> NumericalUnit<f32> {
         match speed {
+            Speed::Usb80Gbps => NumericalUnit {
+                value: 80.0,
+                unit: String::from("Gb/s"),
+                description: Some(speed.to_string()),
+            },
+            Speed::Usb40Gbps => NumericalUnit {
+                value: 40.0,
+                unit: String::from("Gb/s"),
+                description: Some(speed.to_string()),
+            },
             Speed::SuperSpeedPlusX2 => NumericalUnit {
                 value: 20.0,
                 unit: String::from("Gb/s"),
@@ -763,6 +793,29 @@ impl Speed {
             // see you when we have Tb/s buses :P
             'G' => format!("{:.0}{}", dv.value * 1000.0, 'M'),
             _ => format!("{:.0}{}", dv.value, prefix),
+        }
+    }
+
+    /// The original labelling for this speed. It's the label defined in the USB specification and commonly used in technical contexts, but is not recommended for consumer-facing materials [ref](https://www.usb.org/sites/default/files/usb_data_performance_language_usage_guidelines_september_2022.pdf).
+    ///
+    /// From table in https://en.wikipedia.org/wiki/USB#Connector_type_quick_reference
+    pub fn original_label(&self) -> String {
+        format!("{:#}", self)
+    }
+
+    /// The recommended marketing label for this speed as per USB-IF guidelines [ref](https://web.archive.org/web/20221001115816/https://www.usb.org/sites/default/files/usb_data_performance_language_usage_guidelines_september_2022.pdf).
+    ///
+    /// From table in https://en.wikipedia.org/wiki/USB#Connector_type_quick_reference
+    pub fn marketing_label(&self) -> String {
+        match self {
+            Speed::Usb80Gbps => "USB 80 Gbps".into(),
+            Speed::Usb40Gbps => "USB 40 Gbps".into(),
+            Speed::SuperSpeedPlusX2 => "USB 20 Gbps".into(),
+            Speed::SuperSpeedPlus => "USB 10 Gbps".into(),
+            Speed::SuperSpeed => "USB 5 Gbps".into(),
+            Speed::HighSpeed | Speed::HighBandwidth => "HighSpeed".into(),
+            Speed::FullSpeed | Speed::LowSpeed => "Basic Speed".into(),
+            Speed::Unknown => "Unknown".into(),
         }
     }
 }
