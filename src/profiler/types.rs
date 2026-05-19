@@ -1104,6 +1104,12 @@ impl fmt::Display for DeviceSpeed {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             DeviceSpeed::SpeedValue(v) => {
+                // if :+ print as the original label
+                if f.sign_plus() {
+                    return write!(f, "{}", v.original_label());
+                } else if f.sign_minus() {
+                    return write!(f, "{}", v.marketing_label());
+                }
                 let dv = NumericalUnit::<f32>::from(v);
                 #[allow(clippy::unnecessary_unwrap)]
                 if f.alternate() && dv.description.is_some() {
