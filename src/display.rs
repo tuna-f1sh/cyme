@@ -267,9 +267,9 @@ pub enum DeviceBlocks {
     /// Negotiated device speed as connected
     NegotiatedSpeed,
     /// Advertised device speed as the USB-IF label string
-    StringSpeed,
+    SpeedLabel,
     /// Negotiated device speed as the USB-IF label string
-    NegotiatedStringSpeed,
+    NegotiatedSpeedLabel,
     /// Position along all branches back to trunk device
     TreePositions,
     /// macOS system_profiler only - actually bus current in mA not power!
@@ -308,6 +308,10 @@ pub enum DeviceBlocks {
     OperationMode,
     /// Negotiated device speed as USB-IF Gen NxM operation mode string
     NegotiatedOperationMode,
+    /// Advertised device speed as USB-IF recommended marketing label (e.g. "USB 5 Gbps")
+    SpeedMarketingLabel,
+    /// Negotiated device speed as USB-IF recommended marketing label
+    NegotiatedSpeedMarketingLabel,
 }
 
 /// Info that can be printed about a [`Bus`]
@@ -856,7 +860,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .flat_map(|d| d.last_event().map(|s| s.to_string().len()))
                 .max()
                 .unwrap_or(0),
-            DeviceBlocks::StringSpeed => d
+            DeviceBlocks::SpeedLabel => d
                 .iter()
                 .flat_map(|d| {
                     d.device_speed
@@ -866,13 +870,33 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 })
                 .max()
                 .unwrap_or(0),
-            DeviceBlocks::NegotiatedStringSpeed => d
+            DeviceBlocks::NegotiatedSpeedLabel => d
                 .iter()
                 .flat_map(|d| {
                     d.extra
                         .as_ref()
                         .and_then(|e| e.negotiated_speed.as_ref())
                         .map(|s| s.original_label().len())
+                })
+                .max()
+                .unwrap_or(0),
+            DeviceBlocks::SpeedMarketingLabel => d
+                .iter()
+                .flat_map(|d| {
+                    d.device_speed
+                        .as_ref()
+                        .and_then(|s| s.marketing_label())
+                        .map(|l| l.len())
+                })
+                .max()
+                .unwrap_or(0),
+            DeviceBlocks::NegotiatedSpeedMarketingLabel => d
+                .iter()
+                .flat_map(|d| {
+                    d.extra
+                        .as_ref()
+                        .and_then(|e| e.negotiated_speed.as_ref())
+                        .map(|s| s.marketing_label().len())
                 })
                 .max()
                 .unwrap_or(0),
@@ -1006,7 +1030,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                     None => format!("{:>10}", "-"),
                 },
             ),
-            DeviceBlocks::StringSpeed => Some(match d.device_speed.as_ref() {
+            DeviceBlocks::SpeedLabel => Some(match d.device_speed.as_ref() {
                 Some(v) => format!(
                     "{:pad$}",
                     v.original_label().unwrap_or_else(|| "-".into()),
@@ -1014,11 +1038,29 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 ),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
-            DeviceBlocks::NegotiatedStringSpeed => Some(
+            DeviceBlocks::NegotiatedSpeedLabel => Some(
                 match d.extra.as_ref().and_then(|e| e.negotiated_speed.as_ref()) {
                     Some(v) => format!(
                         "{:pad$}",
                         v.original_label(),
+                        pad = pad.get(self).unwrap_or(&0)
+                    ),
+                    None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+                },
+            ),
+            DeviceBlocks::SpeedMarketingLabel => Some(match d.device_speed.as_ref() {
+                Some(v) => format!(
+                    "{:pad$}",
+                    v.marketing_label().unwrap_or_else(|| "-".into()),
+                    pad = pad.get(self).unwrap_or(&0)
+                ),
+                None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+            }),
+            DeviceBlocks::NegotiatedSpeedMarketingLabel => Some(
+                match d.extra.as_ref().and_then(|e| e.negotiated_speed.as_ref()) {
+                    Some(v) => format!(
+                        "{:pad$}",
+                        v.marketing_label(),
                         pad = pad.get(self).unwrap_or(&0)
                     ),
                     None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
@@ -1138,8 +1180,10 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::Driver => ct.driver.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::Speed
             | DeviceBlocks::NegotiatedSpeed
-            | DeviceBlocks::StringSpeed
-            | DeviceBlocks::NegotiatedStringSpeed
+            | DeviceBlocks::SpeedLabel
+            | DeviceBlocks::NegotiatedSpeedLabel
+            | DeviceBlocks::SpeedMarketingLabel
+            | DeviceBlocks::NegotiatedSpeedMarketingLabel
             | DeviceBlocks::OperationMode
             | DeviceBlocks::NegotiatedOperationMode => ct.speed.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::BusPower
@@ -1176,8 +1220,10 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::Serial => "Serial",
             DeviceBlocks::Speed => "Speed",
             DeviceBlocks::NegotiatedSpeed => "NgSpd",
-            DeviceBlocks::StringSpeed => "SgSpd",
-            DeviceBlocks::NegotiatedStringSpeed => "NSSpd",
+            DeviceBlocks::SpeedLabel => "SgSpd",
+            DeviceBlocks::NegotiatedSpeedLabel => "NSSpd",
+            DeviceBlocks::SpeedMarketingLabel => "MktSpd",
+            DeviceBlocks::NegotiatedSpeedMarketingLabel => "NgMktSpd",
             DeviceBlocks::OperationMode => "OpMode",
             DeviceBlocks::NegotiatedOperationMode => "NgOpMode",
             DeviceBlocks::TreePositions => "TPos",
