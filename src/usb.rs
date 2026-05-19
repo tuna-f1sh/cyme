@@ -777,6 +777,49 @@ impl From<&Speed> for NumericalUnit<f32> {
     }
 }
 
+/// USB operation mode following the USB-IF Gen NxM naming scheme
+///
+/// Encodes the USB specification version, generation (per-lane speed tier), and lane count.
+/// The `Gen N` part identifies the speed tier and `xM` is the number of differential-pair lanes.
+///
+/// ```
+/// use cyme::usb::OperationMode;
+/// use cyme::usb::Version;
+///
+/// let mode = OperationMode { version: Version(3, 2, 0), generation: Some(2), lanes: Some(1) };
+/// assert_eq!(mode.to_string(), "USB 3.2 Gen 2x1");
+///
+/// let usb4 = OperationMode { version: Version(4, 0, 0), generation: Some(3), lanes: Some(2) };
+/// assert_eq!(usb4.to_string(), "USB4 Gen 3x2");
+///
+/// let hs = OperationMode { version: Version(2, 0, 0), generation: None, lanes: None };
+/// assert_eq!(hs.to_string(), "USB 2.0");
+/// ```
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationMode {
+    /// USB specification version (e.g. `Version(3, 2, 0)` for USB 3.2)
+    pub version: Version,
+    /// Generation number — identifies the per-lane speed tier within the spec version
+    pub generation: Option<u8>,
+    /// Number of lanes — `xM` in the Gen NxM notation; each lane is a differential pair
+    pub lanes: Option<u8>,
+}
+
+impl fmt::Display for OperationMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // USB4 uses no space or decimal point: "USB4" not "USB 4.0"
+        if self.version.major() >= 4 {
+            write!(f, "USB{}", self.version.major())?;
+        } else {
+            write!(f, "USB {}.{}", self.version.major(), self.version.minor())?;
+        }
+        if let (Some(gen), Some(lanes)) = (self.generation, self.lanes) {
+            write!(f, " Gen {}x{}", gen, lanes)?;
+        }
+        Ok(())
+    }
+}
+
 impl Speed {
     /// lsusb speed is always in Mb/s and shown just a M prefix
     ///
@@ -816,6 +859,49 @@ impl Speed {
             Speed::HighSpeed | Speed::HighBandwidth => "HighSpeed".into(),
             Speed::FullSpeed | Speed::LowSpeed => "Basic Speed".into(),
             Speed::Unknown => "Unknown".into(),
+        }
+    }
+
+    /// Returns the [`OperationMode`] for this speed following the USB-IF Gen NxM naming scheme
+    ///
+    /// Maps each speed to its canonical USB specification version, generation, and lane count.
+    ///
+    /// ```
+    /// # use cyme::usb::{Speed, OperationMode, Version};
+    ///
+    /// assert_eq!(
+    ///     Speed::SuperSpeedPlus.operation_mode(),
+    ///     Some(OperationMode { version: Version(3, 2, 0), generation: Some(2), lanes: Some(1) })
+    /// );
+    /// assert_eq!(
+    ///     Speed::SuperSpeedPlus.operation_mode().unwrap().to_string(),
+    ///     "USB 3.2 Gen 2x1"
+    /// );
+    /// assert_eq!(
+    ///     Speed::Usb40Gbps.operation_mode().unwrap().to_string(),
+    ///     "USB4 Gen 3x2"
+    /// );
+    /// assert_eq!(
+    ///     Speed::HighSpeed.operation_mode().unwrap().to_string(),
+    ///     "USB 2.0"
+    /// );
+    /// ```
+    pub fn operation_mode(&self) -> Option<OperationMode> {
+        let mode = |major, minor, gen, lanes| OperationMode {
+            version: Version(major, minor, 0),
+            generation: gen,
+            lanes,
+        };
+        match self {
+            Speed::LowSpeed => Some(mode(1, 0, None, None)),
+            Speed::FullSpeed => Some(mode(1, 1, None, None)),
+            Speed::HighSpeed | Speed::HighBandwidth => Some(mode(2, 0, None, None)),
+            Speed::SuperSpeed => Some(mode(3, 2, Some(1), Some(1))),
+            Speed::SuperSpeedPlus => Some(mode(3, 2, Some(2), Some(1))),
+            Speed::SuperSpeedPlusX2 => Some(mode(3, 2, Some(2), Some(2))),
+            Speed::Usb40Gbps => Some(mode(4, 0, Some(3), Some(2))),
+            Speed::Usb80Gbps => Some(mode(4, 0, Some(4), Some(2))),
+            Speed::Unknown => None,
         }
     }
 }
