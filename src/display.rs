@@ -858,7 +858,12 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 .unwrap_or(0),
             DeviceBlocks::StringSpeed => d
                 .iter()
-                .flat_map(|d| d.device_speed.as_ref().map(|s| format!("{s:+}").len()))
+                .flat_map(|d| {
+                    d.device_speed
+                        .as_ref()
+                        .and_then(|s| s.original_label())
+                        .map(|l| l.len())
+                })
                 .max()
                 .unwrap_or(0),
             DeviceBlocks::NegotiatedStringSpeed => d
@@ -867,7 +872,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                     d.extra
                         .as_ref()
                         .and_then(|e| e.negotiated_speed.as_ref())
-                        .map(|s| format!("{s:+}").len())
+                        .map(|s| s.original_label().len())
                 })
                 .max()
                 .unwrap_or(0),
@@ -1002,22 +1007,26 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 },
             ),
             DeviceBlocks::StringSpeed => Some(match d.device_speed.as_ref() {
-                Some(v) => format!("{:pad$}", format!("{v:+}"), pad = pad.get(self).unwrap_or(&0)),
+                Some(v) => format!(
+                    "{:pad$}",
+                    v.original_label().unwrap_or_else(|| "-".into()),
+                    pad = pad.get(self).unwrap_or(&0)
+                ),
                 None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
             }),
             DeviceBlocks::NegotiatedStringSpeed => Some(
                 match d.extra.as_ref().and_then(|e| e.negotiated_speed.as_ref()) {
-                    Some(v) => {
-                        format!("{:pad$}", format!("{v:+}"), pad = pad.get(self).unwrap_or(&0))
-                    }
+                    Some(v) => format!(
+                        "{:pad$}",
+                        v.original_label(),
+                        pad = pad.get(self).unwrap_or(&0)
+                    ),
                     None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
                 },
             ),
             DeviceBlocks::OperationMode => Some(
                 match d.device_speed.as_ref().and_then(|s| s.operation_mode()) {
-                    Some(v) => {
-                        format!("{:pad$}", v.to_string(), pad = pad.get(self).unwrap_or(&0))
-                    }
+                    Some(v) => format!("{:pad$}", v.to_string(), pad = pad.get(self).unwrap_or(&0)),
                     None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
                 },
             ),
@@ -1028,9 +1037,7 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                     .and_then(|e| e.negotiated_speed.as_ref())
                     .and_then(|s| s.operation_mode())
                 {
-                    Some(v) => {
-                        format!("{:pad$}", v.to_string(), pad = pad.get(self).unwrap_or(&0))
-                    }
+                    Some(v) => format!("{:pad$}", v.to_string(), pad = pad.get(self).unwrap_or(&0)),
                     None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
                 },
             ),

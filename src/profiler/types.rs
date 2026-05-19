@@ -1138,6 +1138,22 @@ impl DeviceSpeed {
             DeviceSpeed::Description(_) => None,
         }
     }
+
+    /// Returns the [`crate::usb::Speed`] original label if this is a [`DeviceSpeed::SpeedValue`]
+    pub fn original_label(&self) -> Option<String> {
+        match self {
+            DeviceSpeed::SpeedValue(s) => Some(s.original_label()),
+            DeviceSpeed::Description(_) => None,
+        }
+    }
+
+    /// Returns the [`crate::usb::Speed`] marketing label if this is a [`DeviceSpeed::SpeedValue`]
+    pub fn marketing_label(&self) -> Option<String> {
+        match self {
+            DeviceSpeed::SpeedValue(s) => Some(s.marketing_label()),
+            DeviceSpeed::Description(_) => None,
+        }
+    }
 }
 
 impl FromStr for DeviceSpeed {
