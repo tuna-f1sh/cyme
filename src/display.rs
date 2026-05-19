@@ -304,6 +304,10 @@ pub enum DeviceBlocks {
     LastEvent,
     /// Event icon
     EventIcon,
+    /// Advertised device speed as USB-IF Gen NxM operation mode string (e.g. "USB 3.2 Gen 2x1")
+    OperationMode,
+    /// Negotiated device speed as USB-IF Gen NxM operation mode string
+    NegotiatedOperationMode,
 }
 
 /// Info that can be printed about a [`Bus`]
@@ -867,6 +871,27 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                 })
                 .max()
                 .unwrap_or(0),
+            DeviceBlocks::OperationMode => d
+                .iter()
+                .flat_map(|d| {
+                    d.device_speed
+                        .as_ref()
+                        .and_then(|s| s.operation_mode())
+                        .map(|m| m.to_string().len())
+                })
+                .max()
+                .unwrap_or(0),
+            DeviceBlocks::NegotiatedOperationMode => d
+                .iter()
+                .flat_map(|d| {
+                    d.extra
+                        .as_ref()
+                        .and_then(|e| e.negotiated_speed.as_ref())
+                        .and_then(|s| s.operation_mode())
+                        .map(|m| m.to_string().len())
+                })
+                .max()
+                .unwrap_or(0),
             _ => self.block_length().len(),
         }
     }
@@ -988,6 +1013,27 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
                     None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
                 },
             ),
+            DeviceBlocks::OperationMode => Some(
+                match d.device_speed.as_ref().and_then(|s| s.operation_mode()) {
+                    Some(v) => {
+                        format!("{:pad$}", v.to_string(), pad = pad.get(self).unwrap_or(&0))
+                    }
+                    None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+                },
+            ),
+            DeviceBlocks::NegotiatedOperationMode => Some(
+                match d
+                    .extra
+                    .as_ref()
+                    .and_then(|e| e.negotiated_speed.as_ref())
+                    .and_then(|s| s.operation_mode())
+                {
+                    Some(v) => {
+                        format!("{:pad$}", v.to_string(), pad = pad.get(self).unwrap_or(&0))
+                    }
+                    None => format!("{:pad$}", "-", pad = pad.get(self).unwrap_or(&0)),
+                },
+            ),
             DeviceBlocks::TreePositions => Some(format!(
                 "{:pad$}",
                 format!("{:}", d.location_id.tree_positions.iter().format("-")),
@@ -1086,7 +1132,9 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::Speed
             | DeviceBlocks::NegotiatedSpeed
             | DeviceBlocks::StringSpeed
-            | DeviceBlocks::NegotiatedStringSpeed => ct.speed.map_or(s.normal(), |c| s.color(c)),
+            | DeviceBlocks::NegotiatedStringSpeed
+            | DeviceBlocks::OperationMode
+            | DeviceBlocks::NegotiatedOperationMode => ct.speed.map_or(s.normal(), |c| s.color(c)),
             DeviceBlocks::BusPower
             | DeviceBlocks::BusPowerUsed
             | DeviceBlocks::ExtraCurrentUsed => ct.power.map_or(s.normal(), |c| s.color(c)),
@@ -1123,6 +1171,8 @@ impl Block<DeviceBlocks, Device> for DeviceBlocks {
             DeviceBlocks::NegotiatedSpeed => "NgSpd",
             DeviceBlocks::StringSpeed => "SgSpd",
             DeviceBlocks::NegotiatedStringSpeed => "NSSpd",
+            DeviceBlocks::OperationMode => "OpMode",
+            DeviceBlocks::NegotiatedOperationMode => "NgOpMode",
             DeviceBlocks::TreePositions => "TPos",
             // will be 000 mA = 6
             DeviceBlocks::BusPower => "PBus",

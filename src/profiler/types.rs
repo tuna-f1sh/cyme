@@ -1130,6 +1130,16 @@ impl fmt::Display for DeviceSpeed {
     }
 }
 
+impl DeviceSpeed {
+    /// Returns the [`crate::usb::OperationMode`] if this is a [`DeviceSpeed::SpeedValue`] with a known mode
+    pub fn operation_mode(&self) -> Option<crate::usb::OperationMode> {
+        match self {
+            DeviceSpeed::SpeedValue(s) => s.operation_mode(),
+            DeviceSpeed::Description(_) => None,
+        }
+    }
+}
+
 impl FromStr for DeviceSpeed {
     type Err = Error;
 
