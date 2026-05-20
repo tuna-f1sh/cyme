@@ -851,13 +851,13 @@ impl Speed {
     /// From table in https://en.wikipedia.org/wiki/USB#Connector_type_quick_reference
     pub fn marketing_label(&self) -> String {
         match self {
-            Speed::Usb80Gbps => "USB 80 Gbps".into(),
-            Speed::Usb40Gbps => "USB 40 Gbps".into(),
-            Speed::SuperSpeedPlusX2 => "USB 20 Gbps".into(),
-            Speed::SuperSpeedPlus => "USB 10 Gbps".into(),
-            Speed::SuperSpeed => "USB 5 Gbps".into(),
-            Speed::HighSpeed | Speed::HighBandwidth => "HighSpeed".into(),
-            Speed::FullSpeed | Speed::LowSpeed => "Basic Speed".into(),
+            Speed::Usb80Gbps => "USB 80Gbps".into(),
+            Speed::Usb40Gbps => "USB 40Gbps".into(),
+            Speed::SuperSpeedPlusX2 => "USB 20Gbps".into(),
+            Speed::SuperSpeedPlus => "USB 10Gbps".into(),
+            Speed::SuperSpeed => "USB 5Gbps".into(),
+            Speed::HighSpeed | Speed::HighBandwidth => "High-Speed".into(),
+            Speed::FullSpeed | Speed::LowSpeed => "Basic-Speed".into(),
             Speed::Unknown => "Unknown".into(),
         }
     }
