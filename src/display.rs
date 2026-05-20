@@ -3223,6 +3223,8 @@ impl<W: Write> DisplayWriter<W> {
 
                 let icon_terminator = if device.is_disconnected() {
                     icon::Icon::TreeDisconnectedTerminator
+                } else if device.class == Some(BaseClass::Hub) {
+                    icon::Icon::TreeHubTerminator
                 } else {
                     icon::Icon::TreeDeviceTerminator
                 };
