@@ -59,6 +59,8 @@ pub enum Icon {
     TreeInterfaceTerminator,
     /// Icon printed at end of tree before disconnected device
     TreeDisconnectedTerminator,
+    /// Icon printed at end of tree before printing hub device
+    TreeHubTerminator,
     /// Icon for endpoint direction
     Endpoint(Direction),
     /// Icon for profiled state
@@ -95,6 +97,7 @@ impl FromStr for Icon {
                 "profiled" => Ok(Icon::Profiled),
                 "connected" => Ok(Icon::Connected),
                 "disconnected" => Ok(Icon::Disconnected),
+                "tree-hub-terminator" => Ok(Icon::TreeHubTerminator),
                 _ => Err(Error::new(
                     ErrorKind::Parsing,
                     "Invalid Icon enum name or valued enum without value",
@@ -240,6 +243,7 @@ pub static DEFAULT_UTF8_TREE: LazyLock<HashMap<Icon, &'static str>> = LazyLock::
         (Icon::TreeConfigurationTerminator, "\u{2022}"), // "•"
         (Icon::TreeInterfaceTerminator, "\u{25E6}"),     // "◦"
         (Icon::TreeDisconnectedTerminator, "\u{2715}"),  // "×"
+        (Icon::TreeHubTerminator, "\u{229b}"),           // "⊛"
         (Icon::Endpoint(Direction::In), "\u{2192}"),     // →
         (Icon::Endpoint(Direction::Out), "\u{2190}"),    // ←
     ])
@@ -257,6 +261,7 @@ pub static DEFAULT_ASCII_TREE: LazyLock<HashMap<Icon, &'static str>> = LazyLock:
         (Icon::TreeConfigurationTerminator, "o"),
         (Icon::TreeInterfaceTerminator, "."),
         (Icon::TreeDisconnectedTerminator, "X"),
+        (Icon::TreeHubTerminator, "*"),
         (Icon::Endpoint(Direction::In), ">"),
         (Icon::Endpoint(Direction::Out), "<"),
     ])
