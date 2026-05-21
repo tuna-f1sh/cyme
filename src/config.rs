@@ -98,6 +98,8 @@ pub struct Config {
     /// Exclusion filters, OR'd together. Devices matching any entry are hidden even if
     /// they passed an inclusion filter.
     pub filter_exclude: Vec<crate::profiler::FilterEntry>,
+    /// Apply muted colour to hub device lines instead of per-block colours
+    pub mute_hubs: bool,
 }
 
 impl Config {
@@ -306,6 +308,7 @@ impl Config {
         self.ascii = matches!(settings.encoding, display::Encoding::Ascii);
         self.verbose = settings.verbosity;
         self.json = settings.json;
+        self.mute_hubs = settings.mute_hubs;
     }
 
     /// Returns a [`display::PrintSettings`] based on the config
@@ -365,6 +368,7 @@ impl Config {
             colours,
             verbosity: self.verbose,
             json: self.json,
+            mute_hubs: self.mute_hubs,
             ..Default::default()
         }
     }
@@ -480,5 +484,13 @@ mod tests {
         assert!(
             serde_json::from_str::<Config>(r#"{"filter-include": [{"vidpid": "gggg"}]}"#).is_err()
         );
+    }
+
+    #[test]
+    fn test_deserialize_colors_alias() {
+        let raw = r#"{"colors": {"name": "red", "muted": "blue"}}"#;
+        let c: Config = serde_json::from_str(raw).unwrap();
+        assert_eq!(c.colours.name, Some(Color::Red));
+        assert_eq!(c.colours.muted, Some(Color::Blue));
     }
 }

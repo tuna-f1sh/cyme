@@ -219,6 +219,10 @@ struct Args {
     #[arg(long)]
     mask_serials: Option<display::MaskSerial>,
 
+    /// Apply muted colour to hub device lines instead of per-block colours
+    #[arg(long, default_value_t = false)]
+    mute_hubs: bool,
+
     /// Generate cli completions and man page
     #[cfg(feature = "cli_generate")]
     #[arg(long, hide = true, exclusive = true)]
@@ -306,6 +310,7 @@ fn merge_config(c: &mut Config, a: &Args) {
     if a.block_operation.is_some() {
         c.block_operation = a.block_operation;
     }
+    c.mute_hubs |= a.mute_hubs;
     c.sort_buses |= a.sort_buses;
     // take larger debug level
     c.verbose = c.verbose.max(a.verbose);
