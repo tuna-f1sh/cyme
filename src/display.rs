@@ -20,7 +20,7 @@ use crate::icon;
 use crate::profiler::{Bus, Device, DeviceFilter, SystemProfile};
 use crate::types::NumericalUnit;
 use crate::usb::{
-    path::ConfigurationPath, path::DevicePath, path::EndpointPath, path::PortPath,
+    path::ConfigurationPath, path::DevicePath, path::EndpointPath, path::PortPath, BaseClass,
     ConfigAttributes, Configuration, DeviceExtra, Direction, Endpoint, Interface,
 };
 
@@ -2153,6 +2153,8 @@ pub struct PrintSettings {
     pub color_when: ColorWhen,
     /// Printing in watch mode
     pub print_mode: PrintMode,
+    /// Apply muted colour to hub device lines instead of per-block colours
+    pub mute_hubs: bool,
 }
 
 /// Converts a HashSet of [`ConfigAttributes`] a String of nerd icons
@@ -2315,6 +2317,18 @@ pub fn has_valid_icons<B: BlockEnum, T>(
     })
 }
 
+/// Controls per-line colour overrides applied by [`render_value`]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum LineStyle {
+    /// Normal per-block colouring
+    #[default]
+    Normal,
+    /// Dimmed white — used for disconnected devices
+    Dimmed,
+    /// Uniform muted colour — used to de-emphasise a line
+    Muted,
+}
+
 /// Formats each [`Block`] value shown from a device `d`
 pub fn render_value<B: BlockEnum, T>(
     d: &T,
@@ -2322,7 +2336,7 @@ pub fn render_value<B: BlockEnum, T>(
     pad: &HashMap<B, usize>,
     settings: &PrintSettings,
     max_string_length: Option<usize>,
-    dimmed: bool,
+    line_style: LineStyle,
 ) -> Vec<String> {
     let mut ret = Vec::new();
     for b in blocks {
@@ -2334,13 +2348,14 @@ pub fn render_value<B: BlockEnum, T>(
                 }
             }
             match &settings.colours {
-                Some(c) => {
-                    if dimmed {
-                        ret.push(format!("{}", string.dimmed().white()))
-                    } else {
-                        ret.push(format!("{}", b.colour(&string, c)))
-                    }
-                }
+                Some(c) => match line_style {
+                    LineStyle::Dimmed => ret.push(format!("{}", string.dimmed().white())),
+                    LineStyle::Muted => ret.push(format!(
+                        "{}",
+                        c.muted.map_or(string.normal(), |hc| string.color(hc))
+                    )),
+                    LineStyle::Normal => ret.push(format!("{}", b.colour(&string, c))),
+                },
                 None => ret.push(string.to_string()),
             };
         }
@@ -2661,7 +2676,7 @@ impl<W: Write> DisplayWriter<W> {
         blocks: &[EndpointBlocks],
         settings: &PrintSettings,
         tree: &TreeData,
-        dimmed: bool,
+        line_style: LineStyle,
     ) {
         let endpoints = &interface.endpoints;
         let device_path = interface.device_path();
@@ -2777,7 +2792,7 @@ impl<W: Write> DisplayWriter<W> {
                         &pad,
                         settings,
                         max_variable_string_len,
-                        dimmed,
+                        line_style,
                     )
                     .join(" "),
                     line_item,
@@ -2803,7 +2818,7 @@ impl<W: Write> DisplayWriter<W> {
                             &pad,
                             settings,
                             max_variable_string_len,
-                            dimmed
+                            line_style,
                         )
                         .join(" "),
                         spaces = (EndpointBlocks::INSET * LIST_INSET_SPACES) as usize
@@ -2822,7 +2837,7 @@ impl<W: Write> DisplayWriter<W> {
         blocks: (&Vec<InterfaceBlocks>, &Vec<EndpointBlocks>),
         settings: &PrintSettings,
         tree: &TreeData,
-        dimmed: bool,
+        line_style: LineStyle,
     ) {
         let mut pad = if !settings.no_padding {
             let interfaces: Vec<&Interface> = interfaces.iter().collect();
@@ -2924,7 +2939,7 @@ impl<W: Write> DisplayWriter<W> {
                         &pad,
                         settings,
                         max_variable_string_len,
-                        dimmed,
+                        line_style,
                     )
                     .join(" "),
                     line_item,
@@ -2950,7 +2965,7 @@ impl<W: Write> DisplayWriter<W> {
                             &pad,
                             settings,
                             max_variable_string_len,
-                            dimmed
+                            line_style,
                         )
                         .join(" "),
                         spaces = (InterfaceBlocks::INSET * LIST_INSET_SPACES) as usize
@@ -2967,7 +2982,7 @@ impl<W: Write> DisplayWriter<W> {
                     blocks.1,
                     settings,
                     &generate_tree_data(tree, interface.endpoints.len(), i, settings),
-                    dimmed,
+                    line_style,
                 );
             }
         }
@@ -3080,6 +3095,11 @@ impl<W: Write> DisplayWriter<W> {
                 // render and print tree if doing it
                 self.print(format!("{prefix}{terminator} ")).unwrap();
 
+                let ls = if device.is_disconnected() {
+                    LineStyle::Dimmed
+                } else {
+                    LineStyle::Normal
+                };
                 self.println(
                     render_value(
                         config,
@@ -3087,7 +3107,7 @@ impl<W: Write> DisplayWriter<W> {
                         &pad,
                         settings,
                         max_variable_string_len,
-                        device.is_disconnected(),
+                        ls,
                     )
                     .join(" "),
                     line_item,
@@ -3103,6 +3123,11 @@ impl<W: Write> DisplayWriter<W> {
                     .unwrap();
                 }
 
+                let ls = if device.is_disconnected() {
+                    LineStyle::Dimmed
+                } else {
+                    LineStyle::Normal
+                };
                 self.println(
                     format!(
                         "{:spaces$}{}",
@@ -3113,7 +3138,7 @@ impl<W: Write> DisplayWriter<W> {
                             &pad,
                             settings,
                             max_variable_string_len,
-                            device.is_disconnected()
+                            ls,
                         )
                         .join(" "),
                         spaces = (ConfigurationBlocks::INSET * LIST_INSET_SPACES) as usize
@@ -3125,12 +3150,17 @@ impl<W: Write> DisplayWriter<W> {
 
             // print the interfaces
             if settings.verbosity >= 2 || config.is_expanded() {
+                let ls = if device.is_disconnected() {
+                    LineStyle::Dimmed
+                } else {
+                    LineStyle::Normal
+                };
                 self.print_interfaces(
                     &config.interfaces,
                     ((blocks.1), (blocks.2)),
                     settings,
                     &generate_tree_data(tree, config.interfaces.len(), i, settings),
-                    device.is_disconnected(),
+                    ls,
                 );
             }
         }
@@ -3232,13 +3262,20 @@ impl<W: Write> DisplayWriter<W> {
             }
 
             // print the device
+            let line_style = if device.is_disconnected() {
+                LineStyle::Dimmed
+            } else if settings.mute_hubs && device.class == Some(BaseClass::Hub) {
+                LineStyle::Muted
+            } else {
+                LineStyle::Normal
+            };
             let device_string = render_value(
                 device,
                 db,
                 &padding,
                 settings,
                 max_variable_string_len,
-                device.is_disconnected(),
+                line_style,
             )
             .join(" ");
             self.println(&device_string, LineItem::Device(device.port_path()))
@@ -3404,7 +3441,15 @@ impl<W: Write> DisplayWriter<W> {
                     .unwrap();
             }
             self.println(
-                render_value(bus, &bb, &pad, settings, max_variable_string_len, false).join(" "),
+                render_value(
+                    bus,
+                    &bb,
+                    &pad,
+                    settings,
+                    max_variable_string_len,
+                    LineStyle::Normal,
+                )
+                .join(" "),
                 LineItem::Bus(i),
             )
             .unwrap();
@@ -3504,6 +3549,13 @@ impl<W: Write> DisplayWriter<W> {
         }
 
         for (i, device) in devices.iter().enumerate() {
+            let line_style = if device.is_disconnected() {
+                LineStyle::Dimmed
+            } else if settings.mute_hubs && device.class == Some(BaseClass::Hub) {
+                LineStyle::Muted
+            } else {
+                LineStyle::Normal
+            };
             println!(
                 "{}",
                 render_value(
@@ -3512,7 +3564,7 @@ impl<W: Write> DisplayWriter<W> {
                     &pad,
                     settings,
                     max_variable_string_len,
-                    device.is_disconnected()
+                    line_style,
                 )
                 .join(" ")
             );
@@ -3593,7 +3645,15 @@ impl<W: Write> DisplayWriter<W> {
                     .unwrap();
             }
             self.println(
-                render_value(bus, &bb, &pad, settings, max_variable_string_len, false).join(" "),
+                render_value(
+                    bus,
+                    &bb,
+                    &pad,
+                    settings,
+                    max_variable_string_len,
+                    LineStyle::Normal,
+                )
+                .join(" "),
                 LineItem::Bus(i),
             )
             .unwrap();

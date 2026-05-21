@@ -177,6 +177,13 @@ pub struct ColourTheme {
         deserialize_with = "deserialize_option_color_from_string"
     )]
     pub tree_endpoint_out: Option<Color>,
+    /// Colour used when muting a line, e.g. for hub devices with mute-hubs
+    #[serde(
+        default,
+        serialize_with = "color_serializer",
+        deserialize_with = "deserialize_option_color_from_string"
+    )]
+    pub muted: Option<Color>,
 }
 
 fn deserialize_option_color_from_string<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
@@ -344,6 +351,7 @@ impl ColourTheme {
             tree_interface_terminator: Some(Color::BrightBlack),
             tree_endpoint_in: Some(Color::Yellow),
             tree_endpoint_out: Some(Color::Magenta),
+            muted: Some(Color::BrightBlack),
         }
     }
 }
