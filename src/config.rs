@@ -25,6 +25,7 @@ pub struct Config {
     /// User supplied [`crate::icon::IconTheme`] - will merge with default
     pub icons: icon::IconTheme,
     /// User supplied [`crate::colour::ColourTheme`] - overrides default
+    #[serde(alias = "colors")]
     pub colours: colour::ColourTheme,
     /// Default [`crate::display::DeviceBlocks`] to use for displaying devices
     pub blocks: Option<Vec<display::DeviceBlocks>>,
@@ -391,6 +392,7 @@ impl From<&Config> for display::PrintSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use colored::*;
 
     #[test]
     #[cfg(feature = "regex_icon")]
