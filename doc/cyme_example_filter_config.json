@@ -27,7 +27,8 @@
     "tree_configuration_terminator": "bright black",
     "tree_interface_terminator": "bright black",
     "tree_endpoint_in": "yellow",
-    "tree_endpoint_out": "magenta"
+    "tree_endpoint_out": "magenta",
+    "muted": "bright black"
   },
   "blocks": null,
   "bus-blocks": null,
@@ -90,5 +91,6 @@
     {
       "vidpid": "1d6b:0002"
     }
-  ]
+  ],
+  "mute-hubs": false
 }

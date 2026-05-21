@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_cyme_global_optspecs
-	string join \n l/lsusb t/tree d/vidpid= s/show= D/device= filter-name= filter-serial= filter-class= filter-exclude= v/verbose b/blocks= bus-blocks= config-blocks= interface-blocks= endpoint-blocks= block-operation= m/more sort-devices= sort-buses group-devices= hide-buses hide-hubs list-root-hubs decimal no-padding color= no-color encoding= ascii no-icons icon= headings json from-json= F/force-libusb c/config= filter-post z/debug mask-serials= gen system-profiler h/help V/version
+	string join \n l/lsusb t/tree d/vidpid= s/show= D/device= filter-name= filter-serial= filter-class= filter-exclude= v/verbose b/blocks= bus-blocks= config-blocks= interface-blocks= endpoint-blocks= block-operation= m/more sort-devices= sort-buses group-devices= hide-buses hide-hubs list-root-hubs decimal no-padding color= no-color encoding= ascii no-icons icon= headings json from-json= F/force-libusb c/config= filter-post z/debug mask-serials= mute-hubs gen system-profiler h/help V/version
 end
 
 function __fish_cyme_needs_command
@@ -178,6 +178,7 @@ complete -c cyme -n "__fish_cyme_needs_command" -l json -d 'Output as json forma
 complete -c cyme -n "__fish_cyme_needs_command" -s F -l force-libusb -d 'Force pure libusb profiler on macOS rather than combining system_profiler output'
 complete -c cyme -n "__fish_cyme_needs_command" -l filter-post -d 'Filter devices after profiling rather than during'
 complete -c cyme -n "__fish_cyme_needs_command" -s z -l debug -d 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE'
+complete -c cyme -n "__fish_cyme_needs_command" -l mute-hubs -d 'Apply muted colour to hub device lines instead of per-block colours'
 complete -c cyme -n "__fish_cyme_needs_command" -l gen -d 'Generate cli completions and man page'
 complete -c cyme -n "__fish_cyme_needs_command" -l system-profiler -d 'Use the system_profiler command on macOS to get USB data'
 complete -c cyme -n "__fish_cyme_needs_command" -s h -l help -d 'Print help (see more with \'--help\')'

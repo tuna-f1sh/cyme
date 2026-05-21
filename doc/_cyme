@@ -218,6 +218,7 @@ replace\:"Mask by replacing length with random chars"))' \
 '--filter-post[Filter devices after profiling rather than during]' \
 '*-z[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
 '*--debug[Turn debugging information on. Alternatively can use RUST_LOG env\: INFO, DEBUG, TRACE]' \
+'--mute-hubs[Apply muted colour to hub device lines instead of per-block colours]' \
 '--gen[Generate cli completions and man page]' \
 '--system-profiler[Use the system_profiler command on macOS to get USB data]' \
 '-h[Print help (see more with '\''--help'\'')]' \
