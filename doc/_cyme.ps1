@@ -71,6 +71,7 @@ Register-ArgumentCompleter -Native -CommandName 'cyme' -ScriptBlock {
             [CompletionResult]::new('--filter-post', '--filter-post', [CompletionResultType]::ParameterName, 'Filter devices after profiling rather than during')
             [CompletionResult]::new('-z', '-z', [CompletionResultType]::ParameterName, 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE')
             [CompletionResult]::new('--debug', '--debug', [CompletionResultType]::ParameterName, 'Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE')
+            [CompletionResult]::new('--mute-hubs', '--mute-hubs', [CompletionResultType]::ParameterName, 'Apply muted colour to hub device lines instead of per-block colours')
             [CompletionResult]::new('--gen', '--gen', [CompletionResultType]::ParameterName, 'Generate cli completions and man page')
             [CompletionResult]::new('--system-profiler', '--system-profiler', [CompletionResultType]::ParameterName, 'Use the system_profiler command on macOS to get USB data')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')

@@ -49,7 +49,8 @@
     "tree_configuration_terminator": "bright black",
     "tree_interface_terminator": "bright black",
     "tree_endpoint_in": "yellow",
-    "tree_endpoint_out": "magenta"
+    "tree_endpoint_out": "magenta",
+    "muted": "bright black"
   },
   "blocks": [
     "bus-number",
@@ -116,5 +117,6 @@
   "json": false,
   "print-non-critical-profiler-stderr": false,
   "filter-include": [],
-  "filter-exclude": []
+  "filter-exclude": [],
+  "mute-hubs": false
 }
