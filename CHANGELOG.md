@@ -4,6 +4,7 @@
 
 ### Added
 
+- display: `--mute-hubs` arg and `mute-hubs` config key to apply a single muted colour (default: bright black) to hub device lines instead of per-block colours; colour configurable via `colours.muted`.
 - filter: multi-value `--filter-*` CLI args (same arg OR'd, different args AND'd via cross-product), `--filter-exclude KEY=VALUE` for excluding devices, and `filter-include`/`filter-exclude` config keys ([#111](https://github.com/tuna-f1sh/cyme/pull/111)).
 
 ### Changed
