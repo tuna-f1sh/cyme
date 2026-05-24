@@ -92,13 +92,17 @@ jobs:
         shell: bash
         run: |
           case ${{ matrix.job.target }} in
-            *-linux-*) 
+            *-linux-*)
               sudo apt-get -y update;
               sudo apt-get -y install libudev-dev libusb-1.0-0-dev;
               # install cargo-deb if not cached
               if ! command -v cargo-deb &> /dev/null; then
                 cargo install cargo-deb
               fi
+              ;;
+            *-apple-*)
+              # not part of build but required for full testing
+              brew install libusb
               ;;
             *)
               ;;
