@@ -100,10 +100,11 @@ jobs:
                 cargo install cargo-deb
               fi
               ;;
-            *-apple-*)
-              # not part of build but required for full testing
-              brew install libusb
-              ;;
+            # default macOS image has libusb
+            #*-apple-*)
+            #  # not part of build but required for full testing
+            #  brew install libusb
+            #  ;;
             *)
               ;;
           esac
