@@ -70,9 +70,13 @@ watch = ["crossterm", "futures-lite", "nusb", "cansi"] # watch mode
 bin = []
 default = ["native", "regex_icon", "watch", "bin"] # default native Rust USB (nusb, udevrs) with regex icon name lookup
 
+[lib]
+bench = false
+
 [[bin]]
 name = "cyme"
 path = "src/main.rs"
+bench = false
 
 [[bench]]
 name = "get"
