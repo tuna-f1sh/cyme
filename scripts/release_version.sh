@@ -49,7 +49,7 @@ if ! git rev-parse --abbrev-ref HEAD | grep -q "main"; then
 fi
 
 echo "Creating signed git tag v$VERSION"
-echo "$CHANGELOG_CONTENT" | git tag -a "v$VERSION" -F -
+echo "$CHANGELOG_CONTENT" | git tag -a "v$VERSION" --cleanup=verbatim -F -
 
 echo "Tag v$VERSION created."
 
