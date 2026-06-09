@@ -250,7 +250,7 @@ pub enum DeviceBlocks {
     VendorId,
     /// Vendor unique product identifier
     ProductId,
-    /// Unique vendor identifier and product identifier as a string formatted "vid:pid" like lsusb
+    /// Unique vendor identifier and product identifier as a string formatted 'vid:pid' like lsusb
     VidPid,
     /// The device name as reported in descriptor or using usb_ids if None
     Name,
@@ -304,11 +304,11 @@ pub enum DeviceBlocks {
     LastEvent,
     /// Event icon
     EventIcon,
-    /// Advertised device speed as USB-IF Gen NxM operation mode string (e.g. "USB 3.2 Gen 2x1")
+    /// Advertised device speed as USB-IF Gen NxM operation mode string (e.g. 'USB 3.2 Gen 2x1')
     OperationMode,
     /// Negotiated device speed as USB-IF Gen NxM operation mode string
     NegotiatedOperationMode,
-    /// Advertised device speed as USB-IF recommended marketing label (e.g. "USB 5 Gbps")
+    /// Advertised device speed as USB-IF recommended marketing label (e.g. 'USB 5 Gbps')
     SpeedMarketingLabel,
     /// Negotiated device speed as USB-IF recommended marketing label
     NegotiatedSpeedMarketingLabel,
