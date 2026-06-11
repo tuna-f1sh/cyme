@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.0.1] - 2026-06-11
+
+### Fixed
+
+- docs: remove double quotes for single quote to fix fish completion ([#115](https://github.com/tuna-f1sh/cyme/issues/115)).
+
 ## [3.0.0] - 2026-06-02
 
 ### Added
