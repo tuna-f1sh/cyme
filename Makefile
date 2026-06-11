@@ -97,6 +97,7 @@ endif
 $(DOCS): Cargo.toml Cargo.lock $(RSRCS)
 	@echo "Generating docs for $(PROJECT_NAME) $(VERSION)"
 	$(CARGO_CMD) run $(CARGO_FLAGS) -F=cli_generate -- --gen
+	@exec scripts/test_completions.sh
 
 $(RELEASE_BIN): Cargo.lock $(RSRCS)
 ifeq ($(TARGET),universal-apple-darwin)
