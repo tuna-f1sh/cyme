@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
     - name: Extract crate information
       id: crate_metadata
       run: |
@@ -44,7 +44,7 @@ jobs:
     name: Ensure 'cargo fmt' has been run
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
     - run: cargo fmt -- --check
 
   # Clippy pre-check would be nice but OS dependant features and libusb deps for all-features requires in matrix
@@ -70,7 +70,7 @@ jobs:
       # pkg-macos-x86_64: ${{ steps.package.outputs.pkg-universal-apple-darwin }}
       homebrew-pkg-name: ${{ steps.package.outputs.MACOS_PKG_NAME }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
         with:
           path: |
@@ -221,7 +221,7 @@ jobs:
     steps:
       # required for gh cli tool
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
 
