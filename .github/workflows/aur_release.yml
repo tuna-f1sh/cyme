@@ -24,7 +24,7 @@ jobs:
           pacman -S --noconfirm git openssh sudo
 
       - name: Checkout cyme repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup SSH for AUR
         run: |
