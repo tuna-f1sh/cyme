@@ -1,9 +1,15 @@
 # Set update schedule for GitHub Actions
-
 version: 2
 updates:
-
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "semiannually"
+      interval: "monthly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      all-actions:
+        patterns:
+          - "*"
+    cooldown:
+      default-days: 30
