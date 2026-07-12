@@ -355,7 +355,7 @@ pub struct Bus {
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub pci_device: Option<u16>,
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
-    /// PCI Revsision ID
+    /// PCI Revision ID
     pub pci_revision: Option<u16>,
     /// Number of bus on system
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
