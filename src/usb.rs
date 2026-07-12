@@ -1189,7 +1189,7 @@ pub struct Interface {
     pub class: BaseClass,
     /// Sub-class of interface provided by USB IF
     pub sub_class: u8,
-    /// Prototol code for interface provided by USB IF
+    /// Protocol code for interface provided by USB IF
     pub protocol: u8,
     /// Interfaces can have the same number/path but an alternate setting defined here
     pub alt_setting: u8,
@@ -1361,12 +1361,12 @@ pub struct Configuration {
     /// Whether this is the currently active configuration
     #[serde(default)]
     pub active: bool,
-    /// Number of interfaces available for this configuruation
+    /// Number of interfaces available for this configuration
     ///
     /// Option for legacy json de compatibility. Will count unique interface numbers in self.interfaces if None
     #[serde(default)]
     pub num_interfaces: Option<u8>,
-    /// Interfaces available for this configuruation, including alt settings
+    /// Interfaces available for this configuration, including alt settings
     pub interfaces: Vec<Interface>,
     /// Attributes of configuration, bmAttributes - was a HashSet since attributes should be unique but caused issues printing out of order
     pub attributes: Vec<ConfigAttributes>,

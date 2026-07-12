@@ -287,7 +287,7 @@ pub enum DeviceBlocks {
     BaseClass,
     /// Sub-class value of interface provided by USB IF - only available when using libusb
     SubClass,
-    /// Prototol value for interface provided by USB IF - only available when using libusb
+    /// Protocol value for interface provided by USB IF - only available when using libusb
     Protocol,
     /// Class name from USB IDs repository
     UidClass,
@@ -350,7 +350,7 @@ pub enum BusBlocks {
     PciVendor,
     /// PCI device ID (PID)
     PciDevice,
-    /// PCI Revsision ID
+    /// PCI Revision ID
     PciRevision,
     /// syspath style port path to bus, applicable to Linux only
     PortPath,
@@ -378,7 +378,7 @@ pub enum ConfigurationBlocks {
     Name,
     /// Number of config, bConfigurationValue; value to set to enable to configuration
     Number,
-    /// Interfaces available for this configuruation
+    /// Interfaces available for this configuration
     NumInterfaces,
     /// Attributes of configuration, bmAttributes
     Attributes,
@@ -417,7 +417,7 @@ pub enum InterfaceBlocks {
     BaseClass,
     /// Sub-class value of interface provided by USB IF
     SubClass,
-    /// Prototol value for interface provided by USB IF
+    /// Protocol value for interface provided by USB IF
     Protocol,
     /// Interfaces can have the same number but an alternate settings defined here
     AltSetting,
