@@ -76,7 +76,7 @@ impl From<libusb::Error> for Error {
             kind: ErrorKind::LibUSB,
             message: format!(
                 "Failed to gather system USB data from libusb: Error({})",
-                &error.to_string()
+                error
             ),
         }
     }
