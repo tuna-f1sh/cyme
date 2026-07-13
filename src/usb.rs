@@ -567,7 +567,7 @@ where
             (BaseClass::Audio, 0x02, 0x00) => ClassCode::AudioVideoDataVideo,
             (BaseClass::Audio, 0x03, 0x00) => ClassCode::AudioVideoDataAudio,
             (BaseClass::Mctp, 0x00, 0x01) => ClassCode::MctpManagementController,
-            (BaseClass::Mctp, 0x00, 0x02) => ClassCode::MctpHostInterfaceEndpoint,
+            (BaseClass::Mctp, 0x01, 0x01) => ClassCode::MctpHostInterfaceEndpoint,
             (BaseClass::Diagnostic, 0x01, 0x01) => ClassCode::Usb2ComplianceDevice,
             (BaseClass::Diagnostic, 0x02, 0x00) => ClassCode::DebugTargetVendorDefined,
             (BaseClass::Diagnostic, 0x02, 0x01) => ClassCode::GnuRemoteDebugCommandSet,
