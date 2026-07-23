@@ -7,9 +7,10 @@
 //! Correlating a [`TypecPort`] back to an enumerated USB [`crate::profiler::Device`] is only
 //! possible where the kernel has an ACPI companion for the port (`drivers/usb/typec/port-mapper.c`
 //! matches on the shared `_PLD`). On Device Tree only systems (eg. Qualcomm UCSI laptops) the
-//! kernel has no per-device link today, so [`TypecPort::port_path`] stays `None` there - see
+//! kernel has no per-device link today, so [`TypecPort::device_links`] stays `None` there - see
 //! `enumerate_typec_ports` for how the link is read when it does exist.
 use std::fmt;
+#[cfg(target_os = "linux")]
 use std::path::Path;
 use std::str::FromStr;
 
@@ -209,11 +210,19 @@ impl FromStr for PowerOperationMode {
 
 /// `type` of a [`Partner`] - combines the UFP and DFP product type vocabularies since both are
 /// read from the same `type` attribute file, only one active per current data role
+///
+/// Accepts both the vocabulary in the kernel ABI doc (`undefined`) and the one actually emitted
+/// by `drivers/usb/typec/class.c` on current kernels (`not_ufp`/`not_dfp`) - the doc has drifted
+/// from source here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProductType {
-    /// Product type not visible to the device driver
+    /// Product type not visible to the device driver (legacy ABI doc wording)
     Undefined,
+    /// Not a UFP product type (current `class.c` wording, UFP role)
+    NotUfp,
+    /// Not a DFP product type (current `class.c` wording, DFP role)
+    NotDfp,
     /// PDUSB Hub (UFP) or PDUSB Hub (DFP)
     Hub,
     /// PDUSB Peripheral (UFP role only)
@@ -236,6 +245,8 @@ impl FromStr for ProductType {
     fn from_str(s: &str) -> error::Result<Self> {
         match s {
             "undefined" => Ok(Self::Undefined),
+            "not_ufp" => Ok(Self::NotUfp),
+            "not_dfp" => Ok(Self::NotDfp),
             "hub" => Ok(Self::Hub),
             "peripheral" => Ok(Self::Peripheral),
             "psd" => Ok(Self::Psd),
@@ -252,15 +263,23 @@ impl FromStr for ProductType {
 }
 
 /// `type` of a [`Cable`] - see kernel ABI doc `<port>-cable/type`
+///
+/// Accepts both the vocabulary in the kernel ABI doc (`undefined`) and the one actually emitted
+/// by `drivers/usb/typec/class.c` on current kernels (`not_cable`, `vpd`) - the doc has drifted
+/// from source here, same as [`ProductType`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CableType {
-    /// Product type not visible to the device driver
+    /// Product type not visible to the device driver (legacy ABI doc wording)
     Undefined,
+    /// Not a cable product type (current `class.c` wording)
+    NotCable,
     /// Electronically marked active cable
     Active,
     /// Passive cable
     Passive,
+    /// VCONN-powered device
+    Vpd,
 }
 
 impl FromStr for CableType {
@@ -269,8 +288,10 @@ impl FromStr for CableType {
     fn from_str(s: &str) -> error::Result<Self> {
         match s {
             "undefined" => Ok(Self::Undefined),
+            "not_cable" => Ok(Self::NotCable),
             "active" => Ok(Self::Active),
             "passive" => Ok(Self::Passive),
+            "vpd" => Ok(Self::Vpd),
             _ => Err(Error::new(
                 ErrorKind::Parsing,
                 &format!("Invalid typec cable type: {s}"),
@@ -341,12 +362,16 @@ pub struct Partner {
     pub number_of_alternate_modes: Option<u32>,
     /// Alternate modes actually negotiated with the partner
     pub alt_modes: Option<Vec<AltMode>>,
-    /// [`PortPath`] of the enumerated USB device linked to this partner
+    /// [`PortPath`]s of the enumerated USB device(s) linked to this partner
     ///
     /// Only present where the kernel found an ACPI companion for the port (see module docs) -
-    /// resolved from the reverse `typec` symlink the kernel creates under this partner's own
-    /// sysfs directory, named after the linked device (eg. `2-2`), not from any attribute file
-    pub port_path: Option<PortPath>,
+    /// resolved from the reverse `typec` symlink(s) the kernel creates under this partner's own
+    /// sysfs directory, named after the linked device(s) (eg. `2-2`), not from any attribute file.
+    /// A hub/dock enumerates simultaneously on the USB2 and USB3 bus, so the kernel can link
+    /// *two* devices to the same partner (`typec_partner_link_device()` called once for
+    /// `port->usb2_dev` and once for `port->usb3_dev` in `class.c`) - sorted for determinism,
+    /// since sysfs directory read order is not guaranteed.
+    pub device_links: Option<Vec<PortPath>>,
 }
 
 /// USB Type-C cable device, eg. `/sys/class/typec/port0-cable/`
@@ -365,8 +390,9 @@ pub struct Cable {
 pub struct TypecPort {
     /// sysfs class name, eg. `port0`
     pub name: String,
-    /// [`PortPath`] of the enumerated USB device on this port, if the kernel could resolve it - see [`Partner::port_path`] for how
-    pub port_path: Option<PortPath>,
+    /// [`PortPath`]s of the enumerated USB device(s) on this port, if the kernel could resolve
+    /// them - see [`Partner::device_links`] for how and why there can be more than one
+    pub device_links: Option<Vec<PortPath>>,
     /// Current USB data role
     pub data_role: Option<DataRole>,
     /// Current USB power role
@@ -439,7 +465,7 @@ mod sysfs {
     /// Parse a single alt-mode directory, eg. `port0.1` -> index `1`
     fn parse_alt_mode(dir_name: &str, path: &Path) -> Option<AltMode> {
         let index = dir_name.rsplit('.').next()?.parse().ok()?;
-        let svid = u16::from_str_radix(read_attr(path, "svid")?.trim(), 16).ok()?;
+        let svid = u16::from_str_radix(&read_attr(path, "svid")?, 16).ok()?;
         let active = read_bool_attr(path, "active");
         Some(AltMode {
             index,
@@ -471,19 +497,31 @@ mod sysfs {
         }
     }
 
-    /// Find the reverse `typec` symlink the kernel creates inside a partner/cable directory
+    /// Find the reverse `typec` symlink(s) the kernel creates inside a partner/cable directory
     /// pointing back at the enumerated USB device (named after the device, eg. `2-2` or `usb1`) -
     /// see `typec_partner_link_device()` in `drivers/usb/typec/class.c`. Only present when the
     /// port has an ACPI companion (see module docs).
-    fn find_device_link(dir: &Path) -> Option<PortPath> {
-        fs::read_dir(dir)
+    ///
+    /// A hub/dock enumerates on both the USB2 and USB3 bus simultaneously, and the kernel links
+    /// both devices to the same partner, so this can find more than one - sorted so the result is
+    /// deterministic regardless of `readdir` order.
+    fn find_device_links(dir: &Path) -> Option<Vec<PortPath>> {
+        let mut links: Vec<PortPath> = fs::read_dir(dir)
             .ok()?
             .filter_map(|e| e.ok())
-            .find_map(|e| {
+            .filter_map(|e| {
                 e.file_name()
                     .to_str()
                     .and_then(|name| name.parse::<PortPath>().ok())
             })
+            .collect();
+
+        if links.is_empty() {
+            return None;
+        }
+        links.sort();
+        links.dedup();
+        Some(links)
     }
 
     fn parse_partner(port_name: &str, class_root: &Path) -> Option<Partner> {
@@ -498,7 +536,7 @@ mod sysfs {
             number_of_alternate_modes: read_attr(&dir, "number_of_alternate_modes")
                 .and_then(|v| v.parse().ok()),
             alt_modes: collect_alt_modes(&dir, &format!("{port_name}-partner")),
-            port_path: find_device_link(&dir),
+            device_links: find_device_links(&dir),
         })
     }
 
@@ -520,11 +558,14 @@ mod sysfs {
             name: name.to_string(),
             // ports themselves are never the ACPI-linked device; the link is only ever
             // discoverable via the partner's reverse symlink
-            port_path: partner.as_ref().and_then(|p| p.port_path.clone()),
+            device_links: partner.as_ref().and_then(|p| p.device_links.clone()),
             data_role: read_choice_attr(dir, "data_role"),
             power_role: read_choice_attr(dir, "power_role"),
             preferred_role: read_attr(dir, "preferred_role").and_then(|v| v.parse().ok()),
-            port_type: read_attr(dir, "port_type").and_then(|v| v.parse().ok()),
+            // port_type is a "choice" attribute like data_role/power_role: class.c always emits
+            // it bracketed (eg. "[dual] source sink" on DRP ports, "[source]" on fixed-role
+            // ports), the ABI doc's plain "source"/"sink"/"dual" wording never appears on the wire
+            port_type: read_choice_attr(dir, "port_type"),
             vconn_source: read_bool_attr(dir, "vconn_source"),
             power_operation_mode: read_attr(dir, "power_operation_mode")
                 .and_then(|v| v.parse().ok()),
@@ -551,10 +592,12 @@ mod sysfs {
             .filter_map(|e| {
                 let name = e.file_name().to_string_lossy().into_owned();
                 // top level ports are named "portN" - partners/cables are "portN-partner" /
-                // "portN-cable" siblings, alt-modes are "portN.M" children, skip both here
-                if name.starts_with("port")
-                    && name["port".len()..].chars().all(|c| c.is_ascii_digit())
-                {
+                // "portN-cable" siblings, alt-modes are "portN.M" children, skip both here.
+                // `name.len() > 4` rejects a bare "port" (`all()` over an empty iterator is
+                // vacuously true, so without this a directory literally named "port" would
+                // otherwise be misread as a port with an empty number)
+                let suffix = name.strip_prefix("port").unwrap_or_default();
+                if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) {
                     Some(parse_port(&name, &e.path(), root))
                 } else {
                     None
@@ -653,7 +696,7 @@ mod test {
         assert_eq!(p.orientation, Some(Orientation::Normal));
         assert_eq!(p.vconn_source, Some(false));
         assert_eq!(p.usb_power_delivery_revision.as_deref(), Some("3.0"));
-        assert_eq!(p.port_path, None);
+        assert_eq!(p.device_links, None);
         assert!(p.partner.is_none());
 
         let _ = fs::remove_dir_all(&root);
@@ -713,7 +756,7 @@ mod test {
         let modes = partner.alt_modes.as_ref().unwrap();
         assert_eq!(modes.len(), 1);
         assert_eq!(modes[0].svid, 0xff01);
-        assert_eq!(partner.port_path, None);
+        assert_eq!(partner.device_links, None);
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -738,11 +781,84 @@ mod test {
 
         let ports = enumerate_typec_ports(&root);
         let partner = ports[0].partner.as_ref().unwrap();
-        assert_eq!(partner.port_path, Some(PortPath::new(2, vec![2])));
+        assert_eq!(partner.device_links, Some(vec![PortPath::new(2, vec![2])]));
         // and it propagates up to the port itself
-        assert_eq!(ports[0].port_path, Some(PortPath::new(2, vec![2])));
+        assert_eq!(ports[0].device_links, Some(vec![PortPath::new(2, vec![2])]));
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    /// Hub/dock scenario: the kernel links BOTH the USB2 and USB3 enumeration of the same
+    /// physical device to one partner (`typec_partner_link_device()` called once per bus in
+    /// `class.c`) - result must be sorted, not dependent on `readdir` order, and deduped
+    #[test]
+    fn test_parse_partner_dual_usb2_usb3_device_links() {
+        let root = fixture_root("partner_dual_link");
+        let port0 = root.join("port0");
+        let partner = root.join("port0-partner");
+        fs::create_dir_all(&port0).unwrap();
+        fs::create_dir_all(&partner).unwrap();
+        // written in reverse-sorted order to prove the result isn't just readdir order
+        write_attr(&partner, "2-2", "");
+        write_attr(&partner, "1-2", "");
+
+        let ports = enumerate_typec_ports(&root);
+        let links = ports[0]
+            .device_links
+            .as_ref()
+            .expect("device links present");
+        assert_eq!(
+            links,
+            &vec![PortPath::new(1, vec![2]), PortPath::new(2, vec![2])]
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// `port_type` is a bracketed "choice" attribute on the wire, same as `data_role`/
+    /// `power_role`, never the plain value the ABI doc's wording alone would suggest
+    #[test]
+    fn test_parse_port_type_is_bracketed() {
+        let root = fixture_root("port_type_bracketed");
+        let drp = root.join("port0");
+        let fixed = root.join("port1");
+        fs::create_dir_all(&drp).unwrap();
+        fs::create_dir_all(&fixed).unwrap();
+        write_attr(&drp, "port_type", "[dual] source sink");
+        write_attr(&fixed, "port_type", "[source]");
+
+        let ports = enumerate_typec_ports(&root);
+        let drp_port = ports.iter().find(|p| p.name == "port0").unwrap();
+        let fixed_port = ports.iter().find(|p| p.name == "port1").unwrap();
+        assert_eq!(drp_port.port_type, Some(PortType::Dual));
+        assert_eq!(fixed_port.port_type, Some(PortType::Source));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A directory literally named "port" (no trailing digits) must not be misread as a port -
+    /// `"".chars().all(...)` on an empty suffix is vacuously true, which is the trap this guards
+    #[test]
+    fn test_bare_port_directory_name_is_ignored() {
+        let root = fixture_root("bare_port_name");
+        fs::create_dir_all(root.join("port")).unwrap();
+        fs::create_dir_all(root.join("port0")).unwrap();
+
+        let ports = enumerate_typec_ports(&root);
+        assert_eq!(ports.len(), 1);
+        assert_eq!(ports[0].name, "port0");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// Product/cable type vocabulary drift: current `class.c` emits `not_ufp`/`not_cable`/`vpd`,
+    /// not the `undefined` wording the ABI doc alone documents
+    #[test]
+    fn test_product_and_cable_type_current_kernel_vocabulary() {
+        assert_eq!("not_ufp".parse::<ProductType>(), Ok(ProductType::NotUfp));
+        assert_eq!("not_dfp".parse::<ProductType>(), Ok(ProductType::NotDfp));
+        assert_eq!("not_cable".parse::<CableType>(), Ok(CableType::NotCable));
+        assert_eq!("vpd".parse::<CableType>(), Ok(CableType::Vpd));
     }
 
     /// Cable type/plug_type
