@@ -1,0 +1,35 @@
+@startuml correlation-sequence
+title "Resolving TypecPort.device_links -- ACPI systems vs. Device-Tree/UCSI (this issue's hardware)"
+
+actor "cyme" as cyme
+participant "enumerate_typec_ports()" as enum
+database "/sys/class/typec/portN*" as sysfs
+participant "kernel: port-mapper.c\ntypec_link_ports()" as kernel
+
+== ACPI system (most x86) ==
+cyme -> enum: enumerate_default_typec_ports()
+enum -> sysfs: read portN-partner/ dir
+kernel -> sysfs: (at boot/hotplug) matches port <-> device\nvia shared _PLD, creates reverse\n"typec" symlink inside portN-partner/<dev>/
+sysfs --> enum: reverse symlink present,\nnamed after the linked device ("2-2")
+enum -> enum: parse "2-2" as PortPath
+enum --> cyme: TypecPort { device_links: Some([PortPath]) }
+cyme -> cyme: SystemProfile::get_node(&PortPath)\n-> resolves to a real Device
+
+== Device Tree / UCSI system (Snapdragon X Elite, this issue's actual dumps) ==
+cyme -> enum: enumerate_default_typec_ports()
+enum -> sysfs: read portN-partner/ dir
+kernel -> kernel: typec_link_ports() bails out\nimmediately -- "no ACPI companion"\n(guard added 2022 to stop a null-deref\non Apple M1, pure Device Tree)
+sysfs --> enum: no reverse symlink exists
+enum --> cyme: TypecPort { device_links: None }
+note right of cyme
+  No Device correlation possible here --
+  this is the exact hardware from this
+  thread's real dumps (dragon/soup,
+  comments from 2026-07-17).
+  device_links: None is the correct,
+  expected result, not a bug -- confirmed
+  by reading port-mapper.c line by line,
+  not assumed from the ABI docs.
+end note
+
+@enduml
