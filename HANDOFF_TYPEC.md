@@ -137,6 +137,60 @@ volunteer's dump), validate `device_links` correlation first instead — a corre
 found *after* wiring means re-litigating an already-shown JSON shape, which is more
 expensive than finding it before.
 
+## 2026-07-23 (later same day): security-hardening follow-up to `4d03255`
+
+After the wiring commit (`4d03255`, `get_spusb_with_options()` now calls
+`enumerate_default_typec_ports()`), two review passes ran against it: `code-reviewer` and
+`security-reviewer` (both Fable). `security-reviewer` escalated `read_attr`'s unbounded
+`fs::read_to_string()` from the earlier LOW/advisory rating (see "Traps already found" above,
+item 5 in that review's original notes) to **MEDIUM**, for one specific reason: reachability
+changed.
+
+- **Before `4d03255`**: `read_attr` was inert — nothing outside `src/usb/typec.rs`'s own test
+  module called anything in this file. An unbounded read here couldn't be triggered by running
+  `cyme` at all.
+- **After `4d03255`**: `enumerate_default_typec_ports()` runs on the **default path of every
+  Linux invocation** of `cyme` — every output mode (not just `--json`), and in watch mode too,
+  since typec re-enumeration was deliberately left un-gated behind any flag (see decision 3 in
+  the "Recommended next step" section above). `read_attr` reads whatever `/sys/class/typec/**`
+  resolves to, unconditionally, on every run.
+- **Risk scenario the reviewer gave**: an adversarial or merely malformed mount under
+  `/sys/class/typec` (eg. a symlink pointing at `/dev/zero`, or a FIFO with nothing on the
+  writing end) would make `fs::read_to_string` either allocate unbounded memory or block
+  indefinitely — on the default path, not an opt-in one. Real kernel sysfs attribute files are
+  bounded by the kernel's own `sysfs_kf_read()` to one `PAGE_SIZE` (4096 bytes) per attribute,
+  so matching that bound in `read_attr` costs nothing on legitimate hardware.
+
+**Fix applied**: `read_attr` now does `fs::File::open(...)` +
+`.take(MAX_ATTR_LEN as u64).read_to_end(&mut buf)` (new `pub(crate) const MAX_ATTR_LEN: usize =
+4096` inside the `sysfs` module) instead of `fs::read_to_string`, then `String::from_utf8(buf)`.
+Behaviour preserved exactly for every existing case: invalid UTF-8 still yields `None` (via
+`.ok()?` on `String::from_utf8`, same as `.ok()?` on `read_to_string` before), and the
+trim-then-empty-check-then-`to_string()` tail is untouched. Only new behaviour: reads past 4096
+bytes are silently truncated to the cap rather than read in full. `read_choice_attr` needed no
+separate fix — it already calls `read_attr` internally rather than reading the file itself, so
+capping `read_attr` fixes it transitively; checked, no other unbounded read exists in this file.
+
+New regression test `test_read_attr_caps_oversized_file` (fixture-based, same pattern as the
+rest of the module): writes a `usb_power_delivery_revision` attribute file of `MAX_ATTR_LEN +
+904` repeated `'a'` bytes, asserts the parsed value's length is exactly `MAX_ATTR_LEN` and
+equals `"a".repeat(MAX_ATTR_LEN)` — proves truncation happens at the right byte boundary, not
+just "some" truncation. `MAX_ATTR_LEN` re-exported `pub(crate)` under `#[cfg(all(test,
+target_os = "linux"))]` so the test can reference the same constant `read_attr` uses, instead of
+hardcoding `4096` twice.
+
+Verified clean after the fix: `cargo test` (61 tests, full crate), `cargo clippy --all-targets
+--all-features -- -D warnings`, `cargo fmt --check`, and `cargo check --target
+x86_64-pc-windows-msvc` (re-ran the cross-compile check from trap #4 since this touches
+`#[cfg(target_os = "linux")]`-gated code).
+
+**Why this section exists**: this fix has not been shown to `tuna-f1sh` or posted to the issue —
+per the standing instruction in this doc, nothing is being pushed or commented today. This entry
+exists so that when a PR is eventually opened upstream, the commit that hardens `read_attr` can
+be described accurately and cite the actual security-review finding and reasoning behind it
+(escalation from LOW to MEDIUM specifically because of the reachability change in `4d03255`),
+rather than reconstructing the justification from scratch in a future session.
+
 ## How to resume
 
 ```

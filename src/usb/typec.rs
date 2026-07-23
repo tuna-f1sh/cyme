@@ -429,9 +429,26 @@ impl fmt::Display for TypecPort {
 mod sysfs {
     use super::*;
     use std::fs;
+    use std::io::Read as _;
+
+    /// Maximum number of bytes read from a single sysfs attribute file
+    ///
+    /// Real kernel sysfs attributes are served through `sysfs_kf_read()`, which is backed by a
+    /// single `PAGE_SIZE` (4096 bytes on every architecture cyme targets) buffer - the kernel
+    /// itself never emits more than this for one attribute, so the cap costs nothing on
+    /// legitimate hardware. Without it, `read_attr` would follow whatever `/sys/class/typec`
+    /// resolves to on the *default* enumeration path (every output mode, including watch mode) -
+    /// a hostile or merely malformed mount there (eg. a symlink to `/dev/zero`, or a FIFO) could
+    /// otherwise force unbounded memory growth or an indefinite hang.
+    pub(crate) const MAX_ATTR_LEN: usize = 4096;
 
     fn read_attr(dir: &Path, name: &str) -> Option<String> {
-        let content = fs::read_to_string(dir.join(name)).ok()?;
+        let file = fs::File::open(dir.join(name)).ok()?;
+        let mut buf = Vec::with_capacity(MAX_ATTR_LEN);
+        file.take(MAX_ATTR_LEN as u64).read_to_end(&mut buf).ok()?;
+        // invalid UTF-8 is treated the same as any other unreadable attribute (None), matching
+        // the previous `fs::read_to_string` behaviour rather than lossily replacing bytes
+        let content = String::from_utf8(buf).ok()?;
         let trimmed = content.trim();
         if trimmed.is_empty() {
             None
@@ -612,6 +629,8 @@ mod sysfs {
 
 #[cfg(target_os = "linux")]
 pub use sysfs::enumerate_typec_ports;
+#[cfg(all(test, target_os = "linux"))]
+pub(crate) use sysfs::MAX_ATTR_LEN;
 
 /// Enumerate USB Type-C ports from the default sysfs location (`/sys/class/typec`)
 ///
@@ -887,6 +906,31 @@ mod test {
         let cable = ports[0].cable.as_ref().expect("cable present");
         assert_eq!(cable.cable_type, Some(CableType::Active));
         assert_eq!(cable.plug_type, Some(PlugType::TypeC));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// Security-hardening regression test (follow-up to the `4d03255` `SystemProfile` wiring
+    /// commit, see `HANDOFF_TYPEC.md`): a hostile or malformed sysfs mount could otherwise force
+    /// an unbounded read on the default enumeration path - `read_attr` must cap at
+    /// `MAX_ATTR_LEN` so an oversized attribute file is truncated, not read in full. All bytes
+    /// are the same repeated character so an accidental truncation at the wrong boundary would
+    /// show up as a length mismatch rather than silently-correct-looking content.
+    #[test]
+    fn test_read_attr_caps_oversized_file() {
+        let root = fixture_root("oversized_attr");
+        let port0 = root.join("port0");
+        fs::create_dir_all(&port0).unwrap();
+        let oversized = "a".repeat(MAX_ATTR_LEN + 904); // arbitrary amount past the cap
+        write_attr(&port0, "usb_power_delivery_revision", &oversized);
+
+        let ports = enumerate_typec_ports(&root);
+        let value = ports[0]
+            .usb_power_delivery_revision
+            .as_ref()
+            .expect("value present, just truncated");
+        assert_eq!(value.len(), MAX_ATTR_LEN);
+        assert_eq!(value, &"a".repeat(MAX_ATTR_LEN));
 
         let _ = fs::remove_dir_all(&root);
     }
