@@ -630,7 +630,12 @@ where
 
     /// Build the [`SystemProfile`] from the Profiler get_devices and get_root_hubs (for buses) functions
     fn get_spusb(&mut self, options: &ProfilerOptions) -> Result<SystemProfile> {
-        let mut spusb = SystemProfile { buses: Vec::new() };
+        // typec_ports is attached afterward by get_spusb_with_options, which wraps this backend
+        // dispatch - it's a system-wide enumeration independent of either backend
+        let mut spusb = SystemProfile {
+            buses: Vec::new(),
+            typec_ports: None,
+        };
 
         if options.depth.includes_extra() {
             log::info!("Building SystemProfile using {self:?} with extra device data");
@@ -874,29 +879,37 @@ pub fn get_spusb_with_extra() -> Result<SystemProfile> {
 }
 
 /// Build [`SystemProfile`] with [`ProfilerOptions`] to allow for more performant profiling when using filters
+///
+/// After the backend (nusb/libusb) builds the device tree, this also attaches
+/// [`SystemProfile::typec_ports`] - a system-wide enumeration of `/sys/class/typec` independent of
+/// either backend, so it is done once here rather than duplicated into both `nusb` and `libusb`.
+/// See [`SystemProfile::typec_ports`] for the `None`/`Some(vec![])` semantics.
 #[allow(unused_variables)]
 pub fn get_spusb_with_options(options: &ProfilerOptions) -> Result<SystemProfile> {
     #[cfg(all(feature = "libusb", not(feature = "nusb")))]
-    {
+    let profile = {
         let mut profiler = libusb::LibUsbProfiler;
         <libusb::LibUsbProfiler as Profiler<libusb::UsbDevice<rusb::Context>>>::get_spusb(
             &mut profiler,
             options,
         )
-    }
+    };
     #[cfg(feature = "nusb")]
-    {
+    let profile = {
         let mut profiler = nusb::NusbProfiler::new();
         profiler.get_spusb(options)
-    }
+    };
 
     #[cfg(all(not(feature = "libusb"), not(feature = "nusb")))]
-    {
-        Err(crate::error::Error::new(
-            crate::error::ErrorKind::Unsupported,
-            "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`",
-        ))
-    }
+    let profile: Result<SystemProfile> = Err(crate::error::Error::new(
+        crate::error::ErrorKind::Unsupported,
+        "nusb or libusb feature is required to do this, install with `cargo install --features nusb/libusb`",
+    ));
+
+    profile.map(|mut profile| {
+        profile.typec_ports = usb::enumerate_default_typec_ports();
+        profile
+    })
 }
 
 #[cfg(target_os = "windows")]

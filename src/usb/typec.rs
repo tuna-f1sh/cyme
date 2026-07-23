@@ -615,15 +615,26 @@ pub use sysfs::enumerate_typec_ports;
 
 /// Enumerate USB Type-C ports from the default sysfs location (`/sys/class/typec`)
 ///
-/// Always returns an empty `Vec` on non-Linux platforms - the typec sysfs class is Linux-only.
-pub fn enumerate_default_typec_ports() -> Vec<TypecPort> {
+/// Distinguishes "not supported" from "supported but nothing plugged in" so callers (see
+/// [`crate::profiler::SystemProfile::typec_ports`]) can skip serializing the field entirely on
+/// platforms/kernels without typec support, rather than emitting a misleading empty array:
+///
+/// - `None` - not supported: always on non-Linux platforms, or on Linux when
+///   `/sys/class/typec` does not exist (no typec class driver loaded on this kernel).
+/// - `Some(vec![])` - supported, but no ports currently enumerated.
+/// - `Some(ports)` - supported, with the enumerated ports.
+pub fn enumerate_default_typec_ports() -> Option<Vec<TypecPort>> {
     #[cfg(target_os = "linux")]
     {
-        enumerate_typec_ports(Path::new(SYSFS_TYPEC_PREFIX))
+        let root = Path::new(SYSFS_TYPEC_PREFIX);
+        if !root.exists() {
+            return None;
+        }
+        Some(enumerate_typec_ports(root))
     }
     #[cfg(not(target_os = "linux"))]
     {
-        Vec::new()
+        None
     }
 }
 
@@ -906,5 +917,18 @@ mod test {
         let root = std::env::temp_dir().join("cyme_typec_test_definitely_does_not_exist_xyz");
         let _ = fs::remove_dir_all(&root);
         assert_eq!(enumerate_typec_ports(&root), Vec::new());
+    }
+
+    /// `enumerate_default_typec_ports` distinguishes "not supported" (`None`) from "supported,
+    /// nothing enumerated" (`Some(vec![])`) - it hardcodes `SYSFS_TYPEC_PREFIX` so can't take an
+    /// injected root like `enumerate_typec_ports` can, so exercise it against the real path
+    /// directly. Most dev machines and CI runners have no `/sys/class/typec` at all, so assert
+    /// the documented `None` semantics hold there; skip (rather than fail) on a machine that
+    /// genuinely has typec hardware, since this test has no way to fake that away.
+    #[test]
+    fn test_default_typec_ports_none_when_sysfs_absent() {
+        if !Path::new(SYSFS_TYPEC_PREFIX).exists() {
+            assert_eq!(enumerate_default_typec_ports(), None);
+        }
     }
 }
