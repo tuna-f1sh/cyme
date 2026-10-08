@@ -23,6 +23,19 @@ pub struct SystemProfile {
     /// system buses
     #[serde(rename(deserialize = "SPUSBDataType"), alias = "buses")]
     pub buses: Vec<Bus>,
+    /// USB Type-C ports read from the Linux `typec` sysfs class (`/sys/class/typec`), independent
+    /// of the USB device tree in `buses` - see [`crate::usb::TypecPort::device_links`] for how a
+    /// port can still be correlated back to a `Device` when the kernel exposes the link.
+    ///
+    /// A static snapshot taken once per profiling run - not re-enumerated by `SystemProfileStream`
+    /// (watch/hotplug mode), so a long-running watch session will not observe Type-C changes here.
+    ///
+    /// `None` means Type-C is not supported on this platform/kernel (always `None` on
+    /// macOS/Windows, or on Linux without `/sys/class/typec`) and the field is omitted entirely
+    /// from JSON output so existing output on unsupported platforms is unchanged. `Some(vec![])`
+    /// means the sysfs class is present but no ports are currently enumerated.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub typec_ports: Option<Vec<TypecPort>>,
 }
 
 impl SystemProfile {
@@ -2646,7 +2659,11 @@ pub fn read_flat_json_to_phony_bus<P: AsRef<Path>>(file_path: P) -> Result<Syste
         ..Default::default()
     };
 
-    Ok(SystemProfile { buses: vec![bus] })
+    Ok(SystemProfile {
+        buses: vec![bus],
+        // synthetic import from a flat JSON dump, not a live sysfs profile - no typec data to attach
+        typec_ports: None,
+    })
 }
 
 /// Deserializes an option number from String (base10 or base16 encoding) or a number
@@ -2829,5 +2846,39 @@ mod tests {
     #[test]
     fn test_json_dump_read_not_panic() {
         read_json_dump("./tests/data/system_profiler_dump.json").unwrap();
+    }
+
+    /// `typec_ports: None` (platform/kernel without typec support) must be omitted entirely from
+    /// JSON output, so existing output on those platforms stays byte-identical to before the field
+    /// existed
+    #[test]
+    fn test_system_profile_typec_ports_none_omitted_from_json() {
+        let spusb = SystemProfile {
+            buses: vec![],
+            typec_ports: None,
+        };
+        let json = serde_json::to_string(&spusb).unwrap();
+        assert_eq!(json, "{\"buses\":[]}");
+        assert!(!json.contains("typec_ports"));
+    }
+
+    /// `typec_ports: Some(vec![])` (typec supported, nothing plugged in) must still serialize as
+    /// an explicit empty array, distinct from the omitted-field `None` case
+    #[test]
+    fn test_system_profile_typec_ports_some_empty_serializes_as_empty_array() {
+        let spusb = SystemProfile {
+            buses: vec![],
+            typec_ports: Some(vec![]),
+        };
+        let json = serde_json::to_string(&spusb).unwrap();
+        assert_eq!(json, "{\"buses\":[],\"typec_ports\":[]}");
+    }
+
+    /// A JSON dump written before `typec_ports` existed must still deserialize cleanly, defaulting
+    /// the missing field to `None` rather than erroring
+    #[test]
+    fn test_system_profile_deserializes_without_typec_ports_field() {
+        let spusb: SystemProfile = serde_json::from_str("{\"buses\":[]}").unwrap();
+        assert_eq!(spusb.typec_ports, None);
     }
 }

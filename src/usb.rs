@@ -17,6 +17,8 @@ pub mod descriptors;
 pub use descriptors::*;
 pub mod path;
 pub use path::*;
+pub mod typec;
+pub use typec::*;
 
 use crate::error::{self, Error, ErrorKind};
 use crate::profiler::InternalData;
