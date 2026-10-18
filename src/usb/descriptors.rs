@@ -1196,15 +1196,18 @@ impl From<HubDescriptor> for Vec<u8> {
 }
 
 impl HubDescriptor {
-    /// Type 3 devices have a delay field, which is a combination of latency in nano seconds
+    /// `wHubDelay` in nano seconds; SuperSpeed (protocol 3) hubs only
+    ///
+    /// A little-endian u16 at descriptor offset 8, so `data[1..3]` since `data`
+    /// starts at offset 7. See USB 3.2 r1.1 Table 10-3.
     pub fn delay(&self) -> Option<u16> {
-        match (self.latency(), self.data.get(1)) {
-            (Some(l), Some(d)) => Some((*d as u16) << (4 + l)),
+        match (self.data.get(1), self.data.get(2)) {
+            (Some(lsb), Some(msb)) => Some(u16::from_le_bytes([*lsb, *msb])),
             _ => None,
         }
     }
 
-    /// Type 3 devices have a latency field
+    /// `bHubHdrDecLat` in tenths of a micro second; SuperSpeed (protocol 3) hubs only
     pub fn latency(&self) -> Option<u8> {
         self.data.first().copied()
     }
