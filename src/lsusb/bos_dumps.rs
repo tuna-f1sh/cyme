@@ -69,6 +69,9 @@ fn dump_ss_capability(d: &bos::SuperSpeedCapability, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
     dump_hex(d.attributes, "bmAttributes", indent + 2, LSUSB_DUMP_WIDTH);
+    if d.attributes & 0x02 != 0 {
+        dump_string("Latency Tolerance Messages (LTM) Supported", indent + 4);
+    }
     dump_hex(
         d.speed_supported,
         "wSpeedsSupported",
@@ -388,15 +391,65 @@ fn dump_webusb_platform_capability(d: &bos::WebUsbPlatformCapability, indent: us
         indent + 6,
         LSUSB_DUMP_WIDTH,
     );
+    // lsusb returns after the WebUSB block, so CapabilityData is not dumped
+}
 
-    for (i, b) in d.platform.data.iter().enumerate() {
-        dump_hex(
-            *b,
-            &format!("CapabilityData[{i}]"),
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
-        );
-    }
+fn dump_fwstatus_capability(d: &bos::FirmwareStatusCapability, indent: usize) {
+    // lsusb uses literal tabs in this descriptor's format string; keep them so
+    // the output is byte-identical
+    dump_string("FWStatus Capability:", indent);
+    println!(
+        "{:indent$}bLength\t\t    {:5}",
+        "",
+        d.length,
+        indent = indent + 2
+    );
+    println!(
+        "{:indent$}bDescriptorType\t    {:5}",
+        "",
+        d.descriptor_type,
+        indent = indent + 2
+    );
+    println!(
+        "{:indent$}bDevCapabilityType\t    {:5}",
+        "",
+        u8::from(d.capability_type.to_owned()),
+        indent = indent + 2
+    );
+    println!(
+        "{:indent$}bcdDescriptorVersion   {:5}",
+        "",
+        d.descriptor_version,
+        indent = indent + 2
+    );
+    println!(
+        "{:indent$}bmAttributes\t    0x{:08X}",
+        "",
+        d.attributes,
+        indent = indent + 2
+    );
+    dump_string(
+        &format!(
+            "Get FW Image Hash support: {}",
+            if d.attributes & (1 << 0) != 0 {
+                "Yes"
+            } else {
+                "No"
+            }
+        ),
+        indent + 4,
+    );
+    dump_string(
+        &format!(
+            "Disallow FW Update support: {}",
+            if d.attributes & (1 << 1) != 0 {
+                "Yes"
+            } else {
+                "No"
+            }
+        ),
+        indent + 4,
+    );
 }
 
 pub fn dump_container_id_capability(d: &bos::ContainerIdCapability, indent: usize) {
@@ -505,6 +558,9 @@ pub(crate) fn dump_bos_descriptor(
             }
             bos::BosCapability::WebUsbPlatform(d) => {
                 dump_webusb_platform_capability(d, indent + 2);
+            }
+            bos::BosCapability::FirmwareStatus(d) => {
+                dump_fwstatus_capability(d, indent + 2);
             }
             _ => {
                 let data: Vec<u8> = cap.to_owned().into();
