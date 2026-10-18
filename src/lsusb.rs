@@ -310,14 +310,32 @@ pub fn dump_one_device<P: AsRef<Path>>(devices: &Vec<&Device>, dev_path: P) -> R
     ))
 }
 
-fn find_otg(extra: &[Descriptor]) -> Option<&OnTheGoDescriptor> {
-    extra.iter().find_map(|d| match d {
-        Descriptor::Otg(otg) => {
-            log::debug!("Found OTG descriptor: {otg:?}");
-            dump_otg(otg, LSUSB_DUMP_INDENT_BASE);
-            Some(otg)
-        }
-        _ => None,
+/// Find the OTG descriptor belonging to a [`Configuration`]
+///
+/// Mirrors lsusb's `do_otg`, which looks in the configuration's own extra
+/// descriptors first, then those of each interface, then each endpoint. Purely
+/// a search - the caller dumps it, once, so that a device with an OTG
+/// descriptor does not print it per interface and endpoint.
+fn find_otg(config: &Configuration) -> Option<&OnTheGoDescriptor> {
+    fn in_extra(extra: Option<&Vec<Descriptor>>) -> Option<&OnTheGoDescriptor> {
+        extra?.iter().find_map(|d| match d {
+            Descriptor::Otg(otg) => {
+                log::debug!("Found OTG descriptor: {otg:?}");
+                Some(otg)
+            }
+            _ => None,
+        })
+    }
+
+    in_extra(config.extra.as_ref()).or_else(|| {
+        config.interfaces.iter().find_map(|interface| {
+            in_extra(interface.extra.as_ref()).or_else(|| {
+                interface
+                    .endpoints
+                    .iter()
+                    .find_map(|endpoint| in_extra(endpoint.extra.as_ref()))
+            })
+        })
     })
 }
 
@@ -344,18 +362,21 @@ pub fn print(devices: &Vec<&Device>, verbose: bool) {
                 Some(device_extra) => {
                     dump_device(device);
 
-                    let mut otg = None;
+                    // lsusb do_otg: configuration 0 only, dumped once at the top
+                    // level before any configuration descriptor
+                    let otg = device_extra.configurations.first().and_then(find_otg);
+                    if let Some(otg) = otg {
+                        dump_otg(otg, 0);
+                    }
+
                     for config in &device_extra.configurations {
                         dump_config(config, LSUSB_DUMP_INDENT_BASE);
-                        otg = config.extra.as_ref().map(|e| find_otg(e));
 
                         for interface in &config.interfaces {
                             dump_interface(interface, LSUSB_DUMP_INDENT_BASE * 2);
-                            otg = config.extra.as_ref().map(|e| find_otg(e));
 
                             for endpoint in &interface.endpoints {
                                 dump_endpoint(endpoint, LSUSB_DUMP_INDENT_BASE * 3);
-                                otg = config.extra.as_ref().map(|e| find_otg(e));
                             }
                         }
                     }
@@ -374,9 +395,12 @@ pub fn print(devices: &Vec<&Device>, verbose: bool) {
                         let bcd = device.bcd_usb.map_or(0x0100, |v| v.into());
                         dump_hub(hub, device.protocol.unwrap_or(1), bcd, has_ssp, 0);
                     }
-                    // lsusb do_dualspeed: dump_device_qualifier
-                    if let Some(qualifier) = &device_extra.qualifier {
-                        dump_device_qualifier(qualifier, 0);
+                    // lsusb do_dualspeed: only called for devices reporting
+                    // exactly USB 2.00, since only those have a qualifier
+                    if device.bcd_usb.is_some_and(|v| u16::from(v) == 0x0200) {
+                        if let Some(qualifier) = &device_extra.qualifier {
+                            dump_device_qualifier(qualifier, 0);
+                        }
                     }
                     if let Some(debug) = &device_extra.debug {
                         dump_debug(debug, 0);
