@@ -1109,6 +1109,12 @@ pub struct Endpoint {
     pub max_packet_size: u16,
     /// Interval for polling endpoint data transfers. Value in frame counts. Ignored for Bulk & Control Endpoints. Isochronous must equal 1 and field may range from 1 to 255 for interrupt endpoints.
     pub interval: u8,
+    /// bRefresh: synch feedback rate, 9 byte audio endpoints only
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refresh: Option<u8>,
+    /// bSynchAddress: synch endpoint address, 9 byte audio endpoints only
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync_address: Option<u8>,
     /// Extra descriptors data based on type
     #[serde(default)] // default for legacy json
     pub extra: Option<Vec<Descriptor>>,
@@ -1127,12 +1133,12 @@ pub type USBEndpoint = Endpoint;
 impl Endpoint {
     /// Decodes the max packet value into a multiplier and number of bytes like lsusb
     pub fn max_packet_string(&self) -> String {
-        format!(
-            "{}x {}",
-            // packets per microframe
-            self.packets_per_microframe(),
-            self.max_packet_size & 0x7ff
-        )
+        // lsusb shows the reserved value 3 as "(??)"
+        let transactions = match self.packets_per_microframe() {
+            4 => String::from("(??)"),
+            n => format!("{n}x"),
+        };
+        format!("{} {}", transactions, self.max_packet_size & 0x7ff)
     }
 
     /// Returns the maximum packet size in bytes for the endpoint
