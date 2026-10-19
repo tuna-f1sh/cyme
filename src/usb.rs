@@ -1381,6 +1381,14 @@ pub struct Configuration {
     pub interfaces: Vec<Interface>,
     /// Attributes of configuration, bmAttributes - was a HashSet since attributes should be unique but caused issues printing out of order
     pub attributes: Vec<ConfigAttributes>,
+    /// Raw bmAttributes byte as reported by the device
+    ///
+    /// Kept alongside the parsed [`ConfigAttributes`] because the reserved bit
+    /// 7 is not representable there, and lsusb reports when a device fails to
+    /// set it. `None` for profiles that cannot supply it, such as macOS
+    /// system_profiler and older JSON dumps.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attributes_raw: Option<u8>,
     /// Maximum power consumption in mA
     pub max_power: NumericalUnit<u32>,
     /// Size of configuration descriptor in bytes
@@ -1407,7 +1415,14 @@ impl Configuration {
     }
 
     /// Convert attributes back to reg value
+    ///
+    /// Prefers the raw byte when the profiler captured it, so that a device
+    /// which fails to set the must-be-set reserved bit is reported as it is.
     pub fn attributes_value(&self) -> u8 {
+        if let Some(raw) = self.attributes_raw {
+            return raw;
+        }
+
         let mut ret: u8 = 0x80; // always set reserved bit
         for attr in self.attributes.iter() {
             match attr {

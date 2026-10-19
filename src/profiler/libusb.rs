@@ -411,6 +411,9 @@ impl LibUsbProfiler {
                     .as_ref()
                     .is_some_and(|(c, _)| *c == config_desc.number()),
                 attributes,
+                // rusb exposes only the decoded self_powered/remote_wakeup
+                // bits, not the byte, so fall back to reconstructing it
+                attributes_raw: None,
                 max_power: NumericalUnit {
                     value: config_desc.max_power() as u32 * power_mult,
                     unit: String::from("mA"),

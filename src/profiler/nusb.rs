@@ -571,6 +571,7 @@ impl NusbProfiler {
                 number: c.configuration_value(),
                 active,
                 attributes,
+                attributes_raw: Some(c.attributes()),
                 max_power: NumericalUnit {
                     value: (c.max_power() as u32 * power_mult),
                     unit: String::from("mA"),

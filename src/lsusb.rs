@@ -599,6 +599,10 @@ fn dump_config(config: &Configuration, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
+    // bit 7 is reserved and must be set
+    if config.attributes_value() & 0x80 == 0 {
+        dump_string("(Missing must-be-set bit!)", indent + 4);
+    }
     // no attributes is bus powered
     if config.attributes.contains(&ConfigAttributes::SelfPowered) {
         dump_string("Self Powered", indent + 4);
