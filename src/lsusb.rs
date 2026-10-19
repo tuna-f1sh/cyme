@@ -1125,42 +1125,53 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_bitmap_strings(
-        ccid.features,
-        |index| match index {
-            0 => Some("Auto configuration based on ATR"),
-            1 => Some("Auto activation on insert"),
-            2 => Some("Auto voltage selection"),
-            3 => Some("Auto clock change"),
-            4 => Some("Auto baud rate change"),
-            5 => Some("Auto parameter negotiation made by CCID"),
-            6 => Some("Auto PPS made by CCID"),
-            7 => Some("CCID can set ICC in clock stop mode"),
-            8 => Some("NAD value other than 0x00 accepted (T=1)"),
-            9 => Some("Auto IFSD exchange"),
-            15 => Some("Character level exchange"),
-            16 => Some("TPDU level exchange"),
-            // results in same as us & 0x00070000 == 0x02 in lsusb
-            17 => Some("Short APDU level exchange"),
-            // results in same as us & 0x00070000 == 0x04 in lsusb
-            18 => Some("Short and extended APDU level exchange"),
-            _ => None,
-        },
-        indent + 4,
-    );
-    if (ccid.features & (0x0040 | 0x0080)) != 0 {
-        println!(
+    // written out longhand rather than as a bitmap walk because lsusb
+    // interleaves two mutually exclusive choices - the negotiation mode and
+    // the exchange level - between the plain flag bits, and warns rather than
+    // listing when more than one bit of a choice is set
+    for (mask, s) in [
+        (0x0002, "Auto configuration based on ATR"),
+        (0x0004, "Auto activation on insert"),
+        (0x0008, "Auto voltage selection"),
+        (0x0010, "Auto clock change"),
+        (0x0020, "Auto baud rate change"),
+    ] {
+        if ccid.features & mask != 0 {
+            dump_string(s, indent + 4);
+        }
+    }
+    match ccid.features & (0x0040 | 0x0080) {
+        0x0040 => dump_string("Auto parameter negotiation made by CCID", indent + 4),
+        0x0080 => dump_string("Auto PPS made by CCID", indent + 4),
+        0x0000 => (),
+        _ => println!(
             "{:indent$}WARNING: conflicting negotiation features",
             "",
             indent = indent + 2
-        );
+        ),
     }
-    if ccid.features & 0x00070000 != 0 {
-        println!(
+    for (mask, s) in [
+        (0x0100, "CCID can set ICC in clock stop mode"),
+        (0x0200, "NAD value other than 0x00 accepted (T=1)"),
+        (0x0400, "Auto IFSD exchange (T=1)"),
+    ] {
+        if ccid.features & mask != 0 {
+            dump_string(s, indent + 4);
+        }
+    }
+    match ccid.features & 0x00070000 {
+        0x00000000 => dump_string("Character level exchange", indent + 4),
+        0x00010000 => dump_string("TPDU level exchange", indent + 4),
+        0x00020000 => dump_string("Short APDU level exchange", indent + 4),
+        0x00040000 => dump_string("Short and extended APDU level exchange", indent + 4),
+        _ => println!(
             "{:indent$}WARNING: conflicting exchange levels",
             "",
             indent = indent + 2
-        );
+        ),
+    }
+    if ccid.features & 0x00100000 != 0 {
+        dump_string("USB wakeup on ICC insertion and removal", indent + 4);
     }
 
     dump_value(
@@ -1222,6 +1233,18 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
+
+    if !ccid.junk.is_empty() {
+        println!(
+            "{:indent$}junk             {}",
+            "",
+            ccid.junk
+                .iter()
+                .map(|b| format!(" {b:02x}"))
+                .collect::<String>(),
+            indent = indent + 2
+        );
+    }
 }
 
 fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
