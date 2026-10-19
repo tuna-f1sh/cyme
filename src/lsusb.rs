@@ -1297,14 +1297,12 @@ fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
             if desc.capabilities & 0x0010 != 0 {
                 print!(" HTTP-over-USB");
             }
-            if (desc.capabilities & 0x0060) != 0 {
-                print!(" No-Auth");
-            } else if (desc.capabilities & 0x0060) != 0x20 {
-                print!(" Username-Auth");
-            } else if (desc.capabilities & 0x0060) != 0x40 {
-                print!(" Reserved-Auth");
-            } else if (desc.capabilities & 0x0060) != 0x60 {
-                print!(" Negotiable-Auth");
+            // two bit enum, not a bitmap
+            match desc.capabilities & 0x0060 {
+                0x00 => print!(" No-Auth"),
+                0x20 => print!(" Username-Auth"),
+                0x40 => print!(" Reserved-Auth"),
+                _ => print!(" Negotiable-Auth"),
             }
             println!();
         // vendor specific
@@ -1351,10 +1349,16 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 cd.capabilities,
                 |b| match b {
                     0 => Some("call management"),
-                    1 => Some("dataInterface"),
+                    1 => Some("use DataInterface"),
                     _ => None,
                 },
                 indent + 4,
+            );
+            dump_value(
+                cd.data_interface,
+                "bDataInterface",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
             );
         }
         cdc::CdcInterfaceDescriptor::AbstractControlManagement(cd) => {
@@ -1521,7 +1525,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
             );
         }
         cdc::CdcInterfaceDescriptor::DeviceManagement(d) => {
-            dump_string("CDC MDLM:", indent);
+            dump_string("CDC Device Management:", indent);
             dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
             dump_value(d.max_command, "wMaxCommand", indent + 2, LSUSB_DUMP_WIDTH);
         }
@@ -1666,14 +1670,15 @@ fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
     } else {
         println!("{:indent$}Will Not Detach", "", indent = indent + 4);
     }
+    // set means usable after manifestation (DFU 1.1 4.1.3)
     if dfud.attributes & 0x04 != 0 {
+        println!("{:indent$}Manifestation Tolerant", "", indent = indent + 4);
+    } else {
         println!(
             "{:indent$}Manifestation Intolerant",
             "",
             indent = indent + 4
         );
-    } else {
-        println!("{:indent$}Manifestation Tolerant", "", indent = indent + 4);
     }
     if dfud.attributes & 0x02 != 0 {
         println!("{:indent$}Upload Supported", "", indent = indent + 4);
