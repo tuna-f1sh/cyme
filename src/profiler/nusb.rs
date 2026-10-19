@@ -388,6 +388,15 @@ impl NusbProfiler {
                 usage_type: usb::UsageType::from(endpoint.attributes()),
                 max_packet_size: endpoint.max_packet_size_raw(),
                 interval: endpoint.interval(),
+                // only audio endpoint descriptors carry these, as bytes 7 and 8
+                // of a 9 byte descriptor. as_bytes may run on into following
+                // descriptors, so bound by bLength too
+                refresh: (endpoint_desc[0] >= 9)
+                    .then(|| endpoint_desc.get(7).copied())
+                    .flatten(),
+                sync_address: (endpoint_desc[0] >= 9)
+                    .then(|| endpoint_desc.get(8).copied())
+                    .flatten(),
                 length: endpoint_desc[0],
                 extra: self
                     .build_endpoint_descriptor_extra(

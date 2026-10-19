@@ -260,6 +260,10 @@ impl LibUsbProfiler {
                 usage_type: usb::UsageType::from(endpoint_desc.usage_type()),
                 max_packet_size: endpoint_desc.max_packet_size(),
                 interval: endpoint_desc.interval(),
+                // only audio endpoint descriptors carry these, as bytes 7 and 8
+                // of a 9 byte descriptor
+                refresh: (endpoint_desc.length() >= 9).then(|| endpoint_desc.refresh()),
+                sync_address: (endpoint_desc.length() >= 9).then(|| endpoint_desc.synch_address()),
                 length: endpoint_desc.length(),
                 extra: extra_desc,
                 internal: InternalData::default(),
