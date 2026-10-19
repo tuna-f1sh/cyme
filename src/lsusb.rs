@@ -2337,15 +2337,15 @@ fn dump_device_status(status: u16, otg: bool, super_speed: bool, indent: usize) 
 }
 
 /// Verbatim port of lsusb's dump_unit - not very Rust, don't judge!
-fn dump_unit(mut data: u16, len: usize, indent: usize) {
-    let systems = |t: u16| match t {
+fn dump_unit(mut data: u32, len: usize, indent: usize) {
+    let systems = |t: u32| match t {
         0x01 => "SI Linear",
         0x02 => "SI Rotation",
         0x03 => "English Linear",
         0x04 => "English Rotation",
         _ => "None",
     };
-    let units = |t: u16, i: usize| match (t, i) {
+    let units = |t: u32, i: usize| match (t, i) {
         (1, 1) => "Centimeter",
         (2, 1) => "Radians",
         (1, 2) | (2, 2) => "Gram",
@@ -2357,7 +2357,7 @@ fn dump_unit(mut data: u16, len: usize, indent: usize) {
             0x03 => "Seconds",
             0x04 => "Fahrenheit",
             0x05 => "Ampere",
-            0x06 => "Camdela",
+            0x06 => "Candela",
             _ => "None",
         },
         (_, _) => "None",
@@ -2422,17 +2422,30 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         indent,
     );
 
+    // both carry across items, as in lsusb
+    let mut data: u32 = 0xffff;
+    let mut hut: u8 = 0xff;
+
     let mut i = 0;
     while i < desc.len() {
         let b = desc[i];
-        let mut data = 0xffff;
-        let mut hut = 0xff;
         let mut bsize = (b & 0x03) as usize;
         if bsize == 3 {
             bsize = 4;
         }
         let btype = b & (0x03 << 2);
         let btag = b & !0x03;
+
+        // check bounds before printing the item header, like lsusb
+        if i + 1 + bsize > desc.len() {
+            println!(
+                "{:indent$}** TRUNCATED at offset {} **",
+                "",
+                i,
+                indent = indent + 2
+            );
+            break;
+        }
 
         // Item Header
         print!(
@@ -2442,12 +2455,6 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
             names::report_tag(btag).unwrap_or_default(),
             indent = indent + 2
         );
-
-        // Check for descriptor bounds
-        if i + bsize >= desc.len() {
-            println!("Error: Descriptor too short");
-            break;
-        }
 
         if bsize > 0 {
             print!(" [ ");
@@ -2465,8 +2472,8 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
             // usage page
             0x04 => {
                 hut = data as u8;
-                if let Some(hut) = names::huts(hut) {
-                    println!("{:indent$}{}", "", hut, indent = REPORT_INDENT);
+                if let Some(name) = names::huts(hut) {
+                    println!("{:indent$}{}", "", name, indent = REPORT_INDENT);
                 }
             }
             // usage, usage minimum, usage maximum
@@ -2475,17 +2482,17 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
                     println!("{:indent$}{}", "", hutus, indent = REPORT_INDENT);
                 }
             }
-            // unit exponent
+            // unit exponent - signed, so 0x0e reads as -2 not 14
             0x54 => {
                 println!(
                     "{:indent$}Unit Exponent: {}",
                     "",
-                    data as u8,
+                    data as u8 as i8,
                     indent = REPORT_INDENT
                 );
             }
             // unit
-            0x64 => dump_unit(data as u16, bsize, REPORT_INDENT),
+            0x64 => dump_unit(data, bsize, REPORT_INDENT),
             // collection
             0xa0 => match data {
                 0x00 => println!("{:indent$}Physical", "", indent = REPORT_INDENT),
