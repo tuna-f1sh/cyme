@@ -108,7 +108,7 @@ fn dump_processing_unit(pu: &video::ProcessingUnit, protocol: u8, indent: usize,
     dump_value_string(
         pu.processing_index,
         "iProcessing",
-        pu.processing_index.to_string(),
+        pu.processing.as_ref().unwrap_or(&String::new()),
         indent + 2,
         width,
     );
@@ -457,7 +457,7 @@ fn dump_format_mjpeg(fmjpeg: &video::FormatMJPEG, indent: usize, width: usize) {
 
 fn dump_still_image_frame(sif: &video::StillImageFrame, indent: usize, width: usize) {
     dump_value_string(
-        sif.endpoint_address.address,
+        format!("0x{:02x}", sif.endpoint_address.address),
         "bEndpointAddress",
         sif.endpoint_address.to_string(),
         indent + 2,
@@ -505,9 +505,10 @@ fn dump_format_frame(fufb: &video::FormatFrame, indent: usize, width: usize) {
     );
     dump_value(fufb.aspect_ratio_x, "bAspectRatioX", indent + 2, width);
     dump_value(fufb.aspect_ratio_y, "bAspectRatioY", indent + 2, width);
-    dump_hex(fufb.interlace_flags, "bmInterlaceFlags", indent + 2, width);
-    dump_value(fufb.copy_protect, "bCopyProtect", indent + 2, width);
+    // dump_interlace_flags prints bmInterlaceFlags itself, and lsusb puts
+    // bCopyProtect after the flag breakdown rather than before it
     dump_interlace_flags(fufb.interlace_flags, indent + 2, width);
+    dump_value(fufb.copy_protect, "bCopyProtect", indent + 2, width);
     if let Some(variable_size) = fufb.variable_size {
         dump_value(variable_size, "bVariableSize", indent + 2, width);
     }
