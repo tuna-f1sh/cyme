@@ -410,6 +410,8 @@ impl LibUsbProfiler {
                     .as_ref()
                     .is_some_and(|(c, _)| *c == config_desc.number()),
                 attributes,
+                // rusb only exposes the decoded bits, not the byte
+                attributes_raw: None,
                 max_power: NumericalUnit {
                     value: config_desc.max_power() as u32 * power_mult,
                     unit: String::from("mA"),

@@ -1376,6 +1376,9 @@ pub struct Configuration {
     pub interfaces: Vec<Interface>,
     /// Attributes of configuration, bmAttributes - was a HashSet since attributes should be unique but caused issues printing out of order
     pub attributes: Vec<ConfigAttributes>,
+    /// Raw bmAttributes including reserved bit 7; `None` if the profiler cannot read it
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attributes_raw: Option<u8>,
     /// Maximum power consumption in mA
     pub max_power: NumericalUnit<u32>,
     /// Size of configuration descriptor in bytes
@@ -1401,8 +1404,12 @@ impl Configuration {
         ConfigAttributes::attributes_to_string(&self.attributes)
     }
 
-    /// Convert attributes back to reg value
+    /// Convert attributes back to reg value, or the raw byte if captured
     pub fn attributes_value(&self) -> u8 {
+        if let Some(raw) = self.attributes_raw {
+            return raw;
+        }
+
         let mut ret: u8 = 0x80; // always set reserved bit
         for attr in self.attributes.iter() {
             match attr {
