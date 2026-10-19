@@ -940,6 +940,9 @@ pub struct CcidDescriptor {
     pub lcd_layout: (u8, u8),
     pub pin_support: u8,
     pub max_ccid_busy_slots: u8,
+    /// Any bytes beyond the 54 byte descriptor, reported verbatim by lsusb
+    #[serde(default)]
+    pub junk: Vec<u8>,
 }
 
 impl TryFrom<&[u8]> for CcidDescriptor {
@@ -975,6 +978,10 @@ impl TryFrom<&[u8]> for CcidDescriptor {
             lcd_layout,
             pin_support: value[52],
             max_ccid_busy_slots: value[53],
+            junk: value
+                .get(54..(value[0] as usize).min(value.len()))
+                .unwrap_or_default()
+                .to_vec(),
         })
     }
 }
@@ -1014,6 +1021,7 @@ impl From<CcidDescriptor> for Vec<u8> {
         ret.push(cd.lcd_layout.1);
         ret.push(cd.pin_support);
         ret.push(cd.max_ccid_busy_slots);
+        ret.extend(cd.junk);
 
         ret
     }
