@@ -838,6 +838,21 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
     dump_value(endpoint.interval, "bInterval", indent + 2, LSUSB_DUMP_WIDTH);
+    // only for audio endpoints, which have a 9 byte rather than 7 byte descriptor
+    if endpoint.length == 9 {
+        dump_value(
+            endpoint.refresh.unwrap_or(0),
+            "bRefresh",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+        dump_value(
+            endpoint.sync_address.unwrap_or(0),
+            "bSynchAddress",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    }
 
     // dump extra descriptors
     // kind of messy but it's out lsusb does it
@@ -937,34 +952,40 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                         ss.max_burst,
                         indent = indent + 2
                     );
-                    match endpoint.transfer_type {
-                        TransferType::Bulk if ss.attributes & 0x1f != 0 => {
+                    // bulk streams, isochronous Mult and the byte count are
+                    // each gated on their own transfer type in lsusb
+                    if matches!(endpoint.transfer_type, TransferType::Bulk)
+                        && ss.attributes & 0x1f != 0
+                    {
+                        println!(
+                            "{:indent$}MaxStreams {:>13}",
+                            "",
+                            1u32 << (ss.attributes & 0x1f),
+                            indent = indent + 2
+                        );
+                    }
+                    if matches!(endpoint.transfer_type, TransferType::Isochronous)
+                        && ss.attributes & 0x03 != 0
+                    {
+                        println!(
+                            "{:indent$}Mult {:>19}",
+                            "",
+                            ss.attributes & 0x3,
+                            indent = indent + 2
+                        );
+                    }
+                    if matches!(
+                        endpoint.transfer_type,
+                        TransferType::Isochronous | TransferType::Interrupt
+                    ) {
+                        if let Some(bi) = ss.bytes_per_interval {
                             println!(
-                                "{:indent$}MaxStreams {:>13}",
+                                "{:indent$}wBytesPerInterval {:>6}",
                                 "",
-                                1 << ss.attributes,
+                                bi,
                                 indent = indent + 2
                             );
                         }
-                        TransferType::Isochronous | TransferType::Interrupt => {
-                            if ss.attributes & 0x03 != 0 {
-                                println!(
-                                    "{:indent$}Mult {:>19}",
-                                    "",
-                                    ss.attributes & 0x3,
-                                    indent = indent + 2
-                                );
-                            }
-                            if let Some(bi) = ss.bytes_per_interval {
-                                println!(
-                                    "{:indent$}wBytesPerInterval {:>6}",
-                                    "",
-                                    bi,
-                                    indent = indent + 2
-                                );
-                            }
-                        }
-                        _ => (),
                     }
                 }
                 Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
