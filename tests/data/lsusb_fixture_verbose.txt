@@ -1,0 +1,323 @@
+
+Bus 009 Device 001: ID ffff:0001 cyme fixture Fixture ChipCard Reader
+Negotiated speed: Unknown
+Device Descriptor:
+  bLength                18
+  bDescriptorType         1
+  bcdUSB               2.00
+  bDeviceClass           11 Chip/SmartCard
+  bDeviceSubClass         0 [unknown]
+  bDeviceProtocol         0 
+  bMaxPacketSize0        64
+  idVendor           0xffff cyme fixture
+  idProduct          0x0001 Fixture ChipCard Reader
+  bcdDevice            1.00
+  iManufacturer           1 cyme fixture
+  iProduct                2 Fixture ChipCard Reader
+  iSerial                 3 FIXTURE
+  bNumConfigurations      1
+  Configuration Descriptor:
+    bLength                 9
+    bDescriptorType         2
+    wTotalLength       0x0020
+    bNumInterfaces          1
+    bConfigurationValue     1
+    iConfiguration          4 Fixture Configuration
+    bmAttributes         0xc0
+      Self Powered
+    MaxPower              100mA
+    Interface Descriptor:
+      bLength                 9
+      bDescriptorType         4
+      bInterfaceNumber        0
+      bAlternateSetting       0
+      bNumEndpoints           1
+      bInterfaceClass        11 Chip/SmartCard
+      bInterfaceSubClass      0 [unknown]
+      bInterfaceProtocol      0 
+      iInterface              0 CCID Interface
+        ChipCard Interface Descriptor:
+          bLength                61
+          bDescriptorType        33
+          bcdCCID              1.10
+          bMaxSlotIndex           0
+          bVoltageSupport         7 5.0V 3.0V 1.8V
+          dwProtocols             3 T=0 T=1
+          dwDefaultClock       4000
+          dwMaximumClock       5000
+          bNumClockSupported      0
+          dwDataRate          10752 bps
+          dwMaxDataRate      307200 bps
+          bNumDataRatesSupp.      0
+          dwMaxIFSD             254
+          dwSyncProtocols  00000007 2-wire 3-wire I2C
+          dwMechanical     0000000F accept eject capture lock
+          dwFeatures       000204BA
+            Auto configuration based on ATR
+            Auto voltage selection
+            Auto clock change
+            Auto baud rate change
+            Auto PPS made by CCID
+            Auto IFSD exchange (T=1)
+            Short APDU level exchange
+          dwMaxCCIDMsgLen       271
+          bClassGetResponse    echo
+          bClassEnvelope       echo
+          wlcdLayout             16  cols 2 lines
+          bPINSupport             3 verification modification
+          bMaxCCIDBusySlots       1
+          junk              de ad be ef 01 02 03
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x81 EP 1 IN
+        bmAttributes            2
+          Transfer Type          Bulk
+          Synch Type             None
+          Usage Type             Data
+        wMaxPacketSize     0x0040 1x 64 bytes
+        bInterval              10
+Device Status:     0x0001
+  Self Powered
+
+Bus 009 Device 002: ID ffff:0002 cyme fixture Fixture DFU Device
+Negotiated speed: Unknown
+Device Descriptor:
+  bLength                18
+  bDescriptorType         1
+  bcdUSB               2.00
+  bDeviceClass          254 Application Specific Interface
+  bDeviceSubClass         0 [unknown]
+  bDeviceProtocol         0 
+  bMaxPacketSize0        64
+  idVendor           0xffff cyme fixture
+  idProduct          0x0002 Fixture DFU Device
+  bcdDevice            1.00
+  iManufacturer           1 cyme fixture
+  iProduct                2 Fixture DFU Device
+  iSerial                 3 FIXTURE
+  bNumConfigurations      1
+  Configuration Descriptor:
+    bLength                 9
+    bDescriptorType         2
+    wTotalLength       0x0020
+    bNumInterfaces          1
+    bConfigurationValue     1
+    iConfiguration          4 Fixture Configuration
+    bmAttributes         0xc0
+      Self Powered
+    MaxPower              100mA
+    Interface Descriptor:
+      bLength                 9
+      bDescriptorType         4
+      bInterfaceNumber        0
+      bAlternateSetting       0
+      bNumEndpoints           0
+      bInterfaceClass       254 Application Specific Interface
+      bInterfaceSubClass      1 Device Firmware Update
+      bInterfaceProtocol      2 
+      iInterface              0 DFU Interface
+        Device Firmware Upgrade Interface Descriptor:
+          bLength                 9
+          bDescriptorType        33
+          bmAttributes           15
+            Will Detach
+            Manifestation Tolerant
+            Upload Supported
+            Download Supported
+          wDetachTimeout       1000 milliseconds
+          wTransferSize        1024 bytes
+          bcdDFUVersion        1.1a
+Device Status:     0x0001
+  Self Powered
+
+Bus 009 Device 003: ID ffff:0003 cyme fixture Fixture IPP Printer
+Negotiated speed: Unknown
+Device Descriptor:
+  bLength                18
+  bDescriptorType         1
+  bcdUSB               2.00
+  bDeviceClass            7 Printer
+  bDeviceSubClass         0 [unknown]
+  bDeviceProtocol         0 
+  bMaxPacketSize0        64
+  idVendor           0xffff cyme fixture
+  idProduct          0x0003 Fixture IPP Printer
+  bcdDevice            1.00
+  iManufacturer           1 cyme fixture
+  iProduct                2 Fixture IPP Printer
+  iSerial                 3 FIXTURE
+  bNumConfigurations      1
+  Configuration Descriptor:
+    bLength                 9
+    bDescriptorType         2
+    wTotalLength       0x0020
+    bNumInterfaces          1
+    bConfigurationValue     1
+    iConfiguration          4 Fixture Configuration
+    bmAttributes         0xc0
+      Self Powered
+    MaxPower              100mA
+    Interface Descriptor:
+      bLength                 9
+      bDescriptorType         4
+      bInterfaceNumber        0
+      bAlternateSetting       0
+      bNumEndpoints           1
+      bInterfaceClass         7 Printer
+      bInterfaceSubClass      1 Printer
+      bInterfaceProtocol      4 
+      iInterface              0 IPP Interface
+        Printer Interface Descriptor:
+          bLength                14
+          bDescriptorType        33
+          bcdReleaseNumber        0
+          bcdNumDescriptors       1
+          iIPPVersionsSupported   2
+          iIPPPrinterUUID         5 
+          wBasicCapabilities   0x0031  Print HTTP-over-USB Username-Auth
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x02 EP 2 OUT
+        bmAttributes            2
+          Transfer Type          Bulk
+          Synch Type             None
+          Usage Type             Data
+        wMaxPacketSize     0x0040 1x 64 bytes
+        bInterval              10
+Device Status:     0x0001
+  Self Powered
+
+Bus 009 Device 004: ID ffff:0004 cyme fixture Fixture HID Device
+Negotiated speed: Unknown
+Device Descriptor:
+  bLength                18
+  bDescriptorType         1
+  bcdUSB               2.00
+  bDeviceClass            3 Human Interface Device
+  bDeviceSubClass         0 No Subclass
+  bDeviceProtocol         0 None
+  bMaxPacketSize0        64
+  idVendor           0xffff cyme fixture
+  idProduct          0x0004 Fixture HID Device
+  bcdDevice            1.00
+  iManufacturer           1 cyme fixture
+  iProduct                2 Fixture HID Device
+  iSerial                 3 FIXTURE
+  bNumConfigurations      1
+  Configuration Descriptor:
+    bLength                 9
+    bDescriptorType         2
+    wTotalLength       0x0020
+    bNumInterfaces          1
+    bConfigurationValue     1
+    iConfiguration          4 Fixture Configuration
+    bmAttributes         0xc0
+      Self Powered
+    MaxPower              100mA
+    Interface Descriptor:
+      bLength                 9
+      bDescriptorType         4
+      bInterfaceNumber        0
+      bAlternateSetting       0
+      bNumEndpoints           1
+      bInterfaceClass         3 Human Interface Device
+      bInterfaceSubClass      1 Boot Interface Subclass
+      bInterfaceProtocol      2 Mouse
+      iInterface              0 HID Interface
+        HID Device Descriptor:
+          bLength                 9
+          bDescriptorType        33
+          bcdHID               1.11
+          bCountryCode            0 Not supported
+          bNumDescriptors         1
+          bDescriptorType        34 Report
+          wDescriptorLength      16
+          Report Descriptor: (length is 16)
+            Item(Global): Usage Page, data= [ 01 ] 1
+            Generic Desktop Controls
+            Item( Local): Usage, data= [ 02 ] 2
+            Mouse
+            Item(  Main): Collection, data= [ 01 ] 1
+            Application
+            Item( Local): Usage, data= [ 01 ] 1
+            Pointer
+            Item(Global): Unit Exponent, data= [ 0e ] 14
+            Unit Exponent: 14
+            Item(Global): Unit, data= [ 21 00 ] 33
+            System: SI Linear, Unit: Centimeter^2
+            Item(  Main): Input, data= [ 02 ] 2
+            Data Variable Absolute No_Wrap Linear
+            Preferred_State No_Null_Position Non_Volatile Bitfield
+            Item(  Main): End Collection, data=none
+      Endpoint Descriptor:
+        bLength                 9
+        bDescriptorType         5
+        bEndpointAddress     0x81 EP 1 IN
+        bmAttributes            3
+          Transfer Type          Interrupt
+          Synch Type             None
+          Usage Type             Data
+        wMaxPacketSize     0x0040 1x 64 bytes
+        bInterval              10
+        bRefresh                4
+        bSynchAddress         129
+Device Status:     0x0001
+  Self Powered
+
+Bus 009 Device 005: ID ffff:0005 cyme fixture Fixture OTG Device
+Negotiated speed: Unknown
+Device Descriptor:
+  bLength                18
+  bDescriptorType         1
+  bcdUSB               2.00
+  bDeviceClass          255 Vendor Specific Class
+  bDeviceSubClass         0 [unknown]
+  bDeviceProtocol         0 
+  bMaxPacketSize0        64
+  idVendor           0xffff cyme fixture
+  idProduct          0x0005 Fixture OTG Device
+  bcdDevice            1.00
+  iManufacturer           1 cyme fixture
+  iProduct                2 Fixture OTG Device
+  iSerial                 3 FIXTURE
+  bNumConfigurations      1
+OTG Descriptor:
+  bLength                 3
+  bDescriptorType         9
+  bmAttributes         0x03
+    SRP (Session Request Protocol)
+    HNP (Host Negotiation Protocol)
+  Configuration Descriptor:
+    bLength                 9
+    bDescriptorType         2
+    wTotalLength       0x0020
+    bNumInterfaces          1
+    bConfigurationValue     1
+    iConfiguration          4 Fixture Configuration
+    bmAttributes         0xc0
+      Self Powered
+    MaxPower              100mA
+    Interface Descriptor:
+      bLength                 9
+      bDescriptorType         4
+      bInterfaceNumber        0
+      bAlternateSetting       0
+      bNumEndpoints           1
+      bInterfaceClass       255 Vendor Specific Class
+      bInterfaceSubClass      0 [unknown]
+      bInterfaceProtocol      0 
+      iInterface              0 OTG Interface
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x81 EP 1 IN
+        bmAttributes            2
+          Transfer Type          Bulk
+          Synch Type             None
+          Usage Type             Data
+        wMaxPacketSize     0x0040 1x 64 bytes
+        bInterval              10
+Device Status:     0x0001
+  Self Powered

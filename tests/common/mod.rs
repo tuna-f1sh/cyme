@@ -29,6 +29,10 @@ pub const LSUSB_TREE_OUTPUT_VERBOSE: &str = "./tests/data/lsusb_tree_verbose.txt
 pub const LSUSB_OUTPUT: &str = "./tests/data/lsusb_list.txt";
 /// Output of lsusb --verbose
 pub const LSUSB_OUTPUT_VERBOSE: &str = "./tests/data/lsusb_verbose.txt";
+/// Synthetic dump carrying class descriptors no single host is likely to have
+pub const CYME_DESCRIPTOR_FIXTURE: &str = "./tests/data/cyme_descriptor_fixture.json";
+/// Expected `--lsusb --verbose` output for [`CYME_DESCRIPTOR_FIXTURE`]
+pub const LSUSB_FIXTURE_OUTPUT_VERBOSE: &str = "./tests/data/lsusb_fixture_verbose.txt";
 
 pub fn read_dump(file_name: &str) -> BufReader<File> {
     let f = File::open(file_name).expect("Unable to open json dump file");
