@@ -1,0 +1,608 @@
+{
+ "buses": [
+  {
+   "name": "Fixture Host Controller",
+   "host_controller": "cyme descriptor fixture",
+   "pci_vendor": null,
+   "pci_device": null,
+   "usb_bus_number": 9,
+   "devices": [
+    {
+     "name": "Fixture ChipCard Reader",
+     "vendor_id": 65535,
+     "product_id": 1,
+     "location_id": {
+      "bus": 9,
+      "tree_positions": [
+       1
+      ],
+      "number": 1
+     },
+     "serial_num": "FIXTURE",
+     "manufacturer": "cyme fixture",
+     "bcd_device": "1.00",
+     "bcd_usb": "2.00",
+     "device_speed": "12.0 Mb/s",
+     "class": "smart-card",
+     "sub_class": 0,
+     "protocol": 0,
+     "extra": {
+      "max_packet_size": 64,
+      "driver": null,
+      "syspath": null,
+      "vendor": "cyme fixture",
+      "product_name": "Fixture ChipCard Reader",
+      "string_indexes": [
+       2,
+       1,
+       3
+      ],
+      "configurations": [
+       {
+        "name": "Fixture Configuration",
+        "string_index": 4,
+        "number": 1,
+        "active": true,
+        "num_interfaces": 1,
+        "interfaces": [
+         {
+          "name": "CCID Interface",
+          "string_index": 0,
+          "number": 0,
+          "path": "9-1:1.0",
+          "class": "smart-card",
+          "sub_class": 0,
+          "protocol": 0,
+          "alt_setting": 0,
+          "active": true,
+          "driver": null,
+          "syspath": null,
+          "endpoints": [
+           {
+            "length": 7,
+            "address": {
+             "address": 129,
+             "number": 1,
+             "direction": "In"
+            },
+            "transfer_type": "Bulk",
+            "sync_type": "None",
+            "usage_type": "Data",
+            "max_packet_size": 64,
+            "interval": 10,
+            "refresh": null,
+            "sync_address": null,
+            "extra": null,
+            "endpoint_path": null
+           }
+          ],
+          "length": 9,
+          "extra": [
+           {
+            "device": {
+             "ccid": {
+              "class_envelope": 255,
+              "class_get_response": 255,
+              "data_rate": 10752,
+              "default_clock": 4000,
+              "descriptor_type": 33,
+              "features": 132282,
+              "junk": [
+               222,
+               173,
+               190,
+               239,
+               1,
+               2,
+               3
+              ],
+              "lcd_layout": [
+               16,
+               2
+              ],
+              "length": 61,
+              "max_ccid_busy_slots": 1,
+              "max_ccid_msg_len": 271,
+              "max_clock": 5000,
+              "max_data_rate": 307200,
+              "max_ifsd": 254,
+              "max_slot_index": 0,
+              "mechanical": 15,
+              "num_clock_supported": 0,
+              "num_data_rates_supp": 0,
+              "pin_support": 3,
+              "protocols": 3,
+              "sync_protocols": 7,
+              "version": [
+               1,
+               1,
+               0
+              ],
+              "voltage_support": 7
+             }
+            }
+           }
+          ],
+          "device_path": null,
+          "devpaths": null,
+          "mount_paths": null
+         }
+        ],
+        "attributes": [
+         "SelfPowered"
+        ],
+        "max_power": {
+         "value": 100,
+         "unit": "mA"
+        },
+        "length": 9,
+        "total_length": 32,
+        "extra": null
+       }
+      ],
+      "status": 1,
+      "debug": null,
+      "binary_object_store": null,
+      "qualifier": null,
+      "hub": null,
+      "negotiated_speed": null
+     }
+    },
+    {
+     "name": "Fixture DFU Device",
+     "vendor_id": 65535,
+     "product_id": 2,
+     "location_id": {
+      "bus": 9,
+      "tree_positions": [
+       2
+      ],
+      "number": 2
+     },
+     "serial_num": "FIXTURE",
+     "manufacturer": "cyme fixture",
+     "bcd_device": "1.00",
+     "bcd_usb": "2.00",
+     "device_speed": "12.0 Mb/s",
+     "class": "application-specific-interface",
+     "sub_class": 0,
+     "protocol": 0,
+     "extra": {
+      "max_packet_size": 64,
+      "driver": null,
+      "syspath": null,
+      "vendor": "cyme fixture",
+      "product_name": "Fixture DFU Device",
+      "string_indexes": [
+       2,
+       1,
+       3
+      ],
+      "configurations": [
+       {
+        "name": "Fixture Configuration",
+        "string_index": 4,
+        "number": 1,
+        "active": true,
+        "num_interfaces": 1,
+        "interfaces": [
+         {
+          "name": "DFU Interface",
+          "string_index": 0,
+          "number": 0,
+          "path": "9-2:1.0",
+          "class": "application-specific-interface",
+          "sub_class": 1,
+          "protocol": 2,
+          "alt_setting": 0,
+          "active": true,
+          "driver": null,
+          "syspath": null,
+          "endpoints": [],
+          "length": 9,
+          "extra": [
+           {
+            "interface": {
+             "dfu": {
+              "attributes": 15,
+              "descriptor_type": 33,
+              "detach_timeout": 1000,
+              "dfu_version": [
+               1,
+               1,
+               10
+              ],
+              "length": 9,
+              "transfer_size": 1024
+             }
+            }
+           }
+          ],
+          "device_path": null,
+          "devpaths": null,
+          "mount_paths": null
+         }
+        ],
+        "attributes": [
+         "SelfPowered"
+        ],
+        "max_power": {
+         "value": 100,
+         "unit": "mA"
+        },
+        "length": 9,
+        "total_length": 32,
+        "extra": null
+       }
+      ],
+      "status": 1,
+      "debug": null,
+      "binary_object_store": null,
+      "qualifier": null,
+      "hub": null,
+      "negotiated_speed": null
+     }
+    },
+    {
+     "name": "Fixture IPP Printer",
+     "vendor_id": 65535,
+     "product_id": 3,
+     "location_id": {
+      "bus": 9,
+      "tree_positions": [
+       3
+      ],
+      "number": 3
+     },
+     "serial_num": "FIXTURE",
+     "manufacturer": "cyme fixture",
+     "bcd_device": "1.00",
+     "bcd_usb": "2.00",
+     "device_speed": "12.0 Mb/s",
+     "class": "printer",
+     "sub_class": 0,
+     "protocol": 0,
+     "extra": {
+      "max_packet_size": 64,
+      "driver": null,
+      "syspath": null,
+      "vendor": "cyme fixture",
+      "product_name": "Fixture IPP Printer",
+      "string_indexes": [
+       2,
+       1,
+       3
+      ],
+      "configurations": [
+       {
+        "name": "Fixture Configuration",
+        "string_index": 4,
+        "number": 1,
+        "active": true,
+        "num_interfaces": 1,
+        "interfaces": [
+         {
+          "name": "IPP Interface",
+          "string_index": 0,
+          "number": 0,
+          "path": "9-3:1.0",
+          "class": "printer",
+          "sub_class": 1,
+          "protocol": 4,
+          "alt_setting": 0,
+          "active": true,
+          "driver": null,
+          "syspath": null,
+          "endpoints": [
+           {
+            "length": 7,
+            "address": {
+             "address": 2,
+             "number": 2,
+             "direction": "Out"
+            },
+            "transfer_type": "Bulk",
+            "sync_type": "None",
+            "usage_type": "Data",
+            "max_packet_size": 64,
+            "interval": 10,
+            "refresh": null,
+            "sync_address": null,
+            "extra": null,
+            "endpoint_path": null
+           }
+          ],
+          "length": 9,
+          "extra": [
+           {
+            "interface": {
+             "printer": {
+              "descriptor_type": 33,
+              "descriptors": [
+               {
+                "capabilities": 49,
+                "data": [
+                 0,
+                 0
+                ],
+                "descriptor_type": 0,
+                "length": 6,
+                "uuid_string": null,
+                "uuid_string_index": 5,
+                "versions_supported": 2
+               }
+              ],
+              "length": 14,
+              "release_number": 0
+             }
+            }
+           }
+          ],
+          "device_path": null,
+          "devpaths": null,
+          "mount_paths": null
+         }
+        ],
+        "attributes": [
+         "SelfPowered"
+        ],
+        "max_power": {
+         "value": 100,
+         "unit": "mA"
+        },
+        "length": 9,
+        "total_length": 32,
+        "extra": null
+       }
+      ],
+      "status": 1,
+      "debug": null,
+      "binary_object_store": null,
+      "qualifier": null,
+      "hub": null,
+      "negotiated_speed": null
+     }
+    },
+    {
+     "name": "Fixture HID Device",
+     "vendor_id": 65535,
+     "product_id": 4,
+     "location_id": {
+      "bus": 9,
+      "tree_positions": [
+       4
+      ],
+      "number": 4
+     },
+     "serial_num": "FIXTURE",
+     "manufacturer": "cyme fixture",
+     "bcd_device": "1.00",
+     "bcd_usb": "2.00",
+     "device_speed": "12.0 Mb/s",
+     "class": "hid",
+     "sub_class": 0,
+     "protocol": 0,
+     "extra": {
+      "max_packet_size": 64,
+      "driver": null,
+      "syspath": null,
+      "vendor": "cyme fixture",
+      "product_name": "Fixture HID Device",
+      "string_indexes": [
+       2,
+       1,
+       3
+      ],
+      "configurations": [
+       {
+        "name": "Fixture Configuration",
+        "string_index": 4,
+        "number": 1,
+        "active": true,
+        "num_interfaces": 1,
+        "interfaces": [
+         {
+          "name": "HID Interface",
+          "string_index": 0,
+          "number": 0,
+          "path": "9-4:1.0",
+          "class": "hid",
+          "sub_class": 1,
+          "protocol": 2,
+          "alt_setting": 0,
+          "active": true,
+          "driver": null,
+          "syspath": null,
+          "endpoints": [
+           {
+            "length": 9,
+            "address": {
+             "address": 129,
+             "number": 1,
+             "direction": "In"
+            },
+            "transfer_type": "Interrupt",
+            "sync_type": "None",
+            "usage_type": "Data",
+            "max_packet_size": 64,
+            "interval": 10,
+            "refresh": 4,
+            "sync_address": 129,
+            "extra": null,
+            "endpoint_path": null
+           }
+          ],
+          "length": 9,
+          "extra": [
+           {
+            "device": {
+             "hid": {
+              "bcd_hid": [
+               1,
+               1,
+               1
+              ],
+              "country_code": 0,
+              "descriptor_type": 33,
+              "descriptors": [
+               {
+                "data": [
+                 5,
+                 1,
+                 9,
+                 2,
+                 161,
+                 1,
+                 9,
+                 1,
+                 85,
+                 14,
+                 102,
+                 33,
+                 0,
+                 129,
+                 2,
+                 192
+                ],
+                "descriptor_type": 34,
+                "length": 16
+               }
+              ],
+              "length": 9
+             }
+            }
+           }
+          ],
+          "device_path": null,
+          "devpaths": null,
+          "mount_paths": null
+         }
+        ],
+        "attributes": [
+         "SelfPowered"
+        ],
+        "max_power": {
+         "value": 100,
+         "unit": "mA"
+        },
+        "length": 9,
+        "total_length": 32,
+        "extra": null
+       }
+      ],
+      "status": 1,
+      "debug": null,
+      "binary_object_store": null,
+      "qualifier": null,
+      "hub": null,
+      "negotiated_speed": null
+     }
+    },
+    {
+     "name": "Fixture OTG Device",
+     "vendor_id": 65535,
+     "product_id": 5,
+     "location_id": {
+      "bus": 9,
+      "tree_positions": [
+       5
+      ],
+      "number": 5
+     },
+     "serial_num": "FIXTURE",
+     "manufacturer": "cyme fixture",
+     "bcd_device": "1.00",
+     "bcd_usb": "2.00",
+     "device_speed": "12.0 Mb/s",
+     "class": "vendor-specific-class",
+     "sub_class": 0,
+     "protocol": 0,
+     "extra": {
+      "max_packet_size": 64,
+      "driver": null,
+      "syspath": null,
+      "vendor": "cyme fixture",
+      "product_name": "Fixture OTG Device",
+      "string_indexes": [
+       2,
+       1,
+       3
+      ],
+      "configurations": [
+       {
+        "name": "Fixture Configuration",
+        "string_index": 4,
+        "number": 1,
+        "active": true,
+        "num_interfaces": 1,
+        "interfaces": [
+         {
+          "name": "OTG Interface",
+          "string_index": 0,
+          "number": 0,
+          "path": "9-5:1.0",
+          "class": "vendor-specific-class",
+          "sub_class": 0,
+          "protocol": 0,
+          "alt_setting": 0,
+          "active": true,
+          "driver": null,
+          "syspath": null,
+          "endpoints": [
+           {
+            "length": 7,
+            "address": {
+             "address": 129,
+             "number": 1,
+             "direction": "In"
+            },
+            "transfer_type": "Bulk",
+            "sync_type": "None",
+            "usage_type": "Data",
+            "max_packet_size": 64,
+            "interval": 10,
+            "refresh": null,
+            "sync_address": null,
+            "extra": null,
+            "endpoint_path": null
+           }
+          ],
+          "length": 9,
+          "extra": null,
+          "device_path": null,
+          "devpaths": null,
+          "mount_paths": null
+         }
+        ],
+        "attributes": [
+         "SelfPowered"
+        ],
+        "max_power": {
+         "value": 100,
+         "unit": "mA"
+        },
+        "length": 9,
+        "total_length": 32,
+        "extra": [
+         {
+          "otg": {
+           "attributes": 3,
+           "descriptor_type": 9,
+           "length": 3
+          }
+         }
+        ]
+       }
+      ],
+      "status": 1,
+      "debug": null,
+      "binary_object_store": null,
+      "qualifier": null,
+      "hub": null,
+      "negotiated_speed": null
+     }
+    }
+   ]
+  }
+ ]
+}
