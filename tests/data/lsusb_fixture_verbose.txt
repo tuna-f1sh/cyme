@@ -70,12 +70,12 @@ Device Descriptor:
       Endpoint Descriptor:
         bLength                 7
         bDescriptorType         5
-        bEndpointAddress     0x81 EP 1 IN
+        bEndpointAddress     0x81  EP 1 IN
         bmAttributes            2
-          Transfer Type          Bulk
-          Synch Type             None
-          Usage Type             Data
-        wMaxPacketSize     0x0040 1x 64 bytes
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0040  1x 64 bytes
         bInterval              10
 Device Status:     0x0001
   Self Powered
@@ -179,12 +179,12 @@ Device Descriptor:
       Endpoint Descriptor:
         bLength                 7
         bDescriptorType         5
-        bEndpointAddress     0x02 EP 2 OUT
+        bEndpointAddress     0x02  EP 2 OUT
         bmAttributes            2
-          Transfer Type          Bulk
-          Synch Type             None
-          Usage Type             Data
-        wMaxPacketSize     0x0040 1x 64 bytes
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0040  1x 64 bytes
         bInterval              10
 Device Status:     0x0001
   Self Powered
@@ -254,12 +254,12 @@ Device Descriptor:
       Endpoint Descriptor:
         bLength                 9
         bDescriptorType         5
-        bEndpointAddress     0x81 EP 1 IN
+        bEndpointAddress     0x81  EP 1 IN
         bmAttributes            3
-          Transfer Type          Interrupt
-          Synch Type             None
-          Usage Type             Data
-        wMaxPacketSize     0x0040 1x 64 bytes
+          Transfer Type            Interrupt
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0040  1x 64 bytes
         bInterval              10
         bRefresh                4
         bSynchAddress         129
@@ -312,12 +312,12 @@ OTG Descriptor:
       Endpoint Descriptor:
         bLength                 7
         bDescriptorType         5
-        bEndpointAddress     0x81 EP 1 IN
+        bEndpointAddress     0x81  EP 1 IN
         bmAttributes            2
-          Transfer Type          Bulk
-          Synch Type             None
-          Usage Type             Data
-        wMaxPacketSize     0x0040 1x 64 bytes
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0040  1x 64 bytes
         bInterval              10
 Device Status:     0x0001
   Self Powered

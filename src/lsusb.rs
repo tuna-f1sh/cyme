@@ -124,19 +124,40 @@ fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
     indent: usize,
     width: usize,
 ) {
+    dump_value_string_gap(value, field_name, value_string, indent, width, 1);
+}
+
+/// As [`dump_value_string`] but with `gap` spaces between the value and its
+/// string, since lsusb uses two for the hex formatted fields
+fn dump_value_string_gap<T: std::fmt::Display, S: std::fmt::Display>(
+    value: T,
+    field_name: &str,
+    value_string: S,
+    indent: usize,
+    width: usize,
+    gap: usize,
+) {
     let value = value.to_string();
     let spaces = get_spaces(value.len(), field_name.len(), width);
     println!(
-        "{:indent$}{}{}{} {}",
-        "", field_name, spaces, value, value_string,
+        "{:indent$}{}{}{}{:gap$}{}",
+        "", field_name, spaces, value, "", value_string,
     );
 }
 
-/// Dumps a string starting at value position, right aligned
-fn dump_string_right<T: std::fmt::Display>(guid: T, field_name: &str, indent: usize, width: usize) {
+/// Dumps a value left aligned at the column the value field would start at
+///
+/// Used where lsusb pads the field name out with literal spaces rather than
+/// right aligning what follows it
+fn dump_string_right<T: std::fmt::Display>(
+    value: T,
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
     // 1 to account for space
     let spaces = get_spaces(1, field_name.len(), width);
-    println!("{:indent$}{}{}{}", "", field_name, spaces, guid);
+    println!("{:indent$}{}{}{}", "", field_name, spaces, value);
 }
 
 /// Dumps GUID enclosed in braces like lsusb
@@ -798,7 +819,7 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
     dump_string("Endpoint Descriptor:", indent);
     dump_value(endpoint.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(5, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 5 for endpoint
-    dump_value_string(
+    dump_value_string_gap(
         format!("0x{:02x}", endpoint.address.address),
         "bEndpointAddress",
         format!(
@@ -808,6 +829,7 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
         ),
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        2,
     );
     // this is printed as int even though it's a bitmap
     dump_value(
@@ -816,30 +838,34 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "{:indent$}Transfer Type          {:?}",
-        "",
-        endpoint.transfer_type,
-        indent = indent + 4
+    // the three attribute breakdowns are left aligned one column past the
+    // usual value field, so they get the wider width
+    const ATTR_WIDTH: usize = LSUSB_DUMP_WIDTH + 1;
+    dump_string_right(
+        format!("{:?}", endpoint.transfer_type),
+        "Transfer Type",
+        indent + 4,
+        ATTR_WIDTH,
     );
-    println!(
-        "{:indent$}Synch Type             {:?}",
-        "",
-        endpoint.sync_type,
-        indent = indent + 4
+    dump_string_right(
+        format!("{:?}", endpoint.sync_type),
+        "Synch Type",
+        indent + 4,
+        ATTR_WIDTH,
     );
-    println!(
-        "{:indent$}Usage Type             {:?}",
-        "",
-        endpoint.usage_type,
-        indent = indent + 4
+    dump_string_right(
+        format!("{:?}", endpoint.usage_type),
+        "Usage Type",
+        indent + 4,
+        ATTR_WIDTH,
     );
-    dump_value_string(
+    dump_value_string_gap(
         format!("0x{:04x}", endpoint.max_packet_size),
         "wMaxPacketSize",
         format!("{} bytes", endpoint.max_packet_string()),
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        2,
     );
     dump_value(endpoint.interval, "bInterval", indent + 2, LSUSB_DUMP_WIDTH);
     // only for audio endpoints, which have a 9 byte rather than 7 byte descriptor
@@ -950,45 +976,30 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                     dump_interface_association(iad, indent + 2);
                 }
                 Descriptor::SsEndpointCompanion(ss) => {
-                    println!(
-                        "{:indent$}bMaxBurst {:>14}",
-                        "",
-                        ss.max_burst,
-                        indent = indent + 2
-                    );
+                    dump_value(ss.max_burst, "bMaxBurst", indent + 2, LSUSB_DUMP_WIDTH);
                     // bulk streams, isochronous Mult and the byte count are
                     // each gated on their own transfer type in lsusb
                     if matches!(endpoint.transfer_type, TransferType::Bulk)
                         && ss.attributes & 0x1f != 0
                     {
-                        println!(
-                            "{:indent$}MaxStreams {:>13}",
-                            "",
+                        dump_value(
                             1u32 << (ss.attributes & 0x1f),
-                            indent = indent + 2
+                            "MaxStreams",
+                            indent + 2,
+                            LSUSB_DUMP_WIDTH,
                         );
                     }
                     if matches!(endpoint.transfer_type, TransferType::Isochronous)
                         && ss.attributes & 0x03 != 0
                     {
-                        println!(
-                            "{:indent$}Mult {:>19}",
-                            "",
-                            ss.attributes & 0x3,
-                            indent = indent + 2
-                        );
+                        dump_value(ss.attributes & 0x3, "Mult", indent + 2, LSUSB_DUMP_WIDTH);
                     }
                     if matches!(
                         endpoint.transfer_type,
                         TransferType::Isochronous | TransferType::Interrupt
                     ) {
                         if let Some(bi) = ss.bytes_per_interval {
-                            println!(
-                                "{:indent$}wBytesPerInterval {:>6}",
-                                "",
-                                bi,
-                                indent = indent + 2
-                            );
+                            dump_value(bi, "wBytesPerInterval", indent + 2, LSUSB_DUMP_WIDTH);
                         }
                     }
                 }
@@ -2034,7 +2045,10 @@ const LINK_STATE_DESCRIPTIONS: [&str; 12] = [
     "Loopback",
 ];
 
-/// Dump a single value and the string representation of the value to the right of width
+/// Collect the strings for the bits set in a port status byte, MSB to LSB
+///
+/// Each is prefixed with a space, as lsusb emits them, so that concatenating
+/// them onto the port line needs no separator of its own.
 fn bitmap_strings_port<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>) -> String
 where
     T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
@@ -2045,8 +2059,8 @@ where
     for index in (0..num_bits).rev() {
         if (bitmap_u64 >> index) & 0x1 != 0 {
             if let Some(string) = strings_f(index) {
-                ret.push_str(string);
                 ret.push(' ');
+                ret.push_str(string);
             }
         }
     }
@@ -2054,22 +2068,25 @@ where
     ret
 }
 
+/// The hub descriptor is a column narrower than the rest of the dump
+const LSUSB_HUB_WIDTH: usize = LSUSB_DUMP_WIDTH - 2;
+
 fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: usize) {
     let is_ext_status = protocol == 3 && bcd >= 0x0310 && has_ssp;
     dump_string("Hub Descriptor:", indent);
-    dump_value(hd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(hd.length, "bLength", indent + 2, LSUSB_HUB_WIDTH);
     dump_value(
         hd.descriptor_type,
         "bDescriptorType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        LSUSB_HUB_WIDTH,
     );
-    dump_value(hd.num_ports, "nNbrPorts", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(hd.num_ports, "nNbrPorts", indent + 2, LSUSB_HUB_WIDTH);
     dump_hex(
         hd.characteristics,
         "wHubCharacteristic",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        LSUSB_HUB_WIDTH,
     );
     match hd.characteristics & 0x03 {
         0 => println!("{:indent$}Ganged power switching", "", indent = indent + 4),
@@ -2120,7 +2137,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
         "bPwrOn2PwrGood",
         "* 2 milli seconds",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        LSUSB_HUB_WIDTH,
     );
 
     if protocol == 3 {
@@ -2129,7 +2146,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
             "bHubContrCurrent",
             "milli Ampere",
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LSUSB_HUB_WIDTH,
         );
     } else {
         dump_value_string(
@@ -2137,7 +2154,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
             "bHubContrCurrent",
             "milli Ampere",
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LSUSB_HUB_WIDTH,
         );
     }
 
@@ -2147,14 +2164,14 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
             "bHubDecLat",
             "micro seconds",
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LSUSB_HUB_WIDTH,
         );
         dump_value_string(
             hd.delay().unwrap_or(0),
             "wHubDelay",
             "nano seconds",
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LSUSB_HUB_WIDTH,
         );
         2
     } else {
@@ -2166,30 +2183,29 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
     if l > 3 {
         l = 3;
     }
-    dump_value(
+    // these two are the only hub fields lsusb left aligns: a fixed prefix
+    // followed by one space-prefixed byte per port group, so the line grows
+    // rightwards rather than the value being right aligned in a column
+    let bitmask_bytes = |skip: usize| -> String {
         hd.data
             .iter()
-            .skip(offset)
+            .skip(skip)
             .take(l)
-            .map(|b| format!("0x{b:02x}"))
-            .collect::<Vec<String>>()
-            .join(" "),
-        "DeviceRemovable",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
+            .map(|b| format!(" 0x{b:02x}"))
+            .collect::<String>()
+    };
+    println!(
+        "{:indent$}DeviceRemovable   {}",
+        "",
+        bitmask_bytes(offset),
+        indent = indent + 2
     );
     if protocol != 3 {
-        dump_value(
-            hd.data
-                .iter()
-                .skip(offset + l)
-                .take(l)
-                .map(|b| format!("0x{b:02x}"))
-                .collect::<Vec<String>>()
-                .join(" "),
-            "PortPwrCtrlMask",
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
+        println!(
+            "{:indent$}PortPwrCtrlMask   {}",
+            "",
+            bitmask_bytes(offset + l),
+            indent = indent + 2
         );
     }
 
@@ -2232,7 +2248,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     _ => None,
                 });
                 dump_string(
-                    &format!("{port_status_string} {s2_string}{s1_string}{s0_string}"),
+                    &format!("{port_status_string}{s2_string}{s1_string}{s0_string}"),
                     indent + 3,
                 );
             } else {
@@ -2247,13 +2263,13 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     _ => None,
                 });
                 let s1_string = format!(
-                    "{} {}",
+                    "{}{}",
                     if p[1] & 0x1c == 0 {
-                        "5Gbps"
+                        " 5Gbps"
                     } else {
-                        "Unknown Speed"
+                        " Unknown Speed"
                     },
-                    if p[1] & 0x02 != 0 { "power " } else { " " },
+                    if p[1] & 0x02 != 0 { " power" } else { "" },
                 );
                 let s0_string = bitmap_strings_port(p[0], |b| match b {
                     0 => Some("connect"),
@@ -2262,33 +2278,25 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     4 => Some("RESET"),
                     _ => None,
                 });
-                if link_state < LINK_STATE_DESCRIPTIONS.len() {
-                    dump_string(
-                        &format!(
-                            "{} {}{}{}{}",
-                            port_status_string,
-                            s2_string,
-                            s1_string,
-                            LINK_STATE_DESCRIPTIONS[link_state],
-                            s0_string
-                        ),
-                        indent + 3,
-                    );
-                } else {
-                    dump_string(
-                        &format!("{port_status_string} {s2_string}{s1_string}{s0_string}"),
-                        indent + 3,
-                    );
-                }
+                let link_state_string = LINK_STATE_DESCRIPTIONS
+                    .get(link_state)
+                    .map(|s| format!(" {s}"))
+                    .unwrap_or_default();
+                dump_string(
+                    &format!(
+                        "{port_status_string}{s2_string}{s1_string}{link_state_string}{s0_string}"
+                    ),
+                    indent + 3,
+                );
             }
 
             if is_ext_status && (p[0] & 0x01 == 0x01) {
                 dump_string(
                     &format!(
-                        "Ext Status: {:02x}{:02x}{:02x}{:02x}",
+                        "Ext Status: {:02x}{:02x}.{:02x}{:02x}",
                         p[7], p[6], p[5], p[4]
                     ),
-                    indent + 7,
+                    indent + 5,
                 );
                 dump_string(
                     &format!(
