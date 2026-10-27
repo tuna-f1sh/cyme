@@ -127,7 +127,7 @@ Device Descriptor:
           Download Supported
         wDetachTimeout                   1000 milliseconds
         wTransferSize                    1024 bytes
-        bcdDFUVersion                    1.1a
+        bcdDFUVersion                   1.1a
 Device Status:     0x0001
   Self Powered
 
@@ -168,14 +168,14 @@ Device Descriptor:
       bInterfaceSubClass      1 Printer
       bInterfaceProtocol      4 
       iInterface              0 IPP Interface
-        Printer Interface Descriptor:
+        IPP Printer Descriptor:
           bLength                14
           bDescriptorType        33
           bcdReleaseNumber        0
           bcdNumDescriptors       1
-          iIPPVersionsSupported   2
-          iIPPPrinterUUID         5 
-          wBasicCapabilities   0x0031  Print HTTP-over-USB Username-Auth
+            iIPPVersionsSupported     2
+            iIPPPrinterUUID           5 
+            wBasicCapabilities   0x0031  Print HTTP-over-USB Username-Auth
       Endpoint Descriptor:
         bLength                 7
         bDescriptorType         5
