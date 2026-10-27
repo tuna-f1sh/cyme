@@ -199,13 +199,12 @@ fn dump_junk(extra: &[u8], indent: usize, reported_len: usize, expected_len: usi
 /// Dumps unknown descriptor bytes as hex like lsusb
 fn dump_unrecognised(extra: &[u8], indent: usize) {
     println!(
-        "{:^indent$}** UNRECOGNIZED: {}",
+        "{:indent$}** UNRECOGNIZED: {}",
         "",
         extra
             .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect::<Vec<String>>()
-            .join(" ")
+            .map(|b| format!(" {b:02x}"))
+            .collect::<String>()
     )
 }
 
@@ -833,14 +832,14 @@ fn dump_interface(interface: &Interface, indent: usize) {
                         }
                         _ => {
                             let junk = Vec::from(cd.to_owned());
-                            dump_unrecognised(&junk, indent + 4);
+                            dump_unrecognised(&junk, indent + 2);
                         }
                     },
                 },
                 Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
-                    dump_unrecognised(junk, indent + 4);
+                    dump_unrecognised(junk, indent + 2);
                 }
-                _ => dump_unrecognised(&Vec::from(dt.to_owned()), indent + 4),
+                _ => dump_unrecognised(&Vec::from(dt.to_owned()), indent + 2),
             }
         }
     }
@@ -1302,7 +1301,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
 }
 
 fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
-    dump_string("Printer Interface Descriptor:", indent);
+    dump_string("IPP Printer Descriptor:", indent);
     dump_value(pd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
         pd.descriptor_type,
@@ -1323,27 +1322,31 @@ fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
 
+    // the capability blocks are indented a level in from the descriptor's
+    // own fields, and are two columns wider
+    const CAP_WIDTH: usize = LSUSB_DUMP_WIDTH + 2;
+
     for desc in &pd.descriptors {
         // basic capabilities
         if desc.descriptor_type == 0x00 {
             dump_value(
                 desc.versions_supported,
                 "iIPPVersionsSupported",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
+                indent + 4,
+                CAP_WIDTH,
             );
             dump_value_string(
                 desc.uuid_string_index,
                 "iIPPPrinterUUID",
                 desc.uuid_string.as_ref().unwrap_or(&String::new()),
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
+                indent + 4,
+                CAP_WIDTH,
             );
             print!(
                 "{:indent$}wBasicCapabilities   0x{:04x} ",
                 "",
                 desc.capabilities,
-                indent = indent + 2
+                indent = indent + 4
             );
 
             // capabilities
@@ -1375,9 +1378,9 @@ fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
             dump_value_string(
                 desc.descriptor_type,
                 "UnknownCapabilities",
-                desc.length,
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
+                format!("{:5}", desc.length),
+                indent + 4,
+                CAP_WIDTH,
             );
         }
     }
@@ -1760,7 +1763,8 @@ fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
         DFU_WIDTH,
     );
     if let Some(bcd) = dfud.dfu_version.as_ref() {
-        dump_value(bcd, "bcdDFUVersion", indent + 2, DFU_WIDTH);
+        // left aligned at the value column, unlike the fields above it
+        dump_string_right(bcd, "bcdDFUVersion", indent + 2, DFU_WIDTH - 4);
     }
 }
 
@@ -1772,7 +1776,7 @@ fn dump_pipe_desc(gd: &GenericDescriptor, indent: usize) {
             3 => "Data-in pipe",
             4 => "Data-out pipe",
             0 | 5..=0xdf | 0xf0..=0xff => "Reserved",
-            0xe0..=0xef => "Vendor-specific",
+            0xe0..=0xef => "Vendor specific",
         };
 
         println!(
@@ -1821,14 +1825,14 @@ fn dump_security(sec: &SecurityDescriptor, indent: usize) {
 
 fn dump_encryption_type(enc: &EncryptionDescriptor, indent: usize) {
     let enct_string = match enc.encryption_type as u8 {
-        0 => "UNSECURE",
+        0 => "INSECURE",
         1 => "WIRED",
         2 => "CCM_1",
         3 => "RSA_1",
         _ => "RESERVED",
     };
 
-    dump_string("Encryption Type:", indent);
+    dump_string("Encryption Type Descriptor:", indent);
     dump_value(enc.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
         enc.descriptor_type,
@@ -2018,7 +2022,7 @@ fn dump_device_qualifier(dqd: &DeviceQualifierDescriptor, indent: usize) {
 }
 
 fn dump_debug(dd: &DebugDescriptor, indent: usize) {
-    dump_string("Debug Descriptor:", indent);
+    dump_string("Debug descriptor:", indent);
     dump_value(dd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
         dd.descriptor_type,
