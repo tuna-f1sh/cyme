@@ -36,37 +36,37 @@ Device Descriptor:
       bInterfaceSubClass      0 [unknown]
       bInterfaceProtocol      0 
       iInterface              0 CCID Interface
-        ChipCard Interface Descriptor:
-          bLength                61
-          bDescriptorType        33
-          bcdCCID              1.10
-          bMaxSlotIndex           0
-          bVoltageSupport         7 5.0V 3.0V 1.8V
-          dwProtocols             3 T=0 T=1
-          dwDefaultClock       4000
-          dwMaximumClock       5000
-          bNumClockSupported      0
-          dwDataRate          10752 bps
-          dwMaxDataRate      307200 bps
-          bNumDataRatesSupp.      0
-          dwMaxIFSD             254
-          dwSyncProtocols  00000007 2-wire 3-wire I2C
-          dwMechanical     0000000F accept eject capture lock
-          dwFeatures       000204BA
-            Auto configuration based on ATR
-            Auto voltage selection
-            Auto clock change
-            Auto baud rate change
-            Auto PPS made by CCID
-            Auto IFSD exchange (T=1)
-            Short APDU level exchange
-          dwMaxCCIDMsgLen       271
-          bClassGetResponse    echo
-          bClassEnvelope       echo
-          wlcdLayout             16  cols 2 lines
-          bPINSupport             3 verification modification
-          bMaxCCIDBusySlots       1
-          junk              de ad be ef 01 02 03
+      ChipCard Interface Descriptor:
+        bLength                61
+        bDescriptorType        33
+        bcdCCID              1.10
+        nMaxSlotIndex           0
+        bVoltageSupport         7  5.0V 3.0V 1.8V 
+        dwProtocols             3  T=0 T=1
+        dwDefaultClock       4000
+        dwMaximumClock       5000
+        bNumClockSupported      0
+        dwDataRate          10752 bps
+        dwMaxDataRate      307200 bps
+        bNumDataRatesSupp.      0
+        dwMaxIFSD             254
+        dwSyncProtocols  00000007  2-wire 3-wire I2C
+        dwMechanical     0000000F  accept eject capture lock
+        dwFeatures       000204BA
+          Auto configuration based on ATR
+          Auto voltage selection
+          Auto clock change
+          Auto baud rate change
+          Auto PPS made by CCID
+          Auto IFSD exchange (T=1)
+          Short APDU level exchange
+        dwMaxCCIDMsgLen       271
+        bClassGetResponse    echo
+        bClassEnvelope       echo
+        wlcdLayout           16 cols 2 lines
+        bPINSupport             3  verification modification
+        bMaxCCIDBusySlots       1
+        junk              de ad be ef 01 02 03
       Endpoint Descriptor:
         bLength                 7
         bDescriptorType         5
@@ -117,17 +117,17 @@ Device Descriptor:
       bInterfaceSubClass      1 Device Firmware Update
       bInterfaceProtocol      2 
       iInterface              0 DFU Interface
-        Device Firmware Upgrade Interface Descriptor:
-          bLength                 9
-          bDescriptorType        33
-          bmAttributes           15
-            Will Detach
-            Manifestation Tolerant
-            Upload Supported
-            Download Supported
-          wDetachTimeout       1000 milliseconds
-          wTransferSize        1024 bytes
-          bcdDFUVersion        1.1a
+      Device Firmware Upgrade Interface Descriptor:
+        bLength                             9
+        bDescriptorType                    33
+        bmAttributes                       15
+          Will Detach
+          Manifestation Tolerant
+          Upload Supported
+          Download Supported
+        wDetachTimeout                   1000 milliseconds
+        wTransferSize                    1024 bytes
+        bcdDFUVersion                    1.1a
 Device Status:     0x0001
   Self Powered
 
