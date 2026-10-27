@@ -244,7 +244,11 @@ fn dump_bitmap_strings_invert<T>(
     }
 }
 
-/// Dump a single value and the string representation of the value to the right of width
+/// Dump a value followed, on the same line, by the strings for the bits set in it
+///
+/// lsusb separates the value from the first string by two spaces. `trailing`
+/// adds a space after the last one, which lsusb does for the fields whose
+/// strings carry their own separator rather than being prefixed with one.
 fn dump_bitmap_strings_inline<T, V>(
     value: V,
     bitmap: T,
@@ -252,13 +256,14 @@ fn dump_bitmap_strings_inline<T, V>(
     strings_f: fn(usize) -> Option<&'static str>,
     indent: usize,
     width: usize,
+    trailing: bool,
 ) where
     T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
     V: std::fmt::Display,
 {
     let value = value.to_string();
     let spaces = get_spaces(value.len(), field_name.len(), width);
-    print!("{:indent$}{}{}{}", "", field_name, spaces, value,);
+    print!("{:indent$}{}{}{} ", "", field_name, spaces, value,);
     let bitmap_u64: u64 = bitmap.into();
     let num_bits = std::mem::size_of::<T>() * 8;
     for index in 0..num_bits {
@@ -267,6 +272,9 @@ fn dump_bitmap_strings_inline<T, V>(
                 print!(" {string}");
             }
         }
+    }
+    if trailing {
+        print!(" ");
     }
     println!();
 }
@@ -752,10 +760,10 @@ fn dump_interface(interface: &Interface, indent: usize) {
                 // Should only be Device or Interface as we mask out the rest
                 Descriptor::Device(cd) | Descriptor::Interface(cd) => match cd {
                     ClassDescriptor::Hid(hidd) => dump_hid_device(hidd, indent + 4),
-                    ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 4),
+                    ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 2),
                     ClassDescriptor::Printer(pd) => dump_printer_desc(pd, indent + 4),
-                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 4),
-                    ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 4),
+                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 2),
+                    ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 2),
                     ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md, indent + 4),
                     ClassDescriptor::Audio(uacd, uacp) => match &uacd.descriptor_subtype {
                         audio::UacType::Control(cs) => {
@@ -812,7 +820,7 @@ fn dump_interface(interface: &Interface, indent: usize) {
                         }
                         Some((BaseClass::ApplicationSpecificInterface, 1, _)) => {
                             if let Ok(dfud) = DfuDescriptor::try_from(gd.to_owned()) {
-                                dump_dfu_interface(&dfud, indent + 4);
+                                dump_dfu_interface(&dfud, indent + 2);
                             }
                         }
                         _ => {
@@ -1049,9 +1057,10 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         dump_value(ccid.version, "bcdCCID", indent + 2, LSUSB_DUMP_WIDTH);
     }
 
+    // lsusb names this nMaxSlotIndex, though the CCID spec calls it bMaxSlotIndex
     dump_value(
         ccid.max_slot_index,
-        "bMaxSlotIndex",
+        "nMaxSlotIndex",
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1067,6 +1076,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        true,
     );
 
     dump_bitmap_strings_inline(
@@ -1080,6 +1090,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        false,
     );
 
     dump_value(
@@ -1133,6 +1144,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        false,
     );
 
     dump_bitmap_strings_inline(
@@ -1148,6 +1160,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        false,
     );
 
     dump_value(
@@ -1233,15 +1246,16 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         );
     }
 
+    // left aligned at the value column rather than right aligned in it
+    const LCD_WIDTH: usize = LSUSB_DUMP_WIDTH - 3;
     if ccid.lcd_layout == (0, 0) {
-        dump_value("none", "wlcdLayout", indent + 2, LSUSB_DUMP_WIDTH);
+        dump_string_right("none", "wlcdLayout", indent + 2, LCD_WIDTH);
     } else {
-        dump_value_string(
-            ccid.lcd_layout.0,
+        dump_string_right(
+            format!("{} cols {} lines", ccid.lcd_layout.0, ccid.lcd_layout.1),
             "wlcdLayout",
-            format!(" cols {} lines", ccid.lcd_layout.1),
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LCD_WIDTH,
         );
     }
 
@@ -1256,6 +1270,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        false,
     );
 
     dump_value(
@@ -1396,7 +1411,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 },
                 indent + 4,
             );
-            dump_value(
+            dump_string_right(
                 cd.data_interface,
                 "bDataInterface",
                 indent + 2,
@@ -1425,20 +1440,20 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         }
         cdc::CdcInterfaceDescriptor::Union(cd) => {
             dump_string("CDC Union:", indent);
-            dump_value(
+            dump_string_right(
                 cd.master_interface,
                 "bMasterInterface",
                 indent + 2,
                 LSUSB_DUMP_WIDTH,
             );
+            // each slave is followed by a space rather than separated by one
             println!(
-                "{:indent$}bSlaveInterface      {}",
+                "{:indent$}bSlaveInterface         {}",
                 "",
                 cd.slave_interface
                     .iter()
-                    .map(|b| format!("{b:3}"))
-                    .collect::<Vec<String>>()
-                    .join(" "),
+                    .map(|b| format!("{b} "))
+                    .collect::<String>(),
                 indent = indent + 2
             );
         }
@@ -1451,14 +1466,16 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                     .as_ref()
                     .unwrap_or(&String::from("(?)")),
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                LSUSB_DUMP_WIDTH + 3,
             );
             for d in &cd.country_codes {
+                // printed as the two bytes in descriptor order, which puts
+                // the low byte first
                 dump_value(
-                    format!("{d:04x}"),
+                    format!("0x{:02x}{:02x}", d & 0xff, d >> 8),
                     "wCountryCode",
                     indent + 2,
-                    LSUSB_DUMP_WIDTH,
+                    LSUSB_DUMP_WIDTH + 3,
                 );
             }
         }
@@ -1483,59 +1500,53 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         }
         cdc::CdcInterfaceDescriptor::NetworkChannel(d) => {
             dump_string("Network Channel Terminal:", indent);
-            dump_value(d.entity_id, "bEntityId", indent + 2, LSUSB_DUMP_WIDTH);
+            // this descriptor is two columns wider than most CDC ones
+            const NCT_WIDTH: usize = LSUSB_DUMP_WIDTH + 2;
+            dump_value(d.entity_id, "bEntityId", indent + 2, NCT_WIDTH);
             dump_value_string(
                 d.name_string_index,
                 "iName",
                 d.name.as_ref().unwrap_or(&String::from("(?)")),
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                NCT_WIDTH,
             );
-            dump_value(
-                d.channel_index,
-                "bChannelIndex",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
+            dump_value(d.channel_index, "bChannelIndex", indent + 2, NCT_WIDTH);
             dump_value(
                 d.physical_interface,
                 "bPhysicalInterface",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                NCT_WIDTH,
             );
         }
         cdc::CdcInterfaceDescriptor::EthernetNetworking(d) => {
+            // the widest CDC descriptor by some margin
+            const ETH_WIDTH: usize = LSUSB_DUMP_WIDTH + 9;
             dump_string("CDC Ethernet:", indent);
             dump_value_string(
                 d.mac_address_index,
                 "iMacAddress",
                 d.mac_address.as_ref().unwrap_or(&String::from("(?)")),
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ETH_WIDTH,
             );
             dump_hex(
                 d.ethernet_statistics,
                 "bmEthernetStatistics",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ETH_WIDTH,
             );
-            dump_value(
-                d.max_segment_size,
-                "wMaxSegmentSize",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
+            dump_value(d.max_segment_size, "wMaxSegmentSize", indent + 2, ETH_WIDTH);
             dump_hex(
                 d.num_multicast_filters,
                 "wNumberMCFilters",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ETH_WIDTH,
             );
-            dump_hex(
+            dump_value(
                 d.num_power_filters,
                 "bNumberPowerFilters",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ETH_WIDTH,
             );
         }
         cdc::CdcInterfaceDescriptor::WirelessHandsetControlModel(d) => {
@@ -1544,8 +1555,8 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         }
         cdc::CdcInterfaceDescriptor::MobileDirectLineModelFunctional(d) => {
             dump_string("CDC MDLM:", indent);
-            dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
-            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value(d.version, "bcdCDC", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH - 4);
         }
         cdc::CdcInterfaceDescriptor::MobileDirectLineModelDetail(d) => {
             dump_string("CDC MDLM detail:", indent);
@@ -1553,23 +1564,27 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 format!("{:02x}", d.guid_descriptor_type),
                 "bGuidDescriptorType",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                LSUSB_DUMP_WIDTH - 2,
             );
             println!(
-                "{:indent$}bDetailData          {}",
+                "{:indent$}bDetailData         {}",
                 "",
                 d.detail_data
                     .iter()
-                    .map(|b| format!("{b:02x}"))
-                    .collect::<Vec<String>>()
-                    .join(" "),
+                    .map(|b| format!(" {b:02x}"))
+                    .collect::<String>(),
                 indent = indent + 2
             );
         }
         cdc::CdcInterfaceDescriptor::DeviceManagement(d) => {
             dump_string("CDC Device Management:", indent);
             dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
-            dump_value(d.max_command, "wMaxCommand", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_string_right(
+                d.max_command,
+                "wMaxCommand",
+                indent + 2,
+                LSUSB_DUMP_WIDTH - 3,
+            );
         }
         cdc::CdcInterfaceDescriptor::Obex(d) => {
             dump_string("CDC OBEX:", indent);
@@ -1587,7 +1602,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 indent + 2,
                 LSUSB_DUMP_WIDTH,
             );
-            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH - 3);
         }
         cdc::CdcInterfaceDescriptor::Ncm(d) => {
             dump_string("CDC NCM:", indent);
@@ -1596,7 +1611,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 d.network_capabilities,
                 "bmNetworkCapabilities",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                LSUSB_DUMP_WIDTH + 1,
             );
             dump_bitmap_strings_invert(
                 d.network_capabilities,
@@ -1604,7 +1619,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                     0 => Some("packet filter"),
                     1 => Some("net address"),
                     2 => Some("encapsulated commands"),
-                    3 => Some("max cd.datagram size"),
+                    3 => Some("max datagram size"),
                     4 => Some("crc mode"),
                     5 => Some("8-byte ntb input size"),
                     _ => None,
@@ -1615,40 +1630,32 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         cdc::CdcInterfaceDescriptor::Mbim(d) => {
             dump_string("CDC MBIM:", indent);
             dump_value(d.version, "bcdMBIMVersion", indent + 2, LSUSB_DUMP_WIDTH);
-            dump_value(
+            // these four are left aligned at the value column
+            const MBIM_WIDTH: usize = LSUSB_DUMP_WIDTH - 3;
+            dump_string_right(
                 d.max_control_message,
                 "wMaxControlMessage",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                MBIM_WIDTH,
             );
-            dump_value(
-                d.number_filters,
-                "bNumberFilters",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
-            dump_value(
-                d.max_filter_size,
-                "bMaxFilterSize",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
-            dump_value(
+            dump_string_right(d.number_filters, "bNumberFilters", indent + 2, MBIM_WIDTH);
+            dump_string_right(d.max_filter_size, "bMaxFilterSize", indent + 2, MBIM_WIDTH);
+            dump_string_right(
                 d.max_segment_size,
                 "wMaxSegmentSize",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                MBIM_WIDTH,
             );
             dump_hex(
                 d.network_capabilities,
                 "bmNetworkCapabilities",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                LSUSB_DUMP_WIDTH + 1,
             );
             dump_bitmap_strings_invert(
                 d.network_capabilities,
                 |b| match b {
-                    3 => Some("max cd.datagram size"),
+                    3 => Some("max datagram size"),
                     5 => Some("8-byte ntb input size"),
                     _ => None,
                 },
@@ -1657,19 +1664,16 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         }
         cdc::CdcInterfaceDescriptor::MbimExtended(d) => {
             dump_string("CDC MBIM Extended:", indent);
-            dump_value(
-                d.version,
-                "bcdMBIMExtendedVersion",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
+            // the widest CDC descriptor of all
+            const MBIMX_WIDTH: usize = LSUSB_DUMP_WIDTH + 12;
+            dump_value(d.version, "bcdMBIMExtendedVersion", indent + 2, MBIMX_WIDTH);
             dump_value(
                 d.max_outstanding_command_messages,
                 "bMaxOutstandingCommandMessages",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                MBIMX_WIDTH,
             );
-            dump_value(d.mtu, "wMTU", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value(d.mtu, "wMTU", indent + 2, MBIMX_WIDTH);
         }
         cdc::CdcInterfaceDescriptor::Invalid(_) => {
             dump_bad_comm(cd, indent);
@@ -1690,9 +1694,8 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
 }
 
 fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
-    // wider in lsusb but I prefer standard
-    //const DFU_WIDTH: usize = 36;
-    const DFU_WIDTH: usize = LSUSB_DUMP_WIDTH;
+    // lsusb lays this descriptor out wider than the rest
+    const DFU_WIDTH: usize = LSUSB_DUMP_WIDTH + 12;
 
     dump_string("Device Firmware Upgrade Interface Descriptor:", indent);
     dump_value(dfud.length, "bLength", indent + 2, DFU_WIDTH);
