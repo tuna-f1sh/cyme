@@ -84,6 +84,22 @@ fn dump_hex<T: std::fmt::LowerHex + Into<u64>>(
     dump_value(hex_value, field_name, indent, width);
 }
 
+/// Dump a single hex value in upper case, as lsusb does for a handful of fields
+fn dump_hex_upper<T: std::fmt::UpperHex + Into<u64>>(
+    value: T,
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    let value_as_u64: u64 = value.into();
+    let hex_value = format!(
+        "0x{:0width$X}",
+        value_as_u64,
+        width = (std::mem::size_of::<T>() * 2)
+    );
+    dump_value(hex_value, field_name, indent, width);
+}
+
 /// Lookup the name of the value from passed function and dump it
 fn dump_name<T: std::fmt::Display>(
     value: T,
