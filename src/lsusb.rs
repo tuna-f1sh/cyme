@@ -560,13 +560,19 @@ fn dump_device(device: &Device) {
         LSUSB_DUMP_WIDTH,
     );
 
+    // lsusb prints nothing for a zero string index, not a vendor db name
+    let string_or_empty = |index: u8, s: Option<&String>| -> String {
+        if index == 0 {
+            String::new()
+        } else {
+            s.cloned().unwrap_or_default()
+        }
+    };
+
     dump_value_string(
         device_extra.string_indexes.1,
         "iManufacturer",
-        device
-            .manufacturer
-            .as_ref()
-            .unwrap_or(&String::from("[unknown]")),
+        string_or_empty(device_extra.string_indexes.1, device.manufacturer.as_ref()),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -574,7 +580,7 @@ fn dump_device(device: &Device) {
     dump_value_string(
         device_extra.string_indexes.0,
         "iProduct",
-        &device.name,
+        string_or_empty(device_extra.string_indexes.0, Some(&device.name)),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -582,7 +588,7 @@ fn dump_device(device: &Device) {
     dump_value_string(
         device_extra.string_indexes.2,
         "iSerial",
-        device.serial_num.as_ref().unwrap_or(&String::new()),
+        string_or_empty(device_extra.string_indexes.2, device.serial_num.as_ref()),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1896,7 +1902,7 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
     dump_value_string(
         hidd.country_code,
         "bCountryCode",
-        names::countrycode(hidd.country_code).unwrap_or_default(),
+        names::countrycode(hidd.country_code).unwrap_or_else(|| String::from("Unknown")),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1910,7 +1916,7 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
         dump_value_string(
             desc.descriptor_type,
             "bDescriptorType",
-            names::hid(desc.descriptor_type).unwrap_or_default(),
+            names::hid(desc.descriptor_type).unwrap_or_else(|| String::from("Unknown")),
             indent + 2,
             LSUSB_DUMP_WIDTH,
         );
@@ -1933,7 +1939,8 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
                 dump_report_desc(d, indent + 2);
             }
             None => {
-                dump_string("Report Descriptors:", indent + 2);
+                // lsusb leaves a trailing space after the colon here
+                dump_string("Report Descriptors: ", indent + 2);
                 dump_string("** UNAVAILABLE **", indent + 4);
             }
         }
@@ -2424,8 +2431,8 @@ fn dump_unit(mut data: u32, len: usize, indent: usize) {
 
 /// Dumps HID report data ported directly from lsusb - it's not pretty but works...
 fn dump_report_desc(desc: &[u8], indent: usize) {
-    // ported from lsusb - indented to 28 spaces for some reason...
-    const REPORT_INDENT: usize = 12;
+    // lsusb hard codes a 28 space indent for item decode lines
+    const REPORT_INDENT: usize = 28;
     let types = |t: u8| match t {
         0x00 => "Main",
         0x01 => "Global",
@@ -2465,10 +2472,10 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
 
         // Item Header
         print!(
-            "{:indent$}Item({:>6}): {}, data=",
+            "{:indent$}Item({:<6}): {}, data=",
             "",
             types(btype >> 2),
-            names::report_tag(btag).unwrap_or_default(),
+            names::report_tag(btag).unwrap_or_else(|| String::from("Unknown")),
             indent = indent + 2
         );
 
@@ -2477,7 +2484,7 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
             data = 0;
             for j in 0..bsize {
                 data |= (desc[i + 1 + j] as u32) << (j * 8);
-                print!("{:02x} ", desc[i + 1 + j]);
+                print!("0x{:02x} ", desc[i + 1 + j]);
             }
             println!("] {data}");
         } else {
@@ -2488,15 +2495,21 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
             // usage page
             0x04 => {
                 hut = data as u8;
-                if let Some(name) = names::huts(hut) {
-                    println!("{:indent$}{}", "", name, indent = REPORT_INDENT);
-                }
+                println!(
+                    "{:indent$}{}",
+                    "",
+                    names::huts(hut).unwrap_or_else(|| String::from("Unknown")),
+                    indent = REPORT_INDENT
+                );
             }
             // usage, usage minimum, usage maximum
             0x08 | 0x18 | 0x28 => {
-                if let Some(hutus) = names::hutus(hut, data as u16) {
-                    println!("{:indent$}{}", "", hutus, indent = REPORT_INDENT);
-                }
+                println!(
+                    "{:indent$}{}",
+                    "",
+                    names::hutus(hut, data as u16).unwrap_or_else(|| String::from("Unknown")),
+                    indent = REPORT_INDENT
+                );
             }
             // unit exponent - signed, so 0x0e reads as -2 not 14
             0x54 => {
@@ -2522,7 +2535,11 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
                     if (data & 0x80) == 0x80 {
                         println!("{:indent$}Vendor defined", "", indent = REPORT_INDENT)
                     } else {
-                        println!("{:indent$}Unknown", "", indent = REPORT_INDENT)
+                        println!(
+                            "{:indent$}Reserved for future use.",
+                            "",
+                            indent = REPORT_INDENT
+                        )
                     }
                 }
             },
