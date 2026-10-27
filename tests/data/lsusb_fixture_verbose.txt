@@ -235,22 +235,22 @@ Device Descriptor:
           bDescriptorType        34 Report
           wDescriptorLength      16
           Report Descriptor: (length is 16)
-            Item(Global): Usage Page, data= [ 01 ] 1
-            Generic Desktop Controls
-            Item( Local): Usage, data= [ 02 ] 2
-            Mouse
-            Item(  Main): Collection, data= [ 01 ] 1
-            Application
-            Item( Local): Usage, data= [ 01 ] 1
-            Pointer
-            Item(Global): Unit Exponent, data= [ 0e ] 14
-            Unit Exponent: 14
-            Item(Global): Unit, data= [ 21 00 ] 33
-            System: SI Linear, Unit: Centimeter^2
-            Item(  Main): Input, data= [ 02 ] 2
-            Data Variable Absolute No_Wrap Linear
-            Preferred_State No_Null_Position Non_Volatile Bitfield
-            Item(  Main): End Collection, data=none
+            Item(Global): Usage Page, data= [ 0x01 ] 1
+                            Generic Desktop Controls
+            Item(Local ): Usage, data= [ 0x02 ] 2
+                            Mouse
+            Item(Main  ): Collection, data= [ 0x01 ] 1
+                            Application
+            Item(Local ): Usage, data= [ 0x01 ] 1
+                            Pointer
+            Item(Global): Unit Exponent, data= [ 0x0e ] 14
+                            Unit Exponent: 14
+            Item(Global): Unit, data= [ 0x21 0x00 ] 33
+                            System: SI Linear, Unit: Centimeter^2
+            Item(Main  ): Input, data= [ 0x02 ] 2
+                            Data Variable Absolute No_Wrap Linear
+                            Preferred_State No_Null_Position Non_Volatile Bitfield
+            Item(Main  ): End Collection, data=none
       Endpoint Descriptor:
         bLength                 9
         bDescriptorType         5
