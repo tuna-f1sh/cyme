@@ -101,6 +101,9 @@ fn dump_hex_upper<T: std::fmt::UpperHex + Into<u64>>(
 }
 
 /// Lookup the name of the value from passed function and dump it
+///
+/// lsusb prints the line whether or not the lookup succeeds, so a miss leaves
+/// the name empty rather than dropping the field.
 fn dump_name<T: std::fmt::Display>(
     value: T,
     names_f: fn(T) -> Option<String>,
@@ -110,10 +113,14 @@ fn dump_name<T: std::fmt::Display>(
 ) {
     let value_string = value.to_string();
     let spaces = get_spaces(value_string.len(), field_name.len(), width);
-    let dump = format!("{:indent$}{}{}{}", "", field_name, spaces, value_string,);
-    if let Some(name) = names_f(value) {
-        println!("{dump} {name}");
-    }
+    println!(
+        "{:indent$}{}{}{} {}",
+        "",
+        field_name,
+        spaces,
+        value_string,
+        names_f(value).unwrap_or_default()
+    );
 }
 
 /// Lookup the name of the value from passed function and dump it as hex
@@ -124,12 +131,21 @@ fn dump_name_hex<T: std::fmt::LowerHex>(
     indent: usize,
     width: usize,
 ) {
-    let value_string = format!("{:#04x}", value);
+    // zero padded to the width of the type, as lsusb's 0x%04x and friends are
+    let value_string = format!(
+        "0x{:0width$x}",
+        value,
+        width = (std::mem::size_of::<T>() * 2)
+    );
     let spaces = get_spaces(value_string.len(), field_name.len(), width);
-    let dump = format!("{:indent$}{}{}{}", "", field_name, spaces, value_string,);
-    if let Some(name) = names_f(value) {
-        println!("{dump} {name}");
-    }
+    println!(
+        "{:indent$}{}{}{} {}",
+        "",
+        field_name,
+        spaces,
+        value_string,
+        names_f(value).unwrap_or_default()
+    );
 }
 
 /// Dumps the value and the string representation of the value to the right of width
