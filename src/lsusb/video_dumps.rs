@@ -126,7 +126,7 @@ fn dump_extension_unit(eu: &video::ExtensionUnit, indent: usize, width: usize) {
         &eu.guid_extension_code,
         "guidExtensionCode",
         indent + 2,
-        width,
+        width + 2,
     );
     dump_value(eu.num_controls, "bNumControls", indent + 2, width);
     dump_value(eu.num_input_pins, "bNrInPins", indent + 2, width);
@@ -162,14 +162,20 @@ fn dump_encoding_unit(eu: &video::EncodingUnit, indent: usize, width: usize) {
     );
     dump_value(eu.control_size, "bControlSize", indent + 2, width);
 
-    dump_hex(eu.controls, "bmControls", indent + 2, width);
+    // these two sit nine columns wider than the rest of the encoding unit
+    dump_hex(eu.controls, "bmControls", indent + 2, width + 9);
     for (i, n) in EN_CTRL_NAMES.iter().enumerate().take(20) {
         if (eu.controls >> i) & 1 != 0 {
             dump_string(n, indent + 4);
         }
     }
 
-    dump_hex(eu.controls_runtime, "bmControlsRuntime", indent + 2, width);
+    dump_hex(
+        eu.controls_runtime,
+        "bmControlsRuntime",
+        indent + 2,
+        width + 9,
+    );
     for (i, n) in EN_CTRL_NAMES.iter().enumerate().take(20) {
         if (eu.controls_runtime >> i) & 1 != 0 {
             dump_string(n, indent + 4);
@@ -183,7 +189,7 @@ pub(crate) fn dump_videocontrol_interface(
     protocol: u8,
     indent: usize,
 ) {
-    const DUMP_WIDTH: usize = 36; // wider in lsusb for long numbers
+    const DUMP_WIDTH: usize = LSUSB_DUMP_WIDTH;
     dump_string("VideoControl Interface Descriptor:", indent);
     dump_value(vcd.length, "bLength", indent + 2, DUMP_WIDTH);
     dump_value(
@@ -228,11 +234,14 @@ pub(crate) fn dump_videocontrol_interrupt_endpoint(
 
     let bytes = Vec::<u8>::from(epd.interface.to_owned());
 
-    if epd.length < 5 {
-        println!("{indent:indent$}Warning: Descriptor too short");
+    // lsusb reports both warnings a level out from the descriptor itself, and
+    // gives up after a short one
+    if epd.descriptor_type != 0x25 {
+        dump_string("Warning: Invalid descriptor", indent.saturating_sub(2));
     }
-    if epd.descriptor_type != 0x01 {
-        println!("{indent:indent$}Warning: Invalid descriptor type");
+    if epd.length < 5 {
+        dump_string("Warning: Descriptor too short", indent.saturating_sub(2));
+        return;
     }
 
     dump_string("VideoControl Endpoint Descriptor:", indent);
@@ -255,12 +264,13 @@ pub(crate) fn dump_videocontrol_interrupt_endpoint(
 fn dump_video_input_header(ih: &video::InputHeader, indent: usize, width: usize) {
     dump_value(ih.num_formats, "bNumFormats", indent + 2, width);
     dump_hex(ih.total_length, "wTotalLength", indent + 2, width);
-    dump_value_string(
+    dump_value_string_gap(
         format!("0x{:02x}", ih.endpoint_address.address),
         "bEndpointAddress",
-        ih.endpoint_address.to_string(),
+        ih.endpoint_address.to_string().to_uppercase(),
         indent + 2,
         width,
+        2,
     );
     dump_value(ih.info, "bmInfo", indent + 2, width);
     dump_value(ih.terminal_link, "bTerminalLink", indent + 2, width);
@@ -280,14 +290,17 @@ fn dump_video_input_header(ih: &video::InputHeader, indent: usize, width: usize)
 }
 
 fn dump_video_output_header(oh: &video::OutputHeader, indent: usize, width: usize) {
+    // the output header is four columns narrower than the input one
+    let width = width - 4;
     dump_value(oh.num_formats, "bNumFormats", indent + 2, width);
     dump_hex(oh.total_length, "wTotalLength", indent + 2, width);
-    dump_value_string(
+    dump_value_string_gap(
         format!("0x{:02x}", oh.endpoint_address.address),
         "bEndpointAddress",
-        oh.endpoint_address.to_string(),
+        oh.endpoint_address.to_string().to_uppercase(),
         indent + 2,
         width,
+        2,
     );
     dump_value(oh.terminal_link, "bTerminalLink", indent + 2, width);
     dump_value(oh.control_size, "bControlSize", indent + 2, width);
@@ -355,7 +368,7 @@ fn dump_video_color_format(cf: &video::ColorFormat, indent: usize, width: usize)
 
 fn dump_format_stream_based(fs: &video::FormatStreamBased, indent: usize, width: usize) {
     dump_value(fs.format_index, "bFormatIndex", indent + 2, width);
-    dump_guid(&fs.guid_format, "guidFormat", indent + 2, width);
+    dump_guid(&fs.guid_format, "guidFormat", indent + 2, width + 2);
     dump_value(fs.packet_length, "dwPacketLength", indent + 2, width);
 }
 
@@ -365,7 +378,7 @@ fn dump_format_mpeg2ts(fmts: &video::FormatMPEG2TS, indent: usize, width: usize)
     dump_value(fmts.packet_length, "bPacketLength", indent + 2, width);
     dump_value(fmts.stride_length, "bStrideLength", indent + 2, width);
     if let Some(guid) = &fmts.guid_stride_format {
-        dump_guid(guid, "guidStrideFormat", indent + 2, width);
+        dump_guid(guid, "guidStrideFormat", indent + 2, width + 2);
     }
 }
 
@@ -394,12 +407,8 @@ fn dump_interlace_flags(interlace_flags: u8, indent: usize, width: usize) {
     );
     dump_string(
         &format!(
-            "Fields per frame: {}",
-            if interlace_flags & 0x02 != 0 {
-                "1"
-            } else {
-                "2"
-            }
+            "Fields per frame: {} fields",
+            if interlace_flags & 0x02 != 0 { 1 } else { 2 }
         ),
         indent + 2,
     );
@@ -456,12 +465,13 @@ fn dump_format_mjpeg(fmjpeg: &video::FormatMJPEG, indent: usize, width: usize) {
 }
 
 fn dump_still_image_frame(sif: &video::StillImageFrame, indent: usize, width: usize) {
-    dump_value_string(
+    dump_value_string_gap(
         format!("0x{:02x}", sif.endpoint_address.address),
         "bEndpointAddress",
-        sif.endpoint_address.to_string(),
+        sif.endpoint_address.to_string().to_uppercase(),
         indent + 2,
         width,
+        2,
     );
     dump_value(
         sif.num_image_size_patterns,
@@ -495,7 +505,7 @@ fn dump_format_frame(fufb: &video::FormatFrame, indent: usize, width: usize) {
         indent + 2,
         width,
     );
-    dump_guid(&fufb.guid_format, "guidFormat", indent + 2, width);
+    dump_guid(&fufb.guid_format, "guidFormat", indent + 2, width + 2);
     dump_value(fufb.bits_per_pixel, "bBitsPerPixel", indent + 2, width);
     dump_value(
         fufb.default_frame_index,
@@ -510,7 +520,7 @@ fn dump_format_frame(fufb: &video::FormatFrame, indent: usize, width: usize) {
     dump_interlace_flags(fufb.interlace_flags, indent + 2, width);
     dump_value(fufb.copy_protect, "bCopyProtect", indent + 2, width);
     if let Some(variable_size) = fufb.variable_size {
-        dump_value(variable_size, "bVariableSize", indent + 2, width);
+        dump_value(variable_size, "bVariableSize", indent + 2, width - 2);
     }
 }
 
@@ -675,6 +685,9 @@ fn dump_video_subtype(
             );
 
             if let Some(extra) = &d.extra {
+                // the camera specific fields are six columns wider than the
+                // terminal fields above them
+                let width = width + 6;
                 dump_value(
                     extra.objective_focal_length_min,
                     "wObjectiveFocalLengthMin",
@@ -782,7 +795,8 @@ pub(crate) fn dump_videostreaming_interface(
     protocol: u8,
     indent: usize,
 ) {
-    const DUMP_WIDTH: usize = 36; // wider in lsusb for long numbers
+    // the streaming descriptors are laid out much wider than the control ones
+    const DUMP_WIDTH: usize = LSUSB_DUMP_WIDTH + 12;
     dump_string("VideoStreaming Interface Descriptor:", indent);
     dump_value(vsd.length, "bLength", indent + 2, DUMP_WIDTH);
     dump_value(

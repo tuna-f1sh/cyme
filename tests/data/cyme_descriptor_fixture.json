@@ -601,6 +601,316 @@
       "hub": null,
       "negotiated_speed": null
      }
+    },
+    {
+     "name": "Fixture UVC Camera",
+     "vendor_id": 65535,
+     "product_id": 6,
+     "location_id": {
+      "bus": 9,
+      "tree_positions": [
+       6
+      ],
+      "number": 6
+     },
+     "serial_num": "FIXTURE",
+     "manufacturer": "cyme fixture",
+     "bcd_device": "1.00",
+     "bcd_usb": "2.00",
+     "device_speed": "480.0 Mb/s",
+     "class": "video",
+     "sub_class": 0,
+     "protocol": 0,
+     "extra": {
+      "max_packet_size": 64,
+      "driver": null,
+      "syspath": null,
+      "vendor": "cyme fixture",
+      "product_name": "Fixture UVC Camera",
+      "string_indexes": [
+       2,
+       1,
+       3
+      ],
+      "configurations": [
+       {
+        "name": "Fixture Configuration",
+        "string_index": 4,
+        "number": 1,
+        "active": true,
+        "num_interfaces": 2,
+        "interfaces": [
+         {
+          "name": "VideoControl",
+          "string_index": 0,
+          "number": 0,
+          "path": "9-6:1.0",
+          "class": "video",
+          "sub_class": 1,
+          "protocol": 0,
+          "alt_setting": 0,
+          "active": true,
+          "driver": null,
+          "syspath": null,
+          "endpoints": [
+           {
+            "length": 7,
+            "address": {
+             "address": 131,
+             "number": 3,
+             "direction": "In"
+            },
+            "transfer_type": "Interrupt",
+            "sync_type": "None",
+            "usage_type": "Data",
+            "max_packet_size": 64,
+            "interval": 10,
+            "extra": null,
+            "endpoint_path": null
+           }
+          ],
+          "length": 9,
+          "extra": [
+           {
+            "interface": {
+             "video": [
+              {
+               "descriptor_subtype": {
+                "control": "header"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "Header": {
+                 "clock_frequency": 3000000,
+                 "collection_bytes": 1,
+                 "interfaces": [
+                  1
+                 ],
+                 "total_length": 77,
+                 "version": [
+                  1,
+                  1,
+                  0
+                 ]
+                }
+               },
+               "length": 13
+              },
+              0
+             ]
+            }
+           },
+           {
+            "interface": {
+             "video": [
+              {
+               "descriptor_subtype": {
+                "control": "input-terminal"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "InputTerminal": {
+                 "associated_terminal": 0,
+                 "extra": {
+                  "control_size": 3,
+                  "controls": 14,
+                  "objective_focal_length_max": 0,
+                  "objective_focal_length_min": 0,
+                  "ocular_focal_length": 0
+                 },
+                 "terminal": null,
+                 "terminal_id": 1,
+                 "terminal_index": 0,
+                 "terminal_type": 513
+                }
+               },
+               "length": 18
+              },
+              0
+             ]
+            }
+           },
+           {
+            "interface": {
+             "video": [
+              {
+               "descriptor_subtype": {
+                "control": "processing-unit"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "ProcessingUnit": {
+                 "control_size": 2,
+                 "controls": 5,
+                 "max_multiplier": 0,
+                 "processing": null,
+                 "processing_index": 0,
+                 "source_id": 1,
+                 "unit_id": 3,
+                 "video_standards": 0
+                }
+               },
+               "length": 12
+              },
+              0
+             ]
+            }
+           }
+          ],
+          "device_path": null,
+          "devpaths": null,
+          "mount_paths": null
+         },
+         {
+          "name": "VideoStreaming",
+          "string_index": 0,
+          "number": 1,
+          "path": "9-6:1.0",
+          "class": "video",
+          "sub_class": 2,
+          "protocol": 0,
+          "alt_setting": 0,
+          "active": true,
+          "driver": null,
+          "syspath": null,
+          "endpoints": [
+           {
+            "length": 7,
+            "address": {
+             "address": 129,
+             "number": 1,
+             "direction": "In"
+            },
+            "transfer_type": "Isochronous",
+            "sync_type": "None",
+            "usage_type": "Data",
+            "max_packet_size": 64,
+            "interval": 10,
+            "extra": null,
+            "endpoint_path": null
+           }
+          ],
+          "length": 9,
+          "extra": [
+           {
+            "interface": {
+             "video": [
+              {
+               "descriptor_subtype": {
+                "streaming": "input-header"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "InputHeader": {
+                 "control_size": 1,
+                 "controls": [
+                  0
+                 ],
+                 "endpoint_address": {
+                  "address": 129,
+                  "direction": "In",
+                  "number": 1
+                 },
+                 "info": 0,
+                 "num_formats": 1,
+                 "still_capture_method": 0,
+                 "terminal_link": 2,
+                 "total_length": 63,
+                 "trigger_support": 0,
+                 "trigger_usage": 0
+                }
+               },
+               "length": 14
+              },
+              0
+             ]
+            }
+           },
+           {
+            "interface": {
+             "video": [
+              {
+               "descriptor_subtype": {
+                "streaming": "format-uncompressed"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "FormatUncompressed": {
+                 "aspect_ratio_x": 0,
+                 "aspect_ratio_y": 0,
+                 "bits_per_pixel": 16,
+                 "copy_protect": 0,
+                 "default_frame_index": 1,
+                 "format_index": 1,
+                 "guid_format": "32595559-0000-0010-8000-00aa00389b71",
+                 "interlace_flags": 0,
+                 "num_frame_descriptors": 1,
+                 "variable_size": null
+                }
+               },
+               "length": 27
+              },
+              0
+             ]
+            }
+           },
+           {
+            "interface": {
+             "video": [
+              {
+               "descriptor_subtype": {
+                "streaming": "frame-uncompressed"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "FrameUncompressed": {
+                 "common": {
+                  "capabilities": 3,
+                  "frame_index": 1,
+                  "height": 480,
+                  "max_bit_rate": 370475008,
+                  "min_bit_rate": 370475008,
+                  "width": 640
+                 },
+                 "default_frame_interval": 333333,
+                 "frame_interval_type": 1,
+                 "frame_intervals": [
+                  333333
+                 ],
+                 "max_video_frame_buffer_size": 614400
+                }
+               },
+               "length": 30
+              },
+              0
+             ]
+            }
+           }
+          ],
+          "device_path": null,
+          "devpaths": null,
+          "mount_paths": null
+         }
+        ],
+        "attributes": [
+         "SelfPowered"
+        ],
+        "max_power": {
+         "value": 100,
+         "unit": "mA"
+        },
+        "length": 9,
+        "total_length": 32,
+        "extra": null
+       }
+      ],
+      "status": 1,
+      "debug": null,
+      "binary_object_store": null,
+      "qualifier": null,
+      "hub": null,
+      "negotiated_speed": null
+     }
     }
    ]
   }
