@@ -2523,7 +2523,7 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
     // every Local usage that follows it, and lsusb lets an item with no data
     // bytes see the previous item's value
     let mut data: u32 = 0xffff;
-    let mut hut: u8 = 0xff;
+    let mut hut: u32 = 0xffff;
 
     let mut i = 0;
     while i < desc.len() {
@@ -2571,24 +2571,36 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         match btag {
             // usage page
             0x04 => {
-                hut = data as u8;
+                // kept whole: narrowing would turn vendor page 0xff00 into
+                // page 0x00 "Undefined" where lsusb finds no name
+                hut = data;
                 println!(
                     "{:indent$}{}",
                     "",
-                    names::huts(hut).unwrap_or_else(|| String::from("Unknown")),
+                    u8::try_from(hut)
+                        .ok()
+                        .and_then(names::huts)
+                        .unwrap_or_else(|| String::from("Unknown")),
                     indent = REPORT_INDENT
                 );
             }
             // usage, usage minimum, usage maximum
             0x08 | 0x18 | 0x28 => {
+                // lsusb looks up (hut << 16) + data, so a four byte usage
+                // carries into the page rather than being truncated
+                let key = (hut << 16).wrapping_add(data);
                 println!(
                     "{:indent$}{}",
                     "",
-                    names::hutus(hut, data as u16).unwrap_or_else(|| String::from("Unknown")),
+                    u8::try_from(key >> 16)
+                        .ok()
+                        .and_then(|page| names::hutus(page, key as u16))
+                        .unwrap_or_else(|| String::from("Unknown")),
                     indent = REPORT_INDENT
                 );
             }
-            // unit exponent - signed, so 0x0e reads as -2 not 14
+            // unit exponent - lsusb casts through signed char, so only a full
+            // byte sign extends; the HID nibble encoding (0x0e = -2) is not applied
             0x54 => {
                 println!(
                     "{:indent$}Unit Exponent: {}",
