@@ -1002,36 +1002,13 @@ impl UacInterfaceDescriptor {
         data: &[u8],
     ) -> Result<Self, Error> {
         match uac_interface {
-            // Can be DataStreamingEndpoint or StreamingInterface so check the length
-            // since we have no Class context here
             StreamingSubtype::General => match protocol {
-                UacProtocol::Uac1 => {
-                    if data.len() == DataStreamingEndpoint1::size() {
-                        DataStreamingEndpoint1::try_from(data)
-                            .map(UacInterfaceDescriptor::DataStreamingEndpoint1)
-                    } else {
-                        StreamingInterface1::try_from(data)
-                            .map(UacInterfaceDescriptor::StreamingInterface1)
-                    }
-                }
-                UacProtocol::Uac2 => {
-                    if data.len() == DataStreamingEndpoint2::size() {
-                        DataStreamingEndpoint2::try_from(data)
-                            .map(UacInterfaceDescriptor::DatastreamingEndpoint2)
-                    } else {
-                        StreamingInterface2::try_from(data)
-                            .map(UacInterfaceDescriptor::StreamingInterface2)
-                    }
-                }
-                UacProtocol::Uac3 => {
-                    if data.len() == DataStreamingEndpoint3::size() {
-                        DataStreamingEndpoint3::try_from(data)
-                            .map(UacInterfaceDescriptor::DataStreamingEndpoint3)
-                    } else {
-                        StreamingInterface3::try_from(data)
-                            .map(UacInterfaceDescriptor::StreamingInterface3)
-                    }
-                }
+                UacProtocol::Uac1 => StreamingInterface1::try_from(data)
+                    .map(UacInterfaceDescriptor::StreamingInterface1),
+                UacProtocol::Uac2 => StreamingInterface2::try_from(data)
+                    .map(UacInterfaceDescriptor::StreamingInterface2),
+                UacProtocol::Uac3 => StreamingInterface3::try_from(data)
+                    .map(UacInterfaceDescriptor::StreamingInterface3),
                 _ => Ok(UacInterfaceDescriptor::Invalid(data.to_vec())),
             },
             StreamingSubtype::FormatType => StreamingFormat::from_uac_as_interface(protocol, data)
@@ -1296,14 +1273,37 @@ impl UacType {
         gd: GenericDescriptor,
         protocol: u8,
     ) -> Result<UacInterfaceDescriptor, Error> {
+        // AS_GENERAL and EP_GENERAL share subtype 1 (and length in UAC1),
+        // so tell them apart by CS_INTERFACE / CS_ENDPOINT
+        let is_endpoint = matches!(
+            DescriptorType::from(gd.descriptor_type),
+            DescriptorType::Endpoint
+        );
+
         match gd.data {
-            Some(data) => match self.get_uac_descriptor(protocol, &data) {
-                Ok(d) => Ok(d),
-                Err(e) => {
-                    log::warn!("Error parsing UVC descriptor: {e}");
-                    Ok(UacInterfaceDescriptor::Invalid(data))
+            Some(data) => {
+                let descriptor = match self {
+                    UacType::Streaming(StreamingSubtype::General) if is_endpoint => {
+                        UacInterfaceDescriptor::from_uac_as_iso_data_endpoint(
+                            &UacProtocol::from(protocol),
+                            &data,
+                        )
+                    }
+                    // EP_GENERAL is the only class endpoint descriptor
+                    UacType::Streaming(_) if is_endpoint => {
+                        Ok(UacInterfaceDescriptor::Invalid(data.to_vec()))
+                    }
+                    _ => self.get_uac_descriptor(protocol, &data),
+                };
+
+                match descriptor {
+                    Ok(d) => Ok(d),
+                    Err(e) => {
+                        log::warn!("Error parsing UAC descriptor: {e}");
+                        Ok(UacInterfaceDescriptor::Invalid(data))
+                    }
                 }
-            },
+            }
             None => Err(Error::new(
                 ErrorKind::InvalidArg,
                 "GenericDescriptor data is None",
