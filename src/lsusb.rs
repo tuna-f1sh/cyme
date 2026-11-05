@@ -2475,7 +2475,7 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
 
     // both carry across items, as in lsusb
     let mut data: u32 = 0xffff;
-    let mut hut: u8 = 0xff;
+    let mut hut: u32 = 0xffff;
 
     let mut i = 0;
     while i < desc.len() {
@@ -2522,24 +2522,33 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         match btag {
             // usage page
             0x04 => {
-                hut = data as u8;
+                // u32 so vendor pages such as 0xff00 are not narrowed
+                hut = data;
                 println!(
                     "{:indent$}{}",
                     "",
-                    names::huts(hut).unwrap_or_else(|| String::from("Unknown")),
+                    u8::try_from(hut)
+                        .ok()
+                        .and_then(names::huts)
+                        .unwrap_or_else(|| String::from("Unknown")),
                     indent = REPORT_INDENT
                 );
             }
             // usage, usage minimum, usage maximum
             0x08 | 0x18 | 0x28 => {
+                // lsusb looks up (hut << 16) + data
+                let key = (hut << 16).wrapping_add(data);
                 println!(
                     "{:indent$}{}",
                     "",
-                    names::hutus(hut, data as u16).unwrap_or_else(|| String::from("Unknown")),
+                    u8::try_from(key >> 16)
+                        .ok()
+                        .and_then(|page| names::hutus(page, key as u16))
+                        .unwrap_or_else(|| String::from("Unknown")),
                     indent = REPORT_INDENT
                 );
             }
-            // unit exponent - signed, so 0x0e reads as -2 not 14
+            // unit exponent - lsusb casts through signed char, not the HID nibble
             0x54 => {
                 println!(
                     "{:indent$}Unit Exponent: {}",
