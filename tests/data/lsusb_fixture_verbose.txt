@@ -592,8 +592,8 @@ Device Descriptor:
           Usage Type               Data
         wMaxPacketSize     0x0040  1x 64 bytes
         bInterval              10
-        bRefresh                0
-        bSynchAddress           0
+        bRefresh                4
+        bSynchAddress         129
         AudioStreaming Endpoint Descriptor:
           bLength                 7
           bDescriptorType        37
