@@ -44,6 +44,18 @@ fn dump_array<T: std::fmt::Display>(array: &[T], field_name: &str, indent: usize
     }
 }
 
+/// As [`dump_array`] but the index is not padded, as lsusb does for audio
+fn dump_array_desc<T: std::fmt::Display>(
+    array: &[T],
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    for (i, b) in array.iter().enumerate() {
+        dump_value(b, &format!("{field_name}({i})"), indent, width);
+    }
+}
+
 /// Dump a bitmap value mapping as hex like lsusb
 fn dump_bitmap_array<T: std::fmt::LowerHex + Into<u64> + Copy>(
     array: &[T],
@@ -52,7 +64,7 @@ fn dump_bitmap_array<T: std::fmt::LowerHex + Into<u64> + Copy>(
     width: usize,
 ) {
     for (i, b) in array.iter().enumerate() {
-        dump_hex(*b, &format!("{field_name}({i:2})"), indent, width);
+        dump_hex(*b, &format!("{field_name}({i})"), indent, width);
     }
 }
 
