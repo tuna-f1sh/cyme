@@ -489,36 +489,43 @@ pub fn dump_container_id_capability(d: &bos::ContainerIdCapability, indent: usiz
 }
 
 fn dump_usb3_dc_configuration_summary(d: &bos::ConfigurationSummaryCapability, indent: usize) {
+    // lsusb pads every field in this capability to its longest name, which is
+    // bConfigurationIndex plus its index
+    const SUMMARY_WIDTH: usize = LSUSB_DUMP_WIDTH + 4;
     dump_string("Configuration Summary Device Capability:", indent);
-    dump_value(d.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(d.length, "bLength", indent + 2, SUMMARY_WIDTH);
     dump_value(
         d.descriptor_type,
         "bDescriptorType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        SUMMARY_WIDTH,
     );
     dump_value(
         u8::from(d.capability_type.to_owned()),
         "bDevCapabilityType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        SUMMARY_WIDTH,
     );
-    dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(d.class, "bClass", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(d.sub_class, "bSubClass", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(d.protocol, "bProtocol", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(d.version, "bcdVersion", indent + 2, SUMMARY_WIDTH);
+    dump_value(d.class, "bClass", indent + 2, SUMMARY_WIDTH);
+    dump_value(d.sub_class, "bSubClass", indent + 2, SUMMARY_WIDTH);
+    dump_value(d.protocol, "bProtocol", indent + 2, SUMMARY_WIDTH);
     dump_value(
         d.configuration_count,
         "bConfigurationCount",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        SUMMARY_WIDTH,
     );
-    dump_array(
-        &d.configured,
-        "bConfigurationIndex",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
-    );
+    // the index is not space padded inside the parens here, unlike most array
+    // fields
+    for (i, b) in d.configured.iter().enumerate() {
+        dump_value(
+            b,
+            &format!("bConfigurationIndex({i})"),
+            indent + 2,
+            SUMMARY_WIDTH,
+        );
+    }
 }
 
 pub(crate) fn dump_bos_descriptor(
