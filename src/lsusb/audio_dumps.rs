@@ -992,8 +992,14 @@ fn dump_extended_terminal_header(d: &audio::ExtendedTerminalHeader, indent: usiz
 
 fn dump_audio_streaming_interface1(asi: &audio::StreamingInterface1, indent: usize, width: usize) {
     dump_value(asi.terminal_link, "bTerminalLink", indent, width);
-    dump_value(asi.delay, "bDelay", indent, width);
-    dump_value(asi.format_tag, "wFormatTag", indent, width);
+    dump_value_string(asi.delay, "bDelay", "frames", indent, width);
+    dump_value_string(
+        format!("0x{:04x}", asi.format_tag),
+        "wFormatTag",
+        get_format_specific_string(asi.format_tag),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_streaming_interface2(asi: &audio::StreamingInterface2, indent: usize, width: usize) {
@@ -1006,6 +1012,13 @@ fn dump_audio_streaming_interface2(asi: &audio::StreamingInterface2, indent: usi
         indent + 2,
     );
     dump_value(asi.format_type, "bFormatType", indent, width);
+    // one type I format name per set bit, listed under the value
+    dump_hex(asi.formats, "bmFormats", indent, width);
+    for bit in 0..5 {
+        if asi.formats & (1 << bit) != 0 {
+            dump_string(FMT_ITAG[bit + 1], indent + 2);
+        }
+    }
     dump_value(asi.nr_channels, "bNrChannels", indent, width);
     dump_hex(asi.channel_config, "bmChannelConfig", indent, width);
     let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
@@ -1041,6 +1054,17 @@ fn dump_audio_streaming_interface3(asi: &audio::StreamingInterface3, indent: usi
     dump_value(asi.control_size, "bControlSize", indent, width);
 }
 
+/// Lock delay unit names, shared by the three protocols' isochronous audio
+/// data endpoint descriptors
+fn lock_delay_units_string(units: u8) -> &'static str {
+    match units {
+        0 => "Undefined",
+        1 => "Milliseconds",
+        2 => "Decoded PCM samples",
+        _ => "",
+    }
+}
+
 fn dump_audio_data_streaming_endpoint1(
     ads: &audio::DataStreamingEndpoint1,
     indent: usize,
@@ -1055,7 +1079,13 @@ fn dump_audio_data_streaming_endpoint1(
     };
     dump_hex(ads.attributes, "bmAttributes", indent, width);
     dump_bitmap_strings(ads.attributes, uac1_attrs, indent + 2);
-    dump_value(ads.lock_delay_units, "bLockDelayUnits", indent, width);
+    dump_value_string(
+        ads.lock_delay_units,
+        "bLockDelayUnits",
+        lock_delay_units_string(ads.lock_delay_units),
+        indent,
+        width,
+    );
     dump_hex(ads.lock_delay, "wLockDelay", indent, width);
 }
 
@@ -1077,7 +1107,13 @@ fn dump_audio_data_streaming_endpoint2(
         &audio::ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(ads.lock_delay_units, "bLockDelayUnits", indent, width);
+    dump_value_string(
+        ads.lock_delay_units,
+        "bLockDelayUnits",
+        lock_delay_units_string(ads.lock_delay_units),
+        indent,
+        width,
+    );
     dump_hex(ads.lock_delay, "wLockDelay", indent, width);
 }
 
@@ -1093,7 +1129,13 @@ fn dump_audio_data_streaming_endpoint3(
         &audio::ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(ads.lock_delay_units, "bLockDelayUnits", indent, width);
+    dump_value_string(
+        ads.lock_delay_units,
+        "bLockDelayUnits",
+        lock_delay_units_string(ads.lock_delay_units),
+        indent,
+        width,
+    );
     dump_hex(ads.lock_delay, "wLockDelay", indent, width);
 }
 
@@ -1366,26 +1408,27 @@ pub(crate) fn dump_audiocontrol_interface(
     }
 }
 
-fn get_format_specific_string(fmttag: u16) -> &'static str {
-    const FMT_ITAG: [&str; 6] = [
-        "TYPE_I_UNDEFINED",
-        "PCM",
-        "PCM8",
-        "IEEE_FLOAT",
-        "ALAW",
-        "MULAW",
-    ];
-    const FMT_IITAG: [&str; 3] = ["TYPE_II_UNDEFINED", "MPEG", "AC-3"];
-    const FMT_IIITAG: [&str; 7] = [
-        "TYPE_III_UNDEFINED",
-        "IEC1937_AC-3",
-        "IEC1937_MPEG-1_Layer1",
-        "IEC1937_MPEG-Layer2/3/NOEXT",
-        "IEC1937_MPEG-2_EXT",
-        "IEC1937_MPEG-2_Layer1_LS",
-        "IEC1937_MPEG-2_Layer2/3_LS",
-    ];
+/// Type I audio data format names, indexed by format code
+const FMT_ITAG: [&str; 6] = [
+    "TYPE_I_UNDEFINED",
+    "PCM",
+    "PCM8",
+    "IEEE_FLOAT",
+    "ALAW",
+    "MULAW",
+];
+const FMT_IITAG: [&str; 3] = ["TYPE_II_UNDEFINED", "MPEG", "AC-3"];
+const FMT_IIITAG: [&str; 7] = [
+    "TYPE_III_UNDEFINED",
+    "IEC1937_AC-3",
+    "IEC1937_MPEG-1_Layer1",
+    "IEC1937_MPEG-Layer2/3/NOEXT",
+    "IEC1937_MPEG-2_EXT",
+    "IEC1937_MPEG-2_Layer1_LS",
+    "IEC1937_MPEG-2_Layer2/3_LS",
+];
 
+fn get_format_specific_string(fmttag: u16) -> &'static str {
     match fmttag {
         0..=5 => FMT_ITAG[fmttag as usize],
         0x1000..=0x1002 => FMT_IITAG[(fmttag & 0xfff) as usize],
@@ -1608,10 +1651,16 @@ pub(crate) fn dump_audiostreaming_interface(
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
+    // lsusb prefixes the interface general subtype to distinguish it from the
+    // endpoint one, which it calls EP_GENERAL
+    let uasi_name = match uasi {
+        audio::StreamingSubtype::General => String::from("AS_GENERAL"),
+        _ => format!("{uasi:#}"),
+    };
     dump_value_string(
         uasi.to_owned() as u8,
         "bDescriptorSubtype",
-        format!("({uasi:#})"),
+        format!("({uasi_name})"),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );

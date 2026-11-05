@@ -1100,7 +1100,29 @@
             "usage_type": "Data",
             "max_packet_size": 64,
             "interval": 10,
-            "extra": null,
+            "extra": [
+             {
+              "endpoint": {
+               "audio": [
+                {
+                 "descriptor_subtype": {
+                  "streaming": "general"
+                 },
+                 "descriptor_type": 37,
+                 "interface": {
+                  "data-streaming-endpoint1": {
+                   "attributes": 1,
+                   "lock_delay": 0,
+                   "lock_delay_units": 2
+                  }
+                 },
+                 "length": 7
+                },
+                "uac1"
+               ]
+              }
+             }
+            ],
             "endpoint_path": null
            }
           ],
@@ -1115,10 +1137,10 @@
                },
                "descriptor_type": 36,
                "interface": {
-                "data-streaming-endpoint1": {
-                 "attributes": 2,
-                 "lock_delay": 1,
-                 "lock_delay_units": 1
+                "streaming-interface1": {
+                 "delay": 1,
+                 "format_tag": 1,
+                 "terminal_link": 2
                 }
                },
                "length": 7

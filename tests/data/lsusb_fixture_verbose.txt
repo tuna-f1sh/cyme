@@ -568,11 +568,10 @@ Device Descriptor:
       AudioStreaming Interface Descriptor:
         bLength                 7
         bDescriptorType        36
-        bDescriptorSubtype      1 (GENERAL)
-        bmAttributes         0x02
-          Pitch
-        bLockDelayUnits         1
-        wLockDelay         0x0001
+        bDescriptorSubtype      1 (AS_GENERAL)
+        bTerminalLink           2
+        bDelay                  1 frames
+        wFormatTag         0x0001 PCM
       AudioStreaming Interface Descriptor:
         bLength                11
         bDescriptorType        36
@@ -595,5 +594,13 @@ Device Descriptor:
         bInterval              10
         bRefresh                0
         bSynchAddress           0
+        AudioStreaming Endpoint Descriptor:
+          bLength                 7
+          bDescriptorType        37
+          bDescriptorSubtype      1 (EP_GENERAL)
+          bmAttributes         0x01
+            Sampling Frequency
+          bLockDelayUnits         2 Decoded PCM samples
+          wLockDelay         0x0000
 Device Status:     0x0001
   Self Powered
