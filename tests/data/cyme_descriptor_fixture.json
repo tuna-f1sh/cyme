@@ -911,6 +911,279 @@
       "hub": null,
       "negotiated_speed": null
      }
+    },
+    {
+     "name": "Fixture UAC Microphone",
+     "vendor_id": 65535,
+     "product_id": 7,
+     "location_id": {
+      "bus": 9,
+      "tree_positions": [
+       7
+      ],
+      "number": 7
+     },
+     "serial_num": "FIXTURE",
+     "manufacturer": "cyme fixture",
+     "bcd_device": "1.00",
+     "bcd_usb": "2.00",
+     "device_speed": "12.0 Mb/s",
+     "class": "audio",
+     "sub_class": 0,
+     "protocol": 0,
+     "extra": {
+      "max_packet_size": 64,
+      "driver": null,
+      "syspath": null,
+      "vendor": "cyme fixture",
+      "product_name": "Fixture UAC Microphone",
+      "string_indexes": [
+       2,
+       1,
+       3
+      ],
+      "configurations": [
+       {
+        "name": "Fixture Configuration",
+        "string_index": 4,
+        "number": 1,
+        "active": true,
+        "num_interfaces": 2,
+        "interfaces": [
+         {
+          "name": "AudioControl",
+          "string_index": 0,
+          "number": 0,
+          "path": "9-7:1.0",
+          "class": "audio",
+          "sub_class": 1,
+          "protocol": 0,
+          "alt_setting": 0,
+          "active": true,
+          "driver": null,
+          "syspath": null,
+          "endpoints": [],
+          "length": 9,
+          "extra": [
+           {
+            "interface": {
+             "audio": [
+              {
+               "descriptor_subtype": {
+                "control": "header"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "header1": {
+                 "collection_bytes": 1,
+                 "interfaces": [
+                  1
+                 ],
+                 "total_length": 40,
+                 "version": [
+                  1,
+                  0,
+                  0
+                 ]
+                }
+               },
+               "length": 9
+              },
+              "uac1"
+             ]
+            }
+           },
+           {
+            "interface": {
+             "audio": [
+              {
+               "descriptor_subtype": {
+                "control": "input-terminal"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "input-terminal1": {
+                 "assoc_terminal": 0,
+                 "channel_config": 3,
+                 "channel_names": null,
+                 "channel_names_index": 0,
+                 "nr_channels": 2,
+                 "terminal": null,
+                 "terminal_id": 1,
+                 "terminal_index": 0,
+                 "terminal_type": 513
+                }
+               },
+               "length": 12
+              },
+              "uac1"
+             ]
+            }
+           },
+           {
+            "interface": {
+             "audio": [
+              {
+               "descriptor_subtype": {
+                "control": "output-terminal"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "output-terminal1": {
+                 "assoc_terminal": 0,
+                 "source_id": 1,
+                 "terminal": null,
+                 "terminal_id": 2,
+                 "terminal_index": 0,
+                 "terminal_type": 257
+                }
+               },
+               "length": 9
+              },
+              "uac1"
+             ]
+            }
+           },
+           {
+            "interface": {
+             "audio": [
+              {
+               "descriptor_subtype": {
+                "control": "feature-unit"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "feature-unit1": {
+                 "control_size": 1,
+                 "controls": [
+                  3
+                 ],
+                 "feature": null,
+                 "feature_index": 0,
+                 "source_id": 1,
+                 "unit_id": 3
+                }
+               },
+               "length": 10
+              },
+              "uac1"
+             ]
+            }
+           }
+          ],
+          "device_path": null,
+          "devpaths": null,
+          "mount_paths": null
+         },
+         {
+          "name": "AudioStreaming",
+          "string_index": 0,
+          "number": 1,
+          "path": "9-7:1.0",
+          "class": "audio",
+          "sub_class": 2,
+          "protocol": 0,
+          "alt_setting": 0,
+          "active": true,
+          "driver": null,
+          "syspath": null,
+          "endpoints": [
+           {
+            "length": 9,
+            "address": {
+             "address": 129,
+             "number": 1,
+             "direction": "In"
+            },
+            "transfer_type": "Isochronous",
+            "sync_type": "None",
+            "usage_type": "Data",
+            "max_packet_size": 64,
+            "interval": 10,
+            "extra": null,
+            "endpoint_path": null
+           }
+          ],
+          "length": 9,
+          "extra": [
+           {
+            "interface": {
+             "audio": [
+              {
+               "descriptor_subtype": {
+                "streaming": "general"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "data-streaming-endpoint1": {
+                 "attributes": 2,
+                 "lock_delay": 1,
+                 "lock_delay_units": 1
+                }
+               },
+               "length": 7
+              },
+              "uac1"
+             ]
+            }
+           },
+           {
+            "interface": {
+             "audio": [
+              {
+               "descriptor_subtype": {
+                "streaming": "format-type"
+               },
+               "descriptor_type": 36,
+               "interface": {
+                "streaming-format": {
+                 "format_type": "type-i",
+                 "interface": {
+                  "FormatTypeI1": {
+                   "bit_resolution": 16,
+                   "num_channels": 2,
+                   "sample_frequencies": [
+                    44100
+                   ],
+                   "sample_frequency_type": {
+                    "Discrete": 1
+                   },
+                   "subframe_size": 2
+                  }
+                 }
+                }
+               },
+               "length": 11
+              },
+              "uac1"
+             ]
+            }
+           }
+          ],
+          "device_path": null,
+          "devpaths": null,
+          "mount_paths": null
+         }
+        ],
+        "attributes": [
+         "SelfPowered"
+        ],
+        "max_power": {
+         "value": 100,
+         "unit": "mA"
+        },
+        "length": 9,
+        "total_length": 32,
+        "extra": null
+       }
+      ],
+      "status": 1,
+      "debug": null,
+      "binary_object_store": null,
+      "qualifier": null,
+      "hub": null,
+      "negotiated_speed": null
+     }
     }
    ]
   }

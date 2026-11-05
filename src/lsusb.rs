@@ -38,9 +38,28 @@ fn get_spaces(value_len: usize, field_len: usize, width: usize) -> String {
 }
 
 /// Dump an array of value like lsusb
+///
+/// The index is space padded to two characters, as lsusb prints it for most
+/// descriptors. The audio descriptors and the configuration summary do not
+/// pad it; see [`dump_array_desc`].
 fn dump_array<T: std::fmt::Display>(array: &[T], field_name: &str, indent: usize, width: usize) {
     for (i, b) in array.iter().enumerate() {
         dump_value(b, &format!("{field_name}({i:2})"), indent, width);
+    }
+}
+
+/// Dump an array of values with the index unpadded, as lsusb does for the audio descriptors
+///
+/// Unlike [`dump_array`] the index is not padded; the field name and index
+/// together are padded out to the descriptor's width instead.
+fn dump_array_desc<T: std::fmt::Display>(
+    array: &[T],
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    for (i, b) in array.iter().enumerate() {
+        dump_value(b, &format!("{field_name}({i})"), indent, width);
     }
 }
 
@@ -51,8 +70,10 @@ fn dump_bitmap_array<T: std::fmt::LowerHex + Into<u64> + Copy>(
     indent: usize,
     width: usize,
 ) {
+    // only the audio descriptors use this, and lsusb does not pad the index
+    // in those
     for (i, b) in array.iter().enumerate() {
-        dump_hex(*b, &format!("{field_name}({i:2})"), indent, width);
+        dump_hex(*b, &format!("{field_name}({i})"), indent, width);
     }
 }
 
