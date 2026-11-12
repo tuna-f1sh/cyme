@@ -1,0 +1,1209 @@
+{
+  "buses": [
+    {
+      "devices": [
+        {
+          "bcd_device": "1.00",
+          "bcd_usb": "2.00",
+          "class": "smart-card",
+          "device_speed": "12.0 Mb/s",
+          "extra": {
+            "binary_object_store": null,
+            "configurations": [
+              {
+                "active": true,
+                "attributes": [
+                  "SelfPowered"
+                ],
+                "extra": null,
+                "interfaces": [
+                  {
+                    "active": true,
+                    "alt_setting": 0,
+                    "class": "smart-card",
+                    "device_path": null,
+                    "devpaths": null,
+                    "driver": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "direction": "In",
+                          "number": 1
+                        },
+                        "endpoint_path": null,
+                        "extra": null,
+                        "interval": 10,
+                        "length": 7,
+                        "max_packet_size": 64,
+                        "sync_type": "None",
+                        "transfer_type": "Bulk",
+                        "usage_type": "Data"
+                      }
+                    ],
+                    "extra": [
+                      {
+                        "device": {
+                          "ccid": {
+                            "class_envelope": 255,
+                            "class_get_response": 255,
+                            "data_rate": 10752,
+                            "default_clock": 4000,
+                            "descriptor_type": 33,
+                            "features": 132282,
+                            "junk": [
+                              222,
+                              173,
+                              190,
+                              239,
+                              1,
+                              2,
+                              3
+                            ],
+                            "lcd_layout": [
+                              16,
+                              2
+                            ],
+                            "length": 61,
+                            "max_ccid_busy_slots": 1,
+                            "max_ccid_msg_len": 271,
+                            "max_clock": 5000,
+                            "max_data_rate": 307200,
+                            "max_ifsd": 254,
+                            "max_slot_index": 0,
+                            "mechanical": 15,
+                            "num_clock_supported": 0,
+                            "num_data_rates_supp": 0,
+                            "pin_support": 3,
+                            "protocols": 3,
+                            "sync_protocols": 7,
+                            "version": [
+                              1,
+                              1,
+                              0
+                            ],
+                            "voltage_support": 7
+                          }
+                        }
+                      }
+                    ],
+                    "length": 9,
+                    "mount_paths": null,
+                    "name": "CCID Interface",
+                    "number": 0,
+                    "path": "9-1:1.0",
+                    "protocol": 0,
+                    "string_index": 0,
+                    "sub_class": 0,
+                    "syspath": null
+                  }
+                ],
+                "length": 9,
+                "max_power": {
+                  "unit": "mA",
+                  "value": 100
+                },
+                "name": "Fixture Configuration",
+                "num_interfaces": 1,
+                "number": 1,
+                "string_index": 4,
+                "total_length": 32
+              }
+            ],
+            "debug": null,
+            "driver": null,
+            "hub": null,
+            "max_packet_size": 64,
+            "negotiated_speed": null,
+            "product_name": "Fixture ChipCard Reader",
+            "qualifier": null,
+            "status": 1,
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
+            "syspath": null,
+            "vendor": "cyme fixture"
+          },
+          "location_id": {
+            "bus": 9,
+            "number": 1,
+            "tree_positions": [
+              1
+            ]
+          },
+          "manufacturer": "cyme fixture",
+          "name": "Fixture ChipCard Reader",
+          "product_id": 1,
+          "protocol": 0,
+          "serial_num": "FIXTURE",
+          "sub_class": 0,
+          "vendor_id": 65535
+        },
+        {
+          "bcd_device": "1.00",
+          "bcd_usb": "2.00",
+          "class": "application-specific-interface",
+          "device_speed": "12.0 Mb/s",
+          "extra": {
+            "binary_object_store": null,
+            "configurations": [
+              {
+                "active": true,
+                "attributes": [
+                  "SelfPowered"
+                ],
+                "extra": null,
+                "interfaces": [
+                  {
+                    "active": true,
+                    "alt_setting": 0,
+                    "class": "application-specific-interface",
+                    "device_path": null,
+                    "devpaths": null,
+                    "driver": null,
+                    "endpoints": [],
+                    "extra": [
+                      {
+                        "interface": {
+                          "dfu": {
+                            "attributes": 15,
+                            "descriptor_type": 33,
+                            "detach_timeout": 1000,
+                            "dfu_version": [
+                              1,
+                              1,
+                              10
+                            ],
+                            "length": 9,
+                            "transfer_size": 1024
+                          }
+                        }
+                      }
+                    ],
+                    "length": 9,
+                    "mount_paths": null,
+                    "name": "DFU Interface",
+                    "number": 0,
+                    "path": "9-2:1.0",
+                    "protocol": 2,
+                    "string_index": 0,
+                    "sub_class": 1,
+                    "syspath": null
+                  }
+                ],
+                "length": 9,
+                "max_power": {
+                  "unit": "mA",
+                  "value": 100
+                },
+                "name": "Fixture Configuration",
+                "num_interfaces": 1,
+                "number": 1,
+                "string_index": 4,
+                "total_length": 32
+              }
+            ],
+            "debug": null,
+            "driver": null,
+            "hub": null,
+            "max_packet_size": 64,
+            "negotiated_speed": null,
+            "product_name": "Fixture DFU Device",
+            "qualifier": null,
+            "status": 1,
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
+            "syspath": null,
+            "vendor": "cyme fixture"
+          },
+          "location_id": {
+            "bus": 9,
+            "number": 2,
+            "tree_positions": [
+              2
+            ]
+          },
+          "manufacturer": "cyme fixture",
+          "name": "Fixture DFU Device",
+          "product_id": 2,
+          "protocol": 0,
+          "serial_num": "FIXTURE",
+          "sub_class": 0,
+          "vendor_id": 65535
+        },
+        {
+          "bcd_device": "1.00",
+          "bcd_usb": "2.00",
+          "class": "printer",
+          "device_speed": "12.0 Mb/s",
+          "extra": {
+            "binary_object_store": null,
+            "configurations": [
+              {
+                "active": true,
+                "attributes": [
+                  "SelfPowered"
+                ],
+                "extra": null,
+                "interfaces": [
+                  {
+                    "active": true,
+                    "alt_setting": 0,
+                    "class": "printer",
+                    "device_path": null,
+                    "devpaths": null,
+                    "driver": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 2,
+                          "direction": "Out",
+                          "number": 2
+                        },
+                        "endpoint_path": null,
+                        "extra": null,
+                        "interval": 10,
+                        "length": 7,
+                        "max_packet_size": 64,
+                        "sync_type": "None",
+                        "transfer_type": "Bulk",
+                        "usage_type": "Data"
+                      }
+                    ],
+                    "extra": [
+                      {
+                        "interface": {
+                          "printer": {
+                            "descriptor_type": 33,
+                            "descriptors": [
+                              {
+                                "capabilities": 49,
+                                "data": [
+                                  0,
+                                  0
+                                ],
+                                "descriptor_type": 0,
+                                "length": 6,
+                                "uuid_string": null,
+                                "uuid_string_index": 5,
+                                "versions_supported": 2
+                              }
+                            ],
+                            "length": 14,
+                            "release_number": 0
+                          }
+                        }
+                      }
+                    ],
+                    "length": 9,
+                    "mount_paths": null,
+                    "name": "IPP Interface",
+                    "number": 0,
+                    "path": "9-3:1.0",
+                    "protocol": 4,
+                    "string_index": 0,
+                    "sub_class": 1,
+                    "syspath": null
+                  }
+                ],
+                "length": 9,
+                "max_power": {
+                  "unit": "mA",
+                  "value": 100
+                },
+                "name": "Fixture Configuration",
+                "num_interfaces": 1,
+                "number": 1,
+                "string_index": 4,
+                "total_length": 32
+              }
+            ],
+            "debug": null,
+            "driver": null,
+            "hub": null,
+            "max_packet_size": 64,
+            "negotiated_speed": null,
+            "product_name": "Fixture IPP Printer",
+            "qualifier": null,
+            "status": 1,
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
+            "syspath": null,
+            "vendor": "cyme fixture"
+          },
+          "location_id": {
+            "bus": 9,
+            "number": 3,
+            "tree_positions": [
+              3
+            ]
+          },
+          "manufacturer": "cyme fixture",
+          "name": "Fixture IPP Printer",
+          "product_id": 3,
+          "protocol": 0,
+          "serial_num": "FIXTURE",
+          "sub_class": 0,
+          "vendor_id": 65535
+        },
+        {
+          "bcd_device": "1.00",
+          "bcd_usb": "2.00",
+          "class": "hid",
+          "device_speed": "12.0 Mb/s",
+          "extra": {
+            "binary_object_store": null,
+            "configurations": [
+              {
+                "active": true,
+                "attributes": [
+                  "SelfPowered"
+                ],
+                "extra": null,
+                "interfaces": [
+                  {
+                    "active": true,
+                    "alt_setting": 0,
+                    "class": "hid",
+                    "device_path": null,
+                    "devpaths": null,
+                    "driver": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "direction": "In",
+                          "number": 1
+                        },
+                        "endpoint_path": null,
+                        "extra": null,
+                        "interval": 10,
+                        "length": 9,
+                        "max_packet_size": 64,
+                        "refresh": 4,
+                        "sync_address": 129,
+                        "sync_type": "None",
+                        "transfer_type": "Interrupt",
+                        "usage_type": "Data"
+                      }
+                    ],
+                    "extra": [
+                      {
+                        "device": {
+                          "hid": {
+                            "bcd_hid": [
+                              1,
+                              1,
+                              1
+                            ],
+                            "country_code": 0,
+                            "descriptor_type": 33,
+                            "descriptors": [
+                              {
+                                "data": [
+                                  5,
+                                  1,
+                                  9,
+                                  2,
+                                  161,
+                                  1,
+                                  9,
+                                  1,
+                                  85,
+                                  14,
+                                  102,
+                                  33,
+                                  0,
+                                  129,
+                                  2,
+                                  192
+                                ],
+                                "descriptor_type": 34,
+                                "length": 16
+                              }
+                            ],
+                            "length": 9
+                          }
+                        }
+                      }
+                    ],
+                    "length": 9,
+                    "mount_paths": null,
+                    "name": "HID Interface",
+                    "number": 0,
+                    "path": "9-4:1.0",
+                    "protocol": 2,
+                    "string_index": 0,
+                    "sub_class": 1,
+                    "syspath": null
+                  }
+                ],
+                "length": 9,
+                "max_power": {
+                  "unit": "mA",
+                  "value": 100
+                },
+                "name": "Fixture Configuration",
+                "num_interfaces": 1,
+                "number": 1,
+                "string_index": 4,
+                "total_length": 32
+              }
+            ],
+            "debug": null,
+            "driver": null,
+            "hub": null,
+            "max_packet_size": 64,
+            "negotiated_speed": null,
+            "product_name": "Fixture HID Device",
+            "qualifier": null,
+            "status": 1,
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
+            "syspath": null,
+            "vendor": "cyme fixture"
+          },
+          "location_id": {
+            "bus": 9,
+            "number": 4,
+            "tree_positions": [
+              4
+            ]
+          },
+          "manufacturer": "cyme fixture",
+          "name": "Fixture HID Device",
+          "product_id": 4,
+          "protocol": 0,
+          "serial_num": "FIXTURE",
+          "sub_class": 0,
+          "vendor_id": 65535
+        },
+        {
+          "bcd_device": "1.00",
+          "bcd_usb": "2.00",
+          "class": "vendor-specific-class",
+          "device_speed": "12.0 Mb/s",
+          "extra": {
+            "binary_object_store": null,
+            "configurations": [
+              {
+                "active": true,
+                "attributes": [
+                  "SelfPowered"
+                ],
+                "extra": [
+                  {
+                    "otg": {
+                      "attributes": 3,
+                      "descriptor_type": 9,
+                      "length": 3
+                    }
+                  }
+                ],
+                "interfaces": [
+                  {
+                    "active": true,
+                    "alt_setting": 0,
+                    "class": "vendor-specific-class",
+                    "device_path": null,
+                    "devpaths": null,
+                    "driver": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "direction": "In",
+                          "number": 1
+                        },
+                        "endpoint_path": null,
+                        "extra": null,
+                        "interval": 10,
+                        "length": 7,
+                        "max_packet_size": 64,
+                        "sync_type": "None",
+                        "transfer_type": "Bulk",
+                        "usage_type": "Data"
+                      }
+                    ],
+                    "extra": null,
+                    "length": 9,
+                    "mount_paths": null,
+                    "name": "OTG Interface",
+                    "number": 0,
+                    "path": "9-5:1.0",
+                    "protocol": 0,
+                    "string_index": 0,
+                    "sub_class": 0,
+                    "syspath": null
+                  }
+                ],
+                "length": 9,
+                "max_power": {
+                  "unit": "mA",
+                  "value": 100
+                },
+                "name": "Fixture Configuration",
+                "num_interfaces": 1,
+                "number": 1,
+                "string_index": 4,
+                "total_length": 32
+              }
+            ],
+            "debug": null,
+            "driver": null,
+            "hub": null,
+            "max_packet_size": 64,
+            "negotiated_speed": null,
+            "product_name": "Fixture OTG Device",
+            "qualifier": null,
+            "status": 1,
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
+            "syspath": null,
+            "vendor": "cyme fixture"
+          },
+          "location_id": {
+            "bus": 9,
+            "number": 5,
+            "tree_positions": [
+              5
+            ]
+          },
+          "manufacturer": "cyme fixture",
+          "name": "Fixture OTG Device",
+          "product_id": 5,
+          "protocol": 0,
+          "serial_num": "FIXTURE",
+          "sub_class": 0,
+          "vendor_id": 65535
+        },
+        {
+          "bcd_device": "1.00",
+          "bcd_usb": "2.00",
+          "class": "video",
+          "device_speed": "480.0 Mb/s",
+          "extra": {
+            "binary_object_store": null,
+            "configurations": [
+              {
+                "active": true,
+                "attributes": [
+                  "SelfPowered"
+                ],
+                "extra": null,
+                "interfaces": [
+                  {
+                    "active": true,
+                    "alt_setting": 0,
+                    "class": "video",
+                    "device_path": null,
+                    "devpaths": null,
+                    "driver": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 131,
+                          "direction": "In",
+                          "number": 3
+                        },
+                        "endpoint_path": null,
+                        "extra": null,
+                        "interval": 10,
+                        "length": 7,
+                        "max_packet_size": 64,
+                        "sync_type": "None",
+                        "transfer_type": "Interrupt",
+                        "usage_type": "Data"
+                      }
+                    ],
+                    "extra": [
+                      {
+                        "interface": {
+                          "video": [
+                            {
+                              "descriptor_subtype": {
+                                "control": "header"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "Header": {
+                                  "clock_frequency": 3000000,
+                                  "collection_bytes": 1,
+                                  "interfaces": [
+                                    1
+                                  ],
+                                  "total_length": 77,
+                                  "version": [
+                                    1,
+                                    1,
+                                    0
+                                  ]
+                                }
+                              },
+                              "length": 13
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      {
+                        "interface": {
+                          "video": [
+                            {
+                              "descriptor_subtype": {
+                                "control": "input-terminal"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "InputTerminal": {
+                                  "associated_terminal": 0,
+                                  "extra": {
+                                    "control_size": 3,
+                                    "controls": 14,
+                                    "objective_focal_length_max": 0,
+                                    "objective_focal_length_min": 0,
+                                    "ocular_focal_length": 0
+                                  },
+                                  "terminal": null,
+                                  "terminal_id": 1,
+                                  "terminal_index": 0,
+                                  "terminal_type": 513
+                                }
+                              },
+                              "length": 18
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      {
+                        "interface": {
+                          "video": [
+                            {
+                              "descriptor_subtype": {
+                                "control": "processing-unit"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "ProcessingUnit": {
+                                  "control_size": 2,
+                                  "controls": 5,
+                                  "max_multiplier": 0,
+                                  "processing": null,
+                                  "processing_index": 0,
+                                  "source_id": 1,
+                                  "unit_id": 3,
+                                  "video_standards": 0
+                                }
+                              },
+                              "length": 12
+                            },
+                            0
+                          ]
+                        }
+                      }
+                    ],
+                    "length": 9,
+                    "mount_paths": null,
+                    "name": "VideoControl",
+                    "number": 0,
+                    "path": "9-6:1.0",
+                    "protocol": 0,
+                    "string_index": 0,
+                    "sub_class": 1,
+                    "syspath": null
+                  },
+                  {
+                    "active": true,
+                    "alt_setting": 0,
+                    "class": "video",
+                    "device_path": null,
+                    "devpaths": null,
+                    "driver": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "direction": "In",
+                          "number": 1
+                        },
+                        "endpoint_path": null,
+                        "extra": null,
+                        "interval": 10,
+                        "length": 7,
+                        "max_packet_size": 64,
+                        "sync_type": "None",
+                        "transfer_type": "Isochronous",
+                        "usage_type": "Data"
+                      }
+                    ],
+                    "extra": [
+                      {
+                        "interface": {
+                          "video": [
+                            {
+                              "descriptor_subtype": {
+                                "streaming": "input-header"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "InputHeader": {
+                                  "control_size": 1,
+                                  "controls": [
+                                    0
+                                  ],
+                                  "endpoint_address": {
+                                    "address": 129,
+                                    "direction": "In",
+                                    "number": 1
+                                  },
+                                  "info": 0,
+                                  "num_formats": 1,
+                                  "still_capture_method": 0,
+                                  "terminal_link": 2,
+                                  "total_length": 63,
+                                  "trigger_support": 0,
+                                  "trigger_usage": 0
+                                }
+                              },
+                              "length": 14
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      {
+                        "interface": {
+                          "video": [
+                            {
+                              "descriptor_subtype": {
+                                "streaming": "format-uncompressed"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "FormatUncompressed": {
+                                  "aspect_ratio_x": 0,
+                                  "aspect_ratio_y": 0,
+                                  "bits_per_pixel": 16,
+                                  "copy_protect": 0,
+                                  "default_frame_index": 1,
+                                  "format_index": 1,
+                                  "guid_format": "32595559-0000-0010-8000-00aa00389b71",
+                                  "interlace_flags": 0,
+                                  "num_frame_descriptors": 1,
+                                  "variable_size": null
+                                }
+                              },
+                              "length": 27
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      {
+                        "interface": {
+                          "video": [
+                            {
+                              "descriptor_subtype": {
+                                "streaming": "frame-uncompressed"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "FrameUncompressed": {
+                                  "common": {
+                                    "capabilities": 3,
+                                    "frame_index": 1,
+                                    "height": 480,
+                                    "max_bit_rate": 370475008,
+                                    "min_bit_rate": 370475008,
+                                    "width": 640
+                                  },
+                                  "default_frame_interval": 333333,
+                                  "frame_interval_type": 1,
+                                  "frame_intervals": [
+                                    333333
+                                  ],
+                                  "max_video_frame_buffer_size": 614400
+                                }
+                              },
+                              "length": 30
+                            },
+                            0
+                          ]
+                        }
+                      }
+                    ],
+                    "length": 9,
+                    "mount_paths": null,
+                    "name": "VideoStreaming",
+                    "number": 1,
+                    "path": "9-6:1.0",
+                    "protocol": 0,
+                    "string_index": 0,
+                    "sub_class": 2,
+                    "syspath": null
+                  }
+                ],
+                "length": 9,
+                "max_power": {
+                  "unit": "mA",
+                  "value": 100
+                },
+                "name": "Fixture Configuration",
+                "num_interfaces": 2,
+                "number": 1,
+                "string_index": 4,
+                "total_length": 32
+              }
+            ],
+            "debug": null,
+            "driver": null,
+            "hub": null,
+            "max_packet_size": 64,
+            "negotiated_speed": null,
+            "product_name": "Fixture UVC Camera",
+            "qualifier": null,
+            "status": 1,
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
+            "syspath": null,
+            "vendor": "cyme fixture"
+          },
+          "location_id": {
+            "bus": 9,
+            "number": 6,
+            "tree_positions": [
+              6
+            ]
+          },
+          "manufacturer": "cyme fixture",
+          "name": "Fixture UVC Camera",
+          "product_id": 6,
+          "protocol": 0,
+          "serial_num": "FIXTURE",
+          "sub_class": 0,
+          "vendor_id": 65535
+        },
+        {
+          "bcd_device": "1.00",
+          "bcd_usb": "2.00",
+          "class": "audio",
+          "device_speed": "12.0 Mb/s",
+          "extra": {
+            "binary_object_store": null,
+            "configurations": [
+              {
+                "active": true,
+                "attributes": [
+                  "SelfPowered"
+                ],
+                "extra": null,
+                "interfaces": [
+                  {
+                    "active": true,
+                    "alt_setting": 0,
+                    "class": "audio",
+                    "device_path": null,
+                    "devpaths": null,
+                    "driver": null,
+                    "endpoints": [],
+                    "extra": [
+                      {
+                        "interface": {
+                          "audio": [
+                            {
+                              "descriptor_subtype": {
+                                "control": "header"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "header1": {
+                                  "collection_bytes": 1,
+                                  "interfaces": [
+                                    1
+                                  ],
+                                  "total_length": 40,
+                                  "version": [
+                                    1,
+                                    0,
+                                    0
+                                  ]
+                                }
+                              },
+                              "length": 9
+                            },
+                            "uac1"
+                          ]
+                        }
+                      },
+                      {
+                        "interface": {
+                          "audio": [
+                            {
+                              "descriptor_subtype": {
+                                "control": "input-terminal"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "input-terminal1": {
+                                  "assoc_terminal": 0,
+                                  "channel_config": 3,
+                                  "channel_names": null,
+                                  "channel_names_index": 0,
+                                  "nr_channels": 2,
+                                  "terminal": null,
+                                  "terminal_id": 1,
+                                  "terminal_index": 0,
+                                  "terminal_type": 513
+                                }
+                              },
+                              "length": 12
+                            },
+                            "uac1"
+                          ]
+                        }
+                      },
+                      {
+                        "interface": {
+                          "audio": [
+                            {
+                              "descriptor_subtype": {
+                                "control": "output-terminal"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "output-terminal1": {
+                                  "assoc_terminal": 0,
+                                  "source_id": 1,
+                                  "terminal": null,
+                                  "terminal_id": 2,
+                                  "terminal_index": 0,
+                                  "terminal_type": 257
+                                }
+                              },
+                              "length": 9
+                            },
+                            "uac1"
+                          ]
+                        }
+                      },
+                      {
+                        "interface": {
+                          "audio": [
+                            {
+                              "descriptor_subtype": {
+                                "control": "feature-unit"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "feature-unit1": {
+                                  "control_size": 1,
+                                  "controls": [
+                                    3
+                                  ],
+                                  "feature": null,
+                                  "feature_index": 0,
+                                  "source_id": 1,
+                                  "unit_id": 3
+                                }
+                              },
+                              "length": 10
+                            },
+                            "uac1"
+                          ]
+                        }
+                      }
+                    ],
+                    "length": 9,
+                    "mount_paths": null,
+                    "name": "AudioControl",
+                    "number": 0,
+                    "path": "9-7:1.0",
+                    "protocol": 0,
+                    "string_index": 0,
+                    "sub_class": 1,
+                    "syspath": null
+                  },
+                  {
+                    "active": true,
+                    "alt_setting": 0,
+                    "class": "audio",
+                    "device_path": null,
+                    "devpaths": null,
+                    "driver": null,
+                    "endpoints": [
+                      {
+                        "address": {
+                          "address": 129,
+                          "direction": "In",
+                          "number": 1
+                        },
+                        "endpoint_path": null,
+                        "extra": [
+                          {
+                            "endpoint": {
+                              "audio": [
+                                {
+                                  "descriptor_subtype": {
+                                    "streaming": "general"
+                                  },
+                                  "descriptor_type": 37,
+                                  "interface": {
+                                    "data-streaming-endpoint1": {
+                                      "attributes": 1,
+                                      "lock_delay": 0,
+                                      "lock_delay_units": 2
+                                    }
+                                  },
+                                  "length": 7
+                                },
+                                "uac1"
+                              ]
+                            }
+                          }
+                        ],
+                        "interval": 10,
+                        "length": 9,
+                        "max_packet_size": 64,
+                        "refresh": 4,
+                        "sync_address": 129,
+                        "sync_type": "None",
+                        "transfer_type": "Isochronous",
+                        "usage_type": "Data"
+                      }
+                    ],
+                    "extra": [
+                      {
+                        "interface": {
+                          "audio": [
+                            {
+                              "descriptor_subtype": {
+                                "streaming": "general"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "streaming-interface1": {
+                                  "delay": 1,
+                                  "format_tag": 1,
+                                  "terminal_link": 2
+                                }
+                              },
+                              "length": 7
+                            },
+                            "uac1"
+                          ]
+                        }
+                      },
+                      {
+                        "interface": {
+                          "audio": [
+                            {
+                              "descriptor_subtype": {
+                                "streaming": "format-type"
+                              },
+                              "descriptor_type": 36,
+                              "interface": {
+                                "streaming-format": {
+                                  "format_type": "type-i",
+                                  "interface": {
+                                    "FormatTypeI1": {
+                                      "bit_resolution": 16,
+                                      "num_channels": 2,
+                                      "sample_frequencies": [
+                                        44100
+                                      ],
+                                      "sample_frequency_type": {
+                                        "Discrete": 1
+                                      },
+                                      "subframe_size": 2
+                                    }
+                                  }
+                                }
+                              },
+                              "length": 11
+                            },
+                            "uac1"
+                          ]
+                        }
+                      }
+                    ],
+                    "length": 9,
+                    "mount_paths": null,
+                    "name": "AudioStreaming",
+                    "number": 1,
+                    "path": "9-7:1.0",
+                    "protocol": 0,
+                    "string_index": 0,
+                    "sub_class": 2,
+                    "syspath": null
+                  }
+                ],
+                "length": 9,
+                "max_power": {
+                  "unit": "mA",
+                  "value": 100
+                },
+                "name": "Fixture Configuration",
+                "num_interfaces": 2,
+                "number": 1,
+                "string_index": 4,
+                "total_length": 32
+              }
+            ],
+            "debug": null,
+            "driver": null,
+            "hub": null,
+            "max_packet_size": 64,
+            "negotiated_speed": null,
+            "product_name": "Fixture UAC Microphone",
+            "qualifier": null,
+            "status": 1,
+            "string_indexes": [
+              2,
+              1,
+              3
+            ],
+            "syspath": null,
+            "vendor": "cyme fixture"
+          },
+          "location_id": {
+            "bus": 9,
+            "number": 7,
+            "tree_positions": [
+              7
+            ]
+          },
+          "manufacturer": "cyme fixture",
+          "name": "Fixture UAC Microphone",
+          "product_id": 7,
+          "protocol": 0,
+          "serial_num": "FIXTURE",
+          "sub_class": 0,
+          "vendor_id": 65535
+        }
+      ],
+      "host_controller": "cyme descriptor fixture",
+      "name": "Fixture Host Controller",
+      "pci_device": null,
+      "pci_vendor": null,
+      "usb_bus_number": 9
+    }
+  ]
+}

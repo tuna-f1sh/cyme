@@ -260,6 +260,10 @@ impl LibUsbProfiler {
                 usage_type: usb::UsageType::from(endpoint_desc.usage_type()),
                 max_packet_size: endpoint_desc.max_packet_size(),
                 interval: endpoint_desc.interval(),
+                // only audio endpoint descriptors carry these, as bytes 7 and 8
+                // of a 9 byte descriptor
+                refresh: (endpoint_desc.length() >= 9).then(|| endpoint_desc.refresh()),
+                sync_address: (endpoint_desc.length() >= 9).then(|| endpoint_desc.synch_address()),
                 length: endpoint_desc.length(),
                 extra: extra_desc,
                 internal: InternalData::default(),
@@ -407,6 +411,9 @@ impl LibUsbProfiler {
                     .as_ref()
                     .is_some_and(|(c, _)| *c == config_desc.number()),
                 attributes,
+                // rusb exposes only the decoded self_powered/remote_wakeup
+                // bits, not the byte, so fall back to reconstructing it
+                attributes_raw: None,
                 max_power: NumericalUnit {
                     value: config_desc.max_power() as u32 * power_mult,
                     unit: String::from("mA"),

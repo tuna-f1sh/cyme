@@ -24,6 +24,7 @@ pub enum BosType {
     Billboard = 0x0d,
     BillboardAltMode = 0x0f,
     ConfigurationSummary = 0x10,
+    FirmwareStatus = 0x11,
     Unknown(u8),
 }
 
@@ -39,6 +40,7 @@ impl From<u8> for BosType {
             0x0d => BosType::Billboard,
             0x0f => BosType::BillboardAltMode,
             0x10 => BosType::ConfigurationSummary,
+            0x11 => BosType::FirmwareStatus,
             _ => BosType::Unknown(value),
         }
     }
@@ -56,6 +58,7 @@ impl From<BosType> for u8 {
             BosType::Billboard => 0x0d,
             BosType::BillboardAltMode => 0x0f,
             BosType::ConfigurationSummary => 0x10,
+            BosType::FirmwareStatus => 0x11,
             BosType::Unknown(v) => v,
         }
     }
@@ -75,6 +78,7 @@ pub enum BosCapability {
     ContainerId(ContainerIdCapability),
     Platform(PlatformDeviceCompatibility),
     WebUsbPlatform(WebUsbPlatformCapability),
+    FirmwareStatus(FirmwareStatusCapability),
 }
 
 impl TryFrom<&[u8]> for BosCapability {
@@ -111,6 +115,9 @@ impl TryFrom<&[u8]> for BosCapability {
             BosType::ContainerId => Ok(BosCapability::ContainerId(
                 ContainerIdCapability::try_from(value)?,
             )),
+            BosType::FirmwareStatus => Ok(BosCapability::FirmwareStatus(
+                FirmwareStatusCapability::try_from(value)?,
+            )),
             BosType::PlatformCapability => {
                 let pdc = PlatformDeviceCompatibility::try_from(value)?;
                 // WebUSB is a special case of PlatformCapability with a specific GUID: https://developer.chrome.com/docs/capabilities/build-for-webusb
@@ -140,6 +147,7 @@ impl From<BosCapability> for Vec<u8> {
             BosCapability::ContainerId(cic) => Vec::<u8>::from(cic),
             BosCapability::Platform(pdc) => Vec::<u8>::from(pdc),
             BosCapability::WebUsbPlatform(wpc) => Vec::<u8>::from(wpc),
+            BosCapability::FirmwareStatus(fsc) => Vec::<u8>::from(fsc),
         }
     }
 }
@@ -498,7 +506,7 @@ impl TryFrom<&[u8]> for SuperSpeedPlusCapability {
             ));
         }
 
-        for chunk in value[12..12 + sublink_speed_attr_count].chunks_exact(4) {
+        for chunk in value[12..12 + sublink_speed_attr_count * 4].chunks_exact(4) {
             sublink_attributes.push(u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
         }
 
@@ -531,13 +539,17 @@ impl From<SuperSpeedPlusCapability> for Vec<u8> {
 
 impl SuperSpeedPlusCapability {
     /// Returns the number of sublink speed attributes supported by this device.
+    ///
+    /// Encoded as a zero-based count in bits 4:0 of bmAttributes.
     pub fn sublink_speed_attribute_count(&self) -> usize {
-        self.attributes as usize & (0x1f + 1)
+        (self.attributes as usize & 0x1f) + 1
     }
 
     /// Returns the number of sublink speed IDs supported by this device.
+    ///
+    /// Encoded as a zero-based count in bits 8:5 of bmAttributes.
     pub fn sublink_speed_id_count(&self) -> usize {
-        ((self.attributes as usize) >> 5) & (0xf + 1)
+        (((self.attributes as usize) >> 5) & 0xf) + 1
     }
 
     /// Returns the minimum functional speed attribute ID supported by this device.
@@ -713,6 +725,53 @@ impl From<BillboardAltModeCapability> for Vec<u8> {
             bac.index,
         ];
         ret.extend_from_slice(&bac.alternate_mode_vdo.to_le_bytes());
+
+        ret
+    }
+}
+
+/// Firmware Status device capability (`bDevCapabilityType` 0x11)
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct FirmwareStatusCapability {
+    pub length: u8,
+    pub descriptor_type: u8,
+    pub capability_type: BosType,
+    pub descriptor_version: u8,
+    pub attributes: u32,
+}
+
+impl TryFrom<&[u8]> for FirmwareStatusCapability {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() != 8 {
+            return Err(Error::new_descriptor_len(
+                "FirmwareStatusCapability",
+                8,
+                value.len(),
+            ));
+        }
+
+        Ok(FirmwareStatusCapability {
+            length: value[0],
+            descriptor_type: value[1],
+            capability_type: value[2].into(),
+            descriptor_version: value[3],
+            attributes: u32::from_le_bytes([value[4], value[5], value[6], value[7]]),
+        })
+    }
+}
+
+impl From<FirmwareStatusCapability> for Vec<u8> {
+    fn from(fsc: FirmwareStatusCapability) -> Self {
+        let mut ret = vec![
+            fsc.length,
+            fsc.descriptor_type,
+            u8::from(fsc.capability_type),
+            fsc.descriptor_version,
+        ];
+        ret.extend_from_slice(&fsc.attributes.to_le_bytes());
 
         ret
     }

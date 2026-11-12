@@ -940,6 +940,9 @@ pub struct CcidDescriptor {
     pub lcd_layout: (u8, u8),
     pub pin_support: u8,
     pub max_ccid_busy_slots: u8,
+    /// Any bytes beyond the 54 byte descriptor, reported verbatim by lsusb
+    #[serde(default)]
+    pub junk: Vec<u8>,
 }
 
 impl TryFrom<&[u8]> for CcidDescriptor {
@@ -975,6 +978,10 @@ impl TryFrom<&[u8]> for CcidDescriptor {
             lcd_layout,
             pin_support: value[52],
             max_ccid_busy_slots: value[53],
+            junk: value
+                .get(54..(value[0] as usize).min(value.len()))
+                .unwrap_or_default()
+                .to_vec(),
         })
     }
 }
@@ -1014,6 +1021,7 @@ impl From<CcidDescriptor> for Vec<u8> {
         ret.push(cd.lcd_layout.1);
         ret.push(cd.pin_support);
         ret.push(cd.max_ccid_busy_slots);
+        ret.extend(cd.junk);
 
         ret
     }
@@ -1084,10 +1092,13 @@ impl TryFrom<GenericDescriptor> for PrinterDescriptor {
 
 impl From<PrinterDescriptor> for Vec<u8> {
     fn from(pd: PrinterDescriptor) -> Self {
-        let mut ret = Vec::new();
-        ret.push(pd.length);
-        ret.push(pd.descriptor_type);
-        ret.push(pd.release_number);
+        // bcdNumDescriptors is not stored, but is the count of blocks parsed
+        let mut ret = vec![
+            pd.length,
+            pd.descriptor_type,
+            pd.release_number,
+            pd.descriptors.len() as u8,
+        ];
         for desc in pd.descriptors {
             ret.extend(Vec::<u8>::from(desc));
         }
@@ -1100,8 +1111,9 @@ impl From<PrinterDescriptor> for Vec<u8> {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct PrinterReportDescriptor {
-    pub length: u8,
+    /// Capability type; the first byte of the block, not the second
     pub descriptor_type: u8,
+    pub length: u8,
     pub capabilities: u16,
     pub versions_supported: u8,
     pub uuid_string_index: u8,
@@ -1122,8 +1134,10 @@ impl TryFrom<&[u8]> for PrinterReportDescriptor {
         }
 
         Ok(PrinterReportDescriptor {
-            length: value[0],
-            descriptor_type: value[1],
+            // the capability type leads the block and the length follows it,
+            // matching lsusb's buf[n] / buf[n+1]
+            descriptor_type: value[0],
+            length: value[1],
             capabilities: u16::from_le_bytes([value[2], value[3]]),
             versions_supported: value[4],
             uuid_string_index: value[5],
@@ -1141,6 +1155,9 @@ impl From<PrinterReportDescriptor> for Vec<u8> {
         ret.extend(prd.capabilities.to_le_bytes());
         ret.push(prd.versions_supported);
         ret.push(prd.uuid_string_index);
+        if let Some(data) = prd.data {
+            ret.extend(data);
+        }
 
         ret
     }
@@ -1196,15 +1213,18 @@ impl From<HubDescriptor> for Vec<u8> {
 }
 
 impl HubDescriptor {
-    /// Type 3 devices have a delay field, which is a combination of latency in nano seconds
+    /// `wHubDelay` in nano seconds; SuperSpeed (protocol 3) hubs only
+    ///
+    /// A little-endian u16 at descriptor offset 8, so `data[1..3]` since `data`
+    /// starts at offset 7. See USB 3.2 r1.1 Table 10-3.
     pub fn delay(&self) -> Option<u16> {
-        match (self.latency(), self.data.get(1)) {
-            (Some(l), Some(d)) => Some((*d as u16) << (4 + l)),
+        match (self.data.get(1), self.data.get(2)) {
+            (Some(lsb), Some(msb)) => Some(u16::from_le_bytes([*lsb, *msb])),
             _ => None,
         }
     }
 
-    /// Type 3 devices have a latency field
+    /// `bHubHdrDecLat` in tenths of a micro second; SuperSpeed (protocol 3) hubs only
     pub fn latency(&self) -> Option<u8> {
         self.data.first().copied()
     }
@@ -1415,5 +1435,25 @@ impl TryFrom<&[u8]> for OnTheGoDescriptor {
 impl From<OnTheGoDescriptor> for Vec<u8> {
     fn from(otg: OnTheGoDescriptor) -> Self {
         vec![otg.length, otg.descriptor_type, otg.attributes]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn printer_descriptor_round_trip() {
+        // one basic capabilities block, type first then length, with two
+        // bytes of block data beyond the fixed six
+        let bytes = [
+            0x0c, 0x21, 0x00, 0x01, 0x00, 0x06, 0x31, 0x00, 0x02, 0x05, 0xaa, 0xbb,
+        ];
+        let pd = PrinterDescriptor::try_from(bytes.as_slice()).unwrap();
+        assert_eq!(pd.descriptors.len(), 1);
+        assert_eq!(pd.descriptors[0].descriptor_type, 0x00);
+        assert_eq!(pd.descriptors[0].length, 0x06);
+        assert_eq!(pd.descriptors[0].capabilities, 0x0031);
+        assert_eq!(Vec::<u8>::from(pd), bytes.to_vec());
     }
 }

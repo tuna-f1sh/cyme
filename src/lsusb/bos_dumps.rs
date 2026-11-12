@@ -30,14 +30,17 @@ fn dump_extension_capability(d: &bos::ExtensionCapability, lpm_requred: bool, in
         dump_string("HIRD Link Power Management (LPM) Supported", indent + 4);
     } else {
         dump_string("BESL Link Power Management (LPM) Supported", indent + 4);
+        // these two sit a column wider than the rest of the capability, and
+        // lsusb emits a trailing space after the unit
+        const BESL_WIDTH: usize = LSUSB_DUMP_WIDTH + 1;
         if d.attributes & 0x08 != 0 {
             let val = ((d.attributes & 0xf00) >> 8) as usize;
             dump_value_string(
                 BSEL_US[val],
-                "BESL value",
-                "us",
+                "Baseline BESL value",
+                "us ",
                 indent + 4,
-                LSUSB_DUMP_WIDTH,
+                BESL_WIDTH,
             );
         }
         if d.attributes & 0x10 != 0 {
@@ -45,9 +48,9 @@ fn dump_extension_capability(d: &bos::ExtensionCapability, lpm_requred: bool, in
             dump_value_string(
                 BSEL_US[val],
                 "Deep BESL value",
-                "us",
+                "us ",
                 indent + 4,
-                LSUSB_DUMP_WIDTH,
+                BESL_WIDTH,
             );
         }
     }
@@ -69,6 +72,9 @@ fn dump_ss_capability(d: &bos::SuperSpeedCapability, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
     dump_hex(d.attributes, "bmAttributes", indent + 2, LSUSB_DUMP_WIDTH);
+    if d.attributes & 0x02 != 0 {
+        dump_string("Latency Tolerance Messages (LTM) Supported", indent + 4);
+    }
     dump_hex(
         d.speed_supported,
         "wSpeedsSupported",
@@ -145,7 +151,11 @@ fn dump_ss_plus_capability(d: &bos::SuperSpeedPlusCapability, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_hex(d.attributes, "bmAttributes", indent + 2, LSUSB_DUMP_WIDTH);
+    // lsusb lays this capability out wider than the others around it
+    const SSP_ATTR_WIDTH: usize = LSUSB_DUMP_WIDTH + 6;
+    const SSP_FUNC_WIDTH: usize = LSUSB_DUMP_WIDTH + 5;
+    const SSP_SUBLINK_WIDTH: usize = LSUSB_DUMP_WIDTH + 9;
+    dump_hex(d.attributes, "bmAttributes", indent + 2, SSP_ATTR_WIDTH);
     dump_string(
         &format!(
             "Sublink Speed Attribute count {}",
@@ -161,7 +171,7 @@ fn dump_ss_plus_capability(d: &bos::SuperSpeedPlusCapability, indent: usize) {
         d.functionality_supported,
         "wFunctionalitySupport",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        SSP_FUNC_WIDTH,
     );
     dump_string(
         &format!(
@@ -185,8 +195,8 @@ fn dump_ss_plus_capability(d: &bos::SuperSpeedPlusCapability, indent: usize) {
         dump_hex(
             ss_attr,
             &format!("bmSublinkSpeedAttr[{i}]"),
-            indent,
-            LSUSB_DUMP_WIDTH,
+            indent + 2,
+            SSP_SUBLINK_WIDTH,
         );
         dump_string(
             &format!(
@@ -207,6 +217,9 @@ fn dump_ss_plus_capability(d: &bos::SuperSpeedPlusCapability, indent: usize) {
     }
 }
 
+/// The billboard capabilities are laid out wider than the rest of the BOS dump
+const BILLBOARD_WIDTH: usize = LSUSB_DUMP_WIDTH + 4;
+
 const VCONN_POWER_STRINGS: [&str; 8] = ["1W", "1.5W", "2W", "3W", "4W", "5W", "6W", "reserved"];
 
 const ALT_MODE_STATE: [&str; 4] = [
@@ -226,62 +239,66 @@ fn dump_billboard_capability(d: &bos::BillboardCapability, indent: usize) {
     };
 
     dump_string("Billboard Capability:", indent);
-    dump_value(d.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(d.length, "bLength", indent + 2, BILLBOARD_WIDTH);
     dump_value(
         d.descriptor_type,
         "bDescriptorType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH,
     );
     dump_value(
         u8::from(d.capability_type.to_owned()),
         "bDevCapabilityType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH,
     );
     dump_value_string(
         d.additional_info_url_index,
         "iAdditionalInfoURL",
         d.additional_info_url.as_ref().unwrap_or(&String::new()),
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH,
     );
     dump_value(
         d.number_of_alternate_modes,
         "bNumberOfAlternateModes",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH,
     );
     dump_value(
         d.preferred_alternate_mode,
         "bPreferredAlternateMode",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH,
     );
     dump_value_string(
         d.vconn_power,
         "VCONN Power",
         vconn,
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH,
     );
 
-    let bytes_string = d
-        .configured
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect::<Vec<String>>()
-        .join(" ");
-    dump_value(bytes_string, "bmConfigured", indent + 2, LSUSB_DUMP_WIDTH);
+    // left aligned, one space-prefixed byte at a time, rather than a value
+    // right aligned in a column
+    println!(
+        "{:indent$}bmConfigured               {}",
+        "",
+        d.configured
+            .iter()
+            .map(|b| format!(" {b:02x}"))
+            .collect::<String>(),
+        indent = indent + 2
+    );
 
-    dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(d.version, "bcdVersion", indent + 2, BILLBOARD_WIDTH);
     dump_value(
         d.additional_failure_info,
         "bAdditionalFailureInfo",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH,
     );
-    dump_value(d.reserved, "bReserved", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(d.reserved, "bReserved", indent + 2, BILLBOARD_WIDTH);
 
     dump_string("Alternate Modes supported by Device Container:", indent + 2);
     for (alt_mode, am) in d.alternate_modes.iter().enumerate() {
@@ -290,49 +307,49 @@ fn dump_billboard_capability(d: &bos::BillboardCapability, indent: usize) {
             &format!("Alternate Mode {} : {}", alt_mode, ALT_MODE_STATE[state]),
             indent + 2,
         );
-        dump_hex(
+        dump_hex_upper(
             am.svid,
             &format!("wSVID[{alt_mode}]"),
             indent + 4,
-            LSUSB_DUMP_WIDTH,
+            BILLBOARD_WIDTH + 5,
         );
         dump_value(
             am.alternate_mode,
             &format!("bAlternateMode[{alt_mode}]"),
             indent + 4,
-            LSUSB_DUMP_WIDTH,
+            BILLBOARD_WIDTH + 1,
         );
         dump_value_string(
             am.alternate_mode_string_index,
             &format!("iAlternateModeString[{alt_mode}]"),
             am.alternate_mode_string.as_ref().unwrap_or(&String::new()),
             indent + 4,
-            LSUSB_DUMP_WIDTH,
+            BILLBOARD_WIDTH + 1,
         );
     }
 }
 
 fn dump_billboard_alt_mode_capability(d: &bos::BillboardAltModeCapability, indent: usize) {
     dump_string("Billboard Alternate Mode Capability:", indent);
-    dump_value(d.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(d.length, "bLength", indent + 2, BILLBOARD_WIDTH);
     dump_value(
         d.descriptor_type,
         "bDescriptorType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH,
     );
     dump_value(
         u8::from(d.capability_type.to_owned()),
         "bDevCapabilityType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH,
     );
-    dump_value(d.index, "bIndex", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_hex(
+    dump_value(d.index, "bIndex", indent + 2, BILLBOARD_WIDTH);
+    dump_hex_upper(
         d.alternate_mode_vdo,
         "dwAlternateModeVdo",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        BILLBOARD_WIDTH + 9,
     );
 }
 
@@ -360,7 +377,7 @@ fn dump_platform_device_capability(
         &d.guid,
         "PlatformCapabilityUUID",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        LSUSB_DUMP_WIDTH + 2,
     );
 
     // Dump the data if requested
@@ -377,26 +394,79 @@ fn dump_platform_device_capability(
 }
 
 fn dump_webusb_platform_capability(d: &bos::WebUsbPlatformCapability, indent: usize) {
+    // the WebUSB block is indented under the platform capability and its
+    // fields sit in a narrower column than the capability's own
+    const WEBUSB_WIDTH: usize = LSUSB_DUMP_WIDTH - 7;
     dump_platform_device_capability(&d.platform, false, indent);
-    dump_string("WebUSB", indent + 4);
-    dump_value(d.version, "bcdVersion", indent + 6, LSUSB_DUMP_WIDTH);
-    dump_value(d.vendor_code, "bVendorCode", indent + 6, LSUSB_DUMP_WIDTH);
+    dump_string("WebUSB:", indent + 4);
+    dump_value(d.version, "bcdVersion", indent + 6, WEBUSB_WIDTH);
+    dump_value(d.vendor_code, "bVendorCode", indent + 6, WEBUSB_WIDTH);
     dump_value_string(
         d.landing_page_index,
         "iLandingPage",
         d.url.as_ref().unwrap_or(&String::new()),
         indent + 6,
-        LSUSB_DUMP_WIDTH,
+        WEBUSB_WIDTH,
     );
+    // lsusb returns after the WebUSB block, so CapabilityData is not dumped
+}
 
-    for (i, b) in d.platform.data.iter().enumerate() {
-        dump_hex(
-            *b,
-            &format!("CapabilityData[{i}]"),
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
-        );
-    }
+fn dump_fwstatus_capability(d: &bos::FirmwareStatusCapability, indent: usize) {
+    // lsusb uses literal tabs in this descriptor's format string; keep them so
+    // the output is byte-identical
+    dump_string("FWStatus Capability:", indent);
+    println!(
+        "{:indent$}bLength\t\t    {:5}",
+        "",
+        d.length,
+        indent = indent + 2
+    );
+    println!(
+        "{:indent$}bDescriptorType\t    {:5}",
+        "",
+        d.descriptor_type,
+        indent = indent + 2
+    );
+    println!(
+        "{:indent$}bDevCapabilityType\t    {:5}",
+        "",
+        u8::from(d.capability_type.to_owned()),
+        indent = indent + 2
+    );
+    println!(
+        "{:indent$}bcdDescriptorVersion   {:5}",
+        "",
+        d.descriptor_version,
+        indent = indent + 2
+    );
+    println!(
+        "{:indent$}bmAttributes\t    0x{:08X}",
+        "",
+        d.attributes,
+        indent = indent + 2
+    );
+    dump_string(
+        &format!(
+            "Get FW Image Hash support: {}",
+            if d.attributes & (1 << 0) != 0 {
+                "Yes"
+            } else {
+                "No"
+            }
+        ),
+        indent + 4,
+    );
+    dump_string(
+        &format!(
+            "Disallow FW Update support: {}",
+            if d.attributes & (1 << 1) != 0 {
+                "Yes"
+            } else {
+                "No"
+            }
+        ),
+        indent + 4,
+    );
 }
 
 pub fn dump_container_id_capability(d: &bos::ContainerIdCapability, indent: usize) {
@@ -419,36 +489,43 @@ pub fn dump_container_id_capability(d: &bos::ContainerIdCapability, indent: usiz
 }
 
 fn dump_usb3_dc_configuration_summary(d: &bos::ConfigurationSummaryCapability, indent: usize) {
+    // lsusb pads every field in this capability to its longest name, which is
+    // bConfigurationIndex plus its index
+    const SUMMARY_WIDTH: usize = LSUSB_DUMP_WIDTH + 4;
     dump_string("Configuration Summary Device Capability:", indent);
-    dump_value(d.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(d.length, "bLength", indent + 2, SUMMARY_WIDTH);
     dump_value(
         d.descriptor_type,
         "bDescriptorType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        SUMMARY_WIDTH,
     );
     dump_value(
         u8::from(d.capability_type.to_owned()),
         "bDevCapabilityType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        SUMMARY_WIDTH,
     );
-    dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(d.class, "bClass", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(d.sub_class, "bSubClass", indent + 2, LSUSB_DUMP_WIDTH);
-    dump_value(d.protocol, "bProtocol", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(d.version, "bcdVersion", indent + 2, SUMMARY_WIDTH);
+    dump_value(d.class, "bClass", indent + 2, SUMMARY_WIDTH);
+    dump_value(d.sub_class, "bSubClass", indent + 2, SUMMARY_WIDTH);
+    dump_value(d.protocol, "bProtocol", indent + 2, SUMMARY_WIDTH);
     dump_value(
         d.configuration_count,
         "bConfigurationCount",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        SUMMARY_WIDTH,
     );
-    dump_array(
-        &d.configured,
-        "bConfigurationIndex",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
-    );
+    // the index is not space padded inside the parens here, unlike most array
+    // fields
+    for (i, b) in d.configured.iter().enumerate() {
+        dump_value(
+            b,
+            &format!("bConfigurationIndex({i})"),
+            indent + 2,
+            SUMMARY_WIDTH,
+        );
+    }
 }
 
 pub(crate) fn dump_bos_descriptor(
@@ -505,6 +582,9 @@ pub(crate) fn dump_bos_descriptor(
             }
             bos::BosCapability::WebUsbPlatform(d) => {
                 dump_webusb_platform_capability(d, indent + 2);
+            }
+            bos::BosCapability::FirmwareStatus(d) => {
+                dump_fwstatus_capability(d, indent + 2);
             }
             _ => {
                 let data: Vec<u8> = cap.to_owned().into();

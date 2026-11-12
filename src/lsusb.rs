@@ -38,9 +38,28 @@ fn get_spaces(value_len: usize, field_len: usize, width: usize) -> String {
 }
 
 /// Dump an array of value like lsusb
+///
+/// The index is space padded to two characters, as lsusb prints it for most
+/// descriptors. The audio descriptors and the configuration summary do not
+/// pad it; see [`dump_array_desc`].
 fn dump_array<T: std::fmt::Display>(array: &[T], field_name: &str, indent: usize, width: usize) {
     for (i, b) in array.iter().enumerate() {
         dump_value(b, &format!("{field_name}({i:2})"), indent, width);
+    }
+}
+
+/// Dump an array of values with the index unpadded, as lsusb does for the audio descriptors
+///
+/// Unlike [`dump_array`] the index is not padded; the field name and index
+/// together are padded out to the descriptor's width instead.
+fn dump_array_desc<T: std::fmt::Display>(
+    array: &[T],
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    for (i, b) in array.iter().enumerate() {
+        dump_value(b, &format!("{field_name}({i})"), indent, width);
     }
 }
 
@@ -51,8 +70,10 @@ fn dump_bitmap_array<T: std::fmt::LowerHex + Into<u64> + Copy>(
     indent: usize,
     width: usize,
 ) {
+    // only the audio descriptors use this, and lsusb does not pad the index
+    // in those
     for (i, b) in array.iter().enumerate() {
-        dump_hex(*b, &format!("{field_name}({i:2})"), indent, width);
+        dump_hex(*b, &format!("{field_name}({i})"), indent, width);
     }
 }
 
@@ -84,7 +105,26 @@ fn dump_hex<T: std::fmt::LowerHex + Into<u64>>(
     dump_value(hex_value, field_name, indent, width);
 }
 
+/// Dump a single hex value in upper case, as lsusb does for a handful of fields
+fn dump_hex_upper<T: std::fmt::UpperHex + Into<u64>>(
+    value: T,
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
+    let value_as_u64: u64 = value.into();
+    let hex_value = format!(
+        "0x{:0width$X}",
+        value_as_u64,
+        width = (std::mem::size_of::<T>() * 2)
+    );
+    dump_value(hex_value, field_name, indent, width);
+}
+
 /// Lookup the name of the value from passed function and dump it
+///
+/// lsusb prints the line whether or not the lookup succeeds, so a miss leaves
+/// the name empty rather than dropping the field.
 fn dump_name<T: std::fmt::Display>(
     value: T,
     names_f: fn(T) -> Option<String>,
@@ -94,10 +134,14 @@ fn dump_name<T: std::fmt::Display>(
 ) {
     let value_string = value.to_string();
     let spaces = get_spaces(value_string.len(), field_name.len(), width);
-    let dump = format!("{:indent$}{}{}{}", "", field_name, spaces, value_string,);
-    if let Some(name) = names_f(value) {
-        println!("{dump} {name}");
-    }
+    println!(
+        "{:indent$}{}{}{} {}",
+        "",
+        field_name,
+        spaces,
+        value_string,
+        names_f(value).unwrap_or_default()
+    );
 }
 
 /// Lookup the name of the value from passed function and dump it as hex
@@ -108,12 +152,21 @@ fn dump_name_hex<T: std::fmt::LowerHex>(
     indent: usize,
     width: usize,
 ) {
-    let value_string = format!("{:#04x}", value);
+    // zero padded to the width of the type, as lsusb's 0x%04x and friends are
+    let value_string = format!(
+        "0x{:0width$x}",
+        value,
+        width = (std::mem::size_of::<T>() * 2)
+    );
     let spaces = get_spaces(value_string.len(), field_name.len(), width);
-    let dump = format!("{:indent$}{}{}{}", "", field_name, spaces, value_string,);
-    if let Some(name) = names_f(value) {
-        println!("{dump} {name}");
-    }
+    println!(
+        "{:indent$}{}{}{} {}",
+        "",
+        field_name,
+        spaces,
+        value_string,
+        names_f(value).unwrap_or_default()
+    );
 }
 
 /// Dumps the value and the string representation of the value to the right of width
@@ -124,19 +177,40 @@ fn dump_value_string<T: std::fmt::Display, S: std::fmt::Display>(
     indent: usize,
     width: usize,
 ) {
+    dump_value_string_gap(value, field_name, value_string, indent, width, 1);
+}
+
+/// As [`dump_value_string`] but with `gap` spaces between the value and its
+/// string, since lsusb uses two for the hex formatted fields
+fn dump_value_string_gap<T: std::fmt::Display, S: std::fmt::Display>(
+    value: T,
+    field_name: &str,
+    value_string: S,
+    indent: usize,
+    width: usize,
+    gap: usize,
+) {
     let value = value.to_string();
     let spaces = get_spaces(value.len(), field_name.len(), width);
     println!(
-        "{:indent$}{}{}{} {}",
-        "", field_name, spaces, value, value_string,
+        "{:indent$}{}{}{}{:gap$}{}",
+        "", field_name, spaces, value, "", value_string,
     );
 }
 
-/// Dumps a string starting at value position, right aligned
-fn dump_string_right<T: std::fmt::Display>(guid: T, field_name: &str, indent: usize, width: usize) {
+/// Dumps a value left aligned at the column the value field would start at
+///
+/// Used where lsusb pads the field name out with literal spaces rather than
+/// right aligning what follows it
+fn dump_string_right<T: std::fmt::Display>(
+    value: T,
+    field_name: &str,
+    indent: usize,
+    width: usize,
+) {
     // 1 to account for space
     let spaces = get_spaces(1, field_name.len(), width);
-    println!("{:indent$}{}{}{}", "", field_name, spaces, guid);
+    println!("{:indent$}{}{}{}", "", field_name, spaces, value);
 }
 
 /// Dumps GUID enclosed in braces like lsusb
@@ -162,13 +236,12 @@ fn dump_junk(extra: &[u8], indent: usize, reported_len: usize, expected_len: usi
 /// Dumps unknown descriptor bytes as hex like lsusb
 fn dump_unrecognised(extra: &[u8], indent: usize) {
     println!(
-        "{:^indent$}** UNRECOGNIZED: {}",
+        "{:indent$}** UNRECOGNIZED: {}",
         "",
         extra
             .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect::<Vec<String>>()
-            .join(" ")
+            .map(|b| format!(" {b:02x}"))
+            .collect::<String>()
     )
 }
 
@@ -207,7 +280,11 @@ fn dump_bitmap_strings_invert<T>(
     }
 }
 
-/// Dump a single value and the string representation of the value to the right of width
+/// Dump a value followed, on the same line, by the strings for the bits set in it
+///
+/// lsusb separates the value from the first string by two spaces. `trailing`
+/// adds a space after the last one, which lsusb does for the fields whose
+/// strings carry their own separator rather than being prefixed with one.
 fn dump_bitmap_strings_inline<T, V>(
     value: V,
     bitmap: T,
@@ -215,13 +292,14 @@ fn dump_bitmap_strings_inline<T, V>(
     strings_f: fn(usize) -> Option<&'static str>,
     indent: usize,
     width: usize,
+    trailing: bool,
 ) where
     T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
     V: std::fmt::Display,
 {
     let value = value.to_string();
     let spaces = get_spaces(value.len(), field_name.len(), width);
-    print!("{:indent$}{}{}{}", "", field_name, spaces, value,);
+    print!("{:indent$}{}{}{} ", "", field_name, spaces, value,);
     let bitmap_u64: u64 = bitmap.into();
     let num_bits = std::mem::size_of::<T>() * 8;
     for index in 0..num_bits {
@@ -230,6 +308,9 @@ fn dump_bitmap_strings_inline<T, V>(
                 print!(" {string}");
             }
         }
+    }
+    if trailing {
+        print!(" ");
     }
     println!();
 }
@@ -310,14 +391,32 @@ pub fn dump_one_device<P: AsRef<Path>>(devices: &Vec<&Device>, dev_path: P) -> R
     ))
 }
 
-fn find_otg(extra: &[Descriptor]) -> Option<&OnTheGoDescriptor> {
-    extra.iter().find_map(|d| match d {
-        Descriptor::Otg(otg) => {
-            log::debug!("Found OTG descriptor: {otg:?}");
-            dump_otg(otg, LSUSB_DUMP_INDENT_BASE);
-            Some(otg)
-        }
-        _ => None,
+/// Find the OTG descriptor belonging to a [`Configuration`]
+///
+/// Mirrors lsusb's `do_otg`, which looks in the configuration's own extra
+/// descriptors first, then those of each interface, then each endpoint. Purely
+/// a search - the caller dumps it, once, so that a device with an OTG
+/// descriptor does not print it per interface and endpoint.
+fn find_otg(config: &Configuration) -> Option<&OnTheGoDescriptor> {
+    fn in_extra(extra: Option<&Vec<Descriptor>>) -> Option<&OnTheGoDescriptor> {
+        extra?.iter().find_map(|d| match d {
+            Descriptor::Otg(otg) => {
+                log::debug!("Found OTG descriptor: {otg:?}");
+                Some(otg)
+            }
+            _ => None,
+        })
+    }
+
+    in_extra(config.extra.as_ref()).or_else(|| {
+        config.interfaces.iter().find_map(|interface| {
+            in_extra(interface.extra.as_ref()).or_else(|| {
+                interface
+                    .endpoints
+                    .iter()
+                    .find_map(|endpoint| in_extra(endpoint.extra.as_ref()))
+            })
+        })
     })
 }
 
@@ -344,18 +443,21 @@ pub fn print(devices: &Vec<&Device>, verbose: bool) {
                 Some(device_extra) => {
                     dump_device(device);
 
-                    let mut otg = None;
+                    // lsusb do_otg: configuration 0 only, dumped once at the top
+                    // level before any configuration descriptor
+                    let otg = device_extra.configurations.first().and_then(find_otg);
+                    if let Some(otg) = otg {
+                        dump_otg(otg, 0);
+                    }
+
                     for config in &device_extra.configurations {
                         dump_config(config, LSUSB_DUMP_INDENT_BASE);
-                        otg = config.extra.as_ref().map(|e| find_otg(e));
 
                         for interface in &config.interfaces {
                             dump_interface(interface, LSUSB_DUMP_INDENT_BASE * 2);
-                            otg = config.extra.as_ref().map(|e| find_otg(e));
 
                             for endpoint in &interface.endpoints {
                                 dump_endpoint(endpoint, LSUSB_DUMP_INDENT_BASE * 3);
-                                otg = config.extra.as_ref().map(|e| find_otg(e));
                             }
                         }
                     }
@@ -374,9 +476,12 @@ pub fn print(devices: &Vec<&Device>, verbose: bool) {
                         let bcd = device.bcd_usb.map_or(0x0100, |v| v.into());
                         dump_hub(hub, device.protocol.unwrap_or(1), bcd, has_ssp, 0);
                     }
-                    // lsusb do_dualspeed: dump_device_qualifier
-                    if let Some(qualifier) = &device_extra.qualifier {
-                        dump_device_qualifier(qualifier, 0);
+                    // lsusb do_dualspeed: only called for devices reporting
+                    // exactly USB 2.00, since only those have a qualifier
+                    if device.bcd_usb.is_some_and(|v| u16::from(v) == 0x0200) {
+                        if let Some(qualifier) = &device_extra.qualifier {
+                            dump_device_qualifier(qualifier, 0);
+                        }
                     }
                     if let Some(debug) = &device_extra.debug {
                         dump_debug(debug, 0);
@@ -504,13 +609,21 @@ fn dump_device(device: &Device) {
         LSUSB_DUMP_WIDTH,
     );
 
+    // lsusb prints the sysfs manufacturer/product/serial properties, which are
+    // populated from the string descriptors, so a zero index means no string
+    // rather than a name looked up from the vendor database
+    let string_or_empty = |index: u8, s: Option<&String>| -> String {
+        if index == 0 {
+            String::new()
+        } else {
+            s.cloned().unwrap_or_default()
+        }
+    };
+
     dump_value_string(
         device_extra.string_indexes.1,
         "iManufacturer",
-        device
-            .manufacturer
-            .as_ref()
-            .unwrap_or(&String::from("[unknown]")),
+        string_or_empty(device_extra.string_indexes.1, device.manufacturer.as_ref()),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -518,7 +631,7 @@ fn dump_device(device: &Device) {
     dump_value_string(
         device_extra.string_indexes.0,
         "iProduct",
-        &device.name,
+        string_or_empty(device_extra.string_indexes.0, Some(&device.name)),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -526,7 +639,7 @@ fn dump_device(device: &Device) {
     dump_value_string(
         device_extra.string_indexes.2,
         "iSerial",
-        device.serial_num.as_ref().unwrap_or(&String::new()),
+        string_or_empty(device_extra.string_indexes.2, device.serial_num.as_ref()),
         2,
         LSUSB_DUMP_WIDTH,
     );
@@ -575,6 +688,10 @@ fn dump_config(config: &Configuration, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
+    // bit 7 is reserved and must be set
+    if config.attributes_value() & 0x80 == 0 {
+        dump_string("(Missing must-be-set bit!)", indent + 4);
+    }
     // no attributes is bus powered
     if config.attributes.contains(&ConfigAttributes::SelfPowered) {
         dump_string("Self Powered", indent + 4);
@@ -687,10 +804,10 @@ fn dump_interface(interface: &Interface, indent: usize) {
                 // Should only be Device or Interface as we mask out the rest
                 Descriptor::Device(cd) | Descriptor::Interface(cd) => match cd {
                     ClassDescriptor::Hid(hidd) => dump_hid_device(hidd, indent + 4),
-                    ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 4),
+                    ClassDescriptor::Ccid(ccid) => dump_ccid_desc(ccid, indent + 2),
                     ClassDescriptor::Printer(pd) => dump_printer_desc(pd, indent + 4),
-                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 4),
-                    ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 4),
+                    ClassDescriptor::Communication(cd) => dump_comm_descriptor(cd, indent + 2),
+                    ClassDescriptor::Dfu(dfud) => dump_dfu_interface(dfud, indent + 2),
                     ClassDescriptor::Midi(md, _) => dump_midistreaming_interface(md, indent + 4),
                     ClassDescriptor::Audio(uacd, uacp) => match &uacd.descriptor_subtype {
                         audio::UacType::Control(cs) => {
@@ -747,19 +864,19 @@ fn dump_interface(interface: &Interface, indent: usize) {
                         }
                         Some((BaseClass::ApplicationSpecificInterface, 1, _)) => {
                             if let Ok(dfud) = DfuDescriptor::try_from(gd.to_owned()) {
-                                dump_dfu_interface(&dfud, indent + 4);
+                                dump_dfu_interface(&dfud, indent + 2);
                             }
                         }
                         _ => {
                             let junk = Vec::from(cd.to_owned());
-                            dump_unrecognised(&junk, indent + 4);
+                            dump_unrecognised(&junk, indent + 2);
                         }
                     },
                 },
                 Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
-                    dump_unrecognised(junk, indent + 4);
+                    dump_unrecognised(junk, indent + 2);
                 }
-                _ => dump_unrecognised(&Vec::from(dt.to_owned()), indent + 4),
+                _ => dump_unrecognised(&Vec::from(dt.to_owned()), indent + 2),
             }
         }
     }
@@ -770,7 +887,7 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
     dump_string("Endpoint Descriptor:", indent);
     dump_value(endpoint.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(5, "bDescriptorType", indent + 2, LSUSB_DUMP_WIDTH); // type 5 for endpoint
-    dump_value_string(
+    dump_value_string_gap(
         format!("0x{:02x}", endpoint.address.address),
         "bEndpointAddress",
         format!(
@@ -780,6 +897,7 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
         ),
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        2,
     );
     // this is printed as int even though it's a bitmap
     dump_value(
@@ -788,32 +906,51 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    println!(
-        "{:indent$}Transfer Type          {:?}",
-        "",
-        endpoint.transfer_type,
-        indent = indent + 4
+    // the three attribute breakdowns are left aligned one column past the
+    // usual value field, so they get the wider width
+    const ATTR_WIDTH: usize = LSUSB_DUMP_WIDTH + 1;
+    dump_string_right(
+        format!("{:?}", endpoint.transfer_type),
+        "Transfer Type",
+        indent + 4,
+        ATTR_WIDTH,
     );
-    println!(
-        "{:indent$}Synch Type             {:?}",
-        "",
-        endpoint.sync_type,
-        indent = indent + 4
+    dump_string_right(
+        format!("{:?}", endpoint.sync_type),
+        "Synch Type",
+        indent + 4,
+        ATTR_WIDTH,
     );
-    println!(
-        "{:indent$}Usage Type             {:?}",
-        "",
-        endpoint.usage_type,
-        indent = indent + 4
+    dump_string_right(
+        format!("{:?}", endpoint.usage_type),
+        "Usage Type",
+        indent + 4,
+        ATTR_WIDTH,
     );
-    dump_value_string(
+    dump_value_string_gap(
         format!("0x{:04x}", endpoint.max_packet_size),
         "wMaxPacketSize",
         format!("{} bytes", endpoint.max_packet_string()),
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        2,
     );
     dump_value(endpoint.interval, "bInterval", indent + 2, LSUSB_DUMP_WIDTH);
+    // only for audio endpoints, which have a 9 byte rather than 7 byte descriptor
+    if endpoint.length == 9 {
+        dump_value(
+            endpoint.refresh.unwrap_or(0),
+            "bRefresh",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+        dump_value(
+            endpoint.sync_address.unwrap_or(0),
+            "bSynchAddress",
+            indent + 2,
+            LSUSB_DUMP_WIDTH,
+        );
+    }
 
     // dump extra descriptors
     // kind of messy but it's out lsusb does it
@@ -907,40 +1044,31 @@ fn dump_endpoint(endpoint: &Endpoint, indent: usize) {
                     dump_interface_association(iad, indent + 2);
                 }
                 Descriptor::SsEndpointCompanion(ss) => {
-                    println!(
-                        "{:indent$}bMaxBurst {:>14}",
-                        "",
-                        ss.max_burst,
-                        indent = indent + 2
-                    );
-                    match endpoint.transfer_type {
-                        TransferType::Bulk if ss.attributes & 0x1f != 0 => {
-                            println!(
-                                "{:indent$}MaxStreams {:>13}",
-                                "",
-                                1 << ss.attributes,
-                                indent = indent + 2
-                            );
+                    dump_value(ss.max_burst, "bMaxBurst", indent + 2, LSUSB_DUMP_WIDTH);
+                    // bulk streams, isochronous Mult and the byte count are
+                    // each gated on their own transfer type in lsusb
+                    if matches!(endpoint.transfer_type, TransferType::Bulk)
+                        && ss.attributes & 0x1f != 0
+                    {
+                        dump_value(
+                            1u32 << (ss.attributes & 0x1f),
+                            "MaxStreams",
+                            indent + 2,
+                            LSUSB_DUMP_WIDTH,
+                        );
+                    }
+                    if matches!(endpoint.transfer_type, TransferType::Isochronous)
+                        && ss.attributes & 0x03 != 0
+                    {
+                        dump_value(ss.attributes & 0x3, "Mult", indent + 2, LSUSB_DUMP_WIDTH);
+                    }
+                    if matches!(
+                        endpoint.transfer_type,
+                        TransferType::Isochronous | TransferType::Interrupt
+                    ) {
+                        if let Some(bi) = ss.bytes_per_interval {
+                            dump_value(bi, "wBytesPerInterval", indent + 2, LSUSB_DUMP_WIDTH);
                         }
-                        TransferType::Isochronous | TransferType::Interrupt => {
-                            if ss.attributes & 0x03 != 0 {
-                                println!(
-                                    "{:indent$}Mult {:>19}",
-                                    "",
-                                    ss.attributes & 0x3,
-                                    indent = indent + 2
-                                );
-                            }
-                            if let Some(bi) = ss.bytes_per_interval {
-                                println!(
-                                    "{:indent$}wBytesPerInterval {:>6}",
-                                    "",
-                                    bi,
-                                    indent = indent + 2
-                                );
-                            }
-                        }
-                        _ => (),
                     }
                 }
                 Descriptor::Unknown(junk) | Descriptor::Junk(junk) => {
@@ -973,9 +1101,10 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         dump_value(ccid.version, "bcdCCID", indent + 2, LSUSB_DUMP_WIDTH);
     }
 
+    // lsusb names this nMaxSlotIndex, though the CCID spec calls it bMaxSlotIndex
     dump_value(
         ccid.max_slot_index,
-        "bMaxSlotIndex",
+        "nMaxSlotIndex",
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -991,6 +1120,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        true,
     );
 
     dump_bitmap_strings_inline(
@@ -1004,6 +1134,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        false,
     );
 
     dump_value(
@@ -1057,6 +1188,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        false,
     );
 
     dump_bitmap_strings_inline(
@@ -1072,6 +1204,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        false,
     );
 
     dump_value(
@@ -1080,42 +1213,53 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
-    dump_bitmap_strings(
-        ccid.features,
-        |index| match index {
-            0 => Some("Auto configuration based on ATR"),
-            1 => Some("Auto activation on insert"),
-            2 => Some("Auto voltage selection"),
-            3 => Some("Auto clock change"),
-            4 => Some("Auto baud rate change"),
-            5 => Some("Auto parameter negotiation made by CCID"),
-            6 => Some("Auto PPS made by CCID"),
-            7 => Some("CCID can set ICC in clock stop mode"),
-            8 => Some("NAD value other than 0x00 accepted (T=1)"),
-            9 => Some("Auto IFSD exchange"),
-            15 => Some("Character level exchange"),
-            16 => Some("TPDU level exchange"),
-            // results in same as us & 0x00070000 == 0x02 in lsusb
-            17 => Some("Short APDU level exchange"),
-            // results in same as us & 0x00070000 == 0x04 in lsusb
-            18 => Some("Short and extended APDU level exchange"),
-            _ => None,
-        },
-        indent + 4,
-    );
-    if (ccid.features & (0x0040 | 0x0080)) != 0 {
-        println!(
+    // written out longhand rather than as a bitmap walk because lsusb
+    // interleaves two mutually exclusive choices - the negotiation mode and
+    // the exchange level - between the plain flag bits, and warns rather than
+    // listing when more than one bit of a choice is set
+    for (mask, s) in [
+        (0x0002, "Auto configuration based on ATR"),
+        (0x0004, "Auto activation on insert"),
+        (0x0008, "Auto voltage selection"),
+        (0x0010, "Auto clock change"),
+        (0x0020, "Auto baud rate change"),
+    ] {
+        if ccid.features & mask != 0 {
+            dump_string(s, indent + 4);
+        }
+    }
+    match ccid.features & (0x0040 | 0x0080) {
+        0x0040 => dump_string("Auto parameter negotiation made by CCID", indent + 4),
+        0x0080 => dump_string("Auto PPS made by CCID", indent + 4),
+        0x0000 => (),
+        _ => println!(
             "{:indent$}WARNING: conflicting negotiation features",
             "",
             indent = indent + 2
-        );
+        ),
     }
-    if ccid.features & 0x00070000 != 0 {
-        println!(
+    for (mask, s) in [
+        (0x0100, "CCID can set ICC in clock stop mode"),
+        (0x0200, "NAD value other than 0x00 accepted (T=1)"),
+        (0x0400, "Auto IFSD exchange (T=1)"),
+    ] {
+        if ccid.features & mask != 0 {
+            dump_string(s, indent + 4);
+        }
+    }
+    match ccid.features & 0x00070000 {
+        0x00000000 => dump_string("Character level exchange", indent + 4),
+        0x00010000 => dump_string("TPDU level exchange", indent + 4),
+        0x00020000 => dump_string("Short APDU level exchange", indent + 4),
+        0x00040000 => dump_string("Short and extended APDU level exchange", indent + 4),
+        _ => println!(
             "{:indent$}WARNING: conflicting exchange levels",
             "",
             indent = indent + 2
-        );
+        ),
+    }
+    if ccid.features & 0x00100000 != 0 {
+        dump_string("USB wakeup on ICC insertion and removal", indent + 4);
     }
 
     dump_value(
@@ -1146,15 +1290,16 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         );
     }
 
+    // left aligned at the value column rather than right aligned in it
+    const LCD_WIDTH: usize = LSUSB_DUMP_WIDTH - 3;
     if ccid.lcd_layout == (0, 0) {
-        dump_value("none", "wlcdLayout", indent + 2, LSUSB_DUMP_WIDTH);
+        dump_string_right("none", "wlcdLayout", indent + 2, LCD_WIDTH);
     } else {
-        dump_value_string(
-            ccid.lcd_layout.0,
+        dump_string_right(
+            format!("{} cols {} lines", ccid.lcd_layout.0, ccid.lcd_layout.1),
             "wlcdLayout",
-            format!(" cols {} lines", ccid.lcd_layout.1),
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LCD_WIDTH,
         );
     }
 
@@ -1169,6 +1314,7 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         },
         indent + 2,
         LSUSB_DUMP_WIDTH,
+        false,
     );
 
     dump_value(
@@ -1177,10 +1323,22 @@ fn dump_ccid_desc(ccid: &CcidDescriptor, indent: usize) {
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
+
+    if !ccid.junk.is_empty() {
+        println!(
+            "{:indent$}junk             {}",
+            "",
+            ccid.junk
+                .iter()
+                .map(|b| format!(" {b:02x}"))
+                .collect::<String>(),
+            indent = indent + 2
+        );
+    }
 }
 
 fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
-    dump_string("Printer Interface Descriptor:", indent);
+    dump_string("IPP Printer Descriptor:", indent);
     dump_value(pd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
         pd.descriptor_type,
@@ -1201,27 +1359,31 @@ fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
         LSUSB_DUMP_WIDTH,
     );
 
+    // the capability blocks are indented a level in from the descriptor's
+    // own fields, and are two columns wider
+    const CAP_WIDTH: usize = LSUSB_DUMP_WIDTH + 2;
+
     for desc in &pd.descriptors {
         // basic capabilities
         if desc.descriptor_type == 0x00 {
             dump_value(
                 desc.versions_supported,
                 "iIPPVersionsSupported",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
+                indent + 4,
+                CAP_WIDTH,
             );
             dump_value_string(
                 desc.uuid_string_index,
                 "iIPPPrinterUUID",
                 desc.uuid_string.as_ref().unwrap_or(&String::new()),
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
+                indent + 4,
+                CAP_WIDTH,
             );
             print!(
                 "{:indent$}wBasicCapabilities   0x{:04x} ",
                 "",
                 desc.capabilities,
-                indent = indent + 2
+                indent = indent + 4
             );
 
             // capabilities
@@ -1240,14 +1402,12 @@ fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
             if desc.capabilities & 0x0010 != 0 {
                 print!(" HTTP-over-USB");
             }
-            if (desc.capabilities & 0x0060) != 0 {
-                print!(" No-Auth");
-            } else if (desc.capabilities & 0x0060) != 0x20 {
-                print!(" Username-Auth");
-            } else if (desc.capabilities & 0x0060) != 0x40 {
-                print!(" Reserved-Auth");
-            } else if (desc.capabilities & 0x0060) != 0x60 {
-                print!(" Negotiable-Auth");
+            // the authentication field is a two bit enum, not a bitmap
+            match desc.capabilities & 0x0060 {
+                0x00 => print!(" No-Auth"),
+                0x20 => print!(" Username-Auth"),
+                0x40 => print!(" Reserved-Auth"),
+                _ => print!(" Negotiable-Auth"),
             }
             println!();
         // vendor specific
@@ -1255,9 +1415,9 @@ fn dump_printer_desc(pd: &PrinterDescriptor, indent: usize) {
             dump_value_string(
                 desc.descriptor_type,
                 "UnknownCapabilities",
-                desc.length,
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
+                format!("{:5}", desc.length),
+                indent + 4,
+                CAP_WIDTH,
             );
         }
     }
@@ -1294,10 +1454,16 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 cd.capabilities,
                 |b| match b {
                     0 => Some("call management"),
-                    1 => Some("dataInterface"),
+                    1 => Some("use DataInterface"),
                     _ => None,
                 },
                 indent + 4,
+            );
+            dump_string_right(
+                cd.data_interface,
+                "bDataInterface",
+                indent + 2,
+                LSUSB_DUMP_WIDTH,
             );
         }
         cdc::CdcInterfaceDescriptor::AbstractControlManagement(cd) => {
@@ -1322,20 +1488,20 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         }
         cdc::CdcInterfaceDescriptor::Union(cd) => {
             dump_string("CDC Union:", indent);
-            dump_value(
+            dump_string_right(
                 cd.master_interface,
                 "bMasterInterface",
                 indent + 2,
                 LSUSB_DUMP_WIDTH,
             );
+            // each slave is followed by a space rather than separated by one
             println!(
-                "{:indent$}bSlaveInterface      {}",
+                "{:indent$}bSlaveInterface         {}",
                 "",
                 cd.slave_interface
                     .iter()
-                    .map(|b| format!("{b:3}"))
-                    .collect::<Vec<String>>()
-                    .join(" "),
+                    .map(|b| format!("{b} "))
+                    .collect::<String>(),
                 indent = indent + 2
             );
         }
@@ -1348,14 +1514,16 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                     .as_ref()
                     .unwrap_or(&String::from("(?)")),
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                LSUSB_DUMP_WIDTH + 3,
             );
             for d in &cd.country_codes {
+                // printed as the two bytes in descriptor order, which puts
+                // the low byte first
                 dump_value(
-                    format!("{d:04x}"),
+                    format!("0x{:02x}{:02x}", d & 0xff, d >> 8),
                     "wCountryCode",
                     indent + 2,
-                    LSUSB_DUMP_WIDTH,
+                    LSUSB_DUMP_WIDTH + 3,
                 );
             }
         }
@@ -1380,59 +1548,53 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         }
         cdc::CdcInterfaceDescriptor::NetworkChannel(d) => {
             dump_string("Network Channel Terminal:", indent);
-            dump_value(d.entity_id, "bEntityId", indent + 2, LSUSB_DUMP_WIDTH);
+            // this descriptor is two columns wider than most CDC ones
+            const NCT_WIDTH: usize = LSUSB_DUMP_WIDTH + 2;
+            dump_value(d.entity_id, "bEntityId", indent + 2, NCT_WIDTH);
             dump_value_string(
                 d.name_string_index,
                 "iName",
                 d.name.as_ref().unwrap_or(&String::from("(?)")),
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                NCT_WIDTH,
             );
-            dump_value(
-                d.channel_index,
-                "bChannelIndex",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
+            dump_value(d.channel_index, "bChannelIndex", indent + 2, NCT_WIDTH);
             dump_value(
                 d.physical_interface,
                 "bPhysicalInterface",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                NCT_WIDTH,
             );
         }
         cdc::CdcInterfaceDescriptor::EthernetNetworking(d) => {
+            // the widest CDC descriptor by some margin
+            const ETH_WIDTH: usize = LSUSB_DUMP_WIDTH + 9;
             dump_string("CDC Ethernet:", indent);
             dump_value_string(
                 d.mac_address_index,
                 "iMacAddress",
                 d.mac_address.as_ref().unwrap_or(&String::from("(?)")),
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ETH_WIDTH,
             );
             dump_hex(
                 d.ethernet_statistics,
                 "bmEthernetStatistics",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ETH_WIDTH,
             );
-            dump_value(
-                d.max_segment_size,
-                "wMaxSegmentSize",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
+            dump_value(d.max_segment_size, "wMaxSegmentSize", indent + 2, ETH_WIDTH);
             dump_hex(
                 d.num_multicast_filters,
                 "wNumberMCFilters",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ETH_WIDTH,
             );
-            dump_hex(
+            dump_value(
                 d.num_power_filters,
                 "bNumberPowerFilters",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                ETH_WIDTH,
             );
         }
         cdc::CdcInterfaceDescriptor::WirelessHandsetControlModel(d) => {
@@ -1441,8 +1603,8 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         }
         cdc::CdcInterfaceDescriptor::MobileDirectLineModelFunctional(d) => {
             dump_string("CDC MDLM:", indent);
-            dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
-            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value(d.version, "bcdCDC", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH - 4);
         }
         cdc::CdcInterfaceDescriptor::MobileDirectLineModelDetail(d) => {
             dump_string("CDC MDLM detail:", indent);
@@ -1450,23 +1612,27 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 format!("{:02x}", d.guid_descriptor_type),
                 "bGuidDescriptorType",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                LSUSB_DUMP_WIDTH - 2,
             );
             println!(
-                "{:indent$}bDetailData          {}",
+                "{:indent$}bDetailData         {}",
                 "",
                 d.detail_data
                     .iter()
-                    .map(|b| format!("{b:02x}"))
-                    .collect::<Vec<String>>()
-                    .join(" "),
+                    .map(|b| format!(" {b:02x}"))
+                    .collect::<String>(),
                 indent = indent + 2
             );
         }
         cdc::CdcInterfaceDescriptor::DeviceManagement(d) => {
-            dump_string("CDC MDLM:", indent);
+            dump_string("CDC Device Management:", indent);
             dump_value(d.version, "bcdVersion", indent + 2, LSUSB_DUMP_WIDTH);
-            dump_value(d.max_command, "wMaxCommand", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_string_right(
+                d.max_command,
+                "wMaxCommand",
+                indent + 2,
+                LSUSB_DUMP_WIDTH - 3,
+            );
         }
         cdc::CdcInterfaceDescriptor::Obex(d) => {
             dump_string("CDC OBEX:", indent);
@@ -1484,7 +1650,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 indent + 2,
                 LSUSB_DUMP_WIDTH,
             );
-            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_guid(&d.guid, "bGUID", indent + 2, LSUSB_DUMP_WIDTH - 3);
         }
         cdc::CdcInterfaceDescriptor::Ncm(d) => {
             dump_string("CDC NCM:", indent);
@@ -1493,7 +1659,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                 d.network_capabilities,
                 "bmNetworkCapabilities",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                LSUSB_DUMP_WIDTH + 1,
             );
             dump_bitmap_strings_invert(
                 d.network_capabilities,
@@ -1501,7 +1667,7 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
                     0 => Some("packet filter"),
                     1 => Some("net address"),
                     2 => Some("encapsulated commands"),
-                    3 => Some("max cd.datagram size"),
+                    3 => Some("max datagram size"),
                     4 => Some("crc mode"),
                     5 => Some("8-byte ntb input size"),
                     _ => None,
@@ -1512,40 +1678,32 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         cdc::CdcInterfaceDescriptor::Mbim(d) => {
             dump_string("CDC MBIM:", indent);
             dump_value(d.version, "bcdMBIMVersion", indent + 2, LSUSB_DUMP_WIDTH);
-            dump_value(
+            // these four are left aligned at the value column
+            const MBIM_WIDTH: usize = LSUSB_DUMP_WIDTH - 3;
+            dump_string_right(
                 d.max_control_message,
                 "wMaxControlMessage",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                MBIM_WIDTH,
             );
-            dump_value(
-                d.number_filters,
-                "bNumberFilters",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
-            dump_value(
-                d.max_filter_size,
-                "bMaxFilterSize",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
-            dump_value(
+            dump_string_right(d.number_filters, "bNumberFilters", indent + 2, MBIM_WIDTH);
+            dump_string_right(d.max_filter_size, "bMaxFilterSize", indent + 2, MBIM_WIDTH);
+            dump_string_right(
                 d.max_segment_size,
                 "wMaxSegmentSize",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                MBIM_WIDTH,
             );
             dump_hex(
                 d.network_capabilities,
                 "bmNetworkCapabilities",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                LSUSB_DUMP_WIDTH + 1,
             );
             dump_bitmap_strings_invert(
                 d.network_capabilities,
                 |b| match b {
-                    3 => Some("max cd.datagram size"),
+                    3 => Some("max datagram size"),
                     5 => Some("8-byte ntb input size"),
                     _ => None,
                 },
@@ -1554,19 +1712,16 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
         }
         cdc::CdcInterfaceDescriptor::MbimExtended(d) => {
             dump_string("CDC MBIM Extended:", indent);
-            dump_value(
-                d.version,
-                "bcdMBIMExtendedVersion",
-                indent + 2,
-                LSUSB_DUMP_WIDTH,
-            );
+            // the widest CDC descriptor of all
+            const MBIMX_WIDTH: usize = LSUSB_DUMP_WIDTH + 12;
+            dump_value(d.version, "bcdMBIMExtendedVersion", indent + 2, MBIMX_WIDTH);
             dump_value(
                 d.max_outstanding_command_messages,
                 "bMaxOutstandingCommandMessages",
                 indent + 2,
-                LSUSB_DUMP_WIDTH,
+                MBIMX_WIDTH,
             );
-            dump_value(d.mtu, "wMTU", indent + 2, LSUSB_DUMP_WIDTH);
+            dump_value(d.mtu, "wMTU", indent + 2, MBIMX_WIDTH);
         }
         cdc::CdcInterfaceDescriptor::Invalid(_) => {
             dump_bad_comm(cd, indent);
@@ -1587,9 +1742,8 @@ fn dump_comm_descriptor(cd: &cdc::CommunicationDescriptor, indent: usize) {
 }
 
 fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
-    // wider in lsusb but I prefer standard
-    //const DFU_WIDTH: usize = 36;
-    const DFU_WIDTH: usize = LSUSB_DUMP_WIDTH;
+    // lsusb lays this descriptor out wider than the rest
+    const DFU_WIDTH: usize = LSUSB_DUMP_WIDTH + 12;
 
     dump_string("Device Firmware Upgrade Interface Descriptor:", indent);
     dump_value(dfud.length, "bLength", indent + 2, DFU_WIDTH);
@@ -1609,14 +1763,16 @@ fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
     } else {
         println!("{:indent$}Will Not Detach", "", indent = indent + 4);
     }
+    // bitManifestationTolerant: set means the device can still be talked to
+    // after the manifestation phase (DFU 1.1 section 4.1.3)
     if dfud.attributes & 0x04 != 0 {
+        println!("{:indent$}Manifestation Tolerant", "", indent = indent + 4);
+    } else {
         println!(
             "{:indent$}Manifestation Intolerant",
             "",
             indent = indent + 4
         );
-    } else {
-        println!("{:indent$}Manifestation Tolerant", "", indent = indent + 4);
     }
     if dfud.attributes & 0x02 != 0 {
         println!("{:indent$}Upload Supported", "", indent = indent + 4);
@@ -1644,7 +1800,8 @@ fn dump_dfu_interface(dfud: &DfuDescriptor, indent: usize) {
         DFU_WIDTH,
     );
     if let Some(bcd) = dfud.dfu_version.as_ref() {
-        dump_value(bcd, "bcdDFUVersion", indent + 2, DFU_WIDTH);
+        // left aligned at the value column, unlike the fields above it
+        dump_string_right(bcd, "bcdDFUVersion", indent + 2, DFU_WIDTH - 4);
     }
 }
 
@@ -1656,7 +1813,7 @@ fn dump_pipe_desc(gd: &GenericDescriptor, indent: usize) {
             3 => "Data-in pipe",
             4 => "Data-out pipe",
             0 | 5..=0xdf | 0xf0..=0xff => "Reserved",
-            0xe0..=0xef => "Vendor-specific",
+            0xe0..=0xef => "Vendor specific",
         };
 
         println!(
@@ -1705,14 +1862,14 @@ fn dump_security(sec: &SecurityDescriptor, indent: usize) {
 
 fn dump_encryption_type(enc: &EncryptionDescriptor, indent: usize) {
     let enct_string = match enc.encryption_type as u8 {
-        0 => "UNSECURE",
+        0 => "INSECURE",
         1 => "WIRED",
         2 => "CCM_1",
         3 => "RSA_1",
         _ => "RESERVED",
     };
 
-    dump_string("Encryption Type:", indent);
+    dump_string("Encryption Type Descriptor:", indent);
     dump_value(enc.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
         enc.descriptor_type,
@@ -1810,7 +1967,7 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
     dump_value_string(
         hidd.country_code,
         "bCountryCode",
-        names::countrycode(hidd.country_code).unwrap_or_default(),
+        names::countrycode(hidd.country_code).unwrap_or_else(|| String::from("Unknown")),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1824,7 +1981,7 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
         dump_value_string(
             desc.descriptor_type,
             "bDescriptorType",
-            names::hid(desc.descriptor_type).unwrap_or_default(),
+            names::hid(desc.descriptor_type).unwrap_or_else(|| String::from("Unknown")),
             indent + 2,
             LSUSB_DUMP_WIDTH,
         );
@@ -1847,7 +2004,8 @@ fn dump_hid_device(hidd: &HidDescriptor, indent: usize) {
                 dump_report_desc(d, indent + 2);
             }
             None => {
-                dump_string("Report Descriptors:", indent + 2);
+                // lsusb leaves a trailing space after the colon here
+                dump_string("Report Descriptors: ", indent + 2);
                 dump_string("** UNAVAILABLE **", indent + 4);
             }
         }
@@ -1901,7 +2059,7 @@ fn dump_device_qualifier(dqd: &DeviceQualifierDescriptor, indent: usize) {
 }
 
 fn dump_debug(dd: &DebugDescriptor, indent: usize) {
-    dump_string("Debug Descriptor:", indent);
+    dump_string("Debug descriptor:", indent);
     dump_value(dd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
         dd.descriptor_type,
@@ -1956,7 +2114,10 @@ const LINK_STATE_DESCRIPTIONS: [&str; 12] = [
     "Loopback",
 ];
 
-/// Dump a single value and the string representation of the value to the right of width
+/// Collect the strings for the bits set in a port status byte, MSB to LSB
+///
+/// Each is prefixed with a space, as lsusb emits them, so that concatenating
+/// them onto the port line needs no separator of its own.
 fn bitmap_strings_port<T>(bitmap: T, strings_f: fn(usize) -> Option<&'static str>) -> String
 where
     T: std::fmt::Display + std::fmt::LowerHex + Copy + Into<u64>,
@@ -1967,8 +2128,8 @@ where
     for index in (0..num_bits).rev() {
         if (bitmap_u64 >> index) & 0x1 != 0 {
             if let Some(string) = strings_f(index) {
-                ret.push_str(string);
                 ret.push(' ');
+                ret.push_str(string);
             }
         }
     }
@@ -1976,22 +2137,25 @@ where
     ret
 }
 
+/// The hub descriptor is a column narrower than the rest of the dump
+const LSUSB_HUB_WIDTH: usize = LSUSB_DUMP_WIDTH - 2;
+
 fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: usize) {
     let is_ext_status = protocol == 3 && bcd >= 0x0310 && has_ssp;
     dump_string("Hub Descriptor:", indent);
-    dump_value(hd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(hd.length, "bLength", indent + 2, LSUSB_HUB_WIDTH);
     dump_value(
         hd.descriptor_type,
         "bDescriptorType",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        LSUSB_HUB_WIDTH,
     );
-    dump_value(hd.num_ports, "nNbrPorts", indent + 2, LSUSB_DUMP_WIDTH);
+    dump_value(hd.num_ports, "nNbrPorts", indent + 2, LSUSB_HUB_WIDTH);
     dump_hex(
         hd.characteristics,
         "wHubCharacteristic",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        LSUSB_HUB_WIDTH,
     );
     match hd.characteristics & 0x03 {
         0 => println!("{:indent$}Ganged power switching", "", indent = indent + 4),
@@ -2042,7 +2206,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
         "bPwrOn2PwrGood",
         "* 2 milli seconds",
         indent + 2,
-        LSUSB_DUMP_WIDTH,
+        LSUSB_HUB_WIDTH,
     );
 
     if protocol == 3 {
@@ -2051,7 +2215,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
             "bHubContrCurrent",
             "milli Ampere",
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LSUSB_HUB_WIDTH,
         );
     } else {
         dump_value_string(
@@ -2059,7 +2223,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
             "bHubContrCurrent",
             "milli Ampere",
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LSUSB_HUB_WIDTH,
         );
     }
 
@@ -2069,14 +2233,14 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
             "bHubDecLat",
             "micro seconds",
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LSUSB_HUB_WIDTH,
         );
         dump_value_string(
             hd.delay().unwrap_or(0),
             "wHubDelay",
             "nano seconds",
             indent + 2,
-            LSUSB_DUMP_WIDTH,
+            LSUSB_HUB_WIDTH,
         );
         2
     } else {
@@ -2088,30 +2252,29 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
     if l > 3 {
         l = 3;
     }
-    dump_value(
+    // these two are the only hub fields lsusb left aligns: a fixed prefix
+    // followed by one space-prefixed byte per port group, so the line grows
+    // rightwards rather than the value being right aligned in a column
+    let bitmask_bytes = |skip: usize| -> String {
         hd.data
             .iter()
-            .skip(offset)
+            .skip(skip)
             .take(l)
-            .map(|b| format!("0x{b:02x}"))
-            .collect::<Vec<String>>()
-            .join(" "),
-        "DeviceRemovable",
-        indent + 2,
-        LSUSB_DUMP_WIDTH,
+            .map(|b| format!(" 0x{b:02x}"))
+            .collect::<String>()
+    };
+    println!(
+        "{:indent$}DeviceRemovable   {}",
+        "",
+        bitmask_bytes(offset),
+        indent = indent + 2
     );
     if protocol != 3 {
-        dump_value(
-            hd.data
-                .iter()
-                .skip(offset + l)
-                .take(l)
-                .map(|b| format!("0x{b:02x}"))
-                .collect::<Vec<String>>()
-                .join(" "),
-            "PortPwrCtrlMask",
-            indent + 2,
-            LSUSB_DUMP_WIDTH,
+        println!(
+            "{:indent$}PortPwrCtrlMask   {}",
+            "",
+            bitmask_bytes(offset + l),
+            indent = indent + 2
         );
     }
 
@@ -2154,7 +2317,7 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     _ => None,
                 });
                 dump_string(
-                    &format!("{port_status_string} {s2_string}{s1_string}{s0_string}"),
+                    &format!("{port_status_string}{s2_string}{s1_string}{s0_string}"),
                     indent + 3,
                 );
             } else {
@@ -2169,13 +2332,13 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     _ => None,
                 });
                 let s1_string = format!(
-                    "{} {}",
+                    "{}{}",
                     if p[1] & 0x1c == 0 {
-                        "5Gbps"
+                        " 5Gbps"
                     } else {
-                        "Unknown Speed"
+                        " Unknown Speed"
                     },
-                    if p[1] & 0x02 != 0 { "power " } else { " " },
+                    if p[1] & 0x02 != 0 { " power" } else { "" },
                 );
                 let s0_string = bitmap_strings_port(p[0], |b| match b {
                     0 => Some("connect"),
@@ -2184,33 +2347,25 @@ fn dump_hub(hd: &HubDescriptor, protocol: u8, bcd: u16, has_ssp: bool, indent: u
                     4 => Some("RESET"),
                     _ => None,
                 });
-                if link_state < LINK_STATE_DESCRIPTIONS.len() {
-                    dump_string(
-                        &format!(
-                            "{} {}{}{}{}",
-                            port_status_string,
-                            s2_string,
-                            s1_string,
-                            LINK_STATE_DESCRIPTIONS[link_state],
-                            s0_string
-                        ),
-                        indent + 3,
-                    );
-                } else {
-                    dump_string(
-                        &format!("{port_status_string} {s2_string}{s1_string}{s0_string}"),
-                        indent + 3,
-                    );
-                }
+                let link_state_string = LINK_STATE_DESCRIPTIONS
+                    .get(link_state)
+                    .map(|s| format!(" {s}"))
+                    .unwrap_or_default();
+                dump_string(
+                    &format!(
+                        "{port_status_string}{s2_string}{s1_string}{link_state_string}{s0_string}"
+                    ),
+                    indent + 3,
+                );
             }
 
             if is_ext_status && (p[0] & 0x01 == 0x01) {
                 dump_string(
                     &format!(
-                        "Ext Status: {:02x}{:02x}{:02x}{:02x}",
+                        "Ext Status: {:02x}{:02x}.{:02x}{:02x}",
                         p[7], p[6], p[5], p[4]
                     ),
-                    indent + 7,
+                    indent + 5,
                 );
                 dump_string(
                     &format!(
@@ -2275,15 +2430,18 @@ fn dump_device_status(status: u16, otg: bool, super_speed: bool, indent: usize) 
 }
 
 /// Verbatim port of lsusb's dump_unit - not very Rust, don't judge!
-fn dump_unit(mut data: u16, len: usize, indent: usize) {
-    let systems = |t: u16| match t {
+///
+/// `data` is the full item value; a Unit item may carry four data bytes, so it
+/// must not be narrowed to u16 before the nibble walk below.
+fn dump_unit(mut data: u32, len: usize, indent: usize) {
+    let systems = |t: u32| match t {
         0x01 => "SI Linear",
         0x02 => "SI Rotation",
         0x03 => "English Linear",
         0x04 => "English Rotation",
         _ => "None",
     };
-    let units = |t: u16, i: usize| match (t, i) {
+    let units = |t: u32, i: usize| match (t, i) {
         (1, 1) => "Centimeter",
         (2, 1) => "Radians",
         (1, 2) | (2, 2) => "Gram",
@@ -2295,7 +2453,7 @@ fn dump_unit(mut data: u16, len: usize, indent: usize) {
             0x03 => "Seconds",
             0x04 => "Fahrenheit",
             0x05 => "Ampere",
-            0x06 => "Camdela",
+            0x06 => "Candela",
             _ => "None",
         },
         (_, _) => "None",
@@ -2346,8 +2504,9 @@ fn dump_unit(mut data: u16, len: usize, indent: usize) {
 
 /// Dumps HID report data ported directly from lsusb - it's not pretty but works...
 fn dump_report_desc(desc: &[u8], indent: usize) {
-    // ported from lsusb - indented to 28 spaces for some reason...
-    const REPORT_INDENT: usize = 12;
+    // lsusb hard codes a 28 space indent for the lines decoding an item,
+    // rather than deriving it from the item's own
+    const REPORT_INDENT: usize = 28;
     let types = |t: u8| match t {
         0x00 => "Main",
         0x01 => "Global",
@@ -2360,11 +2519,15 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         indent,
     );
 
+    // both carry across items: the usage page set by a Global item qualifies
+    // every Local usage that follows it, and lsusb lets an item with no data
+    // bytes see the previous item's value
+    let mut data: u32 = 0xffff;
+    let mut hut: u32 = 0xffff;
+
     let mut i = 0;
     while i < desc.len() {
         let b = desc[i];
-        let mut data = 0xffff;
-        let mut hut = 0xff;
         let mut bsize = (b & 0x03) as usize;
         if bsize == 3 {
             bsize = 4;
@@ -2372,27 +2535,33 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         let btype = b & (0x03 << 2);
         let btag = b & !0x03;
 
-        // Item Header
-        print!(
-            "{:indent$}Item({:>6}): {}, data=",
-            "",
-            types(btype >> 2),
-            names::report_tag(btag).unwrap_or_default(),
-            indent = indent + 2
-        );
-
-        // Check for descriptor bounds
-        if i + bsize >= desc.len() {
-            println!("Error: Descriptor too short");
+        // Check for descriptor bounds before the header, so a truncated item
+        // does not leave a half written line behind
+        if i + 1 + bsize > desc.len() {
+            println!(
+                "{:indent$}** TRUNCATED at offset {} **",
+                "",
+                i,
+                indent = indent + 2
+            );
             break;
         }
+
+        // Item Header
+        print!(
+            "{:indent$}Item({:<6}): {}, data=",
+            "",
+            types(btype >> 2),
+            names::report_tag(btag).unwrap_or_else(|| String::from("Unknown")),
+            indent = indent + 2
+        );
 
         if bsize > 0 {
             print!(" [ ");
             data = 0;
             for j in 0..bsize {
                 data |= (desc[i + 1 + j] as u32) << (j * 8);
-                print!("{:02x} ", desc[i + 1 + j]);
+                print!("0x{:02x} ", desc[i + 1 + j]);
             }
             println!("] {data}");
         } else {
@@ -2402,28 +2571,46 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
         match btag {
             // usage page
             0x04 => {
-                hut = data as u8;
-                if let Some(hut) = names::huts(hut) {
-                    println!("{:indent$}{}", "", hut, indent = REPORT_INDENT);
-                }
+                // kept whole: narrowing would turn vendor page 0xff00 into
+                // page 0x00 "Undefined" where lsusb finds no name
+                hut = data;
+                println!(
+                    "{:indent$}{}",
+                    "",
+                    u8::try_from(hut)
+                        .ok()
+                        .and_then(names::huts)
+                        .unwrap_or_else(|| String::from("Unknown")),
+                    indent = REPORT_INDENT
+                );
             }
             // usage, usage minimum, usage maximum
             0x08 | 0x18 | 0x28 => {
-                if let Some(hutus) = names::hutus(hut, data as u16) {
-                    println!("{:indent$}{}", "", hutus, indent = REPORT_INDENT);
-                }
+                // lsusb looks up (hut << 16) + data, so a four byte usage
+                // carries into the page rather than being truncated
+                let key = (hut << 16).wrapping_add(data);
+                println!(
+                    "{:indent$}{}",
+                    "",
+                    u8::try_from(key >> 16)
+                        .ok()
+                        .and_then(|page| names::hutus(page, key as u16))
+                        .unwrap_or_else(|| String::from("Unknown")),
+                    indent = REPORT_INDENT
+                );
             }
-            // unit exponent
+            // unit exponent - lsusb casts through signed char, so only a full
+            // byte sign extends; the HID nibble encoding (0x0e = -2) is not applied
             0x54 => {
                 println!(
                     "{:indent$}Unit Exponent: {}",
                     "",
-                    data as u8,
+                    data as u8 as i8,
                     indent = REPORT_INDENT
                 );
             }
             // unit
-            0x64 => dump_unit(data as u16, bsize, REPORT_INDENT),
+            0x64 => dump_unit(data, bsize, REPORT_INDENT),
             // collection
             0xa0 => match data {
                 0x00 => println!("{:indent$}Physical", "", indent = REPORT_INDENT),
@@ -2437,7 +2624,11 @@ fn dump_report_desc(desc: &[u8], indent: usize) {
                     if (data & 0x80) == 0x80 {
                         println!("{:indent$}Vendor defined", "", indent = REPORT_INDENT)
                     } else {
-                        println!("{:indent$}Unknown", "", indent = REPORT_INDENT)
+                        println!(
+                            "{:indent$}Reserved for future use.",
+                            "",
+                            indent = REPORT_INDENT
+                        )
                     }
                 }
             },

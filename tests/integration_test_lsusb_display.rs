@@ -45,6 +45,35 @@ fn test_lsusb_tree_verbose() {
     );
 }
 
+/// Tests the verbose dump of class descriptors that no single host is likely
+/// to have attached at once: CCID, DFU, IPP printer, a readable HID report,
+/// OTG, UVC and UAC.
+///
+/// Both the dump and the expected output are generated; see
+/// `examples/gen_descriptor_fixture.rs`, which holds the descriptor bytes and
+/// documents how to regenerate them. If a deliberate output change makes this
+/// fail, regenerate the expectation with
+/// `cargo run -- --from-json tests/data/cyme_descriptor_fixture.json --lsusb -v
+/// > tests/data/lsusb_fixture_verbose.txt` and read the diff.
+///
+/// The expectation is rendered with the default `usb_ids` name source.
+/// `udev_hwdb` names classes differently (`[unknown]` for `No Subclass`, for
+/// example), so the test is skipped when that feature is enabled.
+#[test]
+#[cfg(not(feature = "udev_hwdb"))]
+fn test_lsusb_descriptor_fixture_verbose() {
+    let env = common::TestEnv::new();
+
+    let comp = common::read_dump_to_string(common::LSUSB_FIXTURE_OUTPUT_VERBOSE);
+
+    env.assert_output(
+        Some(common::CYME_DESCRIPTOR_FIXTURE),
+        &["--lsusb", "--verbose"],
+        comp.as_str(),
+        false,
+    );
+}
+
 /// Tests lsusb -d vidpid filter
 #[test]
 fn test_lsusb_vidpid() {
