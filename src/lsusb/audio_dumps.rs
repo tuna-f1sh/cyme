@@ -104,7 +104,7 @@ fn dump_bitmap_controls_array<T: Into<u32> + std::fmt::Display + Copy>(
     for (i, control) in controls.iter().enumerate() {
         let control = control.to_owned();
         let control: u32 = control.into();
-        dump_value(control, &format!("{field_name}({i:2})"), indent, width);
+        dump_value(control, &format!("{field_name}({i})"), indent, width);
         dump_bitmap_controls(control, control_descriptions, desc_type, indent + 2);
     }
 }
@@ -112,7 +112,7 @@ fn dump_bitmap_controls_array<T: Into<u32> + std::fmt::Display + Copy>(
 fn dump_audio_mixer_unit1(mixer_unit: &audio::MixerUnit1, indent: usize, width: usize) {
     dump_value(mixer_unit.unit_id, "bUnitID", indent, width);
     dump_value(mixer_unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&mixer_unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&mixer_unit.source_ids, "baSourceID", indent, width);
     dump_value(mixer_unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(mixer_unit.channel_config, "wChannelConfig", indent, width);
     let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
@@ -130,7 +130,7 @@ fn dump_audio_mixer_unit1(mixer_unit: &audio::MixerUnit1, indent: usize, width: 
 fn dump_audio_mixer_unit2(mixer_unit: &audio::MixerUnit2, indent: usize, width: usize) {
     dump_value(mixer_unit.unit_id, "bUnitID", indent, width);
     dump_value(mixer_unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&mixer_unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&mixer_unit.source_ids, "baSourceID", indent, width);
     dump_value(mixer_unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(mixer_unit.channel_config, "bmChannelConfig", indent, width);
     let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
@@ -155,8 +155,8 @@ fn dump_audio_mixer_unit2(mixer_unit: &audio::MixerUnit2, indent: usize, width: 
 fn dump_audio_mixer_unit3(mixer_unit: &audio::MixerUnit3, indent: usize, width: usize) {
     dump_value(mixer_unit.unit_id, "bUnitID", indent, width);
     dump_value(mixer_unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&mixer_unit.source_ids, "baSourceID", indent, width);
-    dump_value(
+    dump_array_desc(&mixer_unit.source_ids, "baSourceID", indent, width);
+    dump_hex(
         mixer_unit.cluster_descr_id,
         "wClusterDescrID",
         indent,
@@ -180,20 +180,20 @@ fn dump_audio_power_domain(power_domain: &audio::PowerDomain, indent: usize, wid
         indent,
         width,
     );
-    dump_value(
+    dump_hex(
         power_domain.recovery_time_1,
         "waRecoveryTime(1)",
         indent,
         width,
     );
-    dump_value(
+    dump_hex(
         power_domain.recovery_time_2,
         "waRecoveryTime(2)",
         indent,
         width,
     );
     dump_value(power_domain.nr_entities, "bNrEntities", indent, width);
-    dump_array(&power_domain.entity_ids, "baEntityID", indent, width);
+    dump_array_desc(&power_domain.entity_ids, "baEntityID", indent, width);
     dump_value(
         power_domain.domain_descr_str,
         "wPDomainDescrStr",
@@ -209,7 +209,7 @@ pub(crate) fn dump_audio_selector_unit1(
 ) {
     dump_value(selector_unit.unit_id, "bUnitID", indent, width);
     dump_value(selector_unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&selector_unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&selector_unit.source_ids, "baSourceID", indent, width);
     dump_value_string(
         selector_unit.selector_index,
         "iSelector",
@@ -222,7 +222,7 @@ pub(crate) fn dump_audio_selector_unit1(
 fn dump_audio_selector_unit2(selector_unit: &audio::SelectorUnit2, indent: usize, width: usize) {
     dump_value(selector_unit.unit_id, "bUnitID", indent, width);
     dump_value(selector_unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&selector_unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&selector_unit.source_ids, "baSourceID", indent, width);
     dump_hex(selector_unit.controls, "bmControls", indent, width);
     dump_bitmap_controls(
         selector_unit.controls,
@@ -242,7 +242,7 @@ fn dump_audio_selector_unit2(selector_unit: &audio::SelectorUnit2, indent: usize
 fn dump_audio_selector_unit3(selector_unit: &audio::SelectorUnit3, indent: usize, width: usize) {
     dump_value(selector_unit.unit_id, "bUnitID", indent, width);
     dump_value(selector_unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&selector_unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&selector_unit.source_ids, "baSourceID", indent, width);
     dump_hex(selector_unit.controls, "bmControls", indent, width);
     dump_bitmap_controls(
         selector_unit.controls,
@@ -269,7 +269,7 @@ fn dump_audio_processing_unit1(unit: &audio::ProcessingUnit1, indent: usize, wid
         width,
     );
     dump_value(unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "wChannelConfig", indent, width);
     let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
@@ -312,7 +312,7 @@ fn dump_audio_processing_unit2(unit: &audio::ProcessingUnit2, indent: usize, wid
         width,
     );
     dump_value(unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "bmChannelConfig", indent, width);
     let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
@@ -353,6 +353,8 @@ fn dump_audio_processing_unit2(unit: &audio::ProcessingUnit2, indent: usize, wid
 
 /// Dumps the contents of a UAC3 Processing Unit Descriptor
 fn dump_audio_processing_unit3(unit: &audio::ProcessingUnit3, indent: usize, width: usize) {
+    // wProcessingDescrStr is 19 characters; see dump_audio_clock_multiplier3
+    let width = width + 1;
     dump_value(unit.unit_id, "bUnitID", indent, width);
     dump_value_string(
         unit.process_type,
@@ -362,7 +364,7 @@ fn dump_audio_processing_unit3(unit: &audio::ProcessingUnit3, indent: usize, wid
         width,
     );
     dump_value(unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&unit.source_ids, "baSourceID", indent, width);
     dump_value(
         unit.processing_descr_str,
         "wProcessingDescrStr",
@@ -380,7 +382,7 @@ fn dump_audio_processing_unit3(unit: &audio::ProcessingUnit3, indent: usize, wid
                     indent + 2,
                 );
                 dump_value(up_down_mix.nr_modes, "bNrModes", indent, width);
-                dump_array(
+                dump_bitmap_array(
                     &up_down_mix.cluster_descr_ids,
                     "waClusterDescrID",
                     indent,
@@ -404,7 +406,7 @@ fn dump_audio_processing_unit3(unit: &audio::ProcessingUnit3, indent: usize, wid
                     &audio::ControlType::BmControl2,
                     indent + 2,
                 );
-                dump_value(
+                dump_hex(
                     multi_function.cluster_descr_id,
                     "wClusterDescrID",
                     indent,
@@ -424,7 +426,7 @@ fn dump_audio_processing_unit3(unit: &audio::ProcessingUnit3, indent: usize, wid
 /// Dumps the contents of a UAC2 Effect Unit Descriptor
 fn dump_audio_effect_unit2(unit: &audio::EffectUnit2, indent: usize, width: usize) {
     dump_value(unit.unit_id, "bUnitID", indent, width);
-    dump_value(unit.effect_type, "wEffectType", indent, width);
+    dump_hex(unit.effect_type, "wEffectType", indent, width);
     dump_value(unit.source_id, "bSourceID", indent, width);
     dump_bitmap_array(&unit.controls, "bmaControls", indent, width);
     dump_value(unit.effect_index, "iEffects", indent, width);
@@ -440,7 +442,7 @@ fn dump_audio_effect_unit2(unit: &audio::EffectUnit2, indent: usize, width: usiz
 /// Dumps the contents of a UAC3 Effect Unit Descriptor
 fn dump_audio_effect_unit3(unit: &audio::EffectUnit3, indent: usize, width: usize) {
     dump_value(unit.unit_id, "bUnitID", indent, width);
-    dump_value(unit.effect_type, "wEffectType", indent, width);
+    dump_hex(unit.effect_type, "wEffectType", indent, width);
     dump_value(unit.source_id, "bSourceID", indent, width);
     dump_bitmap_array(&unit.controls, "bmaControls", indent, width);
     dump_value(unit.effect_descr_str, "wEffectsDescrStr", indent, width);
@@ -507,9 +509,9 @@ fn dump_audio_feature_unit3(unit: &audio::FeatureUnit3, indent: usize, width: us
 /// Dumps the contents of a UAC1 Extension Unit Descriptor
 fn dump_audio_extension_unit1(unit: &audio::ExtensionUnit1, indent: usize, width: usize) {
     dump_value(unit.unit_id, "bUnitID", indent, width);
-    dump_value(unit.extension_code, "wExtensionCode", indent, width);
+    dump_hex(unit.extension_code, "wExtensionCode", indent, width);
     dump_value(unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "wChannelConfig", indent, width);
     let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
@@ -541,9 +543,9 @@ fn dump_audio_extension_unit1(unit: &audio::ExtensionUnit1, indent: usize, width
 /// Dumps the contents of a UAC2 Extension Unit Descriptor
 fn dump_audio_extension_unit2(unit: &audio::ExtensionUnit2, indent: usize, width: usize) {
     dump_value(unit.unit_id, "bUnitID", indent, width);
-    dump_value(unit.extension_code, "wExtensionCode", indent, width);
+    dump_hex(unit.extension_code, "wExtensionCode", indent, width);
     dump_value(unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&unit.source_ids, "baSourceID", indent, width);
     dump_value(unit.nr_channels, "bNrChannels", indent, width);
     dump_hex(unit.channel_config, "bmChannelConfig", indent, width);
     let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
@@ -579,9 +581,9 @@ fn dump_audio_extension_unit2(unit: &audio::ExtensionUnit2, indent: usize, width
 /// Dumps the contents of a UAC3 Extension Unit Descriptor
 fn dump_audio_extension_unit3(unit: &audio::ExtensionUnit3, indent: usize, width: usize) {
     dump_value(unit.unit_id, "bUnitID", indent, width);
-    dump_value(unit.extension_code, "wExtensionCode", indent, width);
+    dump_hex(unit.extension_code, "wExtensionCode", indent, width);
     dump_value(unit.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&unit.source_ids, "baSourceID", indent, width);
+    dump_array_desc(&unit.source_ids, "baSourceID", indent, width);
     dump_value(
         unit.extension_descr_str,
         "wExtensionDescrStr",
@@ -595,7 +597,7 @@ fn dump_audio_extension_unit3(unit: &audio::ExtensionUnit3, indent: usize, width
         &audio::ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(unit.cluster_descr_id, "wClusterDescrID", indent, width);
+    dump_hex(unit.cluster_descr_id, "wClusterDescrID", indent, width);
 }
 
 /// Dumps the contents of a UAC2 Clock Source Descriptor
@@ -665,7 +667,7 @@ fn dump_audio_clock_source3(source: &audio::ClockSource3, indent: usize, width: 
 fn dump_audio_clock_selector2(selector: &audio::ClockSelector2, indent: usize, width: usize) {
     dump_value(selector.clock_id, "bClockID", indent, width);
     dump_value(selector.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&selector.csource_ids, "baCSourceID", indent, width);
+    dump_array_desc(&selector.csource_ids, "baCSourceID", indent, width);
     dump_hex(selector.controls, "bmControls", indent, width);
     dump_bitmap_controls(
         selector.controls,
@@ -686,7 +688,7 @@ fn dump_audio_clock_selector2(selector: &audio::ClockSelector2, indent: usize, w
 fn dump_audio_clock_selector3(selector: &audio::ClockSelector3, indent: usize, width: usize) {
     dump_value(selector.clock_id, "bClockID", indent, width);
     dump_value(selector.nr_in_pins, "bNrInPins", indent, width);
-    dump_array(&selector.csource_ids, "baCSourceID", indent, width);
+    dump_array_desc(&selector.csource_ids, "baCSourceID", indent, width);
     dump_hex(selector.controls, "bmControls", indent, width);
     dump_bitmap_controls(
         selector.controls,
@@ -724,6 +726,9 @@ fn dump_audio_clock_multiplier2(multiplier: &audio::ClockMultiplier2, indent: us
 
 /// Dumps the contents of a UAC3 Clock Multiplier Descriptor
 fn dump_audio_clock_multiplier3(multiplier: &audio::ClockMultiplier3, indent: usize, width: usize) {
+    // wCMultiplierDescrStr is 20 characters, and lsusb widens every field in a
+    // descriptor to its longest name
+    let width = width + 2;
     dump_value(multiplier.clock_id, "bClockID", indent, width);
     dump_value(multiplier.csource_id, "bCSourceID", indent, width);
     dump_hex(multiplier.controls, "bmControls", indent, width);
@@ -773,14 +778,14 @@ fn dump_audio_sample_rate_converter3(
 
 fn dump_audio_header1(header: &audio::Header1, indent: usize, width: usize) {
     dump_value(header.version, "bcdADC", indent, width);
-    dump_value(header.total_length, "wTotalLength", indent, width);
+    dump_hex(header.total_length, "wTotalLength", indent, width);
     dump_value(header.collection_bytes, "bInCollection", indent, width);
-    dump_array(&header.interfaces, "baInterfaceNr", indent, width);
+    dump_array_desc(&header.interfaces, "baInterfaceNr", indent, width);
 }
 
 fn dump_audio_header2(header: &audio::Header2, indent: usize, width: usize) {
     dump_value(header.version, "bcdADC", indent, width);
-    dump_value(header.total_length, "wTotalLength", indent, width);
+    dump_hex(header.total_length, "wTotalLength", indent, width);
     dump_hex(header.controls, "bmControls", indent, width);
     dump_bitmap_controls(
         header.controls as u32,
@@ -792,7 +797,7 @@ fn dump_audio_header2(header: &audio::Header2, indent: usize, width: usize) {
 
 fn dump_audio_header3(header: &audio::Header3, indent: usize, width: usize) {
     dump_value(header.category, "bCategory", indent, width);
-    dump_value(header.total_length, "wTotalLength", indent, width);
+    dump_hex(header.total_length, "wTotalLength", indent, width);
     dump_hex(header.controls, "bmControls", indent, width);
     dump_bitmap_controls(
         header.controls,
@@ -898,7 +903,7 @@ fn dump_audio_input_terminal3(ait: &audio::InputTerminal3, indent: usize, width:
         &audio::ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(ait.cluster_descr_id, "wClusterDescrID", indent, width);
+    dump_hex(ait.cluster_descr_id, "wClusterDescrID", indent, width);
     dump_value(
         ait.ex_terminal_descr_id,
         "wExTerminalDescrID",
@@ -975,20 +980,26 @@ fn dump_audio_output_terminal3(a: &audio::OutputTerminal3, indent: usize, width:
         &audio::ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(a.ex_terminal_descr_id, "wExTerminalDescrID", indent, width);
+    dump_hex(a.ex_terminal_descr_id, "wExTerminalDescrID", indent, width);
     dump_value(a.connectors_descr_id, "wConnectorDescrId", indent, width);
     dump_value(a.terminal_descr_str, "wTerminalDescrStr", indent, width);
 }
 
 fn dump_extended_terminal_header(d: &audio::ExtendedTerminalHeader, indent: usize, width: usize) {
-    dump_value(d.descriptor_id, "wDescriptorID", indent, width);
+    dump_hex(d.descriptor_id, "wDescriptorID", indent, width);
     dump_value(d.nr_channels, "bNrChannels", indent, width);
 }
 
 fn dump_audio_streaming_interface1(asi: &audio::StreamingInterface1, indent: usize, width: usize) {
     dump_value(asi.terminal_link, "bTerminalLink", indent, width);
-    dump_value(asi.delay, "bDelay", indent, width);
-    dump_value(asi.format_tag, "wFormatTag", indent, width);
+    dump_value_string(asi.delay, "bDelay", "frames", indent, width);
+    dump_value_string(
+        format!("0x{:04x}", asi.format_tag),
+        "wFormatTag",
+        get_format_specific_string(asi.format_tag),
+        indent,
+        width,
+    );
 }
 
 fn dump_audio_streaming_interface2(asi: &audio::StreamingInterface2, indent: usize, width: usize) {
@@ -1001,6 +1012,13 @@ fn dump_audio_streaming_interface2(asi: &audio::StreamingInterface2, indent: usi
         indent + 2,
     );
     dump_value(asi.format_type, "bFormatType", indent, width);
+    // one type I format name per set bit, listed under the value
+    dump_hex(asi.formats, "bmFormats", indent, width);
+    for bit in 0..5 {
+        if asi.formats & (1 << bit) != 0 {
+            dump_string(FMT_ITAG[bit + 1], indent + 2);
+        }
+    }
     dump_value(asi.nr_channels, "bNrChannels", indent, width);
     dump_hex(asi.channel_config, "bmChannelConfig", indent, width);
     let channel_names = audio::UacInterfaceDescriptor::get_channel_name_strings(
@@ -1028,12 +1046,23 @@ fn dump_audio_streaming_interface3(asi: &audio::StreamingInterface3, indent: usi
         &audio::ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(asi.cluster_descr_id, "wClusterDescrID", indent, width);
+    dump_hex(asi.cluster_descr_id, "wClusterDescrID", indent, width);
     dump_hex(asi.formats, "bmFormats", indent, width);
     dump_value(asi.sub_slot_size, "bSubslotSize", indent, width);
     dump_value(asi.bit_resolution, "bBitResolution", indent, width);
     dump_hex(asi.aux_protocols, "bmAuxProtocols", indent, width);
     dump_value(asi.control_size, "bControlSize", indent, width);
+}
+
+/// Lock delay unit names, shared by the three protocols' isochronous audio
+/// data endpoint descriptors
+fn lock_delay_units_string(units: u8) -> &'static str {
+    match units {
+        0 => "Undefined",
+        1 => "Milliseconds",
+        2 => "Decoded PCM samples",
+        _ => "",
+    }
 }
 
 fn dump_audio_data_streaming_endpoint1(
@@ -1050,8 +1079,14 @@ fn dump_audio_data_streaming_endpoint1(
     };
     dump_hex(ads.attributes, "bmAttributes", indent, width);
     dump_bitmap_strings(ads.attributes, uac1_attrs, indent + 2);
-    dump_value(ads.lock_delay_units, "bLockDelayUnits", indent, width);
-    dump_value(ads.lock_delay, "wLockDelay", indent, width);
+    dump_value_string(
+        ads.lock_delay_units,
+        "bLockDelayUnits",
+        lock_delay_units_string(ads.lock_delay_units),
+        indent,
+        width,
+    );
+    dump_hex(ads.lock_delay, "wLockDelay", indent, width);
 }
 
 fn dump_audio_data_streaming_endpoint2(
@@ -1072,8 +1107,14 @@ fn dump_audio_data_streaming_endpoint2(
         &audio::ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(ads.lock_delay_units, "bLockDelayUnits", indent, width);
-    dump_value(ads.lock_delay, "wLockDelay", indent, width);
+    dump_value_string(
+        ads.lock_delay_units,
+        "bLockDelayUnits",
+        lock_delay_units_string(ads.lock_delay_units),
+        indent,
+        width,
+    );
+    dump_hex(ads.lock_delay, "wLockDelay", indent, width);
 }
 
 fn dump_audio_data_streaming_endpoint3(
@@ -1088,8 +1129,14 @@ fn dump_audio_data_streaming_endpoint3(
         &audio::ControlType::BmControl2,
         indent + 2,
     );
-    dump_value(ads.lock_delay_units, "bLockDelayUnits", indent, width);
-    dump_value(ads.lock_delay, "wLockDelay", indent, width);
+    dump_value_string(
+        ads.lock_delay_units,
+        "bLockDelayUnits",
+        lock_delay_units_string(ads.lock_delay_units),
+        indent,
+        width,
+    );
+    dump_hex(ads.lock_delay, "wLockDelay", indent, width);
 }
 
 fn dump_audio_streaming_format(af: &audio::StreamingFormat, indent: usize, width: usize) {
@@ -1316,13 +1363,22 @@ fn dump_audio_subtype(uacid: &audio::UacInterfaceDescriptor, indent: usize) {
     }
 }
 
+/// The name lsusb uses for an audio protocol in its warning messages
+fn uac_protocol_name(protocol: &audio::UacProtocol) -> &'static str {
+    match u8::from(protocol.to_owned()) {
+        0x20 => "UAC2",
+        0x30 => "UAC3",
+        _ => "UAC1",
+    }
+}
+
 pub(crate) fn dump_audiocontrol_interface(
     uacd: &audio::UacDescriptor,
     uaci: &audio::ControlSubtype,
     protocol: &audio::UacProtocol,
     indent: usize,
 ) {
-    dump_string("AudioControl Interface Descriptor", indent);
+    dump_string("AudioControl Interface Descriptor:", indent);
     dump_value(uacd.length, "bLength", indent + 2, LSUSB_DUMP_WIDTH);
     dump_value(
         uacd.descriptor_type,
@@ -1344,34 +1400,35 @@ pub(crate) fn dump_audiocontrol_interface(
                 "{:indent$}Warning: {:#} descriptors are illegal for {}",
                 "",
                 uacd.descriptor_subtype,
-                u8::from(protocol.to_owned()),
-                indent = indent
+                uac_protocol_name(protocol),
+                indent = indent + 2
             );
         }
         uacid => dump_audio_subtype(uacid, indent + 2),
     }
 }
 
-fn get_format_specific_string(fmttag: u16) -> &'static str {
-    const FMT_ITAG: [&str; 6] = [
-        "TYPE_I_UNDEFINED",
-        "PCM",
-        "PCM8",
-        "IEEE_FLOAT",
-        "ALAW",
-        "MULAW",
-    ];
-    const FMT_IITAG: [&str; 3] = ["TYPE_II_UNDEFINED", "MPEG", "AC-3"];
-    const FMT_IIITAG: [&str; 7] = [
-        "TYPE_III_UNDEFINED",
-        "IEC1937_AC-3",
-        "IEC1937_MPEG-1_Layer1",
-        "IEC1937_MPEG-Layer2/3/NOEXT",
-        "IEC1937_MPEG-2_EXT",
-        "IEC1937_MPEG-2_Layer1_LS",
-        "IEC1937_MPEG-2_Layer2/3_LS",
-    ];
+/// Type I audio data format names, indexed by format code
+const FMT_ITAG: [&str; 6] = [
+    "TYPE_I_UNDEFINED",
+    "PCM",
+    "PCM8",
+    "IEEE_FLOAT",
+    "ALAW",
+    "MULAW",
+];
+const FMT_IITAG: [&str; 3] = ["TYPE_II_UNDEFINED", "MPEG", "AC-3"];
+const FMT_IIITAG: [&str; 7] = [
+    "TYPE_III_UNDEFINED",
+    "IEC1937_AC-3",
+    "IEC1937_MPEG-1_Layer1",
+    "IEC1937_MPEG-Layer2/3/NOEXT",
+    "IEC1937_MPEG-2_EXT",
+    "IEC1937_MPEG-2_Layer1_LS",
+    "IEC1937_MPEG-2_Layer2/3_LS",
+];
 
+fn get_format_specific_string(fmttag: u16) -> &'static str {
     match fmttag {
         0..=5 => FMT_ITAG[fmttag as usize],
         0x1000..=0x1002 => FMT_IITAG[(fmttag & 0xfff) as usize],
@@ -1594,10 +1651,16 @@ pub(crate) fn dump_audiostreaming_interface(
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
+    // lsusb prefixes the interface general subtype to distinguish it from the
+    // endpoint one, which it calls EP_GENERAL
+    let uasi_name = match uasi {
+        audio::StreamingSubtype::General => String::from("AS_GENERAL"),
+        _ => format!("{uasi:#}"),
+    };
     dump_value_string(
         uasi.to_owned() as u8,
         "bDescriptorSubtype",
-        format!("({uasi:#})"),
+        format!("({uasi_name})"),
         indent + 2,
         LSUSB_DUMP_WIDTH,
     );
@@ -1608,7 +1671,7 @@ pub(crate) fn dump_audiostreaming_interface(
                 "{:indent$}Warning: {:#} descriptors are illegal for {}",
                 "",
                 uacd.descriptor_subtype,
-                u8::from(protocol.to_owned()),
+                uac_protocol_name(protocol),
                 indent = indent + 2
             );
         }
@@ -1710,15 +1773,10 @@ pub(crate) fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: u
             );
 
             for (i, p) in d.source_ids.iter() {
-                dump_value(
-                    i,
-                    &format!("baSourceID({i:2})"),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
+                dump_value(i, &format!("baSourceID({i})"), indent + 2, LSUSB_DUMP_WIDTH);
                 dump_value(
                     p,
-                    &format!("baSourcePin({i:2})"),
+                    &format!("baSourcePin({i})"),
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
                 );
@@ -1741,15 +1799,10 @@ pub(crate) fn dump_midistreaming_interface(md: &audio::MidiDescriptor, indent: u
             );
 
             for (i, p) in d.source_ids.iter() {
-                dump_value(
-                    i,
-                    &format!("baSourceID({i:2})"),
-                    indent + 2,
-                    LSUSB_DUMP_WIDTH,
-                );
+                dump_value(i, &format!("baSourceID({i})"), indent + 2, LSUSB_DUMP_WIDTH);
                 dump_value(
                     p,
-                    &format!("baSourcePin({i:2})"),
+                    &format!("baSourcePin({i})"),
                     indent + 2,
                     LSUSB_DUMP_WIDTH,
                 );
@@ -1853,6 +1906,6 @@ pub(crate) fn dump_midistreaming_endpoint(md: &audio::MidiDescriptor, indent: us
             indent + 2,
             LSUSB_DUMP_WIDTH,
         );
-        dump_array(&ep.jacks, "baAssocJackID", indent + 2, LSUSB_DUMP_WIDTH);
+        dump_array_desc(&ep.jacks, "baAssocJackID", indent + 2, LSUSB_DUMP_WIDTH);
     }
 }
