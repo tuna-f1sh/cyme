@@ -1,7 +1,6 @@
 //! Runs tests using actual binary, adapted from 'fd' method: https://github.com/sharkdp/fd/blob/master/tests/testenv/mod.rs
 #![allow(dead_code)]
 use serde_json::json;
-use std::env;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
@@ -70,19 +69,11 @@ pub struct TestEnv {
 }
 
 /// Find the *cyme* executable.
+///
+/// Cargo sets `CARGO_BIN_EXE_cyme` for integration tests, so this does not
+/// depend on where the test binary itself is placed.
 fn find_cyme_exe() -> PathBuf {
-    // Tests exe is in target/debug/deps, the *cyme* exe is in target/debug
-    let root = env::current_exe()
-        .expect("tests executable")
-        .parent()
-        .expect("tests executable directory")
-        .parent()
-        .expect("cyme executable directory")
-        .to_path_buf();
-
-    let exe_name = if cfg!(windows) { "cyme.exe" } else { "cyme" };
-
-    root.join(exe_name)
+    PathBuf::from(env!("CARGO_BIN_EXE_cyme"))
 }
 
 /// Format an error message for when *cyme* did not exit successfully.
