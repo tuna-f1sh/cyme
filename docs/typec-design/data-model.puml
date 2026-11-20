@@ -1,0 +1,107 @@
+@startuml data-model
+title "Where should Cable/Port data live? (tuna-f1sh's 3 options vs. the chosen approach)"
+skinparam classAttributeIconSize 0
+hide circle
+
+class SystemProfile {
+  buses: Vec<Bus>
+  ..chosen..
+  +typec_ports: Option<Vec<TypecPort>>
+}
+
+class Bus {
+  name: String
+  host_controller: String
+  devices: Option<Vec<Device>>
+  --
+  path(): Option<PathBuf>  ' computed, not stored
+}
+
+class Device {
+  location_id: DeviceLocation
+  --
+  port_path(): PortPath   ' derived from location_id
+}
+
+class DeviceLocation {
+  bus: u8
+  tree_positions: Vec<u8>
+  number: u8
+  --
+  ' shape + FromStr are a direct encoding
+  ' of macOS system_profiler's
+  ' "LocationReg / DeviceNo" string
+}
+
+class PortPath {
+  bus: u8
+  ports: Vec<u8>
+  --
+  FromStr / Display <-> Linux sysfs
+  device name ("1-1.3.4")
+}
+
+class TypecPort {
+  name: String
+  device_links: Option<Vec<PortPath>>
+  partner: Option<Partner>
+  cable: Option<Cable>
+  ..
+}
+
+DeviceLocation .right.> PortPath : "From<DeviceLocation>\nfor PortPath (exists)"
+Device --> DeviceLocation : location_id
+Device ..> PortPath : port_path()
+
+SystemProfile *-- Bus
+Bus o-- Device
+SystemProfile "chosen: top-level,\nnot nested in Bus" *-- TypecPort
+TypecPort ..> PortPath : device_links\n(correlation key,\nnever required)
+PortPath ..> Device : "resolves via\nSystemProfile::get_node()\nonly when Some"
+
+note right of Bus
+  **Option "part of Bus"  -- discarded**
+  Bus has no *stored* syspath (only a
+  computed one from usb_bus_number).
+  Kernel source says DT-only/UCSI systems
+  (this issue's own hardware) get no ACPI
+  companion link at all, so device_links
+  is expected to be None there -- inferred
+  from port-mapper.c, not yet empirically
+  checked against this thread's dumps.
+  Either way: no way to know *which* Bus a
+  port belongs to without the same
+  correlation this is meant to provide.
+  Chicken-and-egg.
+end note
+
+note right of DeviceLocation
+  **Option "extend DeviceLocation" -- discarded**
+  Its FromStr parsing (string Deserialize
+  path) is a literal encoding of macOS
+  system_profiler's location register
+  string (see doc comment) -- even though
+  the struct itself is already populated
+  directly by the Linux backends today.
+  Extending it would still grow a type
+  whose string contract is macOS-specific.
+end note
+
+note right of PortPath
+  **Option "extend Path" -- partially taken**
+  Path/PortPath itself is left untouched.
+  Reused only as the *join key* -- the
+  new semantic data (alt-modes, roles,
+  PD revision, e-marker) lives on the
+  new TypecPort type instead.
+end note
+
+note bottom of TypecPort
+  **Chosen: top-level Option<Vec<TypecPort>> on SystemProfile**
+  This is the shape first proposed in
+  comment from 2026-07-11 -- unchanged
+  by this design pass, which only answers
+  the correlation-mechanism question.
+end note
+
+@enduml
