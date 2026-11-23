@@ -90,6 +90,7 @@ fn dump_processing_unit(pu: &video::ProcessingUnit, protocol: u8, indent: usize,
     dump_value(pu.max_multiplier, "wMaxMultiplier", indent + 2, width);
     dump_value(pu.control_size, "bControlSize", indent + 2, width);
 
+    // UVC spec decode; lsusb drops the low byte if bControlSize > 3
     dump_hex(pu.controls, "bmControls", indent + 2, width);
     if protocol == 0x01 {
         for (i, n) in CTRL_NAMES.iter().enumerate().take(19) {
@@ -381,6 +382,7 @@ fn dump_format_mpeg2ts(fmts: &video::FormatMPEG2TS, indent: usize, width: usize)
     }
 }
 
+// UVC 1.5 D1 is the same for all formats; lsusb inverts it for MJPEG
 fn dump_interlace_flags(interlace_flags: u8, indent: usize, width: usize) {
     let field_pattern = |f: u8| -> &'static str {
         match f {
@@ -439,6 +441,7 @@ fn dump_format_mjpeg(fmjpeg: &video::FormatMJPEG, indent: usize, width: usize) {
         indent + 2,
         width,
     );
+    // UVC name; lsusb prints bFlags
     dump_value(fmjpeg.flags, "bmFlags", indent + 2, width);
     dump_string(
         &format!(
@@ -449,7 +452,7 @@ fn dump_format_mjpeg(fmjpeg: &video::FormatMJPEG, indent: usize, width: usize) {
                 "No"
             }
         ),
-        indent + 2,
+        indent + 4,
     );
     dump_value(
         fmjpeg.default_frame_index,
