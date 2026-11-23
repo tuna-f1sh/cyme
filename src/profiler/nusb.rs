@@ -388,6 +388,13 @@ impl NusbProfiler {
                 usage_type: usb::UsageType::from(endpoint.attributes()),
                 max_packet_size: endpoint.max_packet_size_raw(),
                 interval: endpoint.interval(),
+                // 9 byte audio endpoints only; as_bytes can run past bLength
+                refresh: (endpoint_desc[0] >= 9)
+                    .then(|| endpoint_desc.get(7).copied())
+                    .flatten(),
+                sync_address: (endpoint_desc[0] >= 9)
+                    .then(|| endpoint_desc.get(8).copied())
+                    .flatten(),
                 length: endpoint_desc[0],
                 extra: self
                     .build_endpoint_descriptor_extra(
@@ -562,6 +569,7 @@ impl NusbProfiler {
                 number: c.configuration_value(),
                 active,
                 attributes,
+                attributes_raw: Some(c.attributes()),
                 max_power: NumericalUnit {
                     value: (c.max_power() as u32 * power_mult),
                     unit: String::from("mA"),

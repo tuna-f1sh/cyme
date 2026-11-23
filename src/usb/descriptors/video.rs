@@ -80,6 +80,7 @@ impl std::fmt::Display for StreamingSubtype {
         if f.alternate() {
             match self {
                 StreamingSubtype::Undefined => write!(f, "unknown"),
+                StreamingSubtype::ColorFormat => write!(f, "COLORFORMAT"),
                 _ => write!(f, "{}", heck::AsShoutySnakeCase(format!("{self:?}"))),
             }
         } else {
